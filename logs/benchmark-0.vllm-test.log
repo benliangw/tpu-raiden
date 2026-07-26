@@ -1,0 +1,44 @@
+Waiting for prefill up (http://j-ee9fce80-4ee0-40d8-841c-prefill-0-0.j-ee9fce80-4ee0-40d8-841c:8000/health, up to 5400s)
+prefill is up (580s)
+Waiting for decode up (http://j-ee9fce80-4ee0-40d8-841c-decode-0-0.j-ee9fce80-4ee0-40d8-841c:7200/health, up to 5400s)
+decode is up (205s)
+Waiting for proxy up (http://j-ee9fce80-4ee0-40d8-841c-prefill-0-0.j-ee9fce80-4ee0-40d8-841c:10000/healthcheck, up to 600s)
+proxy is up (0s)
+Waiting for engine readiness (first compile, up to 60 min)...
+Engines are ready.
+===== Smoke test: prefill->Raiden KV transfer->decode =====
+--- request 1: Good morning. What are the capitals of the US, China and Armenia?
+{"id":"cmpl-93a2b36c-7fc6-4927-ad38-5e8b73366f5b","object":"text_completion","created":1785046924,"model":"Qwen3.5-35B-A3B-FP8","choices":[{"index":0,"text":"\n\n<think>\nThinking Process:\n\n1.  **Analyze the Request:**\n    *   Time of day: \"Good morning.\" (Greeting)\n    *   Question: \"What are the capitals of the US, China and Armenia?\"\n    *   Entities: United States (US), China,","logprobs":null,"finish_reason":"length","stop_reason":null,"token_ids":[271,248068,198,90700,8340,25,271,16,13,220,2972,2014,53983,279,5952,64700,198,262,348,256,3984,314,1834,25,328,14773,6353,1149,318,38,42187,8,198,262,348,256,15380,25,328,3710,513,279,89798,314,279,2201,11,5440,321,69101,7285,198,262,348,256,50495,25,3516,4042,318,1966,681,5440,11],"prompt_logprobs":null,"prompt_token_ids":[14773,6353,13,3437,513,279,89798,314,279,2201,11,5440,321,69101,30],"routed_experts":null}],"service_tier":null,"system_fingerprint":"vllm-0.23.0-dp8-ep-0818a5ae","usage":{"prompt_tokens":15,"total_tokens":79,"completion_tokens":64,"prompt_tokens_details":{"cached_tokens":14}},"kv_transfer_params":null}
+--- request 2: Explain in a few sentences why the sky is blue.
+{"id":"cmpl-c2bc6b7c-849d-4fe5-a7aa-576ed0a8653c","object":"text_completion","created":1785046953,"model":"Qwen3.5-35B-A3B-FP8","choices":[{"index":0,"text":"\n\n<think>\n\n</think>\n\nThe sky appears blue because of a phenomenon called Rayleigh scattering, where sunlight interacts with the gases and particles in Earth's atmosphere. Sunlight is made up of all colors of the rainbow, but blue light travels in shorter, smaller waves that are scattered more strongly by the atmosphere than other colors.","logprobs":null,"finish_reason":"length","stop_reason":null,"token_ids":[271,248068,271,248069,271,760,12515,7701,6105,1521,314,264,24057,2512,12870,60845,69377,11,1332,37728,80291,440,279,43034,321,18167,303,8964,579,16078,13,7806,4009,369,1801,685,314,660,7736,314,279,46026,11,694,6105,3000,33060,303,22602,11,8882,16382,421,513,35742,777,16025,539,279,16078,1056,975,7736,13],"prompt_logprobs":null,"prompt_token_ids":[814,20139,303,264,2342,22157,3069,279,12515,369,6105,13],"routed_experts":null}],"service_tier":null,"system_fingerprint":"vllm-0.23.0-dp8-ep-0818a5ae","usage":{"prompt_tokens":12,"total_tokens":76,"completion_tokens":64,"prompt_tokens_details":{"cached_tokens":11}},"kv_transfer_params":null}
+--- request 3: Write a haiku about tensor processing units.
+{"id":"cmpl-c785c74b-9be0-4276-b592-cff7adef1dbb","object":"text_completion","created":1785046982,"model":"Qwen3.5-35B-A3B-FP8","choices":[{"index":0,"text":"\n\n<think>\n\n</think>\n\nSilicon minds wake,\nMatrices dance in the dark,\nAI learns to see.","logprobs":null,"finish_reason":"stop","stop_reason":248044,"token_ids":[271,248068,271,248069,271,26677,1859,19451,14714,11,198,11242,23647,14810,303,279,6121,11,198,15015,44669,310,1436,13,248044],"prompt_logprobs":null,"prompt_token_ids":[7734,264,6185,36974,883,15167,8427,7896,13],"routed_experts":null}],"service_tier":null,"system_fingerprint":"vllm-0.23.0-dp8-ep-0818a5ae","usage":{"prompt_tokens":9,"total_tokens":34,"completion_tokens":25,"prompt_tokens_details":{"cached_tokens":8}},"kv_transfer_params":null}
+===== align-mode state corruption: same-length repro =====
+[proxy] len=8192 #1 token=64 PASS correct_prefix=8 token_ids=[64, 64, 64, 64, 64, 64, 64, 64]
+[proxy] len=8192 #2 token=65 FAIL correct_prefix=1 token_ids=[65, 271, 2, 220, 16, 24, 24, 15]
+[proxy] len=8192 #3 token=66 PASS correct_prefix=8 token_ids=[66, 66, 66, 66, 66, 66, 66, 66]
+[proxy] len=8192 #4 token=67 FAIL correct_prefix=0 token_ids=[271, 2, 220, 17, 15, 17, 18, 220]
+[proxy] len=8192 #5 token=68 PASS correct_prefix=8 token_ids=[68, 68, 68, 68, 68, 68, 68, 68]
+[proxy] len=8192 #6 token=69 PASS correct_prefix=8 token_ids=[69, 69, 69, 69, 69, 69, 69, 69]
+[proxy] len=8192 #7 token=70 PASS correct_prefix=8 token_ids=[70, 70, 70, 70, 70, 70, 70, 70]
+[proxy] len=8192 #8 token=71 PASS correct_prefix=8 token_ids=[71, 71, 71, 71, 71, 71, 71, 71]
+[proxy] len=8192 #9 token=72 PASS correct_prefix=8 token_ids=[72, 72, 72, 72, 72, 72, 72, 72]
+[proxy] len=8192 #10 token=73 PASS correct_prefix=8 token_ids=[73, 73, 73, 73, 73, 73, 73, 73]
+[proxy] len=8192 #11 token=74 PASS correct_prefix=8 token_ids=[74, 74, 74, 74, 74, 74, 74, 74]
+[proxy] len=8192 #12 token=75 PASS correct_prefix=8 token_ids=[75, 75, 75, 75, 75, 75, 75, 75]
+[proxy] len=8192 #13 token=76 FAIL correct_prefix=4 token_ids=[76, 76, 76, 76, 271, 2, 220, 16]
+[proxy] len=8192 #14 token=77 FAIL correct_prefix=3 token_ids=[77, 77, 77, 271, 2, 220, 16, 24]
+[proxy] len=8192 #15 token=78 PASS correct_prefix=8 token_ids=[78, 78, 78, 78, 78, 78, 78, 78]
+[proxy] len=8192 #16 token=79 PASS correct_prefix=8 token_ids=[79, 79, 79, 79, 79, 79, 79, 79]
+[proxy] len=8192 #17 token=80 PASS correct_prefix=8 token_ids=[80, 80, 80, 80, 80, 80, 80, 80]
+[proxy] len=8192 #18 token=81 PASS correct_prefix=8 token_ids=[81, 81, 81, 81, 81, 81, 81, 81]
+[proxy] len=8192 #19 token=82 PASS correct_prefix=8 token_ids=[82, 82, 82, 82, 82, 82, 82, 82]
+[proxy] len=8192 #20 token=83 PASS correct_prefix=8 token_ids=[83, 83, 83, 83, 83, 83, 83, 83]
+[proxy] len=8192 #21 token=84 PASS correct_prefix=8 token_ids=[84, 84, 84, 84, 84, 84, 84, 84]
+[proxy] len=8192 #22 token=85 PASS correct_prefix=8 token_ids=[85, 85, 85, 85, 85, 85, 85, 85]
+[proxy] len=8192 #23 token=86 PASS correct_prefix=8 token_ids=[86, 86, 86, 86, 86, 86, 86, 86]
+[proxy] len=8192 #24 token=87 PASS correct_prefix=8 token_ids=[87, 87, 87, 87, 87, 87, 87, 87]
+[proxy] len=8192 first_failing_ordinal=2
+align-repro summary: {"8192": {"results": [true, false, true, false, true, true, true, true, true, true, true, true, false, false, true, true, true, true, true, true, true, true, true, true], "first_failing_ordinal": 2}}
+RESULT: FAIL (align-mode state corruption reproduced)
+
