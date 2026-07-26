@@ -1,2 +1,31 @@
-Error reading logs from GCS: exit status 1. Please use log explorer as a backup for now
-https://console.cloud.google.com/logs/query;query=resource.type%3D%22k8s_container%22%0Aresource.labels.pod_name%3D%22j-42f495da-3576-4098-a285-prefill-0-0-qwbll%22%0Aresource.labels.container_name%3D%22vllm-tpu-prefill%22;project=cloud-tpu-inference-test
+===== Syncing dependencies to pyproject.toml =====
+Using Python 3.12.13 environment at: /usr/local
+Resolved 102 packages in 518ms
+Downloading libtpu (203.0MiB)
+Downloading jaxlib (81.5MiB)
+Downloading jax (3.1MiB)
+ Downloaded jax
+ Downloaded jaxlib
+ Downloaded libtpu
+Prepared 3 packages in 2.26s
+Uninstalled 3 packages in 98ms
+Installed 3 packages in 92ms
+ - jax==0.10.0
+ + jax==0.10.2
+ - jaxlib==0.10.0
+ + jaxlib==0.10.2
+ - libtpu==0.0.40
+ + libtpu==0.0.42.1
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 4ms
+Prepared 1 package in 855ms
+Uninstalled 1 package in 41ms
+Installed 1 package in 2ms
+ - torch-tpu==0.1.1 (from file:///artifact-source/opt/wheels/torch_tpu-0.1.1-cp312-cp312-manylinux_2_31_x86_64.whl)
+ + torch-tpu==0.1.1.dev20260714090201 (from file:///root/wheels/torch_tpu-0.1.1.dev20260714090201-cp312-cp312-manylinux_2_31_x86_64.whl)
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 4ms
+Prepared 1 package in 301ms
+Installed 1 package in 1ms
+ + tpu-raiden-torch==0.0.1.dev20260723161528 (from file:///root/wheels/tpu_raiden_torch-0.0.1.dev20260723161528-1_head_0e09976-cp312-cp312-manylinux_2_31_x86_64.whl)
+===== Pre-downloading Qwen/Qwen3.5-35B-A3B-FP8 snapshot =====
