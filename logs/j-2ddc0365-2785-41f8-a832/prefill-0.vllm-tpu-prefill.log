@@ -1,0 +1,1338 @@
+===== Syncing dependencies to pyproject.toml =====
+Using Python 3.12.13 environment at: /usr/local
+Resolved 218 packages in 839ms
+Downloading jax (3.1MiB)
+Downloading nvidia-nvjitlink (38.9MiB)
+Downloading nvidia-cudnn-frontend (3.5MiB)
+Downloading flashinfer-python (13.5MiB)
+Downloading pynvvideocodec (41.2MiB)
+Downloading torchcodec (2.9MiB)
+Downloading jaxlib (81.5MiB)
+Downloading flashinfer-cubin (436.8MiB)
+Downloading vllm (238.5MiB)
+Downloading libtpu (205.5MiB)
+Downloading nvidia-cuda-tileiras (35.3MiB)
+ Downloaded torchcodec
+ Downloaded nvidia-cudnn-frontend
+ Downloaded jax
+ Downloaded nvidia-cuda-tileiras
+ Downloaded nvidia-nvjitlink
+ Downloaded pynvvideocodec
+ Downloaded jaxlib
+ Downloaded flashinfer-python
+ Downloaded libtpu
+ Downloaded vllm
+ Downloaded flashinfer-cubin
+Prepared 14 packages in 10.98s
+Uninstalled 8 packages in 2.94s
+Installed 14 packages in 366ms
+ + cuda-toolkit==13.3.1
+ - flashinfer-cubin==0.6.11.post2
+ + flashinfer-cubin==0.6.13
+ - flashinfer-python==0.6.11.post2
+ + flashinfer-python==0.6.13
+ - humming-kernels==0.1.2
+ + humming-kernels==0.1.10
+ - jax==0.10.0
+ + jax==0.10.2
+ - jaxlib==0.10.0
+ + jaxlib==0.10.2
+ - libtpu==0.0.40
+ + libtpu==0.0.43
+ + nvidia-cuda-tileiras==13.3.36
+ - nvidia-cudnn-frontend==1.18.0
+ + nvidia-cudnn-frontend==1.26.0
+ + nvidia-nvjitlink==13.3.33
+ + nvtx==0.2.15
+ + pynvvideocodec==2.0.4
+ + torchcodec==0.15.0
+ - vllm==0.23.1rc1.dev927+gc0e8e1f12.d20260708.tpu (from file:///root/cloud-devkit/vllm)
+ + vllm==0.25.1
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 1ms
+Downloading libtpu (203.0MiB)
+ Downloaded libtpu
+Prepared 1 package in 1.90s
+Uninstalled 1 package in 0.84ms
+Installed 1 package in 87ms
+ - libtpu==0.0.43
+ + libtpu==0.0.42.1
+DEBUG-A libtpu == 0.0.42.1
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 3ms
+Prepared 1 package in 881ms
+Uninstalled 1 package in 83ms
+Installed 1 package in 2ms
+ - torch-tpu==0.1.1 (from file:///artifact-source/opt/wheels/torch_tpu-0.1.1-cp312-cp312-manylinux_2_31_x86_64.whl)
+ + torch-tpu==0.1.1.dev20260714090201 (from file:///root/wheels/torch_tpu-0.1.1.dev20260714090201-cp312-cp312-manylinux_2_31_x86_64.whl)
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 4ms
+Prepared 1 package in 308ms
+Installed 1 package in 2ms
+ + tpu-raiden-torch==0.0.1.dev20260723161528 (from file:///root/wheels/tpu_raiden_torch-0.0.1.dev20260723161528-1_head_0e09976-cp312-cp312-manylinux_2_31_x86_64.whl)
+===== Pre-downloading Qwen/Qwen3.5-35B-A3B-FP8 snapshot =====
+Fetching 28 files:   0%|          | 0/28 [00:00<?, ?it/s]Fetching 28 files:   7%|▋         | 2/28 [00:00<00:01, 16.59it/s]Fetching 28 files:   7%|▋         | 2/28 [00:19<00:01, 16.59it/s]Fetching 28 files:  32%|███▏      | 9/28 [00:58<02:11,  6.93s/it]Fetching 28 files:  46%|████▋     | 13/28 [01:07<01:15,  5.05s/it]Fetching 28 files:  61%|██████    | 17/28 [01:50<01:18,  7.14s/it]Fetching 28 files: 100%|██████████| 28/28 [01:50<00:00,  3.94s/it]
+===== Starting Raiden controller on :27000 =====
+{"address": "j-2ddc0365-2785-41f8-a832-prefill-0-0.j-2ddc0365-2785-41f8-a832:27000", "advertise_host": "j-2ddc0365-2785-41f8-a832-prefill-0-0.j-2ddc0365-2785-41f8-a832", "event": "raiden_controller_ready", "pid": 895, "port": 27000, "request_registry_ttl_s": 600.0, "requested_port": 27000, "schema_version": 1, "time_unix_s": 1785141900.6281738}
+===== Starting Qwen3.5 PCP8 prefill node (disagg+offload) =====
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1785141903.490219     900 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1785141903.500780     900 tpu_profiler_plugin.cc:717] PyTorch PrivateUse1ProfilerRegistry not found. Native TPU profiling will be disabled (this is expected on PyTorch < 2.12).
+I0000 00:00:1785141904.365685     900 device_rt.cc:125] PjRt runtime initialization deferred for tpu
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+INFO 07-27 08:45:04 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 07-27 08:45:04 [__init__.py:46] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 07-27 08:45:04 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 07-27 08:45:06 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 07-27 08:45:06 [tpu_info.py:26] 
+INFO 07-27 08:45:06 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 07-27 08:45:06 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 07-27 08:45:06 [tpu_platform.py:852] Pin memory is not supported on TPU.
+INFO 07-27 08:45:14 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 07-27 08:45:14 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+(APIServer pid=900) INFO 07-27 08:45:17 [api_utils.py:339] 
+(APIServer pid=900) INFO 07-27 08:45:17 [api_utils.py:339]        █     █     █▄   ▄█
+(APIServer pid=900) INFO 07-27 08:45:17 [api_utils.py:339]  ▄▄ ▄█ █     █     █ ▀▄▀ █  version 0.25.1
+(APIServer pid=900) INFO 07-27 08:45:17 [api_utils.py:339]   █▄█▀ █     █     █     █  model   Qwen/Qwen3.5-35B-A3B-FP8
+(APIServer pid=900) INFO 07-27 08:45:17 [api_utils.py:339]    ▀▀  ▀▀▀▀▀ ▀▀▀▀▀ ▀     ▀
+(APIServer pid=900) INFO 07-27 08:45:17 [api_utils.py:339] 
+(APIServer pid=900) INFO 07-27 08:45:17 [api_utils.py:273] non-default args: {'model_tag': 'Qwen/Qwen3.5-35B-A3B-FP8', 'enable_prompt_tokens_details': True, 'host': '0.0.0.0', 'model': 'Qwen/Qwen3.5-35B-A3B-FP8', 'trust_remote_code': True, 'seed': 42, 'max_model_len': 65536, 'served_model_name': ['Qwen3.5-35B-A3B-FP8'], 'attention_backend': 'CUSTOM', 'cp_kv_cache_interleave_size': 256, 'prefill_context_parallel_size': 8, 'enable_expert_parallel': True, 'disable_custom_all_reduce': True, 'block_size': 4096, 'gpu_memory_utilization': 0.9, 'kv_cache_dtype': 'fp8', 'num_gpu_blocks_override': 16, 'enable_prefix_caching': True, 'mamba_cache_mode': 'align', 'language_model_only': True, 'max_num_batched_tokens': 4096, 'max_num_seqs': 2, 'disable_hybrid_kv_cache_manager': False, 'async_scheduling': False, 'kv_transfer_config': KVTransferConfig(kv_connector='TPUMultiConnector', engine_id='3f11f480-d955-48df-95f3-9fe5c6118c1c', kv_buffer_device='tpu', kv_buffer_size=1000000000.0, kv_role='kv_producer', kv_rank=None, kv_parallel_size=1, kv_ip='127.0.0.1', kv_port=14579, kv_connector_extra_config={'connectors': [{'kv_connector': 'TPURaidenConnector', 'kv_connector_module_path': 'vllm_torchtpu.distributed.kv_transfer.tpu_connector', 'kv_role': 'kv_producer', 'kv_port': 14579}, {'kv_connector': 'OffloadingConnector', 'kv_role': 'kv_both', 'kv_connector_extra_config': {'spec_name': 'TPUCPUOffloadingSpec', 'spec_module_path': 'vllm_torchtpu.offload.cpu_tpu', 'cpu_bytes_to_use': 68719476736}}]}, kv_connector_module_path='vllm_torchtpu.distributed.kv_transfer.tpu_multi_connector', enable_permute_local_kv=False, kv_load_failure_policy='fail'), 'compilation_config': {'mode': None, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'vllm_torchtpu.compilation.tpu_compiler.TpuCompilerAdaptor', 'custom_ops': [], 'ir_enable_torch_wrap': None, 'splitting_ops': None, 'compile_mm_encoder': False, 'cudagraph_mm_encoder': False, 'encoder_cudagraph_token_budgets': [], 'encoder_cudagraph_max_vision_items_per_batch': 0, 'encoder_cudagraph_max_frames_per_batch': None, 'compile_sizes': [4096], 'compile_ranges_endpoints': None, 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'size_asserts': False, 'alignment_asserts': False, 'scalar_asserts': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': None, 'cudagraph_num_of_warmups': 0, 'cudagraph_capture_sizes': None, 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': None, 'pass_config': {}, 'max_cudagraph_capture_size': None, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': None, 'static_all_moe_layers': []}}
+(APIServer pid=900) INFO 07-27 08:45:17 [arg_utils.py:772] HF_HUB_OFFLINE is True, replace model_id [Qwen/Qwen3.5-35B-A3B-FP8] to model_path [/root/.cache/huggingface/hub/models--Qwen--Qwen3.5-35B-A3B-FP8/snapshots/9d1823d2dee688a6b25e77009dc727688c44936e]
+(APIServer pid=900) WARNING 07-27 08:45:17 [envs.py:2041] Unknown vLLM environment variable detected: VLLM_TPU_OFFLOAD_RAIDEN
+(APIServer pid=900) WARNING 07-27 08:45:27 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+(APIServer pid=900) WARNING 07-27 08:45:28 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+(APIServer pid=900) WARNING 07-27 08:45:28 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+(APIServer pid=900) WARNING 07-27 08:45:28 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+(APIServer pid=900) INFO 07-27 08:45:28 [model.py:619] Resolved architecture: Qwen3_5MoeForConditionalGeneration
+(APIServer pid=900) INFO 07-27 08:45:28 [model.py:1776] Using max model len 65536
+(APIServer pid=900) INFO 07-27 08:45:28 [cache.py:286] Using fp8 data type to store kv cache. It reduces the GPU memory footprint and boosts the performance. Meanwhile, it may cause accuracy drop without a proper scaling factor
+(APIServer pid=900) INFO 07-27 08:45:28 [scheduler.py:252] Chunked prefill is enabled with max_num_batched_tokens=4096.
+(APIServer pid=900) INFO 07-27 08:45:28 [config.py:583] Warning: Prefix caching in Mamba cache 'align' mode is currently enabled. Its support for Mamba layers is experimental. Please report any issues you may observe.
+(APIServer pid=900) INFO 07-27 08:45:28 [vllm.py:1042] Asynchronous scheduling is disabled.
+(APIServer pid=900) INFO 07-27 08:45:28 [kernel.py:292] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+(APIServer pid=900) INFO 07-27 08:45:29 [__init__.py:29] Applied TPU patch: include compiler hash in AOT cache key.
+(APIServer pid=900) INFO 07-27 08:45:29 [__init__.py:79] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold', 'phased_profiling_dir'] from the compile cache key.
+(APIServer pid=900) INFO 07-27 08:45:29 [__init__.py:109] Applied TPU patch: disable vLLM custom collective ops.
+(APIServer pid=900) INFO 07-27 08:45:29 [__init__.py:130] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+(APIServer pid=900) INFO 07-27 08:45:29 [__init__.py:157] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+(APIServer pid=900) INFO 07-27 08:45:29 [__init__.py:231] Applied TPU patch: disable sequence-parallel MoE.
+(APIServer pid=900) INFO 07-27 08:45:29 [__init__.py:300] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+(APIServer pid=900) INFO 07-27 08:45:29 [__init__.py:214] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+(APIServer pid=900) INFO 07-27 08:45:29 [__init__.py:547] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+(APIServer pid=900) INFO 07-27 08:45:29 [__init__.py:247] Applied TPU patch: disable DP microbatching.
+(APIServer pid=900) INFO 07-27 08:45:29 [__init__.py:353] Applied TPU patch: MultiprocExecutor worker binding env.
+(APIServer pid=900) INFO 07-27 08:45:29 [tpu_platform.py:85] TorchTPU eager mode configured: DEFER_AND_FUSE (previous=DEFER_NEVER)
+(APIServer pid=900) INFO 07-27 08:45:29 [tpu_platform.py:604] Using vLLM native multiprocess PCP world; PCP is not represented as a JAX mesh axis.
+(APIServer pid=900) INFO 07-27 08:45:29 [tpu_platform.py:736] Preparing TorchTPU bootstrap env for native PCP multiprocess world_size=8.
+(APIServer pid=900) INFO 07-27 08:45:29 [tpu_rank_binding.py:184] Probing PCP LOCAL_RANK remap for world_size=8 topology=2,2,1,2.
+(APIServer pid=900) INFO 07-27 08:45:41 [tpu_rank_binding.py:307] Dynamic PCP LOCAL_RANK remap for world_size=8: (0, 1, 6, 7, 2, 3, 4, 5).
+(APIServer pid=900) INFO 07-27 08:45:41 [tpu_platform.py:750] Force using TpuMultiprocExecutor for TPU on single host with tensor/pipeline/PCP parallelism.
+(APIServer pid=900) INFO 07-27 08:45:41 [registry.py:134] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1785141945.663714   14695 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+INFO 07-27 08:45:46 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 07-27 08:45:46 [__init__.py:46] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 07-27 08:45:46 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 07-27 08:45:46 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 07-27 08:45:46 [tpu_info.py:26] 
+INFO 07-27 08:45:46 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 07-27 08:45:46 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 07-27 08:45:46 [tpu_platform.py:852] Pin memory is not supported on TPU.
+INFO 07-27 08:45:49 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 07-27 08:45:49 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+WARNING 07-27 08:45:50 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:45:51 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:45:51 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:45:51 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+INFO 07-27 08:45:51 [__init__.py:547] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+(EngineCore pid=14695) INFO 07-27 08:45:51 [core.py:114] Initializing a V1 LLM engine (v0.25.1) with config: model='/root/.cache/huggingface/hub/models--Qwen--Qwen3.5-35B-A3B-FP8/snapshots/9d1823d2dee688a6b25e77009dc727688c44936e', speculative_config=None, tokenizer='/root/.cache/huggingface/hub/models--Qwen--Qwen3.5-35B-A3B-FP8/snapshots/9d1823d2dee688a6b25e77009dc727688c44936e', skip_tokenizer_init=False, tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=True, dtype=torch.bfloat16, max_seq_len=65536, download_dir=None, load_format=auto, tensor_parallel_size=1, pipeline_parallel_size=1, data_parallel_size=1, decode_context_parallel_size=1, dcp_comm_backend=ag_rs, disable_custom_all_reduce=True, quantization=fp8, quantization_config=None, enforce_eager=False, enable_return_routed_experts=False, kv_cache_dtype=fp8, device_config=tpu, structured_outputs_config=StructuredOutputsConfig(backend='auto', disable_any_whitespace=False, disable_additional_properties=False, reasoning_parser='', reasoning_parser_plugin='', enable_in_reasoning=False), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None, kv_cache_metrics=False, kv_cache_metrics_sample=0.01, cudagraph_metrics=False, enable_layerwise_nvtx_tracing=False, enable_mfu_metrics=False, enable_mm_processor_stats=False, enable_logging_iteration_details=False, jit_monitor_mode='warn', jit_monitor_verbose=False), seed=42, served_model_name=Qwen3.5-35B-A3B-FP8, enable_prefix_caching=True, enable_chunked_prefill=True, pooler_config=None, compilation_config={'mode': <CompilationMode.VLLM_COMPILE: 3>, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'vllm_torchtpu.compilation.tpu_compiler.TpuCompilerAdaptor', 'custom_ops': ['+quant_fp8', 'all', '+quant_fp8'], 'ir_enable_torch_wrap': False, 'splitting_ops': [], 'compile_mm_encoder': False, 'cudagraph_mm_encoder': False, 'encoder_cudagraph_token_budgets': [], 'encoder_cudagraph_max_vision_items_per_batch': 0, 'encoder_cudagraph_max_frames_per_batch': None, 'compile_sizes': [4096], 'compile_ranges_endpoints': [4096], 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'size_asserts': False, 'alignment_asserts': False, 'scalar_asserts': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': <CUDAGraphMode.NONE: 0>, 'cudagraph_num_of_warmups': 0, 'cudagraph_capture_sizes': None, 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': False, 'pass_config': {'fuse_norm_quant': False, 'fuse_act_quant': False, 'fuse_attn_quant': False, 'eliminate_noops': False, 'enable_sp': False, 'fuse_gemm_comms': False, 'fuse_allreduce_rms': False, 'fuse_rope_kvcache_cat_mla': False, 'fuse_act_padding': False}, 'max_cudagraph_capture_size': None, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': False, 'static_all_moe_layers': []}, kernel_config=KernelConfig(ir_op_priority=IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native']), enable_flashinfer_autotune=True, enable_cutedsl_warmup=True, moe_backend='auto', linear_backend='auto')
+(EngineCore pid=14695) INFO 07-27 08:45:51 [__init__.py:353] Applied TPU patch: MultiprocExecutor worker binding env.
+(EngineCore pid=14695) WARNING 07-27 08:45:51 [multiproc_executor.py:1067] Reducing Torch parallelism from 112 threads to 1 to avoid unnecessary CPU contention. Set OMP_NUM_THREADS in the external environment to tune this value as needed.
+(EngineCore pid=14695) INFO 07-27 08:45:51 [multiproc_executor.py:140] DP group leader: node_rank=0, node_rank_within_dp=0, master_addr=127.0.0.1, mq_connect_ip=j-2ddc0365-2785-41f8-a832-prefill-0-0.j-2ddc0365-2785-41f8-a832 (local), world_size=8, local_world_size=8
+(EngineCore pid=14695) INFO 07-27 08:45:51 [tpu_rank_binding.py:184] Probing PCP LOCAL_RANK remap for world_size=8 topology=2,2,1,2.
+(EngineCore pid=14695) INFO 07-27 08:46:03 [tpu_rank_binding.py:307] Dynamic PCP LOCAL_RANK remap for world_size=8: (0, 1, 6, 7, 2, 3, 4, 5).
+(EngineCore pid=14695) INFO 07-27 08:46:03 [__init__.py:327] Applied TPU patch: worker spawn env RANK=0 LOCAL_RANK=0 WORLD_SIZE=8 LOCAL_WORLD_SIZE=8 (rank=0 local_rank=0 dp_rank=0 dp_size=1 offset=0 init_local_rank=0)
+(EngineCore pid=14695) INFO 07-27 08:46:03 [__init__.py:336] Applied TPU patch: PCP native-rank worker spawn binding native_local_rank=0 local_rank_env=0 tpu_local_rank_env=0 local_world=8 tpu_local_world=8 remap=(0, 1, 6, 7, 2, 3, 4, 5) source=dynamic probe world_size=8
+(EngineCore pid=14695) INFO 07-27 08:46:03 [__init__.py:327] Applied TPU patch: worker spawn env RANK=1 LOCAL_RANK=1 WORLD_SIZE=8 LOCAL_WORLD_SIZE=8 (rank=1 local_rank=1 dp_rank=0 dp_size=1 offset=0 init_local_rank=1)
+(EngineCore pid=14695) INFO 07-27 08:46:03 [__init__.py:336] Applied TPU patch: PCP native-rank worker spawn binding native_local_rank=1 local_rank_env=1 tpu_local_rank_env=1 local_world=8 tpu_local_world=8 remap=(0, 1, 6, 7, 2, 3, 4, 5) source=dynamic probe world_size=8
+(EngineCore pid=14695) INFO 07-27 08:46:03 [__init__.py:327] Applied TPU patch: worker spawn env RANK=2 LOCAL_RANK=6 WORLD_SIZE=8 LOCAL_WORLD_SIZE=8 (rank=2 local_rank=2 dp_rank=0 dp_size=1 offset=0 init_local_rank=6)
+(EngineCore pid=14695) INFO 07-27 08:46:03 [__init__.py:336] Applied TPU patch: PCP native-rank worker spawn binding native_local_rank=2 local_rank_env=6 tpu_local_rank_env=6 local_world=8 tpu_local_world=8 remap=(0, 1, 6, 7, 2, 3, 4, 5) source=dynamic probe world_size=8
+(EngineCore pid=14695) INFO 07-27 08:46:03 [__init__.py:327] Applied TPU patch: worker spawn env RANK=3 LOCAL_RANK=7 WORLD_SIZE=8 LOCAL_WORLD_SIZE=8 (rank=3 local_rank=3 dp_rank=0 dp_size=1 offset=0 init_local_rank=7)
+(EngineCore pid=14695) INFO 07-27 08:46:03 [__init__.py:336] Applied TPU patch: PCP native-rank worker spawn binding native_local_rank=3 local_rank_env=7 tpu_local_rank_env=7 local_world=8 tpu_local_world=8 remap=(0, 1, 6, 7, 2, 3, 4, 5) source=dynamic probe world_size=8
+(EngineCore pid=14695) INFO 07-27 08:46:03 [__init__.py:327] Applied TPU patch: worker spawn env RANK=4 LOCAL_RANK=2 WORLD_SIZE=8 LOCAL_WORLD_SIZE=8 (rank=4 local_rank=4 dp_rank=0 dp_size=1 offset=0 init_local_rank=2)
+(EngineCore pid=14695) INFO 07-27 08:46:03 [__init__.py:336] Applied TPU patch: PCP native-rank worker spawn binding native_local_rank=4 local_rank_env=2 tpu_local_rank_env=2 local_world=8 tpu_local_world=8 remap=(0, 1, 6, 7, 2, 3, 4, 5) source=dynamic probe world_size=8
+(EngineCore pid=14695) INFO 07-27 08:46:03 [__init__.py:327] Applied TPU patch: worker spawn env RANK=5 LOCAL_RANK=3 WORLD_SIZE=8 LOCAL_WORLD_SIZE=8 (rank=5 local_rank=5 dp_rank=0 dp_size=1 offset=0 init_local_rank=3)
+(EngineCore pid=14695) INFO 07-27 08:46:03 [__init__.py:336] Applied TPU patch: PCP native-rank worker spawn binding native_local_rank=5 local_rank_env=3 tpu_local_rank_env=3 local_world=8 tpu_local_world=8 remap=(0, 1, 6, 7, 2, 3, 4, 5) source=dynamic probe world_size=8
+(EngineCore pid=14695) INFO 07-27 08:46:03 [__init__.py:327] Applied TPU patch: worker spawn env RANK=6 LOCAL_RANK=4 WORLD_SIZE=8 LOCAL_WORLD_SIZE=8 (rank=6 local_rank=6 dp_rank=0 dp_size=1 offset=0 init_local_rank=4)
+(EngineCore pid=14695) INFO 07-27 08:46:03 [__init__.py:336] Applied TPU patch: PCP native-rank worker spawn binding native_local_rank=6 local_rank_env=4 tpu_local_rank_env=4 local_world=8 tpu_local_world=8 remap=(0, 1, 6, 7, 2, 3, 4, 5) source=dynamic probe world_size=8
+(EngineCore pid=14695) INFO 07-27 08:46:03 [__init__.py:327] Applied TPU patch: worker spawn env RANK=7 LOCAL_RANK=5 WORLD_SIZE=8 LOCAL_WORLD_SIZE=8 (rank=7 local_rank=7 dp_rank=0 dp_size=1 offset=0 init_local_rank=5)
+(EngineCore pid=14695) INFO 07-27 08:46:03 [__init__.py:336] Applied TPU patch: PCP native-rank worker spawn binding native_local_rank=7 local_rank_env=5 tpu_local_rank_env=5 local_world=8 tpu_local_world=8 remap=(0, 1, 6, 7, 2, 3, 4, 5) source=dynamic probe world_size=8
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1785141965.558499   27611 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1785141965.558499   27613 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1785141965.558498   27614 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1785141965.558495   27616 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1785141965.558502   27618 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1785141965.559360   27612 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1785141965.559358   27615 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1785141965.559414   27617 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+
+Registered Python module for 'tpu'.Registered Python module for 'tpu'.
+
+Device type: tpu, Device index: defaultDevice type: tpu, Device index: default
+
+Initializing TPU distributed runtime
+Initializing TPU distributed runtime
+INFO 07-27 08:46:06 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 07-27 08:46:06 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 07-27 08:46:06 [__init__.py:46] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 07-27 08:46:06 [__init__.py:46] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 07-27 08:46:06 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 07-27 08:46:06 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 07-27 08:46:06 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 07-27 08:46:06 [__init__.py:46] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 07-27 08:46:06 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 07-27 08:46:06 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 07-27 08:46:06 [__init__.py:46] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 07-27 08:46:06 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 07-27 08:46:06 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 07-27 08:46:06 [__init__.py:46] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 07-27 08:46:06 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 07-27 08:46:06 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 07-27 08:46:06 [__init__.py:46] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 07-27 08:46:06 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 07-27 08:46:06 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 07-27 08:46:06 [__init__.py:46] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 07-27 08:46:06 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 07-27 08:46:06 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 07-27 08:46:06 [__init__.py:46] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 07-27 08:46:06 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 07-27 08:46:06 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 07-27 08:46:06 [tpu_info.py:26] 
+ERROR 07-27 08:46:06 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 07-27 08:46:06 [tpu_info.py:26] 
+ERROR 07-27 08:46:06 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 07-27 08:46:06 [tpu_info.py:26] 
+ERROR 07-27 08:46:06 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 07-27 08:46:06 [tpu_info.py:26] 
+ERROR 07-27 08:46:06 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 07-27 08:46:06 [tpu_info.py:26] 
+INFO 07-27 08:46:06 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 07-27 08:46:06 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+ERROR 07-27 08:46:06 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 07-27 08:46:06 [tpu_info.py:26] 
+INFO 07-27 08:46:06 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+ERROR 07-27 08:46:06 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 07-27 08:46:06 [tpu_info.py:26] 
+INFO 07-27 08:46:06 [__init__.py:237] Platform plugin torchtpu is activated
+INFO 07-27 08:46:06 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 07-27 08:46:06 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 07-27 08:46:06 [__init__.py:237] Platform plugin torchtpu is activated
+ERROR 07-27 08:46:06 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 07-27 08:46:06 [tpu_info.py:26] 
+INFO 07-27 08:46:06 [__init__.py:237] Platform plugin torchtpu is activated
+INFO 07-27 08:46:06 [__init__.py:237] Platform plugin torchtpu is activated
+INFO 07-27 08:46:06 [__init__.py:237] Platform plugin torchtpu is activated
+INFO 07-27 08:46:06 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 07-27 08:46:06 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 07-27 08:46:06 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 07-27 08:46:06 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 07-27 08:46:06 [tpu_platform.py:852] Pin memory is not supported on TPU.
+WARNING 07-27 08:46:06 [tpu_platform.py:852] Pin memory is not supported on TPU.
+WARNING 07-27 08:46:06 [tpu_platform.py:852] Pin memory is not supported on TPU.
+INFO 07-27 08:46:06 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 07-27 08:46:06 [tpu_platform.py:852] Pin memory is not supported on TPU.
+INFO 07-27 08:46:06 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 07-27 08:46:06 [tpu_platform.py:852] Pin memory is not supported on TPU.
+WARNING 07-27 08:46:06 [tpu_platform.py:852] Pin memory is not supported on TPU.
+WARNING 07-27 08:46:06 [tpu_platform.py:852] Pin memory is not supported on TPU.
+WARNING 07-27 08:46:06 [tpu_platform.py:852] Pin memory is not supported on TPU.
+INFO 07-27 08:46:10 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 07-27 08:46:10 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 07-27 08:46:10 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 07-27 08:46:10 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 07-27 08:46:10 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 07-27 08:46:10 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+INFO 07-27 08:46:10 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+INFO 07-27 08:46:10 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+INFO 07-27 08:46:10 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+INFO 07-27 08:46:10 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+INFO 07-27 08:46:10 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 07-27 08:46:10 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+INFO 07-27 08:46:10 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 07-27 08:46:10 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+INFO 07-27 08:46:10 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 07-27 08:46:10 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+WARNING 07-27 08:46:11 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+INFO 07-27 08:46:13 [registry.py:134] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+INFO 07-27 08:46:13 [__init__.py:29] Applied TPU patch: include compiler hash in AOT cache key.
+INFO 07-27 08:46:13 [__init__.py:79] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold', 'phased_profiling_dir'] from the compile cache key.
+INFO 07-27 08:46:13 [__init__.py:109] Applied TPU patch: disable vLLM custom collective ops.
+INFO 07-27 08:46:13 [__init__.py:130] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+INFO 07-27 08:46:13 [__init__.py:157] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+INFO 07-27 08:46:13 [__init__.py:231] Applied TPU patch: disable sequence-parallel MoE.
+INFO 07-27 08:46:13 [__init__.py:300] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+INFO 07-27 08:46:13 [__init__.py:214] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+INFO 07-27 08:46:13 [registry.py:134] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+INFO 07-27 08:46:13 [__init__.py:29] Applied TPU patch: include compiler hash in AOT cache key.
+INFO 07-27 08:46:13 [__init__.py:79] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold', 'phased_profiling_dir'] from the compile cache key.
+INFO 07-27 08:46:13 [__init__.py:109] Applied TPU patch: disable vLLM custom collective ops.
+INFO 07-27 08:46:13 [__init__.py:130] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+INFO 07-27 08:46:13 [__init__.py:157] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+INFO 07-27 08:46:13 [__init__.py:231] Applied TPU patch: disable sequence-parallel MoE.
+INFO 07-27 08:46:13 [__init__.py:300] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+INFO 07-27 08:46:13 [__init__.py:214] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+INFO 07-27 08:46:13 [registry.py:134] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+INFO 07-27 08:46:13 [__init__.py:29] Applied TPU patch: include compiler hash in AOT cache key.
+INFO 07-27 08:46:13 [registry.py:134] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+INFO 07-27 08:46:13 [__init__.py:79] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold', 'phased_profiling_dir'] from the compile cache key.
+INFO 07-27 08:46:13 [__init__.py:109] Applied TPU patch: disable vLLM custom collective ops.
+INFO 07-27 08:46:13 [__init__.py:130] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+INFO 07-27 08:46:13 [__init__.py:157] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+INFO 07-27 08:46:13 [__init__.py:231] Applied TPU patch: disable sequence-parallel MoE.
+INFO 07-27 08:46:13 [__init__.py:300] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+INFO 07-27 08:46:13 [__init__.py:214] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+INFO 07-27 08:46:13 [__init__.py:29] Applied TPU patch: include compiler hash in AOT cache key.
+INFO 07-27 08:46:13 [__init__.py:79] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold', 'phased_profiling_dir'] from the compile cache key.
+INFO 07-27 08:46:13 [__init__.py:109] Applied TPU patch: disable vLLM custom collective ops.
+INFO 07-27 08:46:13 [__init__.py:130] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+INFO 07-27 08:46:13 [__init__.py:157] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+INFO 07-27 08:46:13 [__init__.py:231] Applied TPU patch: disable sequence-parallel MoE.
+INFO 07-27 08:46:13 [__init__.py:300] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+INFO 07-27 08:46:13 [__init__.py:214] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+INFO 07-27 08:46:13 [registry.py:134] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+INFO 07-27 08:46:13 [__init__.py:29] Applied TPU patch: include compiler hash in AOT cache key.
+INFO 07-27 08:46:13 [__init__.py:79] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold', 'phased_profiling_dir'] from the compile cache key.
+INFO 07-27 08:46:13 [__init__.py:109] Applied TPU patch: disable vLLM custom collective ops.
+INFO 07-27 08:46:13 [__init__.py:130] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+INFO 07-27 08:46:13 [__init__.py:157] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+INFO 07-27 08:46:13 [__init__.py:231] Applied TPU patch: disable sequence-parallel MoE.
+INFO 07-27 08:46:13 [__init__.py:300] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+INFO 07-27 08:46:13 [__init__.py:214] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+INFO 07-27 08:46:13 [registry.py:134] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+INFO 07-27 08:46:13 [__init__.py:29] Applied TPU patch: include compiler hash in AOT cache key.
+INFO 07-27 08:46:13 [__init__.py:79] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold', 'phased_profiling_dir'] from the compile cache key.
+INFO 07-27 08:46:13 [__init__.py:109] Applied TPU patch: disable vLLM custom collective ops.
+INFO 07-27 08:46:13 [__init__.py:130] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+INFO 07-27 08:46:13 [__init__.py:157] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+INFO 07-27 08:46:13 [__init__.py:231] Applied TPU patch: disable sequence-parallel MoE.
+INFO 07-27 08:46:13 [__init__.py:300] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+INFO 07-27 08:46:13 [__init__.py:214] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+INFO 07-27 08:46:13 [registry.py:134] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+INFO 07-27 08:46:13 [__init__.py:29] Applied TPU patch: include compiler hash in AOT cache key.
+INFO 07-27 08:46:13 [__init__.py:79] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold', 'phased_profiling_dir'] from the compile cache key.
+INFO 07-27 08:46:13 [__init__.py:109] Applied TPU patch: disable vLLM custom collective ops.
+INFO 07-27 08:46:13 [__init__.py:130] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+INFO 07-27 08:46:13 [__init__.py:157] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+INFO 07-27 08:46:13 [__init__.py:231] Applied TPU patch: disable sequence-parallel MoE.
+INFO 07-27 08:46:13 [__init__.py:300] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+INFO 07-27 08:46:13 [__init__.py:214] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+INFO 07-27 08:46:13 [registry.py:134] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+INFO 07-27 08:46:13 [__init__.py:29] Applied TPU patch: include compiler hash in AOT cache key.
+INFO 07-27 08:46:13 [__init__.py:79] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold', 'phased_profiling_dir'] from the compile cache key.
+INFO 07-27 08:46:13 [__init__.py:109] Applied TPU patch: disable vLLM custom collective ops.
+INFO 07-27 08:46:13 [__init__.py:130] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+INFO 07-27 08:46:13 [__init__.py:157] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+INFO 07-27 08:46:13 [__init__.py:231] Applied TPU patch: disable sequence-parallel MoE.
+INFO 07-27 08:46:13 [__init__.py:300] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+INFO 07-27 08:46:13 [__init__.py:214] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+INFO 07-27 08:46:13 [__init__.py:547] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+INFO 07-27 08:46:13 [__init__.py:247] Applied TPU patch: disable DP microbatching.
+INFO 07-27 08:46:13 [__init__.py:353] Applied TPU patch: MultiprocExecutor worker binding env.
+INFO 07-27 08:46:13 [__init__.py:547] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+INFO 07-27 08:46:13 [__init__.py:247] Applied TPU patch: disable DP microbatching.
+INFO 07-27 08:46:13 [__init__.py:353] Applied TPU patch: MultiprocExecutor worker binding env.
+INFO 07-27 08:46:13 [tpu_platform.py:85] TorchTPU eager mode configured: DEFER_AND_FUSE (previous=DEFER_NEVER)
+INFO 07-27 08:46:13 [tpu_platform.py:85] TorchTPU eager mode configured: DEFER_AND_FUSE (previous=DEFER_NEVER)
+(Worker pid=27618) (Worker pid=27614) INFO 07-27 08:46:13 [tpu_worker.py:235] PCP native-rank TPU binding | rank=7 native_local_rank=7 local_rank_env=5 tpu_local_rank_env=5 local_world=8 tpu_local_world=8 remap=None source=spawn LOCAL_RANK env
+INFO 07-27 08:46:13 [tpu_worker.py:235] PCP native-rank TPU binding | rank=3 native_local_rank=3 local_rank_env=7 tpu_local_rank_env=7 local_world=8 tpu_local_world=8 remap=None source=spawn LOCAL_RANK env
+(Worker pid=27614) (Worker pid=27618) INFO 07-27 08:46:13 [parallel_state.py:1607] world_size=8 rank=3 local_rank=7 distributed_init_method=tcp://127.0.0.1:45675 backend=tpu_dist
+INFO 07-27 08:46:13 [parallel_state.py:1607] world_size=8 rank=7 local_rank=5 distributed_init_method=tcp://127.0.0.1:45675 backend=tpu_dist
+INFO 07-27 08:46:13 [__init__.py:547] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+INFO 07-27 08:46:13 [__init__.py:247] Applied TPU patch: disable DP microbatching.
+INFO 07-27 08:46:13 [__init__.py:353] Applied TPU patch: MultiprocExecutor worker binding env.
+INFO 07-27 08:46:13 [tpu_platform.py:85] TorchTPU eager mode configured: DEFER_AND_FUSE (previous=DEFER_NEVER)
+(Worker pid=27615) INFO 07-27 08:46:13 [tpu_worker.py:235] PCP native-rank TPU binding | rank=4 native_local_rank=4 local_rank_env=2 tpu_local_rank_env=2 local_world=8 tpu_local_world=8 remap=None source=spawn LOCAL_RANK env
+(Worker pid=27615) INFO 07-27 08:46:13 [parallel_state.py:1607] world_size=8 rank=4 local_rank=2 distributed_init_method=tcp://127.0.0.1:45675 backend=tpu_dist
+INFO 07-27 08:46:13 [__init__.py:547] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+INFO 07-27 08:46:13 [__init__.py:247] Applied TPU patch: disable DP microbatching.
+INFO 07-27 08:46:13 [__init__.py:353] Applied TPU patch: MultiprocExecutor worker binding env.
+INFO 07-27 08:46:13 [tpu_platform.py:85] TorchTPU eager mode configured: DEFER_AND_FUSE (previous=DEFER_NEVER)
+INFO 07-27 08:46:13 [__init__.py:547] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+INFO 07-27 08:46:13 [__init__.py:247] Applied TPU patch: disable DP microbatching.
+INFO 07-27 08:46:13 [__init__.py:353] Applied TPU patch: MultiprocExecutor worker binding env.
+(Worker pid=27616) INFO 07-27 08:46:13 [tpu_worker.py:235] PCP native-rank TPU binding | rank=5 native_local_rank=5 local_rank_env=3 tpu_local_rank_env=3 local_world=8 tpu_local_world=8 remap=None source=spawn LOCAL_RANK env
+(Worker pid=27616) INFO 07-27 08:46:13 [parallel_state.py:1607] world_size=8 rank=5 local_rank=3 distributed_init_method=tcp://127.0.0.1:45675 backend=tpu_dist
+INFO 07-27 08:46:13 [tpu_platform.py:85] TorchTPU eager mode configured: DEFER_AND_FUSE (previous=DEFER_NEVER)
+(Worker pid=27617) INFO 07-27 08:46:13 [tpu_worker.py:235] PCP native-rank TPU binding | rank=6 native_local_rank=6 local_rank_env=4 tpu_local_rank_env=4 local_world=8 tpu_local_world=8 remap=None source=spawn LOCAL_RANK env
+(Worker pid=27617) INFO 07-27 08:46:13 [parallel_state.py:1607] world_size=8 rank=6 local_rank=4 distributed_init_method=tcp://127.0.0.1:45675 backend=tpu_dist
+INFO 07-27 08:46:13 [__init__.py:547] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+INFO 07-27 08:46:13 [__init__.py:247] Applied TPU patch: disable DP microbatching.
+INFO 07-27 08:46:13 [__init__.py:353] Applied TPU patch: MultiprocExecutor worker binding env.
+INFO 07-27 08:46:13 [tpu_platform.py:85] TorchTPU eager mode configured: DEFER_AND_FUSE (previous=DEFER_NEVER)
+(Worker pid=27611) INFO 07-27 08:46:13 [tpu_worker.py:235] PCP native-rank TPU binding | rank=0 native_local_rank=0 local_rank_env=0 tpu_local_rank_env=0 local_world=8 tpu_local_world=8 remap=None source=spawn LOCAL_RANK env
+(Worker pid=27611) INFO 07-27 08:46:13 [parallel_state.py:1607] world_size=8 rank=0 local_rank=0 distributed_init_method=tcp://127.0.0.1:45675 backend=tpu_dist
+INFO 07-27 08:46:13 [__init__.py:547] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+INFO 07-27 08:46:13 [__init__.py:247] Applied TPU patch: disable DP microbatching.
+INFO 07-27 08:46:13 [__init__.py:353] Applied TPU patch: MultiprocExecutor worker binding env.
+INFO 07-27 08:46:13 [tpu_platform.py:85] TorchTPU eager mode configured: DEFER_AND_FUSE (previous=DEFER_NEVER)
+(Worker pid=27613) INFO 07-27 08:46:13 [tpu_worker.py:235] PCP native-rank TPU binding | rank=2 native_local_rank=2 local_rank_env=6 tpu_local_rank_env=6 local_world=8 tpu_local_world=8 remap=None source=spawn LOCAL_RANK env
+(Worker pid=27613) INFO 07-27 08:46:13 [parallel_state.py:1607] world_size=8 rank=2 local_rank=6 distributed_init_method=tcp://127.0.0.1:45675 backend=tpu_dist
+INFO 07-27 08:46:13 [__init__.py:547] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+INFO 07-27 08:46:13 [__init__.py:247] Applied TPU patch: disable DP microbatching.
+INFO 07-27 08:46:13 [__init__.py:353] Applied TPU patch: MultiprocExecutor worker binding env.
+INFO 07-27 08:46:13 [tpu_platform.py:85] TorchTPU eager mode configured: DEFER_AND_FUSE (previous=DEFER_NEVER)
+(Worker pid=27612) INFO 07-27 08:46:13 [tpu_worker.py:235] PCP native-rank TPU binding | rank=1 native_local_rank=1 local_rank_env=1 tpu_local_rank_env=1 local_world=8 tpu_local_world=8 remap=None source=spawn LOCAL_RANK env
+(Worker pid=27612) INFO 07-27 08:46:13 [parallel_state.py:1607] world_size=8 rank=1 local_rank=1 distributed_init_method=tcp://127.0.0.1:45675 backend=tpu_dist
+(Worker pid=27611) INFO 07-27 08:46:18 [parallel_state.py:1942] rank 0 in world size 8 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 0, EP rank 0, EPLB rank N/A
+(Worker pid=27614) INFO 07-27 08:46:18 [tpu_runner.py:274] Pre-initialized JAX backend for partial sequence layout | world_size=8 | visible_devices=1
+(Worker pid=27612) INFO 07-27 08:46:18 [tpu_runner.py:274] Pre-initialized JAX backend for partial sequence layout | world_size=8 | visible_devices=1
+(Worker pid=27613) INFO 07-27 08:46:18 [tpu_runner.py:274] Pre-initialized JAX backend for partial sequence layout | world_size=8 | visible_devices=1
+(Worker pid=27611) INFO 07-27 08:46:18 [tpu_runner.py:274] Pre-initialized JAX backend for partial sequence layout | world_size=8 | visible_devices=1
+(Worker pid=27618) INFO 07-27 08:46:18 [tpu_runner.py:274] Pre-initialized JAX backend for partial sequence layout | world_size=8 | visible_devices=1
+(Worker pid=27615) INFO 07-27 08:46:18 [tpu_runner.py:274] Pre-initialized JAX backend for partial sequence layout | world_size=8 | visible_devices=1
+(Worker pid=27617) INFO 07-27 08:46:18 [tpu_runner.py:274] Pre-initialized JAX backend for partial sequence layout | world_size=8 | visible_devices=1
+(Worker pid=27616) INFO 07-27 08:46:18 [tpu_runner.py:274] Pre-initialized JAX backend for partial sequence layout | world_size=8 | visible_devices=1
+(Worker pid=27614) INFO 07-27 08:46:18 [tpu_runner.py:4600] Preparing request paddings:
+(Worker pid=27614) INFO 07-27 08:46:18 [tpu_runner.py:4607]     8
+(Worker pid=27614) INFO 07-27 08:46:18 [tpu_runner.py:685] Init mesh | tp_size=1 | device_id=3
+(Worker pid=27614) INFO 07-27 08:46:18 [tpu_worker.py:328] Init worker | rank=3 | is_first_rank=True | is_last_rank=True | node_id=0 | is_driver_worker=True | 
+(Worker_PCP3_EP3 pid=27614) INFO 07-27 08:46:18 [tpu_runner.py:3100] Setting TPU quantization config for: fp8
+(Worker pid=27612) INFO 07-27 08:46:18 [tpu_runner.py:4600] Preparing request paddings:
+(Worker pid=27612) INFO 07-27 08:46:18 [tpu_runner.py:4607]     8
+(Worker pid=27612) INFO 07-27 08:46:18 [tpu_runner.py:685] Init mesh | tp_size=1 | device_id=1
+(Worker pid=27612) INFO 07-27 08:46:18 [tpu_worker.py:328] Init worker | rank=1 | is_first_rank=True | is_last_rank=True | node_id=0 | is_driver_worker=True | 
+(Worker pid=27613) INFO 07-27 08:46:18 [tpu_runner.py:4600] Preparing request paddings:
+(Worker pid=27618) INFO 07-27 08:46:18 [tpu_runner.py:4600] Preparing request paddings:
+(Worker_PCP1_EP1 pid=27612) (Worker pid=27618) INFO 07-27 08:46:18 [tpu_runner.py:3100] Setting TPU quantization config for: fp8
+INFO 07-27 08:46:18 [tpu_runner.py:4607]     8
+(Worker pid=27613) INFO 07-27 08:46:18 [tpu_runner.py:4607]     8
+(Worker pid=27613) INFO 07-27 08:46:18 [tpu_runner.py:685] Init mesh | tp_size=1 | device_id=2
+(Worker pid=27618) INFO 07-27 08:46:18 [tpu_runner.py:685] Init mesh | tp_size=1 | device_id=7
+(Worker pid=27613) INFO 07-27 08:46:18 [tpu_worker.py:328] Init worker | rank=2 | is_first_rank=True | is_last_rank=True | node_id=0 | is_driver_worker=True | 
+(Worker pid=27618) INFO 07-27 08:46:18 [tpu_worker.py:328] Init worker | rank=7 | is_first_rank=True | is_last_rank=True | node_id=0 | is_driver_worker=True | 
+(Worker pid=27611) INFO 07-27 08:46:18 [tpu_runner.py:4600] Preparing request paddings:
+(Worker_PCP7_EP7 pid=27618) INFO 07-27 08:46:18 [tpu_runner.py:3100] Setting TPU quantization config for: fp8
+(Worker_PCP2_EP2 pid=27613) INFO 07-27 08:46:18 [tpu_runner.py:3100] Setting TPU quantization config for: fp8
+(Worker pid=27611) INFO 07-27 08:46:18 [tpu_runner.py:4607]     8
+(Worker pid=27611) INFO 07-27 08:46:18 [tpu_runner.py:685] Init mesh | tp_size=1 | device_id=0
+(Worker pid=27611) INFO 07-27 08:46:18 [tpu_worker.py:328] Init worker | rank=0 | is_first_rank=True | is_last_rank=True | node_id=0 | is_driver_worker=True | 
+(Worker pid=27615) INFO 07-27 08:46:18 [tpu_runner.py:4600] Preparing request paddings:
+(Worker pid=27617) INFO 07-27 08:46:18 [tpu_runner.py:4600] Preparing request paddings:
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:46:18 [tpu_runner.py:3100] Setting TPU quantization config for: fp8
+(Worker pid=27616) INFO 07-27 08:46:18 [tpu_runner.py:4600] Preparing request paddings:
+(Worker pid=27615) INFO 07-27 08:46:18 [tpu_runner.py:4607]     8
+(Worker pid=27617) INFO 07-27 08:46:18 [tpu_runner.py:4607]     8
+(Worker pid=27615) INFO 07-27 08:46:18 [tpu_runner.py:685] Init mesh | tp_size=1 | device_id=4
+(Worker pid=27615) INFO 07-27 08:46:18 [tpu_worker.py:328] Init worker | rank=4 | is_first_rank=True | is_last_rank=True | node_id=0 | is_driver_worker=True | 
+(Worker pid=27616) INFO 07-27 08:46:18 [tpu_runner.py:4607]     8
+(Worker pid=27617) INFO 07-27 08:46:18 [tpu_runner.py:685] Init mesh | tp_size=1 | device_id=6
+(Worker pid=27617) INFO 07-27 08:46:18 [tpu_worker.py:328] Init worker | rank=6 | is_first_rank=True | is_last_rank=True | node_id=0 | is_driver_worker=True | 
+(Worker pid=27616) INFO 07-27 08:46:18 [tpu_runner.py:685] Init mesh | tp_size=1 | device_id=5
+(Worker pid=27616) INFO 07-27 08:46:18 [tpu_worker.py:328] Init worker | rank=5 | is_first_rank=True | is_last_rank=True | node_id=0 | is_driver_worker=True | 
+(Worker_PCP4_EP4 pid=27615) INFO 07-27 08:46:18 [tpu_runner.py:3100] Setting TPU quantization config for: fp8
+(Worker_PCP6_EP6 pid=27617) INFO 07-27 08:46:18 [tpu_runner.py:3100] Setting TPU quantization config for: fp8
+(Worker_PCP5_EP5 pid=27616) INFO 07-27 08:46:18 [tpu_runner.py:3100] Setting TPU quantization config for: fp8
+(Worker_PCP3_EP3 pid=27614) INFO 07-27 08:46:18 [tpu_runner.py:3106] Loading model from scratch...
+(Worker_PCP7_EP7 pid=27618) INFO 07-27 08:46:18 [tpu_runner.py:3106] Loading model from scratch...
+(Worker_PCP1_EP1 pid=27612) INFO 07-27 08:46:18 [tpu_runner.py:3106] Loading model from scratch...
+(Worker_PCP2_EP2 pid=27613) INFO 07-27 08:46:18 [tpu_runner.py:3106] Loading model from scratch...
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:46:18 [tpu_runner.py:3106] Loading model from scratch...
+(Worker_PCP6_EP6 pid=27617) INFO 07-27 08:46:18 [tpu_runner.py:3106] Loading model from scratch...
+(Worker_PCP5_EP5 pid=27616) INFO 07-27 08:46:18 [tpu_runner.py:3106] Loading model from scratch...
+(Worker_PCP4_EP4 pid=27615) INFO 07-27 08:46:18 [tpu_runner.py:3106] Loading model from scratch...
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:46:18 [interface.py:404] Using default backend AttentionBackendEnum.TORCH_SDPA for vit attention
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:46:18 [mm_encoder_attention.py:373] Using AttentionBackendEnum.TORCH_SDPA for MMEncoderAttention.
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:46:18 [qwen_gdn_linear_attn.py:228] Using Triton/FLA GDN prefill kernel (requested=auto, head_k_dim=128).
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:46:21 [expert_map_manager.py:245] [EP Rank 0/8] Expert parallelism is enabled. Expert placement strategy: linear. Local/global number of experts: 32/256. Experts local to global index map: 0->0, 1->1, 2->2, 3->3, 4->4, 5->5, 6->6, 7->7, 8->8, 9->9, 10->10, 11->11, 12->12, 13->13, 14->14, 15->15, 16->16, 17->17, 18->18, 19->19, 20->20, 21->21, 22->22, 23->23, 24->24, 25->25, 26->26, 27->27, 28->28, 29->29, 30->30, 31->31.
+(Worker_PCP6_EP6 pid=27617) INFO 07-27 08:46:21 [tpu_platform.py:517] Using CUSTOM backend.
+(Worker_PCP1_EP1 pid=27612) INFO 07-27 08:46:21 [tpu_platform.py:517] Using CUSTOM backend.
+(Worker_PCP2_EP2 pid=27613) INFO 07-27 08:46:21 [tpu_platform.py:517] Using CUSTOM backend.
+(Worker_PCP7_EP7 pid=27618) INFO 07-27 08:46:21 [tpu_platform.py:517] Using CUSTOM backend.
+(Worker_PCP5_EP5 pid=27616) INFO 07-27 08:46:21 [tpu_platform.py:517] Using CUSTOM backend.
+(Worker_PCP4_EP4 pid=27615) INFO 07-27 08:46:21 [tpu_platform.py:517] Using CUSTOM backend.
+(Worker_PCP3_EP3 pid=27614) INFO 07-27 08:46:21 [tpu_platform.py:517] Using CUSTOM backend.
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:46:22 [tpu_platform.py:517] Using CUSTOM backend.
+(Worker_PCP6_EP6 pid=27617) INFO 07-27 08:46:24 [compilation.py:1067] Using OOT custom backend for compilation.
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:46:24 [compilation.py:1067] Using OOT custom backend for compilation.
+(Worker_PCP7_EP7 pid=27618) INFO 07-27 08:46:24 [compilation.py:1067] Using OOT custom backend for compilation.
+(Worker_PCP0_EP0 pid=27611) WARNING 07-27 08:46:24 [compilation.py:1304] Op 'quant_fp8' not present in model, enabling with '+quant_fp8' has no effect
+(Worker_PCP1_EP1 pid=27612) INFO 07-27 08:46:24 [compilation.py:1067] Using OOT custom backend for compilation.
+(Worker_PCP3_EP3 pid=27614) INFO 07-27 08:46:24 [compilation.py:1067] Using OOT custom backend for compilation.
+(Worker_PCP2_EP2 pid=27613) INFO 07-27 08:46:24 [compilation.py:1067] Using OOT custom backend for compilation.
+(Worker_PCP5_EP5 pid=27616) INFO 07-27 08:46:24 [compilation.py:1067] Using OOT custom backend for compilation.
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:46:24 [weight_utils.py:849] Filesystem type for checkpoints: EXT4. Checkpoint size: 34.89 GiB. Available RAM: 914.08 GiB.
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:46:24 [weight_utils.py:872] Auto-prefetch is disabled because the filesystem (EXT4) is not a recognized network FS (NFS/Lustre). If you want to force prefetching, start vLLM with --safetensors-load-strategy=prefetch.
+(Worker_PCP0_EP0 pid=27611) Loading safetensors checkpoint shards:   0% Completed | 0/14 [00:00<?, ?it/s]
+(Worker_PCP4_EP4 pid=27615) INFO 07-27 08:46:24 [compilation.py:1067] Using OOT custom backend for compilation.
+(Worker_PCP0_EP0 pid=27611) Loading safetensors checkpoint shards:   7% Completed | 1/14 [00:18<03:59, 18.39s/it]
+(Worker_PCP0_EP0 pid=27611) Loading safetensors checkpoint shards:  14% Completed | 2/14 [00:21<01:55,  9.64s/it]
+(Worker_PCP0_EP0 pid=27611) Loading safetensors checkpoint shards:  21% Completed | 3/14 [00:25<01:13,  6.65s/it]
+(Worker_PCP0_EP0 pid=27611) Loading safetensors checkpoint shards:  29% Completed | 4/14 [00:28<00:52,  5.22s/it]
+(Worker_PCP0_EP0 pid=27611) Loading safetensors checkpoint shards:  36% Completed | 5/14 [00:31<00:39,  4.43s/it]
+(Worker_PCP0_EP0 pid=27611) Loading safetensors checkpoint shards:  43% Completed | 6/14 [00:34<00:31,  3.98s/it]
+(Worker_PCP0_EP0 pid=27611) Loading safetensors checkpoint shards:  50% Completed | 7/14 [00:37<00:25,  3.65s/it]
+(Worker_PCP0_EP0 pid=27611) Loading safetensors checkpoint shards:  57% Completed | 8/14 [00:40<00:20,  3.48s/it]
+(Worker_PCP0_EP0 pid=27611) Loading safetensors checkpoint shards:  64% Completed | 9/14 [00:46<00:22,  4.45s/it]
+(Worker_PCP0_EP0 pid=27611) Loading safetensors checkpoint shards:  71% Completed | 10/14 [00:50<00:16,  4.10s/it]
+(Worker_PCP0_EP0 pid=27611) Loading safetensors checkpoint shards:  79% Completed | 11/14 [00:53<00:11,  3.83s/it]
+(Worker_PCP0_EP0 pid=27611) Loading safetensors checkpoint shards:  86% Completed | 12/14 [00:56<00:07,  3.67s/it]
+(Worker_PCP0_EP0 pid=27611) Loading safetensors checkpoint shards:  93% Completed | 13/14 [00:58<00:03,  3.23s/it]
+(Worker_PCP0_EP0 pid=27611) Loading safetensors checkpoint shards: 100% Completed | 14/14 [00:59<00:00,  2.37s/it]
+(Worker_PCP0_EP0 pid=27611) Loading safetensors checkpoint shards: 100% Completed | 14/14 [00:59<00:00,  4.23s/it]
+(Worker_PCP0_EP0 pid=27611) 
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:47:24 [default_loader.py:430] Loading weights took 59.28 seconds
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:47:25 [fp8.py:944] FP8 linear weights requantized for runtime: shape=[12288, 2048], weight_dtype=float8_e4m3fn, scale=[12288], requant_block_size=per-channel
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:47:26 [fp8.py:944] FP8 linear weights requantized for runtime: shape=[2048, 4096], weight_dtype=float8_e4m3fn, scale=[2048], requant_block_size=per-channel
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:47:27 [fp8.py:944] FP8 linear weights requantized for runtime: shape=[1024, 2048], weight_dtype=float8_e4m3fn, scale=[1024], requant_block_size=per-channel
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:47:27 [fp8.py:944] FP8 linear weights requantized for runtime: shape=[2048, 512], weight_dtype=float8_e4m3fn, scale=[2048], requant_block_size=per-channel
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:47:27 [fp8.py:157] [MoE requantization]: re-quantizing MoE weights to float8_e4m3fn
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:47:29 [fp8.py:718] FP8 weights transposed for GMM kernel: w13=[32, 2048, 1024], w2=[32, 512, 2048], w13_scale=[32, 1, 1, 1024], w2_scale=[32, 1, 1, 2048], requant_block_size=per-channel
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:47:31 [fp8.py:944] FP8 linear weights requantized for runtime: shape=[9216, 2048], weight_dtype=float8_e4m3fn, scale=[9216], requant_block_size=per-channel
+(Worker_PCP3_EP3 pid=27614) INFO 07-27 08:47:32 [tpu_runner.py:3161] Pre-built RPA kernels for 10 attention layers.
+(Worker_PCP3_EP3 pid=27614) INFO 07-27 08:47:32 [tpu_block_size_utils.py:250] TPU block_size derivation path: backend=CUSTOM -> backend_supported_kernel_block_sizes=[256] -> input_block_size=4096 -> mamba_raw_state_bytes=2146304 -> fa_bytes_per_token(raw_payload=1024 + layout_padding=0 -> physical=1024) -> mamba_fit_block_size=ceil(2146304 / 1024) rounded_to_16 = 2096 -> final_block_size=4096 (source=user_block_size).
+(Worker_PCP3_EP3 pid=27614) INFO 07-27 08:47:32 [tpu_block_size_utils.py:269] TPU block_slot derivation path: final_block_size=4096 -> fa_raw_payload_slot_bytes=4194304 -> fa_layout_padding_slot_bytes=0 -> fa_physical_slot_bytes=4194304 -> slot_base_bytes=max(mamba_raw_state_bytes=2146304, fa_physical_slot_bytes=4194304) = 4194304 -> slot_alignment_bytes=16 -> final_block_slot_bytes=round_up(4194304, 16) = 4194304 -> mamba_slot_padding_bytes=2048000 -> fa_slot_tail_padding_bytes=0 -> block_size_backend_validation=deferred.
+(Worker_PCP3_EP3 pid=27614) INFO 07-27 08:47:32 [tpu_block_size_utils.py:333] Aligning hybrid Mamba KV cache to TPU block slot: mamba_block_size 4096 -> 4096, mamba_page_size_padded None -> 4194304.
+(Worker_PCP3_EP3 pid=27614) INFO 07-27 08:47:32 [tpu_platform.py:848] Using KV cache block size: 4096
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:47:33 [tpu_runner.py:3161] Pre-built RPA kernels for 10 attention layers.
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:47:33 [tpu_block_size_utils.py:250] TPU block_size derivation path: backend=CUSTOM -> backend_supported_kernel_block_sizes=[256] -> input_block_size=4096 -> mamba_raw_state_bytes=2146304 -> fa_bytes_per_token(raw_payload=1024 + layout_padding=0 -> physical=1024) -> mamba_fit_block_size=ceil(2146304 / 1024) rounded_to_16 = 2096 -> final_block_size=4096 (source=user_block_size).
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:47:33 [tpu_block_size_utils.py:269] TPU block_slot derivation path: final_block_size=4096 -> fa_raw_payload_slot_bytes=4194304 -> fa_layout_padding_slot_bytes=0 -> fa_physical_slot_bytes=4194304 -> slot_base_bytes=max(mamba_raw_state_bytes=2146304, fa_physical_slot_bytes=4194304) = 4194304 -> slot_alignment_bytes=16 -> final_block_slot_bytes=round_up(4194304, 16) = 4194304 -> mamba_slot_padding_bytes=2048000 -> fa_slot_tail_padding_bytes=0 -> block_size_backend_validation=deferred.
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:47:33 [tpu_block_size_utils.py:333] Aligning hybrid Mamba KV cache to TPU block slot: mamba_block_size 4096 -> 4096, mamba_page_size_padded None -> 4194304.
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:47:33 [tpu_platform.py:848] Using KV cache block size: 4096
+(Worker_PCP4_EP4 pid=27615) INFO 07-27 08:47:33 [tpu_runner.py:3161] Pre-built RPA kernels for 10 attention layers.
+(Worker_PCP4_EP4 pid=27615) INFO 07-27 08:47:33 [tpu_block_size_utils.py:250] TPU block_size derivation path: backend=CUSTOM -> backend_supported_kernel_block_sizes=[256] -> input_block_size=4096 -> mamba_raw_state_bytes=2146304 -> fa_bytes_per_token(raw_payload=1024 + layout_padding=0 -> physical=1024) -> mamba_fit_block_size=ceil(2146304 / 1024) rounded_to_16 = 2096 -> final_block_size=4096 (source=user_block_size).
+(Worker_PCP4_EP4 pid=27615) INFO 07-27 08:47:33 [tpu_block_size_utils.py:269] TPU block_slot derivation path: final_block_size=4096 -> fa_raw_payload_slot_bytes=4194304 -> fa_layout_padding_slot_bytes=0 -> fa_physical_slot_bytes=4194304 -> slot_base_bytes=max(mamba_raw_state_bytes=2146304, fa_physical_slot_bytes=4194304) = 4194304 -> slot_alignment_bytes=16 -> final_block_slot_bytes=round_up(4194304, 16) = 4194304 -> mamba_slot_padding_bytes=2048000 -> fa_slot_tail_padding_bytes=0 -> block_size_backend_validation=deferred.
+(Worker_PCP4_EP4 pid=27615) INFO 07-27 08:47:33 [tpu_block_size_utils.py:333] Aligning hybrid Mamba KV cache to TPU block slot: mamba_block_size 4096 -> 4096, mamba_page_size_padded None -> 4194304.
+(Worker_PCP4_EP4 pid=27615) INFO 07-27 08:47:33 [tpu_platform.py:848] Using KV cache block size: 4096
+(Worker_PCP7_EP7 pid=27618) INFO 07-27 08:47:34 [tpu_runner.py:3161] Pre-built RPA kernels for 10 attention layers.
+(Worker_PCP7_EP7 pid=27618) INFO 07-27 08:47:34 [tpu_block_size_utils.py:250] TPU block_size derivation path: backend=CUSTOM -> backend_supported_kernel_block_sizes=[256] -> input_block_size=4096 -> mamba_raw_state_bytes=2146304 -> fa_bytes_per_token(raw_payload=1024 + layout_padding=0 -> physical=1024) -> mamba_fit_block_size=ceil(2146304 / 1024) rounded_to_16 = 2096 -> final_block_size=4096 (source=user_block_size).
+(Worker_PCP7_EP7 pid=27618) INFO 07-27 08:47:34 [tpu_block_size_utils.py:269] TPU block_slot derivation path: final_block_size=4096 -> fa_raw_payload_slot_bytes=4194304 -> fa_layout_padding_slot_bytes=0 -> fa_physical_slot_bytes=4194304 -> slot_base_bytes=max(mamba_raw_state_bytes=2146304, fa_physical_slot_bytes=4194304) = 4194304 -> slot_alignment_bytes=16 -> final_block_slot_bytes=round_up(4194304, 16) = 4194304 -> mamba_slot_padding_bytes=2048000 -> fa_slot_tail_padding_bytes=0 -> block_size_backend_validation=deferred.
+(Worker_PCP7_EP7 pid=27618) INFO 07-27 08:47:34 [tpu_block_size_utils.py:333] Aligning hybrid Mamba KV cache to TPU block slot: mamba_block_size 4096 -> 4096, mamba_page_size_padded None -> 4194304.
+(Worker_PCP7_EP7 pid=27618) INFO 07-27 08:47:34 [tpu_platform.py:848] Using KV cache block size: 4096
+(Worker_PCP2_EP2 pid=27613) INFO 07-27 08:47:35 [tpu_runner.py:3161] Pre-built RPA kernels for 10 attention layers.
+(Worker_PCP2_EP2 pid=27613) INFO 07-27 08:47:35 [tpu_block_size_utils.py:250] TPU block_size derivation path: backend=CUSTOM -> backend_supported_kernel_block_sizes=[256] -> input_block_size=4096 -> mamba_raw_state_bytes=2146304 -> fa_bytes_per_token(raw_payload=1024 + layout_padding=0 -> physical=1024) -> mamba_fit_block_size=ceil(2146304 / 1024) rounded_to_16 = 2096 -> final_block_size=4096 (source=user_block_size).
+(Worker_PCP2_EP2 pid=27613) INFO 07-27 08:47:35 [tpu_block_size_utils.py:269] TPU block_slot derivation path: final_block_size=4096 -> fa_raw_payload_slot_bytes=4194304 -> fa_layout_padding_slot_bytes=0 -> fa_physical_slot_bytes=4194304 -> slot_base_bytes=max(mamba_raw_state_bytes=2146304, fa_physical_slot_bytes=4194304) = 4194304 -> slot_alignment_bytes=16 -> final_block_slot_bytes=round_up(4194304, 16) = 4194304 -> mamba_slot_padding_bytes=2048000 -> fa_slot_tail_padding_bytes=0 -> block_size_backend_validation=deferred.
+(Worker_PCP2_EP2 pid=27613) INFO 07-27 08:47:35 [tpu_block_size_utils.py:333] Aligning hybrid Mamba KV cache to TPU block slot: mamba_block_size 4096 -> 4096, mamba_page_size_padded None -> 4194304.
+(Worker_PCP2_EP2 pid=27613) INFO 07-27 08:47:35 [tpu_platform.py:848] Using KV cache block size: 4096
+(Worker_PCP1_EP1 pid=27612) INFO 07-27 08:47:35 [tpu_runner.py:3161] Pre-built RPA kernels for 10 attention layers.
+(Worker_PCP1_EP1 pid=27612) INFO 07-27 08:47:35 [tpu_block_size_utils.py:250] TPU block_size derivation path: backend=CUSTOM -> backend_supported_kernel_block_sizes=[256] -> input_block_size=4096 -> mamba_raw_state_bytes=2146304 -> fa_bytes_per_token(raw_payload=1024 + layout_padding=0 -> physical=1024) -> mamba_fit_block_size=ceil(2146304 / 1024) rounded_to_16 = 2096 -> final_block_size=4096 (source=user_block_size).
+(Worker_PCP1_EP1 pid=27612) INFO 07-27 08:47:35 [tpu_block_size_utils.py:269] TPU block_slot derivation path: final_block_size=4096 -> fa_raw_payload_slot_bytes=4194304 -> fa_layout_padding_slot_bytes=0 -> fa_physical_slot_bytes=4194304 -> slot_base_bytes=max(mamba_raw_state_bytes=2146304, fa_physical_slot_bytes=4194304) = 4194304 -> slot_alignment_bytes=16 -> final_block_slot_bytes=round_up(4194304, 16) = 4194304 -> mamba_slot_padding_bytes=2048000 -> fa_slot_tail_padding_bytes=0 -> block_size_backend_validation=deferred.
+(Worker_PCP1_EP1 pid=27612) INFO 07-27 08:47:35 [tpu_block_size_utils.py:333] Aligning hybrid Mamba KV cache to TPU block slot: mamba_block_size 4096 -> 4096, mamba_page_size_padded None -> 4194304.
+(Worker_PCP1_EP1 pid=27612) INFO 07-27 08:47:35 [tpu_platform.py:848] Using KV cache block size: 4096
+(Worker_PCP5_EP5 pid=27616) INFO 07-27 08:47:36 [tpu_runner.py:3161] Pre-built RPA kernels for 10 attention layers.
+(Worker_PCP5_EP5 pid=27616) INFO 07-27 08:47:36 [tpu_block_size_utils.py:250] TPU block_size derivation path: backend=CUSTOM -> backend_supported_kernel_block_sizes=[256] -> input_block_size=4096 -> mamba_raw_state_bytes=2146304 -> fa_bytes_per_token(raw_payload=1024 + layout_padding=0 -> physical=1024) -> mamba_fit_block_size=ceil(2146304 / 1024) rounded_to_16 = 2096 -> final_block_size=4096 (source=user_block_size).
+(Worker_PCP5_EP5 pid=27616) INFO 07-27 08:47:36 [tpu_block_size_utils.py:269] TPU block_slot derivation path: final_block_size=4096 -> fa_raw_payload_slot_bytes=4194304 -> fa_layout_padding_slot_bytes=0 -> fa_physical_slot_bytes=4194304 -> slot_base_bytes=max(mamba_raw_state_bytes=2146304, fa_physical_slot_bytes=4194304) = 4194304 -> slot_alignment_bytes=16 -> final_block_slot_bytes=round_up(4194304, 16) = 4194304 -> mamba_slot_padding_bytes=2048000 -> fa_slot_tail_padding_bytes=0 -> block_size_backend_validation=deferred.
+(Worker_PCP5_EP5 pid=27616) INFO 07-27 08:47:36 [tpu_block_size_utils.py:333] Aligning hybrid Mamba KV cache to TPU block slot: mamba_block_size 4096 -> 4096, mamba_page_size_padded None -> 4194304.
+(Worker_PCP5_EP5 pid=27616) INFO 07-27 08:47:36 [tpu_platform.py:848] Using KV cache block size: 4096
+(Worker_PCP6_EP6 pid=27617) INFO 07-27 08:47:38 [tpu_runner.py:3161] Pre-built RPA kernels for 10 attention layers.
+(Worker_PCP6_EP6 pid=27617) INFO 07-27 08:47:38 [tpu_block_size_utils.py:250] TPU block_size derivation path: backend=CUSTOM -> backend_supported_kernel_block_sizes=[256] -> input_block_size=4096 -> mamba_raw_state_bytes=2146304 -> fa_bytes_per_token(raw_payload=1024 + layout_padding=0 -> physical=1024) -> mamba_fit_block_size=ceil(2146304 / 1024) rounded_to_16 = 2096 -> final_block_size=4096 (source=user_block_size).
+(Worker_PCP6_EP6 pid=27617) INFO 07-27 08:47:38 [tpu_block_size_utils.py:269] TPU block_slot derivation path: final_block_size=4096 -> fa_raw_payload_slot_bytes=4194304 -> fa_layout_padding_slot_bytes=0 -> fa_physical_slot_bytes=4194304 -> slot_base_bytes=max(mamba_raw_state_bytes=2146304, fa_physical_slot_bytes=4194304) = 4194304 -> slot_alignment_bytes=16 -> final_block_slot_bytes=round_up(4194304, 16) = 4194304 -> mamba_slot_padding_bytes=2048000 -> fa_slot_tail_padding_bytes=0 -> block_size_backend_validation=deferred.
+(Worker_PCP6_EP6 pid=27617) INFO 07-27 08:47:38 [tpu_block_size_utils.py:333] Aligning hybrid Mamba KV cache to TPU block slot: mamba_block_size 4096 -> 4096, mamba_page_size_padded None -> 4194304.
+(Worker_PCP6_EP6 pid=27617) INFO 07-27 08:47:38 [tpu_platform.py:848] Using KV cache block size: 4096
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:47:51 [backends.py:1087] vLLM's torch.compile cache is disabled.
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:47:51 [backends.py:1148] Dynamo bytecode transform time: 12.70 s
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:47:52 [tpu_compiler.py:281] [TpuCompilerAdaptor] Compiling FX graph for range (4096, 4096)
+(Worker_PCP2_EP2 pid=27613) INFO 07-27 08:47:52 [tpu_compiler.py:281] [TpuCompilerAdaptor] Compiling FX graph for range (4096, 4096)
+(Worker_PCP7_EP7 pid=27618) INFO 07-27 08:47:52 [tpu_compiler.py:281] [TpuCompilerAdaptor] Compiling FX graph for range (4096, 4096)
+(Worker_PCP4_EP4 pid=27615) INFO 07-27 08:47:52 [tpu_compiler.py:281] [TpuCompilerAdaptor] Compiling FX graph for range (4096, 4096)
+(Worker_PCP5_EP5 pid=27616) INFO 07-27 08:47:52 [tpu_compiler.py:281] [TpuCompilerAdaptor] Compiling FX graph for range (4096, 4096)
+(Worker_PCP1_EP1 pid=27612) INFO 07-27 08:47:52 [tpu_compiler.py:281] [TpuCompilerAdaptor] Compiling FX graph for range (4096, 4096)
+(Worker_PCP6_EP6 pid=27617) INFO 07-27 08:47:52 [tpu_compiler.py:281] [TpuCompilerAdaptor] Compiling FX graph for range (4096, 4096)
+(Worker_PCP3_EP3 pid=27614) INFO 07-27 08:47:52 [tpu_compiler.py:281] [TpuCompilerAdaptor] Compiling FX graph for range (4096, 4096)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] WorkerProc hit an exception.
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] Traceback (most recent call last):
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 996, in worker_busy_loop
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     output = func(*args, **kwargs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/root/torchtpu-vllm/src/vllm_torchtpu/worker/tpu_worker.py", line 344, in determine_available_memory
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     self.model_runner.profile_run(self.model_runner.max_num_tokens)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/root/torchtpu-vllm/src/vllm_torchtpu/runner/tpu_runner.py", line 3943, in profile_run
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     self._dummy_run(num_tokens, self.num_reqs_max_model_len,
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return func(*args, **kwargs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/root/torchtpu-vllm/src/vllm_torchtpu/runner/tpu_runner.py", line 3273, in _dummy_run
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     out, _ = self.forward_model(input_ids=input_ids,
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/root/torchtpu-vllm/src/vllm_torchtpu/runner/tpu_runner.py", line 4384, in forward_model
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     out = self.model(input_ids=input_ids,
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1779, in _wrapped_call_impl
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return self._call_impl(*args, **kwargs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1790, in _call_impl
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return forward_call(*args, **kwargs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen3_5.py", line 496, in forward
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     hidden_states = self.language_model.model(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/decorators.py", line 678, in __call__
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     output = TorchCompileWithNoGuardsWrapper.__call__(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/wrapper.py", line 183, in __call__
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return self._call_with_optional_nvtx_range(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/wrapper.py", line 70, in _call_with_optional_nvtx_range
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return callable_fn(*args, **kwargs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1038, in compile_wrapper
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     raise e.remove_dynamo_frames() from None  # see TORCHDYNAMO_VERBOSE=1
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_dynamo/output_graph.py", line 2689, in _call_user_compiler
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     raise BackendCompilerFailed(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_dynamo/output_graph.py", line 2664, in _call_user_compiler
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_fn = compiler_fn(gm, example_inputs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_dynamo/repro/after_dynamo.py", line 156, in __call__
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_gm = compiler_fn(gm, example_inputs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/__init__.py", line 2535, in __call__
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return self.compiler_fn(model_, inputs_, **self.kwargs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/contextlib.py", line 81, in inner
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return func(*args, **kwds)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/backends.py", line 1214, in __call__
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     PiecewiseCompileInterpreter(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return func(*args, **kwargs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/backends.py", line 723, in run
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return super().run(*args)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/fx/interpreter.py", line 200, in run
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     self.env[node] = self.run_node(node)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                      ^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/fx/interpreter.py", line 297, in run_node
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return getattr(self, n.op)(n.target, args, kwargs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/backends.py", line 750, in call_module
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     piecewise_backend = PiecewiseBackend(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                         ^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/piecewise_backend.py", line 190, in __init__
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     self.compile_all_ranges()
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/piecewise_backend.py", line 266, in compile_all_ranges
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     range_entry.runnable = self.vllm_backend.compiler_manager.compile(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return func(*args, **kwargs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/backends.py", line 353, in compile
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_graph, handle = self.compiler.compile(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                              ^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/root/torchtpu-vllm/src/vllm_torchtpu/compilation/tpu_compiler.py", line 308, in compile
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_fn = _tpu_backend(graph, example_inputs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch_tpu/_internal/compile/_backend.py", line 335, in __call__
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     result = aot_autograd(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]              ^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_dynamo/backends/common.py", line 124, in __call__
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     cg = aot_module_simplified(gm, example_inputs, **self.kwargs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_functorch/aot_autograd.py", line 1161, in aot_module_simplified
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_fn, _ = aot_stage2_compile(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                      ^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/graph_compile.py", line 368, in aot_stage2_compile
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return aot_stage2_inference(aot_state, aot_graph_capture)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/graph_compile.py", line 446, in aot_stage2_inference
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_fw = _aot_stage2b_inference_compile(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/graph_compile.py", line 412, in _aot_stage2b_inference_compile
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return _aot_stage2b_compile_forward_or_inference(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/graph_compile.py", line 2513, in _aot_stage2b_compile_forward_or_inference
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_fw_func = compiler(fw_module, adjusted_flat_args)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/schemas.py", line 1394, in __call__
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     output_code = self.compiler_fn(gm, example_inputs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch_tpu/_internal/compile/_backend.py", line 381, in _compile_graph_module
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     executable = compiler_instance(graph_module, example_inputs, is_fwd=is_fwd)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch_tpu/_internal/compile/compiler.py", line 276, in __call__
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     exported_mlir = torch_tpu_export.fx_to_mlir(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch_tpu/_internal/export/export.py", line 558, in fx_to_mlir
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compile_result = tpu_torch_compile.traverse_and_compile(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] torch._dynamo.exc.BackendCompilerFailed: backend='<vllm.compilation.backends.VllmBackend object at 0x7d9a157966c0>' raised:
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] RuntimeError: Failed to traverse and compile: failed to get fixed shape kernel: Mosaic failed to compile TPU kernel: Not Implemented: The last dim size is not 128 in original base memref
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] at location: loc("get:"("bm512_first_last/get/bm512_first_last/get"(callsite(callsite("WeightsRef.get_scale"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":154:19 to :64) at callsite("FusedWeightsRef.get_scale"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":176:17 to :52) at callsite("inner_kernel.<locals>._matmul"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":529:47 to 530:52) at "inner_kernel.<locals>.run_matmul_step.<locals>.matmul_first_last"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":593:12 to 595:38)))) at callsite("WeightsRef.get_scale"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":154:19 to :64) at callsite("FusedWeightsRef.get_scale"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":176:17 to :52) at callsite("inner_kernel.<locals>._matmul"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":529:47 to 530:52) at "inner_kernel.<locals>.run_matmul_step.<locals>.matmul_first_last"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":593:12 to 595:38))))))))
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] The MLIR operation involved:
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   %6352 = "tpu.strided_load"(%6351, %82, %82, %82) <{strides = array<i32: 1, 0, 1>}> {in_layout = [#tpu.vpad<"none">, #tpu.vpad<"none">, #tpu.vpad<"none">, #tpu.vpad<"none">], out_layout = [#tpu.vpad<"32,{0,0},(8,128)">]} : (memref<1x1x512xf32, #tpu.tiled<(1,128),[4,4,1]>, #tpu.memory_space<vmem>>, index, index, index) -> vector<1x512x512xf32>
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] ... additional diagnostics were skipped.
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] Please report a bug at: https://github.com/jax-ml/jax/issues/new/choose
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] Traceback (most recent call last):
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 996, in worker_busy_loop
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     output = func(*args, **kwargs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/root/torchtpu-vllm/src/vllm_torchtpu/worker/tpu_worker.py", line 344, in determine_available_memory
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     self.model_runner.profile_run(self.model_runner.max_num_tokens)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/root/torchtpu-vllm/src/vllm_torchtpu/runner/tpu_runner.py", line 3943, in profile_run
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     self._dummy_run(num_tokens, self.num_reqs_max_model_len,
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return func(*args, **kwargs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/root/torchtpu-vllm/src/vllm_torchtpu/runner/tpu_runner.py", line 3273, in _dummy_run
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     out, _ = self.forward_model(input_ids=input_ids,
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/root/torchtpu-vllm/src/vllm_torchtpu/runner/tpu_runner.py", line 4384, in forward_model
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     out = self.model(input_ids=input_ids,
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1779, in _wrapped_call_impl
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return self._call_impl(*args, **kwargs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1790, in _call_impl
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return forward_call(*args, **kwargs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen3_5.py", line 496, in forward
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     hidden_states = self.language_model.model(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/decorators.py", line 678, in __call__
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     output = TorchCompileWithNoGuardsWrapper.__call__(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/wrapper.py", line 183, in __call__
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return self._call_with_optional_nvtx_range(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/wrapper.py", line 70, in _call_with_optional_nvtx_range
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return callable_fn(*args, **kwargs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1038, in compile_wrapper
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     raise e.remove_dynamo_frames() from None  # see TORCHDYNAMO_VERBOSE=1
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_dynamo/output_graph.py", line 2689, in _call_user_compiler
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     raise BackendCompilerFailed(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_dynamo/output_graph.py", line 2664, in _call_user_compiler
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_fn = compiler_fn(gm, example_inputs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_dynamo/repro/after_dynamo.py", line 156, in __call__
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_gm = compiler_fn(gm, example_inputs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/__init__.py", line 2535, in __call__
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return self.compiler_fn(model_, inputs_, **self.kwargs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/contextlib.py", line 81, in inner
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return func(*args, **kwds)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/backends.py", line 1214, in __call__
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     PiecewiseCompileInterpreter(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return func(*args, **kwargs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/backends.py", line 723, in run
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return super().run(*args)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/fx/interpreter.py", line 200, in run
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     self.env[node] = self.run_node(node)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                      ^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/fx/interpreter.py", line 297, in run_node
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return getattr(self, n.op)(n.target, args, kwargs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/backends.py", line 750, in call_module
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     piecewise_backend = PiecewiseBackend(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                         ^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/piecewise_backend.py", line 190, in __init__
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     self.compile_all_ranges()
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/piecewise_backend.py", line 266, in compile_all_ranges
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     range_entry.runnable = self.vllm_backend.compiler_manager.compile(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return func(*args, **kwargs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/backends.py", line 353, in compile
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_graph, handle = self.compiler.compile(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                              ^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/root/torchtpu-vllm/src/vllm_torchtpu/compilation/tpu_compiler.py", line 308, in compile
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_fn = _tpu_backend(graph, example_inputs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch_tpu/_internal/compile/_backend.py", line 335, in __call__
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     result = aot_autograd(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]              ^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_dynamo/backends/common.py", line 124, in __call__
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     cg = aot_module_simplified(gm, example_inputs, **self.kwargs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_functorch/aot_autograd.py", line 1161, in aot_module_simplified
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_fn, _ = aot_stage2_compile(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                      ^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/graph_compile.py", line 368, in aot_stage2_compile
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return aot_stage2_inference(aot_state, aot_graph_capture)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/graph_compile.py", line 446, in aot_stage2_inference
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_fw = _aot_stage2b_inference_compile(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/graph_compile.py", line 412, in _aot_stage2b_inference_compile
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return _aot_stage2b_compile_forward_or_inference(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/graph_compile.py", line 2513, in _aot_stage2b_compile_forward_or_inference
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_fw_func = compiler(fw_module, adjusted_flat_args)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/schemas.py", line 1394, in __call__
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     output_code = self.compiler_fn(gm, example_inputs)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch_tpu/_internal/compile/_backend.py", line 381, in _compile_graph_module
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     executable = compiler_instance(graph_module, example_inputs, is_fwd=is_fwd)
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch_tpu/_internal/compile/compiler.py", line 276, in __call__
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     exported_mlir = torch_tpu_export.fx_to_mlir(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch_tpu/_internal/export/export.py", line 558, in fx_to_mlir
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compile_result = tpu_torch_compile.traverse_and_compile(
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] torch._dynamo.exc.BackendCompilerFailed: backend='<vllm.compilation.backends.VllmBackend object at 0x7d9a157966c0>' raised:
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] RuntimeError: Failed to traverse and compile: failed to get fixed shape kernel: Mosaic failed to compile TPU kernel: Not Implemented: The last dim size is not 128 in original base memref
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] at location: loc("get:"("bm512_first_last/get/bm512_first_last/get"(callsite(callsite("WeightsRef.get_scale"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":154:19 to :64) at callsite("FusedWeightsRef.get_scale"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":176:17 to :52) at callsite("inner_kernel.<locals>._matmul"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":529:47 to 530:52) at "inner_kernel.<locals>.run_matmul_step.<locals>.matmul_first_last"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":593:12 to 595:38)))) at callsite("WeightsRef.get_scale"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":154:19 to :64) at callsite("FusedWeightsRef.get_scale"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":176:17 to :52) at callsite("inner_kernel.<locals>._matmul"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":529:47 to 530:52) at "inner_kernel.<locals>.run_matmul_step.<locals>.matmul_first_last"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":593:12 to 595:38))))))))
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] The MLIR operation involved:
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   %6352 = "tpu.strided_load"(%6351, %82, %82, %82) <{strides = array<i32: 1, 0, 1>}> {in_layout = [#tpu.vpad<"none">, #tpu.vpad<"none">, #tpu.vpad<"none">, #tpu.vpad<"none">], out_layout = [#tpu.vpad<"32,{0,0},(8,128)">]} : (memref<1x1x512xf32, #tpu.tiled<(1,128),[4,4,1]>, #tpu.memory_space<vmem>>, index, index, index) -> vector<1x512x512xf32>
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] ... additional diagnostics were skipped.
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] Please report a bug at: https://github.com/jax-ml/jax/issues/new/choose
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP3_EP3 pid=27614) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] WorkerProc hit an exception.
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] Traceback (most recent call last):
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 996, in worker_busy_loop
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     output = func(*args, **kwargs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/root/torchtpu-vllm/src/vllm_torchtpu/worker/tpu_worker.py", line 344, in determine_available_memory
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     self.model_runner.profile_run(self.model_runner.max_num_tokens)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/root/torchtpu-vllm/src/vllm_torchtpu/runner/tpu_runner.py", line 3943, in profile_run
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     self._dummy_run(num_tokens, self.num_reqs_max_model_len,
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return func(*args, **kwargs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/root/torchtpu-vllm/src/vllm_torchtpu/runner/tpu_runner.py", line 3273, in _dummy_run
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     out, _ = self.forward_model(input_ids=input_ids,
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/root/torchtpu-vllm/src/vllm_torchtpu/runner/tpu_runner.py", line 4384, in forward_model
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     out = self.model(input_ids=input_ids,
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1779, in _wrapped_call_impl
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return self._call_impl(*args, **kwargs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1790, in _call_impl
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return forward_call(*args, **kwargs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen3_5.py", line 496, in forward
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     hidden_states = self.language_model.model(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/decorators.py", line 678, in __call__
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     output = TorchCompileWithNoGuardsWrapper.__call__(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/wrapper.py", line 183, in __call__
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return self._call_with_optional_nvtx_range(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/wrapper.py", line 70, in _call_with_optional_nvtx_range
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return callable_fn(*args, **kwargs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1038, in compile_wrapper
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     raise e.remove_dynamo_frames() from None  # see TORCHDYNAMO_VERBOSE=1
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_dynamo/output_graph.py", line 2689, in _call_user_compiler
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     raise BackendCompilerFailed(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_dynamo/output_graph.py", line 2664, in _call_user_compiler
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_fn = compiler_fn(gm, example_inputs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_dynamo/repro/after_dynamo.py", line 156, in __call__
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_gm = compiler_fn(gm, example_inputs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/__init__.py", line 2535, in __call__
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return self.compiler_fn(model_, inputs_, **self.kwargs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/contextlib.py", line 81, in inner
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return func(*args, **kwds)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/backends.py", line 1214, in __call__
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     PiecewiseCompileInterpreter(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return func(*args, **kwargs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/backends.py", line 723, in run
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return super().run(*args)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/fx/interpreter.py", line 200, in run
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     self.env[node] = self.run_node(node)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                      ^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/fx/interpreter.py", line 297, in run_node
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return getattr(self, n.op)(n.target, args, kwargs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/backends.py", line 750, in call_module
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     piecewise_backend = PiecewiseBackend(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                         ^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/piecewise_backend.py", line 190, in __init__
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     self.compile_all_ranges()
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/piecewise_backend.py", line 266, in compile_all_ranges
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     range_entry.runnable = self.vllm_backend.compiler_manager.compile(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return func(*args, **kwargs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/backends.py", line 353, in compile
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_graph, handle = self.compiler.compile(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                              ^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/root/torchtpu-vllm/src/vllm_torchtpu/compilation/tpu_compiler.py", line 308, in compile
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_fn = _tpu_backend(graph, example_inputs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch_tpu/_internal/compile/_backend.py", line 335, in __call__
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     result = aot_autograd(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]              ^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_dynamo/backends/common.py", line 124, in __call__
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     cg = aot_module_simplified(gm, example_inputs, **self.kwargs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_functorch/aot_autograd.py", line 1161, in aot_module_simplified
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_fn, _ = aot_stage2_compile(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                      ^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/graph_compile.py", line 368, in aot_stage2_compile
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return aot_stage2_inference(aot_state, aot_graph_capture)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/graph_compile.py", line 446, in aot_stage2_inference
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_fw = _aot_stage2b_inference_compile(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/graph_compile.py", line 412, in _aot_stage2b_inference_compile
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return _aot_stage2b_compile_forward_or_inference(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/graph_compile.py", line 2513, in _aot_stage2b_compile_forward_or_inference
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_fw_func = compiler(fw_module, adjusted_flat_args)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/schemas.py", line 1394, in __call__
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     output_code = self.compiler_fn(gm, example_inputs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch_tpu/_internal/compile/_backend.py", line 381, in _compile_graph_module
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     executable = compiler_instance(graph_module, example_inputs, is_fwd=is_fwd)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch_tpu/_internal/compile/compiler.py", line 276, in __call__
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     exported_mlir = torch_tpu_export.fx_to_mlir(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch_tpu/_internal/export/export.py", line 558, in fx_to_mlir
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compile_result = tpu_torch_compile.traverse_and_compile(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] torch._dynamo.exc.BackendCompilerFailed: backend='<vllm.compilation.backends.VllmBackend object at 0x7e221ba93590>' raised:
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] RuntimeError: Failed to traverse and compile: failed to get fixed shape kernel: Mosaic failed to compile TPU kernel: Not Implemented: The last dim size is not 128 in original base memref
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] at location: loc("get:"("bm512_first_last/get/bm512_first_last/get"(callsite(callsite("WeightsRef.get_scale"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":154:19 to :64) at callsite("FusedWeightsRef.get_scale"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":176:17 to :52) at callsite("inner_kernel.<locals>._matmul"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":529:47 to 530:52) at "inner_kernel.<locals>.run_matmul_step.<locals>.matmul_first_last"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":593:12 to 595:38)))) at callsite("WeightsRef.get_scale"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":154:19 to :64) at callsite("FusedWeightsRef.get_scale"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":176:17 to :52) at callsite("inner_kernel.<locals>._matmul"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":529:47 to 530:52) at "inner_kernel.<locals>.run_matmul_step.<locals>.matmul_first_last"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":593:12 to 595:38))))))))
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] The MLIR operation involved:
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   %6352 = "tpu.strided_load"(%6351, %82, %82, %82) <{strides = array<i32: 1, 0, 1>}> {in_layout = [#tpu.vpad<"none">, #tpu.vpad<"none">, #tpu.vpad<"none">, #tpu.vpad<"none">], out_layout = [#tpu.vpad<"32,{0,0},(8,128)">]} : (memref<1x1x512xf32, #tpu.tiled<(1,128),[4,4,1]>, #tpu.memory_space<vmem>>, index, index, index) -> vector<1x512x512xf32>
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] ... additional diagnostics were skipped.
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] Please report a bug at: https://github.com/jax-ml/jax/issues/new/choose
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] Traceback (most recent call last):
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 996, in worker_busy_loop
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     output = func(*args, **kwargs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/root/torchtpu-vllm/src/vllm_torchtpu/worker/tpu_worker.py", line 344, in determine_available_memory
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     self.model_runner.profile_run(self.model_runner.max_num_tokens)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/root/torchtpu-vllm/src/vllm_torchtpu/runner/tpu_runner.py", line 3943, in profile_run
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     self._dummy_run(num_tokens, self.num_reqs_max_model_len,
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return func(*args, **kwargs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/root/torchtpu-vllm/src/vllm_torchtpu/runner/tpu_runner.py", line 3273, in _dummy_run
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     out, _ = self.forward_model(input_ids=input_ids,
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/root/torchtpu-vllm/src/vllm_torchtpu/runner/tpu_runner.py", line 4384, in forward_model
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     out = self.model(input_ids=input_ids,
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1779, in _wrapped_call_impl
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return self._call_impl(*args, **kwargs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1790, in _call_impl
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return forward_call(*args, **kwargs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen3_5.py", line 496, in forward
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     hidden_states = self.language_model.model(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/decorators.py", line 678, in __call__
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     output = TorchCompileWithNoGuardsWrapper.__call__(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/wrapper.py", line 183, in __call__
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return self._call_with_optional_nvtx_range(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/wrapper.py", line 70, in _call_with_optional_nvtx_range
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return callable_fn(*args, **kwargs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1038, in compile_wrapper
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     raise e.remove_dynamo_frames() from None  # see TORCHDYNAMO_VERBOSE=1
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_dynamo/output_graph.py", line 2689, in _call_user_compiler
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     raise BackendCompilerFailed(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_dynamo/output_graph.py", line 2664, in _call_user_compiler
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_fn = compiler_fn(gm, example_inputs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_dynamo/repro/after_dynamo.py", line 156, in __call__
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_gm = compiler_fn(gm, example_inputs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/__init__.py", line 2535, in __call__
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return self.compiler_fn(model_, inputs_, **self.kwargs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/contextlib.py", line 81, in inner
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return func(*args, **kwds)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/backends.py", line 1214, in __call__
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     PiecewiseCompileInterpreter(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return func(*args, **kwargs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/backends.py", line 723, in run
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return super().run(*args)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/fx/interpreter.py", line 200, in run
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     self.env[node] = self.run_node(node)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                      ^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/fx/interpreter.py", line 297, in run_node
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return getattr(self, n.op)(n.target, args, kwargs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/backends.py", line 750, in call_module
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     piecewise_backend = PiecewiseBackend(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                         ^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/piecewise_backend.py", line 190, in __init__
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     self.compile_all_ranges()
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/piecewise_backend.py", line 266, in compile_all_ranges
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     range_entry.runnable = self.vllm_backend.compiler_manager.compile(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return func(*args, **kwargs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/backends.py", line 353, in compile
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_graph, handle = self.compiler.compile(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                              ^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/root/torchtpu-vllm/src/vllm_torchtpu/compilation/tpu_compiler.py", line 308, in compile
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_fn = _tpu_backend(graph, example_inputs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch_tpu/_internal/compile/_backend.py", line 335, in __call__
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     result = aot_autograd(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]              ^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_dynamo/backends/common.py", line 124, in __call__
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     cg = aot_module_simplified(gm, example_inputs, **self.kwargs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_functorch/aot_autograd.py", line 1161, in aot_module_simplified
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_fn, _ = aot_stage2_compile(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                      ^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/graph_compile.py", line 368, in aot_stage2_compile
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return aot_stage2_inference(aot_state, aot_graph_capture)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/graph_compile.py", line 446, in aot_stage2_inference
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_fw = _aot_stage2b_inference_compile(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/graph_compile.py", line 412, in _aot_stage2b_inference_compile
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     return _aot_stage2b_compile_forward_or_inference(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/graph_compile.py", line 2513, in _aot_stage2b_compile_forward_or_inference
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compiled_fw_func = compiler(fw_module, adjusted_flat_args)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/schemas.py", line 1394, in __call__
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     output_code = self.compiler_fn(gm, example_inputs)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch_tpu/_internal/compile/_backend.py", line 381, in _compile_graph_module
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     executable = compiler_instance(graph_module, example_inputs, is_fwd=is_fwd)
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch_tpu/_internal/compile/compiler.py", line 276, in __call__
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     exported_mlir = torch_tpu_export.fx_to_mlir(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   File "/usr/local/lib/python3.12/site-packages/torch_tpu/_internal/export/export.py", line 558, in fx_to_mlir
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]     compile_result = tpu_torch_compile.traverse_and_compile(
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] torch._dynamo.exc.BackendCompilerFailed: backend='<vllm.compilation.backends.VllmBackend object at 0x7e221ba93590>' raised:
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] RuntimeError: Failed to traverse and compile: failed to get fixed shape kernel: Mosaic failed to compile TPU kernel: Not Implemented: The last dim size is not 128 in original base memref
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] at location: loc("get:"("bm512_first_last/get/bm512_first_last/get"(callsite(callsite("WeightsRef.get_scale"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":154:19 to :64) at callsite("FusedWeightsRef.get_scale"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":176:17 to :52) at callsite("inner_kernel.<locals>._matmul"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":529:47 to 530:52) at "inner_kernel.<locals>.run_matmul_step.<locals>.matmul_first_last"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":593:12 to 595:38)))) at callsite("WeightsRef.get_scale"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":154:19 to :64) at callsite("FusedWeightsRef.get_scale"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":176:17 to :52) at callsite("inner_kernel.<locals>._matmul"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":529:47 to 530:52) at "inner_kernel.<locals>.run_matmul_step.<locals>.matmul_first_last"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":593:12 to 595:38))))))))
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] The MLIR operation involved:
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004]   %6352 = "tpu.strided_load"(%6351, %82, %82, %82) <{strides = array<i32: 1, 0, 1>}> {in_layout = [#tpu.vpad<"none">, #tpu.vpad<"none">, #tpu.vpad<"none">, #tpu.vpad<"none">], out_layout = [#tpu.vpad<"32,{0,0},(8,128)">]} : (memref<1x1x512xf32, #tpu.tiled<(1,128),[4,4,1]>, #tpu.memory_space<vmem>>, index, index, index) -> vector<1x512x512xf32>
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] ... additional diagnostics were skipped.
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] Please report a bug at: https://github.com/jax-ml/jax/issues/new/choose
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(Worker_PCP0_EP0 pid=27611) ERROR 07-27 08:48:33 [multiproc_executor.py:1004] 
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231] EngineCore failed to start.
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231] Traceback (most recent call last):
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 1200, in run_engine_core
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]     engine_core = EngineCoreProc(*args, engine_index=dp_rank, **kwargs)
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]     return func(*args, **kwargs)
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 966, in __init__
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]     super().__init__(
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 133, in __init__
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]     kv_cache_config = self._initialize_kv_caches(vllm_config)
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]     return func(*args, **kwargs)
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 283, in _initialize_kv_caches
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]     available_gpu_memory = self.model_executor.determine_available_memory()
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/abstract.py", line 147, in determine_available_memory
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]     return self.collective_rpc("determine_available_memory")
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 402, in collective_rpc
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]     return future if non_block else future.result()
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]                                     ^^^^^^^^^^^^^^^
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 91, in result
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]     return super().result()
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]            ^^^^^^^^^^^^^^^^
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]   File "/usr/local/lib/python3.12/concurrent/futures/_base.py", line 449, in result
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]     return self.__get_result()
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]            ^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]   File "/usr/local/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]     raise self._exception
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 95, in _wait_for_response
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]     response = self.aggregate(self.get_response())
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]                               ^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 391, in get_response
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]     raise RuntimeError(
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231] RuntimeError: Worker failed with error 'backend='<vllm.compilation.backends.VllmBackend object at 0x7e221ba93590>' raised:
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231] RuntimeError: Failed to traverse and compile: failed to get fixed shape kernel: Mosaic failed to compile TPU kernel: Not Implemented: The last dim size is not 128 in original base memref
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231] 
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231] at location: loc("get:"("bm512_first_last/get/bm512_first_last/get"(callsite(callsite("WeightsRef.get_scale"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":154:19 to :64) at callsite("FusedWeightsRef.get_scale"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":176:17 to :52) at callsite("inner_kernel.<locals>._matmul"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":529:47 to 530:52) at "inner_kernel.<locals>.run_matmul_step.<locals>.matmul_first_last"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":593:12 to 595:38)))) at callsite("WeightsRef.get_scale"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":154:19 to :64) at callsite("FusedWeightsRef.get_scale"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":176:17 to :52) at callsite("inner_kernel.<locals>._matmul"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":529:47 to 530:52) at "inner_kernel.<locals>.run_matmul_step.<locals>.matmul_first_last"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":593:12 to 595:38))))))))
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231] 
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231] The MLIR operation involved:
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231]   %6352 = "tpu.strided_load"(%6351, %82, %82, %82) <{strides = array<i32: 1, 0, 1>}> {in_layout = [#tpu.vpad<"none">, #tpu.vpad<"none">, #tpu.vpad<"none">, #tpu.vpad<"none">], out_layout = [#tpu.vpad<"32,{0,0},(8,128)">]} : (memref<1x1x512xf32, #tpu.tiled<(1,128),[4,4,1]>, #tpu.memory_space<vmem>>, index, index, index) -> vector<1x512x512xf32>
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231] ... additional diagnostics were skipped.
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231] 
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231] Please report a bug at: https://github.com/jax-ml/jax/issues/new/choose
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231] 
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231] 
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231] Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+(EngineCore pid=14695) ERROR 07-27 08:48:33 [core.py:1231] ', please check the stack trace above for the root cause
+(Worker_PCP0_EP0 pid=27611) Exception ignored in: <function WeakValueDictionary.__init__.<locals>.remove at 0x7e21c7c4ab60>
+(Worker_PCP0_EP0 pid=27611) Traceback (most recent call last):
+(Worker_PCP0_EP0 pid=27611)   File "/usr/local/lib/python3.12/weakref.py", line 105, in remove
+(Worker_PCP0_EP0 pid=27611)     def remove(wr, selfref=ref(self), _atomic_removal=_remove_dead_weakref):
+(Worker_PCP0_EP0 pid=27611) 
+(Worker_PCP0_EP0 pid=27611)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 823, in signal_handler
+(Worker_PCP0_EP0 pid=27611)     raise SystemExit()
+(Worker_PCP0_EP0 pid=27611) SystemExit: 
++-----------+
+| Anomalies |
++-----------+
+---------
+Anomalies
+---------
++-----------+
+| Anomalies |
++-----------+
+---------
+Anomalies
+---------
+(EngineCore pid=14695) ERROR 07-27 08:48:38 [multiproc_executor.py:284] Worker proc VllmWorker-1 died unexpectedly, shutting down executor.
+(Worker_PCP0_EP0 pid=27611) INFO 07-27 08:48:38 [multiproc_executor.py:790] Parent process exited, terminating worker queues
+(EngineCore pid=14695) INFO 07-27 08:48:38 [multiproc_executor.py:426] [shutdown] Executor: waiting for worker exit count=8
+(EngineCore pid=14695) Process EngineCore:
+(EngineCore pid=14695) Traceback (most recent call last):
+(EngineCore pid=14695)   File "/usr/local/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+(EngineCore pid=14695)     self.run()
+(EngineCore pid=14695)   File "/usr/local/lib/python3.12/multiprocessing/process.py", line 108, in run
+(EngineCore pid=14695)     self._target(*self._args, **self._kwargs)
+(EngineCore pid=14695)   File "/root/torchtpu-vllm/src/vllm_torchtpu/__init__.py", line 362, in _run_engine_core_with_tpu_patches
+(EngineCore pid=14695)     return original_run(*args, **kwargs)
+(EngineCore pid=14695)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=14695)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 1235, in run_engine_core
+(EngineCore pid=14695)     raise e
+(EngineCore pid=14695)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 1200, in run_engine_core
+(EngineCore pid=14695)     engine_core = EngineCoreProc(*args, engine_index=dp_rank, **kwargs)
+(EngineCore pid=14695)                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=14695)   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=14695)     return func(*args, **kwargs)
+(EngineCore pid=14695)            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=14695)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 966, in __init__
+(EngineCore pid=14695)     super().__init__(
+(EngineCore pid=14695)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 133, in __init__
+(EngineCore pid=14695)     kv_cache_config = self._initialize_kv_caches(vllm_config)
+(EngineCore pid=14695)                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=14695)   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=14695)     return func(*args, **kwargs)
+(EngineCore pid=14695)            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=14695)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 283, in _initialize_kv_caches
+(EngineCore pid=14695)     available_gpu_memory = self.model_executor.determine_available_memory()
+(EngineCore pid=14695)                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=14695)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/abstract.py", line 147, in determine_available_memory
+(EngineCore pid=14695)     return self.collective_rpc("determine_available_memory")
+(EngineCore pid=14695)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=14695)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 402, in collective_rpc
+(EngineCore pid=14695)     return future if non_block else future.result()
+(EngineCore pid=14695)                                     ^^^^^^^^^^^^^^^
+(EngineCore pid=14695)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 91, in result
+(EngineCore pid=14695)     return super().result()
+(EngineCore pid=14695)            ^^^^^^^^^^^^^^^^
+(EngineCore pid=14695)   File "/usr/local/lib/python3.12/concurrent/futures/_base.py", line 449, in result
+(EngineCore pid=14695)     return self.__get_result()
+(EngineCore pid=14695)            ^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=14695)   File "/usr/local/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+(EngineCore pid=14695)     raise self._exception
+(EngineCore pid=14695)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 95, in _wait_for_response
+(EngineCore pid=14695)     response = self.aggregate(self.get_response())
+(EngineCore pid=14695)                               ^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=14695)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 391, in get_response
+(EngineCore pid=14695)     raise RuntimeError(
+(EngineCore pid=14695) RuntimeError: Worker failed with error 'backend='<vllm.compilation.backends.VllmBackend object at 0x7e221ba93590>' raised:
+(EngineCore pid=14695) RuntimeError: Failed to traverse and compile: failed to get fixed shape kernel: Mosaic failed to compile TPU kernel: Not Implemented: The last dim size is not 128 in original base memref
+(EngineCore pid=14695) 
+(EngineCore pid=14695) at location: loc("get:"("bm512_first_last/get/bm512_first_last/get"(callsite(callsite("WeightsRef.get_scale"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":154:19 to :64) at callsite("FusedWeightsRef.get_scale"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":176:17 to :52) at callsite("inner_kernel.<locals>._matmul"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":529:47 to 530:52) at "inner_kernel.<locals>.run_matmul_step.<locals>.matmul_first_last"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":593:12 to 595:38)))) at callsite("WeightsRef.get_scale"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":154:19 to :64) at callsite("FusedWeightsRef.get_scale"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":176:17 to :52) at callsite("inner_kernel.<locals>._matmul"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":529:47 to 530:52) at "inner_kernel.<locals>.run_matmul_step.<locals>.matmul_first_last"("/root/torchtpu-vllm/src/vllm_torchtpu/kernels/megablox/gmm_v2.py":593:12 to 595:38))))))))
+(EngineCore pid=14695) 
+(EngineCore pid=14695) The MLIR operation involved:
+(EngineCore pid=14695)   %6352 = "tpu.strided_load"(%6351, %82, %82, %82) <{strides = array<i32: 1, 0, 1>}> {in_layout = [#tpu.vpad<"none">, #tpu.vpad<"none">, #tpu.vpad<"none">, #tpu.vpad<"none">], out_layout = [#tpu.vpad<"32,{0,0},(8,128)">]} : (memref<1x1x512xf32, #tpu.tiled<(1,128),[4,4,1]>, #tpu.memory_space<vmem>>, index, index, index) -> vector<1x512x512xf32>
+(EngineCore pid=14695) ... additional diagnostics were skipped.
+(EngineCore pid=14695) 
+(EngineCore pid=14695) Please report a bug at: https://github.com/jax-ml/jax/issues/new/choose
+(EngineCore pid=14695) 
+(EngineCore pid=14695) 
+(EngineCore pid=14695) Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+(EngineCore pid=14695) ', please check the stack trace above for the root cause
+(APIServer pid=900) Traceback (most recent call last):
+(APIServer pid=900)   File "/usr/local/bin/vllm", line 10, in <module>
+(APIServer pid=900)     sys.exit(main())
+(APIServer pid=900)              ^^^^^^
+(APIServer pid=900)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/cli/main.py", line 95, in main
+(APIServer pid=900)     args.dispatch_function(args)
+(APIServer pid=900)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/cli/serve.py", line 148, in cmd
+(APIServer pid=900)     uvloop.run(run_server(args))
+(APIServer pid=900)   File "/usr/local/lib/python3.12/site-packages/uvloop/__init__.py", line 96, in run
+(APIServer pid=900)     return __asyncio.run(
+(APIServer pid=900)            ^^^^^^^^^^^^^^
+(APIServer pid=900)   File "/usr/local/lib/python3.12/asyncio/runners.py", line 195, in run
+(APIServer pid=900)     return runner.run(main)
+(APIServer pid=900)            ^^^^^^^^^^^^^^^^
+(APIServer pid=900)   File "/usr/local/lib/python3.12/asyncio/runners.py", line 118, in run
+(APIServer pid=900)     return self._loop.run_until_complete(task)
+(APIServer pid=900)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=900)   File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+(APIServer pid=900)   File "/usr/local/lib/python3.12/site-packages/uvloop/__init__.py", line 48, in wrapper
+(APIServer pid=900)     return await main
+(APIServer pid=900)            ^^^^^^^^^^
+(APIServer pid=900)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 698, in run_server
+(APIServer pid=900)     await run_server_worker(listen_address, sock, args, **uvicorn_kwargs)
+(APIServer pid=900)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 712, in run_server_worker
+(APIServer pid=900)     async with build_async_engine_client(
+(APIServer pid=900)                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=900)   File "/usr/local/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=900)     return await anext(self.gen)
+(APIServer pid=900)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=900)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 100, in build_async_engine_client
+(APIServer pid=900)     async with build_async_engine_client_from_engine_args(
+(APIServer pid=900)                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=900)   File "/usr/local/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=900)     return await anext(self.gen)
+(APIServer pid=900)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=900)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 136, in build_async_engine_client_from_engine_args
+(APIServer pid=900)     async_llm = AsyncLLM.from_vllm_config(
+(APIServer pid=900)                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=900)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/async_llm.py", line 217, in from_vllm_config
+(APIServer pid=900)     return cls(
+(APIServer pid=900)            ^^^^
+(APIServer pid=900)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/async_llm.py", line 146, in __init__
+(APIServer pid=900)     self.engine_core = EngineCoreClient.make_async_mp_client(
+(APIServer pid=900)                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=900)   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(APIServer pid=900)     return func(*args, **kwargs)
+(APIServer pid=900)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=900)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/core_client.py", line 132, in make_async_mp_client
+(APIServer pid=900)     return AsyncMPClient(*client_args)
+(APIServer pid=900)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=900)   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(APIServer pid=900)     return func(*args, **kwargs)
+(APIServer pid=900)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=900)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/core_client.py", line 963, in __init__
+(APIServer pid=900)     super().__init__(
+(APIServer pid=900)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/core_client.py", line 573, in __init__
+(APIServer pid=900)     with launch_core_engines(
+(APIServer pid=900)          ^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=900)   File "/usr/local/lib/python3.12/contextlib.py", line 144, in __exit__
+(APIServer pid=900)     next(self.gen)
+(APIServer pid=900)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/utils.py", line 1213, in launch_core_engines
+(APIServer pid=900)     wait_for_engine_startup(
+(APIServer pid=900)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/utils.py", line 1272, in wait_for_engine_startup
+(APIServer pid=900)     raise RuntimeError(
+(APIServer pid=900) RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+/usr/local/lib/python3.12/multiprocessing/resource_tracker.py:279: UserWarning: resource_tracker: There appear to be 7 leaked shared_memory objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '
