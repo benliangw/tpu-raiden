@@ -1,0 +1,237 @@
+===== Syncing dependencies to pyproject.toml =====
+Using Python 3.12.13 environment at: /usr/local
+Resolved 218 packages in 874ms
+Downloading torchcodec (2.9MiB)
+Downloading nvidia-nvjitlink (38.9MiB)
+Downloading flashinfer-python (13.5MiB)
+Downloading nvidia-cudnn-frontend (3.5MiB)
+Downloading flashinfer-cubin (436.8MiB)
+Downloading nvidia-cuda-tileiras (35.3MiB)
+Downloading jaxlib (81.5MiB)
+Downloading pynvvideocodec (41.2MiB)
+Downloading libtpu (205.5MiB)
+Downloading vllm (238.5MiB)
+Downloading jax (3.1MiB)
+ Downloaded torchcodec
+ Downloaded nvidia-cudnn-frontend
+ Downloaded jax
+ Downloaded nvidia-cuda-tileiras
+ Downloaded nvidia-nvjitlink
+ Downloaded pynvvideocodec
+ Downloaded jaxlib
+ Downloaded flashinfer-python
+ Downloaded libtpu
+ Downloaded vllm
+ Downloaded flashinfer-cubin
+Prepared 14 packages in 10.07s
+Uninstalled 8 packages in 1.02s
+Installed 14 packages in 306ms
+ + cuda-toolkit==13.3.1
+ - flashinfer-cubin==0.6.11.post2
+ + flashinfer-cubin==0.6.13
+ - flashinfer-python==0.6.11.post2
+ + flashinfer-python==0.6.13
+ - humming-kernels==0.1.2
+ + humming-kernels==0.1.10
+ - jax==0.10.0
+ + jax==0.10.2
+ - jaxlib==0.10.0
+ + jaxlib==0.10.2
+ - libtpu==0.0.40
+ + libtpu==0.0.43
+ + nvidia-cuda-tileiras==13.3.36
+ - nvidia-cudnn-frontend==1.18.0
+ + nvidia-cudnn-frontend==1.26.0
+ + nvidia-nvjitlink==13.3.33
+ + nvtx==0.2.15
+ + pynvvideocodec==2.0.4
+ + torchcodec==0.15.0
+ - vllm==0.23.1rc1.dev927+gc0e8e1f12.d20260708.tpu (from file:///root/cloud-devkit/vllm)
+ + vllm==0.25.1
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 4ms
+Prepared 1 package in 943ms
+Uninstalled 1 package in 40ms
+Installed 1 package in 2ms
+ - torch-tpu==0.1.1 (from file:///artifact-source/opt/wheels/torch_tpu-0.1.1-cp312-cp312-manylinux_2_31_x86_64.whl)
+ + torch-tpu==0.1.1.dev20260714090201 (from file:///root/wheels/torch_tpu-0.1.1.dev20260714090201-cp312-cp312-manylinux_2_31_x86_64.whl)
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 4ms
+Prepared 1 package in 311ms
+Installed 1 package in 1ms
+ + tpu-raiden-torch==0.0.1.dev20260723161528 (from file:///root/wheels/tpu_raiden_torch-0.0.1.dev20260723161528-1_head_0e09976-cp312-cp312-manylinux_2_31_x86_64.whl)
+===== Pre-downloading Qwen/Qwen3.5-35B-A3B-FP8 snapshot =====
+Fetching 28 files:   0%|          | 0/28 [00:00<?, ?it/s]Fetching 28 files:   7%|▋         | 2/28 [00:00<00:01, 17.32it/s]Fetching 28 files:   7%|▋         | 2/28 [00:19<00:01, 17.32it/s]Fetching 28 files:  32%|███▏      | 9/28 [00:54<02:02,  6.43s/it]Fetching 28 files:  39%|███▉      | 11/28 [00:56<01:27,  5.15s/it]Fetching 28 files:  46%|████▋     | 13/28 [00:58<01:00,  4.06s/it]Fetching 28 files:  61%|██████    | 17/28 [01:49<01:25,  7.80s/it]Fetching 28 files: 100%|██████████| 28/28 [01:49<00:00,  3.92s/it]
+===== Starting Raiden controller on :27000 =====
+{"address": "j-7760f8f6-7005-444e-acf8-prefill-0-0.j-7760f8f6-7005-444e-acf8:27000", "advertise_host": "j-7760f8f6-7005-444e-acf8-prefill-0-0.j-7760f8f6-7005-444e-acf8", "event": "raiden_controller_ready", "pid": 674, "port": 27000, "request_registry_ttl_s": 600.0, "requested_port": 27000, "schema_version": 1, "time_unix_s": 1785138869.7673225}
+===== Starting Qwen3.5 PCP8 prefill node (disagg+offload) =====
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1785138871.939820     679 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1785138871.949636     679 tpu_profiler_plugin.cc:717] PyTorch PrivateUse1ProfilerRegistry not found. Native TPU profiling will be disabled (this is expected on PyTorch < 2.12).
+I0000 00:00:1785138872.581473     679 device_rt.cc:125] PjRt runtime initialization deferred for tpu
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+INFO 07-27 07:54:32 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 07-27 07:54:32 [__init__.py:46] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 07-27 07:54:32 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 07-27 07:54:34 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 07-27 07:54:34 [tpu_info.py:26] 
+INFO 07-27 07:54:34 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 07-27 07:54:34 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 07-27 07:54:34 [tpu_platform.py:852] Pin memory is not supported on TPU.
+INFO 07-27 07:54:38 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 07-27 07:54:38 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+(APIServer pid=679) INFO 07-27 07:54:41 [api_utils.py:339] 
+(APIServer pid=679) INFO 07-27 07:54:41 [api_utils.py:339]        █     █     █▄   ▄█
+(APIServer pid=679) INFO 07-27 07:54:41 [api_utils.py:339]  ▄▄ ▄█ █     █     █ ▀▄▀ █  version 0.25.1
+(APIServer pid=679) INFO 07-27 07:54:41 [api_utils.py:339]   █▄█▀ █     █     █     █  model   Qwen/Qwen3.5-35B-A3B-FP8
+(APIServer pid=679) INFO 07-27 07:54:41 [api_utils.py:339]    ▀▀  ▀▀▀▀▀ ▀▀▀▀▀ ▀     ▀
+(APIServer pid=679) INFO 07-27 07:54:41 [api_utils.py:339] 
+(APIServer pid=679) INFO 07-27 07:54:41 [api_utils.py:273] non-default args: {'model_tag': 'Qwen/Qwen3.5-35B-A3B-FP8', 'enable_prompt_tokens_details': True, 'host': '0.0.0.0', 'model': 'Qwen/Qwen3.5-35B-A3B-FP8', 'trust_remote_code': True, 'seed': 42, 'max_model_len': 65536, 'served_model_name': ['Qwen3.5-35B-A3B-FP8'], 'attention_backend': 'CUSTOM', 'cp_kv_cache_interleave_size': 256, 'prefill_context_parallel_size': 8, 'enable_expert_parallel': True, 'disable_custom_all_reduce': True, 'block_size': 4096, 'gpu_memory_utilization': 0.9, 'kv_cache_dtype': 'fp8', 'num_gpu_blocks_override': 16, 'enable_prefix_caching': True, 'mamba_cache_mode': 'align', 'language_model_only': True, 'max_num_batched_tokens': 4096, 'max_num_seqs': 2, 'disable_hybrid_kv_cache_manager': False, 'async_scheduling': False, 'kv_transfer_config': KVTransferConfig(kv_connector='TPUMultiConnector', engine_id='aa361337-88a4-4ec9-a6db-ac98494abd60', kv_buffer_device='tpu', kv_buffer_size=1000000000.0, kv_role='kv_producer', kv_rank=None, kv_parallel_size=1, kv_ip='127.0.0.1', kv_port=14579, kv_connector_extra_config={'connectors': [{'kv_connector': 'TPURaidenConnector', 'kv_connector_module_path': 'vllm_torchtpu.distributed.kv_transfer.tpu_connector', 'kv_role': 'kv_producer', 'kv_port': 14579}, {'kv_connector': 'OffloadingConnector', 'kv_role': 'kv_both', 'kv_connector_extra_config': {'spec_name': 'TPUCPUOffloadingSpec', 'spec_module_path': 'vllm_torchtpu.offload.cpu_tpu', 'cpu_bytes_to_use': 68719476736}}]}, kv_connector_module_path='vllm_torchtpu.distributed.kv_transfer.tpu_multi_connector', enable_permute_local_kv=False, kv_load_failure_policy='fail'), 'compilation_config': {'mode': None, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'vllm_torchtpu.compilation.tpu_compiler.TpuCompilerAdaptor', 'custom_ops': [], 'ir_enable_torch_wrap': None, 'splitting_ops': None, 'compile_mm_encoder': False, 'cudagraph_mm_encoder': False, 'encoder_cudagraph_token_budgets': [], 'encoder_cudagraph_max_vision_items_per_batch': 0, 'encoder_cudagraph_max_frames_per_batch': None, 'compile_sizes': [4096], 'compile_ranges_endpoints': None, 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'size_asserts': False, 'alignment_asserts': False, 'scalar_asserts': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': None, 'cudagraph_num_of_warmups': 0, 'cudagraph_capture_sizes': None, 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': None, 'pass_config': {}, 'max_cudagraph_capture_size': None, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': None, 'static_all_moe_layers': []}}
+(APIServer pid=679) INFO 07-27 07:54:41 [arg_utils.py:772] HF_HUB_OFFLINE is True, replace model_id [Qwen/Qwen3.5-35B-A3B-FP8] to model_path [/root/.cache/huggingface/hub/models--Qwen--Qwen3.5-35B-A3B-FP8/snapshots/9d1823d2dee688a6b25e77009dc727688c44936e]
+(APIServer pid=679) WARNING 07-27 07:54:41 [envs.py:2041] Unknown vLLM environment variable detected: VLLM_TPU_OFFLOAD_RAIDEN
+(APIServer pid=679) WARNING 07-27 07:54:50 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+(APIServer pid=679) WARNING 07-27 07:54:50 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+(APIServer pid=679) WARNING 07-27 07:54:50 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+(APIServer pid=679) WARNING 07-27 07:54:50 [interface.py:358] Failed to import from vllm._C: ModuleNotFoundError("No module named 'vllm._C'")
+(APIServer pid=679) INFO 07-27 07:54:50 [model.py:619] Resolved architecture: Qwen3_5MoeForConditionalGeneration
+(APIServer pid=679) INFO 07-27 07:54:50 [model.py:1776] Using max model len 65536
+(APIServer pid=679) INFO 07-27 07:54:50 [cache.py:286] Using fp8 data type to store kv cache. It reduces the GPU memory footprint and boosts the performance. Meanwhile, it may cause accuracy drop without a proper scaling factor
+(APIServer pid=679) INFO 07-27 07:54:50 [scheduler.py:252] Chunked prefill is enabled with max_num_batched_tokens=4096.
+(APIServer pid=679) INFO 07-27 07:54:50 [config.py:583] Warning: Prefix caching in Mamba cache 'align' mode is currently enabled. Its support for Mamba layers is experimental. Please report any issues you may observe.
+(APIServer pid=679) INFO 07-27 07:54:50 [vllm.py:1042] Asynchronous scheduling is disabled.
+(APIServer pid=679) INFO 07-27 07:54:50 [kernel.py:292] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+(APIServer pid=679) INFO 07-27 07:54:51 [__init__.py:29] Applied TPU patch: include compiler hash in AOT cache key.
+(APIServer pid=679) INFO 07-27 07:54:51 [__init__.py:79] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold', 'phased_profiling_dir'] from the compile cache key.
+(APIServer pid=679) INFO 07-27 07:54:51 [__init__.py:109] Applied TPU patch: disable vLLM custom collective ops.
+(APIServer pid=679) INFO 07-27 07:54:51 [__init__.py:130] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+(APIServer pid=679) INFO 07-27 07:54:51 [__init__.py:157] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+(APIServer pid=679) INFO 07-27 07:54:51 [__init__.py:231] Applied TPU patch: disable sequence-parallel MoE.
+(APIServer pid=679) INFO 07-27 07:54:51 [__init__.py:300] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+(APIServer pid=679) INFO 07-27 07:54:51 [__init__.py:214] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+(APIServer pid=679) INFO 07-27 07:54:51 [__init__.py:547] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+(APIServer pid=679) INFO 07-27 07:54:51 [__init__.py:247] Applied TPU patch: disable DP microbatching.
+(APIServer pid=679) INFO 07-27 07:54:51 [__init__.py:353] Applied TPU patch: MultiprocExecutor worker binding env.
+(APIServer pid=679) INFO 07-27 07:54:51 [tpu_platform.py:85] TorchTPU eager mode configured: DEFER_AND_FUSE (previous=DEFER_NEVER)
+(APIServer pid=679) INFO 07-27 07:54:51 [tpu_platform.py:604] Using vLLM native multiprocess PCP world; PCP is not represented as a JAX mesh axis.
+(APIServer pid=679) INFO 07-27 07:54:51 [tpu_platform.py:736] Preparing TorchTPU bootstrap env for native PCP multiprocess world_size=8.
+(APIServer pid=679) INFO 07-27 07:54:51 [tpu_rank_binding.py:184] Probing PCP LOCAL_RANK remap for world_size=8 topology=2,2,1,2.
+(APIServer pid=679) Traceback (most recent call last):
+(APIServer pid=679)   File "/usr/local/bin/vllm", line 10, in <module>
+(APIServer pid=679)     sys.exit(main())
+(APIServer pid=679)              ^^^^^^
+(APIServer pid=679)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/cli/main.py", line 95, in main
+(APIServer pid=679)     args.dispatch_function(args)
+(APIServer pid=679)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/cli/serve.py", line 148, in cmd
+(APIServer pid=679)     uvloop.run(run_server(args))
+(APIServer pid=679)   File "/usr/local/lib/python3.12/site-packages/uvloop/__init__.py", line 96, in run
+(APIServer pid=679)     return __asyncio.run(
+(APIServer pid=679)            ^^^^^^^^^^^^^^
+(APIServer pid=679)   File "/usr/local/lib/python3.12/asyncio/runners.py", line 195, in run
+(APIServer pid=679)     return runner.run(main)
+(APIServer pid=679)            ^^^^^^^^^^^^^^^^
+(APIServer pid=679)   File "/usr/local/lib/python3.12/asyncio/runners.py", line 118, in run
+(APIServer pid=679)     return self._loop.run_until_complete(task)
+(APIServer pid=679)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=679)   File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+(APIServer pid=679)   File "/usr/local/lib/python3.12/site-packages/uvloop/__init__.py", line 48, in wrapper
+(APIServer pid=679)     return await main
+(APIServer pid=679)            ^^^^^^^^^^
+(APIServer pid=679)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 698, in run_server
+(APIServer pid=679)     await run_server_worker(listen_address, sock, args, **uvicorn_kwargs)
+(APIServer pid=679)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 712, in run_server_worker
+(APIServer pid=679)     async with build_async_engine_client(
+(APIServer pid=679)                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=679)   File "/usr/local/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=679)     return await anext(self.gen)
+(APIServer pid=679)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=679)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 100, in build_async_engine_client
+(APIServer pid=679)     async with build_async_engine_client_from_engine_args(
+(APIServer pid=679)                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=679)   File "/usr/local/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=679)     return await anext(self.gen)
+(APIServer pid=679)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=679)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 124, in build_async_engine_client_from_engine_args
+(APIServer pid=679)     vllm_config = engine_args.create_engine_config(usage_context=usage_context)
+(APIServer pid=679)                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=679)   File "/usr/local/lib/python3.12/site-packages/vllm/engine/arg_utils.py", line 2338, in create_engine_config
+(APIServer pid=679)     config = VllmConfig(
+(APIServer pid=679)              ^^^^^^^^^^^
+(APIServer pid=679)   File "/usr/local/lib/python3.12/site-packages/pydantic/_internal/_dataclasses.py", line 121, in __init__
+(APIServer pid=679)     s.__pydantic_validator__.validate_python(ArgsKwargs(args, kwargs), self_instance=s)
+(APIServer pid=679)   File "/usr/local/lib/python3.12/site-packages/vllm/config/vllm.py", line 1384, in __post_init__
+(APIServer pid=679)     current_platform.check_and_update_config(self)
+(APIServer pid=679)   File "/root/torchtpu-vllm/src/vllm_torchtpu/platforms/tpu_platform.py", line 739, in check_and_update_config
+(APIServer pid=679)     ensure_pcp_local_rank_remap(
+(APIServer pid=679)   File "/root/torchtpu-vllm/src/vllm_torchtpu/worker/tpu_rank_binding.py", line 301, in ensure_pcp_local_rank_remap
+(APIServer pid=679)     remap = probe_pcp_local_rank_remap(world_size, get_topology=get_topology)
+(APIServer pid=679)             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=679)   File "/root/torchtpu-vllm/src/vllm_torchtpu/worker/tpu_rank_binding.py", line 257, in probe_pcp_local_rank_remap
+(APIServer pid=679)     raise RuntimeError("PCP LOCAL_RANK remap probe timed out.\n" +
+(APIServer pid=679) RuntimeError: PCP LOCAL_RANK remap probe timed out.
+(APIServer pid=679) rank 0 log (/tmp/vllm-tpu-pcp-remap-probe-o70cndhd/rank-0.log):
+(APIServer pid=679) WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+(APIServer pid=679) I0000 00:00:1785138893.359262    1459 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+(APIServer pid=679) Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+(APIServer pid=679) Registered Python module for 'tpu'.
+(APIServer pid=679) Device type: tpu, Device index: default
+(APIServer pid=679) Initializing TPU distributed runtime
+(APIServer pid=679) 
+(APIServer pid=679) rank 1 log (/tmp/vllm-tpu-pcp-remap-probe-o70cndhd/rank-1.log):
+(APIServer pid=679) WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+(APIServer pid=679) I0000 00:00:1785138893.359262    1460 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+(APIServer pid=679) Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+(APIServer pid=679) Registered Python module for 'tpu'.
+(APIServer pid=679) Device type: tpu, Device index: default
+(APIServer pid=679) Initializing TPU distributed runtime
+(APIServer pid=679) 
+(APIServer pid=679) rank 2 log (/tmp/vllm-tpu-pcp-remap-probe-o70cndhd/rank-2.log):
+(APIServer pid=679) WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+(APIServer pid=679) I0000 00:00:1785138893.363602    1461 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+(APIServer pid=679) Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+(APIServer pid=679) Registered Python module for 'tpu'.
+(APIServer pid=679) Device type: tpu, Device index: default
+(APIServer pid=679) Initializing TPU distributed runtime
+(APIServer pid=679) 
+(APIServer pid=679) rank 3 log (/tmp/vllm-tpu-pcp-remap-probe-o70cndhd/rank-3.log):
+(APIServer pid=679) WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+(APIServer pid=679) I0000 00:00:1785138893.359266    1462 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+(APIServer pid=679) Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+(APIServer pid=679) Registered Python module for 'tpu'.
+(APIServer pid=679) Device type: tpu, Device index: default
+(APIServer pid=679) Initializing TPU distributed runtime
+(APIServer pid=679) 
+(APIServer pid=679) rank 4 log (/tmp/vllm-tpu-pcp-remap-probe-o70cndhd/rank-4.log):
+(APIServer pid=679) WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+(APIServer pid=679) I0000 00:00:1785138893.359260    1463 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+(APIServer pid=679) Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+(APIServer pid=679) Registered Python module for 'tpu'.
+(APIServer pid=679) Device type: tpu, Device index: default
+(APIServer pid=679) Initializing TPU distributed runtime
+(APIServer pid=679) 
+(APIServer pid=679) rank 5 log (/tmp/vllm-tpu-pcp-remap-probe-o70cndhd/rank-5.log):
+(APIServer pid=679) WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+(APIServer pid=679) I0000 00:00:1785138893.368496    1464 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+(APIServer pid=679) Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+(APIServer pid=679) Registered Python module for 'tpu'.
+(APIServer pid=679) Device type: tpu, Device index: default
+(APIServer pid=679) Initializing TPU distributed runtime
+(APIServer pid=679) 
+(APIServer pid=679) rank 6 log (/tmp/vllm-tpu-pcp-remap-probe-o70cndhd/rank-6.log):
+(APIServer pid=679) WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+(APIServer pid=679) I0000 00:00:1785138893.360601    1465 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+(APIServer pid=679) Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+(APIServer pid=679) Registered Python module for 'tpu'.
+(APIServer pid=679) Device type: tpu, Device index: default
+(APIServer pid=679) Initializing TPU distributed runtime
+(APIServer pid=679) 
+(APIServer pid=679) rank 7 log (/tmp/vllm-tpu-pcp-remap-probe-o70cndhd/rank-7.log):
+(APIServer pid=679) WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+(APIServer pid=679) I0000 00:00:1785138893.401486    1466 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+(APIServer pid=679) Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+(APIServer pid=679) Registered Python module for 'tpu'.
+(APIServer pid=679) Device type: tpu, Device index: default
+(APIServer pid=679) Initializing TPU distributed runtime
+(APIServer pid=679) 
