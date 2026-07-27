@@ -2,3 +2,25 @@ INFO:     Started server process [1]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:10000 (Press CTRL+C to quit)
+Initialized 1 prefill clients and 1 decode clients.
+INFO:     10.36.46.154:46146 - "GET /healthcheck HTTP/1.1" 200 OK
+PERF PROXY req_received req_id=c0f95cfb-54a9-4edd-8967-11a192506b11 ts=1785147023.525133
+PERF PROXY prefill_send req_id=c0f95cfb-54a9-4edd-8967-11a192506b11 ts=1785147023.558537
+PERF PROXY latency summary | prefill: n=1 avg=4047.22ms min=4047.22ms max=4047.22ms
+PERF PROXY prefill_recv req_id=c0f95cfb-54a9-4edd-8967-11a192506b11 ts=1785147027.605762 dur_ms=4047.22
+INFO:     10.36.46.154:46158 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=c0f95cfb-54a9-4edd-8967-11a192506b11 ts=1785147027.606234
+PERF PROXY first_chunk req_id=c0f95cfb-54a9-4edd-8967-11a192506b11 ts=1785147032.503074 dur_from_decode_send_ms=4896.84 ttft_ms=8978.01
+PERF PROXY req_received req_id=54d69469-e64d-4c05-a674-009d9ae61bbd ts=1785147032.516635
+PERF PROXY prefill_send req_id=54d69469-e64d-4c05-a674-009d9ae61bbd ts=1785147032.519518
+PERF PROXY prefill_recv req_id=54d69469-e64d-4c05-a674-009d9ae61bbd ts=1785147033.004233 dur_ms=484.71 kv_uuid=810976772613841
+INFO:     10.36.46.154:37446 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=54d69469-e64d-4c05-a674-009d9ae61bbd ts=1785147033.004596 kv_uuid=810976772613841
+PERF PROXY first_chunk req_id=54d69469-e64d-4c05-a674-009d9ae61bbd ts=1785147053.125520 dur_from_decode_send_ms=20120.92 ttft_ms=20608.94 kv_uuid=810976772613841
+PERF PROXY req_received req_id=a012bab0-f1ce-4300-8ea1-803438e6d81a ts=1785147061.143100
+PERF PROXY prefill_send req_id=a012bab0-f1ce-4300-8ea1-803438e6d81a ts=1785147061.149927
+PERF PROXY latency summary | decode_first: n=2 avg=12508.88ms min=4896.84ms max=20120.92ms | prefill: n=3 avg=1785.56ms min=484.71ms max=4047.22ms | prefill_from_req: n=2 avg=2284.18ms min=487.66ms max=4080.70ms | ttft: n=2 avg=14793.48ms min=8978.01ms max=20608.94ms
+PERF PROXY prefill_recv req_id=a012bab0-f1ce-4300-8ea1-803438e6d81a ts=1785147061.974664 dur_ms=824.74 kv_uuid=678166497694209
+INFO:     10.36.46.154:52418 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=a012bab0-f1ce-4300-8ea1-803438e6d81a ts=1785147061.975586 kv_uuid=678166497694209
+PERF PROXY first_chunk req_id=a012bab0-f1ce-4300-8ea1-803438e6d81a ts=1785147064.791058 dur_from_decode_send_ms=2815.47 ttft_ms=3649.06 kv_uuid=678166497694209
