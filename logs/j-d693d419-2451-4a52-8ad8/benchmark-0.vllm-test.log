@@ -1,0 +1,235 @@
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+Waiting for prefill up (http://j-d693d419-2451-4a52-8ad8-prefill-0-0.j-d693d419-2451-4a52-8ad8:8000/health, up to 5400s)
+prefill is up (1105s)
+Waiting for decode up (http://j-d693d419-2451-4a52-8ad8-decode-0-0.j-d693d419-2451-4a52-8ad8:7200/health, up to 5400s)
+decode is up (0s)
+Waiting for proxy up (http://j-d693d419-2451-4a52-8ad8-prefill-0-0.j-d693d419-2451-4a52-8ad8:10000/healthcheck, up to 600s)
+proxy is up (0s)
+Waiting for engine readiness (first compile, up to 60 min)...
+Engines are ready.
+===== Smoke test: prefill->Raiden KV transfer->decode =====
+--- request 1: Good morning. What are the capitals of the US, China and Armenia?
+{"id":"cmpl-3a33600b-660f-4430-a7b0-8f4f99efdcca","object":"text_completion","created":1785151726,"model":"Qwen3.5-35B-A3B-FP8","choices":[{"index":0,"text":"\n\n<think>\nThinking Process:\n\n1.  **Analyze the Request:**\n    *   Time of day: \"Good morning.\" (Greeting)\n    *   Question: \"What are the capitals of the US, China and Armenia?\"\n    *   Entities: United States (US), China,","logprobs":null,"finish_reason":"length","stop_reason":null,"token_ids":[271,248068,198,90700,8340,25,271,16,13,220,2972,2014,53983,279,5952,64700,198,262,348,256,3984,314,1834,25,328,14773,6353,1149,318,38,42187,8,198,262,348,256,15380,25,328,3710,513,279,89798,314,279,2201,11,5440,321,69101,7285,198,262,348,256,50495,25,3516,4042,318,1966,681,5440,11],"prompt_logprobs":null,"prompt_token_ids":[14773,6353,13,3437,513,279,89798,314,279,2201,11,5440,321,69101,30],"routed_experts":null}],"service_tier":null,"system_fingerprint":"vllm-0.25.1-dp8-ep-18eeab0d","usage":{"prompt_tokens":15,"total_tokens":79,"completion_tokens":64,"prompt_tokens_details":{"cached_tokens":14,"multimodal_tokens":null}},"kv_transfer_params":null,"metrics":null}
+--- known-answer probes: three-way equivalence (cold/warm/proxy)
+len8192-cold: token=88 token_ids=[88, 88, 88, 88, 88, 88, 88, 88] text='yyyyyyyy'
+len8192-warm: token=88 token_ids=[88, 88, 88, 88, 88, 88, 88, 88] text='yyyyyyyy'
+len8192-proxy: token=88 token_ids=[88, 88, 88, 88, 88, 88, 88, 88] text='yyyyyyyy'
+len8192: apc=PASS transfer=PASS len=8192 cold=[88, 88, 88, 88, 88, 88, 88, 88] warm=[88, 88, 88, 88, 88, 88, 88, 88] proxy=[88, 88, 88, 88, 88, 88, 88, 88]
+len32768-cold: token=89 token_ids=[89, 89, 89, 89, 89, 89, 89, 89] text='zzzzzzzz'
+len32768-warm: token=89 token_ids=[89, 89, 89, 89, 89, 89, 89, 89] text='zzzzzzzz'
+len32768-proxy: token=89 token_ids=[89, 89, 89, 89, 89, 89, 89, 89] text='zzzzzzzz'
+len32768: apc=PASS transfer=PASS len=32768 cold=[89, 89, 89, 89, 89, 89, 89, 89] warm=[89, 89, 89, 89, 89, 89, 89, 89] proxy=[89, 89, 89, 89, 89, 89, 89, 89]
+known-answer summary: {"len8192-apc-transparency": true, "len8192-transfer-equivalence": true, "len32768-apc-transparency": true, "len32768-transfer-equivalence": true}
+CORRECTNESS: PASS
+===== Offload-tier long-prefix benchmark =====
+[offload-tier:seed] doc0 e2e=4.29s token_ids=[200]
+[offload-tier:seed] doc1 e2e=4.27s token_ids=[248046]
+[offload-tier:seed] doc2 e2e=4.29s token_ids=[202]
+[offload-tier:seed] doc3 e2e=4.29s token_ids=[203]
+[offload-tier:seed] doc4 e2e=4.31s token_ids=[204]
+[offload-tier:seed] doc5 e2e=4.31s token_ids=[205]
+[offload-tier:seed] doc6 e2e=4.28s token_ids=[206]
+[offload-tier:seed] doc7 e2e=4.28s token_ids=[207]
+[offload-tier:seed] doc8 e2e=4.30s token_ids=[208]
+[offload-tier:seed] doc9 e2e=4.27s token_ids=[209]
+[offload-tier:seed] doc10 e2e=4.28s token_ids=[210]
+[offload-tier:seed] doc11 e2e=4.27s token_ids=[211]
+[offload-tier:seed] doc12 e2e=4.28s token_ids=[212]
+[offload-tier:seed] doc13 e2e=4.28s token_ids=[213]
+[offload-tier:seed] doc14 e2e=4.28s token_ids=[214]
+[offload-tier:seed] doc15 e2e=4.28s token_ids=[215]
+[offload-tier:seed] doc16 e2e=4.28s token_ids=[216]
+[offload-tier:seed] doc17 e2e=4.27s token_ids=[217]
+[offload-tier:seed] doc18 e2e=4.28s token_ids=[218]
+[offload-tier:seed] doc19 e2e=4.27s token_ids=[219]
+[offload-tier:seed] doc20 e2e=4.28s token_ids=[220]
+[offload-tier:seed] doc21 e2e=4.28s token_ids=[221]
+[offload-tier:seed] doc22 e2e=4.29s token_ids=[15]
+[offload-tier:seed] doc23 e2e=4.29s token_ids=[223]
+[offload-tier:seed] doc24 e2e=4.27s token_ids=[248044]
+[offload-tier:seed] doc25 e2e=4.29s token_ids=[225]
+[offload-tier:seed] doc26 e2e=4.29s token_ids=[19]
+[offload-tier:seed] doc27 e2e=4.30s token_ids=[20]
+[offload-tier:seed] doc28 e2e=4.28s token_ids=[228]
+[offload-tier:seed] doc29 e2e=4.30s token_ids=[271]
+[offload-tier:seed] doc30 e2e=4.29s token_ids=[230]
+[offload-tier:seed] doc31 e2e=4.27s token_ids=[248044]
+[offload-tier:seed] doc32 e2e=4.29s token_ids=[271]
+[offload-tier:seed] doc33 e2e=4.29s token_ids=[198]
+[offload-tier:seed] doc34 e2e=4.28s token_ids=[234]
+[offload-tier:seed] doc35 e2e=4.29s token_ids=[235]
+[offload-tier:seed] doc36 e2e=4.30s token_ids=[77]
+[offload-tier:seed] doc37 e2e=4.28s token_ids=[237]
+[offload-tier:seed] doc38 e2e=4.29s token_ids=[271]
+[offload-tier:seed] doc39 e2e=4.30s token_ids=[248046]
+[offload-tier:seed] doc40 e2e=4.29s token_ids=[81]
+[offload-tier:seed] doc41 e2e=4.29s token_ids=[271]
+[offload-tier:seed] doc42 e2e=4.30s token_ids=[271]
+[offload-tier:seed] doc43 e2e=4.30s token_ids=[271]
+[offload-tier:seed] doc44 e2e=4.28s token_ids=[244]
+[offload-tier:seed] doc45 e2e=4.30s token_ids=[271]
+[offload-tier:seed] doc46 e2e=4.29s token_ids=[87]
+[offload-tier:seed] doc47 e2e=4.30s token_ids=[271]
+[offload-tier:seed:ttft] conc=1 reqs=48 avg=4.29s p50=4.29s p95=4.30s max=4.31s
+[offload-tier:seed:throughput] conc=1 wall=205.9s req_per_s=0.23 prompt_tok_per_s=7669
+[offload-tier:seed:prefill] conc=1 reqs=48 server_ttft_avg=3.74s prefill_avg=3.738s ext_hit_pct=0.0
+[offload-tier:revisit1] doc0 e2e=4.27s token_ids=[210]
+[offload-tier:revisit1] doc1 e2e=4.28s token_ids=[211]
+[offload-tier:revisit1] doc2 e2e=4.28s token_ids=[212]
+[offload-tier:revisit1] doc3 e2e=4.28s token_ids=[213]
+[offload-tier:revisit1] doc4 e2e=4.30s token_ids=[214]
+[offload-tier:revisit1] doc5 e2e=4.28s token_ids=[215]
+[offload-tier:revisit1] doc6 e2e=4.30s token_ids=[216]
+[offload-tier:revisit1] doc7 e2e=4.28s token_ids=[217]
+[offload-tier:revisit1] doc8 e2e=4.28s token_ids=[218]
+[offload-tier:revisit1] doc9 e2e=4.29s token_ids=[219]
+[offload-tier:revisit1] doc10 e2e=4.28s token_ids=[220]
+[offload-tier:revisit1] doc11 e2e=4.27s token_ids=[221]
+[offload-tier:revisit1] doc12 e2e=4.29s token_ids=[15]
+[offload-tier:revisit1] doc13 e2e=4.28s token_ids=[248044]
+[offload-tier:revisit1] doc14 e2e=4.29s token_ids=[271]
+[offload-tier:revisit1] doc15 e2e=4.28s token_ids=[225]
+[offload-tier:revisit1] doc16 e2e=4.29s token_ids=[271]
+[offload-tier:revisit1] doc17 e2e=4.29s token_ids=[271]
+[offload-tier:revisit1] doc18 e2e=4.29s token_ids=[271]
+[offload-tier:revisit1] doc19 e2e=4.29s token_ids=[271]
+[offload-tier:revisit1] doc20 e2e=4.29s token_ids=[230]
+[offload-tier:revisit1] doc21 e2e=4.27s token_ids=[231]
+[offload-tier:revisit1] doc22 e2e=4.28s token_ids=[16467]
+[offload-tier:revisit1] doc23 e2e=4.29s token_ids=[198]
+[offload-tier:revisit1] doc24 e2e=4.28s token_ids=[234]
+[offload-tier:revisit1] doc25 e2e=4.27s token_ids=[235]
+[offload-tier:revisit1] doc26 e2e=4.29s token_ids=[77]
+[offload-tier:revisit1] doc27 e2e=4.27s token_ids=[237]
+[offload-tier:revisit1] doc28 e2e=4.28s token_ids=[65108]
+[offload-tier:revisit1] doc29 e2e=4.26s token_ids=[239]
+[offload-tier:revisit1] doc30 e2e=4.30s token_ids=[10748]
+[offload-tier:revisit1] doc31 e2e=4.29s token_ids=[271]
+[offload-tier:revisit1] doc32 e2e=4.29s token_ids=[248046]
+[offload-tier:revisit1] doc33 e2e=4.28s token_ids=[243]
+[offload-tier:revisit1] doc34 e2e=4.28s token_ids=[248046]
+[offload-tier:revisit1] doc35 e2e=4.28s token_ids=[248046]
+[offload-tier:revisit1] doc36 e2e=4.28s token_ids=[87]
+[offload-tier:revisit1] doc37 e2e=4.29s token_ids=[247]
+[offload-tier:revisit1] doc38 e2e=4.28s token_ids=[248]
+[offload-tier:revisit1] doc39 e2e=4.29s token_ids=[271]
+[offload-tier:revisit1] doc40 e2e=4.28s token_ids=[271]
+[offload-tier:revisit1] doc41 e2e=4.27s token_ids=[251]
+[offload-tier:revisit1] doc42 e2e=4.26s token_ids=[248046]
+[offload-tier:revisit1] doc43 e2e=4.26s token_ids=[248046]
+[offload-tier:revisit1] doc44 e2e=4.29s token_ids=[254]
+[offload-tier:revisit1] doc45 e2e=4.30s token_ids=[271]
+[offload-tier:revisit1] doc46 e2e=4.27s token_ids=[220]
+[offload-tier:revisit1] doc47 e2e=4.26s token_ids=[257]
+[offload-tier:revisit1:ttft] conc=1 reqs=48 avg=4.28s p50=4.28s p95=4.30s max=4.30s
+[offload-tier:revisit1:throughput] conc=1 wall=205.7s req_per_s=0.23 prompt_tok_per_s=7677
+[offload-tier:revisit1:prefill] conc=1 reqs=48 server_ttft_avg=3.74s prefill_avg=3.739s ext_hit_pct=0.0
+[offload-tier:revisit2] doc0 e2e=4.33s token_ids=[220]
+[offload-tier:revisit2] doc1 e2e=8.13s token_ids=[221]
+[offload-tier:revisit2] doc2 e2e=15.71s token_ids=[222]
+[offload-tier:revisit2] doc3 e2e=11.91s token_ids=[223]
+[offload-tier:revisit2] doc4 e2e=19.52s token_ids=[224]
+[offload-tier:revisit2] doc5 e2e=23.31s token_ids=[225]
+[offload-tier:revisit2] doc6 e2e=27.12s token_ids=[2230]
+[offload-tier:revisit2] doc7 e2e=30.92s token_ids=[271]
+[offload-tier:revisit2] doc8 e2e=30.41s token_ids=[69]
+[offload-tier:revisit2] doc9 e2e=30.41s token_ids=[229]
+[offload-tier:revisit2] doc10 e2e=30.40s token_ids=[230]
+[offload-tier:revisit2] doc11 e2e=30.42s token_ids=[271]
+[offload-tier:revisit2] doc12 e2e=30.39s token_ids=[271]
+[offload-tier:revisit2] doc13 e2e=30.38s token_ids=[248046]
+[offload-tier:revisit2] doc14 e2e=30.34s token_ids=[234]
+[offload-tier:revisit2] doc15 e2e=30.37s token_ids=[271]
+[offload-tier:revisit2] doc16 e2e=30.36s token_ids=[77]
+[offload-tier:revisit2] doc17 e2e=30.36s token_ids=[248046]
+[offload-tier:revisit2] doc18 e2e=30.37s token_ids=[238]
+[offload-tier:revisit2] doc19 e2e=30.36s token_ids=[248046]
+[offload-tier:revisit2] doc20 e2e=30.37s token_ids=[2115]
+[offload-tier:revisit2] doc21 e2e=30.38s token_ids=[2175]
+[offload-tier:revisit2] doc22 e2e=30.39s token_ids=[271]
+[offload-tier:revisit2] doc23 e2e=30.35s token_ids=[243]
+[offload-tier:revisit2] doc24 e2e=30.35s token_ids=[248046]
+[offload-tier:revisit2] doc25 e2e=30.37s token_ids=[271]
+[offload-tier:revisit2] doc26 e2e=30.36s token_ids=[87]
+[offload-tier:revisit2] doc27 e2e=30.37s token_ids=[271]
+[offload-tier:revisit2] doc28 e2e=30.34s token_ids=[248]
+[offload-tier:revisit2] doc29 e2e=30.37s token_ids=[271]
+[offload-tier:revisit2] doc30 e2e=30.34s token_ids=[250]
+[offload-tier:revisit2] doc31 e2e=30.35s token_ids=[248046]
+[offload-tier:revisit2] doc32 e2e=30.36s token_ids=[248046]
+[offload-tier:revisit2] doc33 e2e=30.34s token_ids=[248046]
+[offload-tier:revisit2] doc34 e2e=30.36s token_ids=[248046]
+[offload-tier:revisit2] doc35 e2e=30.34s token_ids=[255]
+[offload-tier:revisit2] doc36 e2e=30.37s token_ids=[248046]
+[offload-tier:revisit2] doc37 e2e=30.35s token_ids=[257]
+[offload-tier:revisit2] doc38 e2e=30.38s token_ids=[258]
+[offload-tier:revisit2] doc39 e2e=30.38s token_ids=[259]
+[offload-tier:revisit2] doc40 e2e=30.38s token_ids=[248046]
+[offload-tier:revisit2] doc41 e2e=30.38s token_ids=[261]
+[offload-tier:revisit2] doc42 e2e=30.37s token_ids=[220]
+[offload-tier:revisit2] doc43 e2e=30.38s token_ids=[263]
+[offload-tier:revisit2] doc44 e2e=30.36s token_ids=[264]
+[offload-tier:revisit2] doc45 e2e=30.35s token_ids=[271]
+[offload-tier:revisit2] doc46 e2e=30.36s token_ids=[266]
+[offload-tier:revisit2] doc47 e2e=30.39s token_ids=[267]
+[offload-tier:revisit2:ttft] conc=8 reqs=48 avg=28.24s p50=30.36s p95=30.41s max=30.92s
+[offload-tier:revisit2:throughput] conc=8 wall=182.8s req_per_s=0.26 prompt_tok_per_s=8637
+[offload-tier:revisit2:prefill] conc=8 reqs=48 server_ttft_avg=27.70s prefill_avg=3.795s ext_hit_pct=0.0
+[offload-tier] revisit-equivalence PASS e2e=6.21s cold=[89, 89, 89, 89, 89, 89, 89, 89] revisit=[89, 89, 89, 89, 89, 89, 89, 89]
+OFFLOAD-TIER COMPLETE (errors=0)
+===== GSM8K single-pass performance benchmark =====
+[*] warmup (untimed, limit 16)...
+2026-07-27:11:39:40 WARNING  [config.evaluate_config:287] --limit SHOULD ONLY BE USED FOR TESTING. REAL METRICS SHOULD NOT BE COMPUTED USING LIMIT.
+2026-07-27:11:39:51 INFO     [_cli.run:388] Selected Tasks: ['gsm8k']
+2026-07-27:11:39:53 INFO     [evaluator:214] Setting random seed to 1234 | Setting numpy seed to 1234 | Setting torch manual seed to 1234 | Setting fewshot manual seed to 1234
+2026-07-27:11:39:53 INFO     [evaluator:239] Initializing local-completions model, with arguments: {'base_url': 'http://j-d693d419-2451-4a52-8ad8-prefill-0-0.j-d693d419-2451-4a52-8ad8:10000/v1/completions', 'model': 'Qwen3.5-35B-A3B-FP8', 'tokenizer': 'Qwen/Qwen3.5-35B-A3B-FP8', 'max_retries': 10, 'max_length': 8192, 'timeout': 1800, 'num_concurrent': 50}
+2026-07-27:11:39:53 INFO     [models.openai_completions:42] Remote tokenizer not supported. Using huggingface tokenizer backend.
+2026-07-27:11:39:53 INFO     [models.api_models:179] Using max length 8192 - 1
+2026-07-27:11:39:53 INFO     [models.api_models:200] Using tokenizer huggingface
+Generating train split:   0%|          | 0/7473 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 7473/7473 [00:00<00:00, 183810.10 examples/s]
+Generating test split:   0%|          | 0/1319 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1319/1319 [00:00<00:00, 223418.42 examples/s]
+2026-07-27:11:40:03 INFO     [evaluator_utils:446] Selected tasks:
+2026-07-27:11:40:03 INFO     [evaluator_utils:480] Task: gsm8k (gsm8k/gsm8k.yaml)
+2026-07-27:11:40:03 INFO     [evaluator:314] gsm8k: Using gen_kwargs: {'until': ['Question:', '</s>', '<|im_end|>'], 'do_sample': False, 'temperature': 0.0}
+2026-07-27:11:40:03 WARNING  [evaluator:333] Overwriting default num_fewshot of gsm8k from 5 to 25
+2026-07-27:11:40:03 INFO     [api.task:312] Building contexts for gsm8k on rank 0...
+  0%|          | 0/16 [00:00<?, ?it/s] 38%|███▊      | 6/16 [00:00<00:00, 53.79it/s] 75%|███████▌  | 12/16 [00:00<00:00, 55.27it/s]100%|██████████| 16/16 [00:00<00:00, 55.51it/s]
+2026-07-27:11:40:03 INFO     [evaluator:585] Running generate_until requests
+Requesting API:   0%|          | 0/16 [00:00<?, ?it/s]Requesting API:   6%|▋         | 1/16 [00:20<05:00, 20.05s/it]Requesting API:  12%|█▎        | 2/16 [00:24<02:36, 11.16s/it]Requesting API:  19%|█▉        | 3/16 [00:30<01:51,  8.60s/it]Requesting API:  25%|██▌       | 4/16 [00:39<01:44,  8.74s/it]Requesting API:  31%|███▏      | 5/16 [00:40<01:05,  5.92s/it]Requesting API:  38%|███▊      | 6/16 [00:43<00:49,  4.96s/it]Requesting API:  44%|████▍     | 7/16 [00:43<00:30,  3.44s/it]Requesting API:  50%|█████     | 8/16 [00:45<00:23,  2.94s/it]Requesting API:  56%|█████▋    | 9/16 [00:47<00:17,  2.50s/it]Requesting API:  62%|██████▎   | 10/16 [00:53<00:22,  3.74s/it]Requesting API:  69%|██████▉   | 11/16 [01:02<00:26,  5.35s/it]Requesting API:  75%|███████▌  | 12/16 [01:09<00:22,  5.71s/it]Requesting API:  81%|████████▏ | 13/16 [01:10<00:13,  4.45s/it]Requesting API:  88%|████████▊ | 14/16 [01:11<00:06,  3.20s/it]Requesting API:  94%|█████████▍| 15/16 [01:12<00:02,  2.70s/it]Requesting API: 100%|██████████| 16/16 [01:30<00:00,  7.22s/it]Requesting API: 100%|██████████| 16/16 [01:30<00:00,  5.65s/it]
+2026-07-27:11:41:34 INFO     [loggers.evaluation_tracker:247] Saving results aggregated
+local-completions ({'base_url': 'http://j-d693d419-2451-4a52-8ad8-prefill-0-0.j-d693d419-2451-4a52-8ad8:10000/v1/completions', 'model': 'Qwen3.5-35B-A3B-FP8', 'tokenizer': 'Qwen/Qwen3.5-35B-A3B-FP8', 'max_retries': 10, 'max_length': 8192, 'timeout': 1800, 'num_concurrent': 50}), gen_kwargs: ({}), limit: 16.0, num_fewshot: 25, batch_size: 1
+|Tasks|Version|     Filter     |n-shot|  Metric   |   |Value|   |Stderr|
+|-----|------:|----------------|-----:|-----------|---|----:|---|-----:|
+|gsm8k|      3|flexible-extract|    25|exact_match|↑  | 0.75|±  |0.1118|
+|     |       |strict-match    |    25|exact_match|↑  | 0.75|±  |0.1118|
+
+[*] measure: limit=150 concurrency=50
+2026-07-27:11:41:37 WARNING  [config.evaluate_config:287] --limit SHOULD ONLY BE USED FOR TESTING. REAL METRICS SHOULD NOT BE COMPUTED USING LIMIT.
+2026-07-27:11:41:47 INFO     [_cli.run:388] Selected Tasks: ['gsm8k']
+2026-07-27:11:41:48 INFO     [evaluator:214] Setting random seed to 1234 | Setting numpy seed to 1234 | Setting torch manual seed to 1234 | Setting fewshot manual seed to 1234
+2026-07-27:11:41:48 INFO     [evaluator:239] Initializing local-completions model, with arguments: {'base_url': 'http://j-d693d419-2451-4a52-8ad8-prefill-0-0.j-d693d419-2451-4a52-8ad8:10000/v1/completions', 'model': 'Qwen3.5-35B-A3B-FP8', 'tokenizer': 'Qwen/Qwen3.5-35B-A3B-FP8', 'max_retries': 10, 'max_length': 8192, 'timeout': 1800, 'num_concurrent': 50}
+2026-07-27:11:41:48 INFO     [models.openai_completions:42] Remote tokenizer not supported. Using huggingface tokenizer backend.
+2026-07-27:11:41:48 INFO     [models.api_models:179] Using max length 8192 - 1
+2026-07-27:11:41:48 INFO     [models.api_models:200] Using tokenizer huggingface
+2026-07-27:11:41:54 INFO     [evaluator_utils:446] Selected tasks:
+2026-07-27:11:41:54 INFO     [evaluator_utils:480] Task: gsm8k (gsm8k/gsm8k.yaml)
+2026-07-27:11:41:54 INFO     [evaluator:314] gsm8k: Using gen_kwargs: {'until': ['Question:', '</s>', '<|im_end|>'], 'do_sample': False, 'temperature': 0.0}
+2026-07-27:11:41:54 WARNING  [evaluator:333] Overwriting default num_fewshot of gsm8k from 5 to 25
+2026-07-27:11:41:54 INFO     [api.task:312] Building contexts for gsm8k on rank 0...
+  0%|          | 0/150 [00:00<?, ?it/s]  4%|▍         | 6/150 [00:00<00:02, 52.35it/s]  8%|▊         | 12/150 [00:00<00:02, 53.46it/s] 12%|█▏        | 18/150 [00:00<00:02, 53.68it/s] 16%|█▌        | 24/150 [00:00<00:02, 53.98it/s] 20%|██        | 30/150 [00:00<00:02, 54.22it/s] 24%|██▍       | 36/150 [00:00<00:02, 54.32it/s] 28%|██▊       | 42/150 [00:00<00:02, 53.33it/s] 32%|███▏      | 48/150 [00:00<00:01, 52.30it/s] 36%|███▌      | 54/150 [00:01<00:01, 52.78it/s] 40%|████      | 60/150 [00:01<00:01, 51.83it/s] 44%|████▍     | 66/150 [00:01<00:01, 51.42it/s] 48%|████▊     | 72/150 [00:01<00:01, 51.14it/s] 52%|█████▏    | 78/150 [00:01<00:01, 51.94it/s] 56%|█████▌    | 84/150 [00:01<00:01, 53.04it/s] 60%|██████    | 90/150 [00:01<00:01, 52.97it/s] 64%|██████▍   | 96/150 [00:01<00:01, 53.17it/s] 68%|██████▊   | 102/150 [00:01<00:00, 53.36it/s] 72%|███████▏  | 108/150 [00:02<00:00, 53.60it/s] 76%|███████▌  | 114/150 [00:02<00:00, 54.04it/s] 80%|████████  | 120/150 [00:02<00:00, 54.29it/s] 84%|████████▍ | 126/150 [00:02<00:00, 52.93it/s] 88%|████████▊ | 132/150 [00:02<00:00, 53.59it/s] 92%|█████████▏| 138/150 [00:02<00:00, 53.68it/s] 96%|█████████▌| 144/150 [00:02<00:00, 54.16it/s]100%|██████████| 150/150 [00:02<00:00, 54.38it/s]100%|██████████| 150/150 [00:02<00:00, 53.29it/s]
+2026-07-27:11:41:57 INFO     [evaluator:585] Running generate_until requests
+Requesting API:   0%|          | 0/150 [00:00<?, ?it/s]Requesting API:   1%|          | 1/150 [00:29<1:12:19, 29.12s/it]Requesting API:   1%|▏         | 2/150 [00:34<37:48, 15.33s/it]  Requesting API:   2%|▏         | 3/150 [00:38<24:41, 10.08s/it]Requesting API:   3%|▎         | 4/150 [00:39<15:14,  6.26s/it]Requesting API:   3%|▎         | 5/150 [00:39<10:13,  4.23s/it]Requesting API:   4%|▍         | 6/150 [00:41<08:08,  3.39s/it]Requesting API:   5%|▍         | 7/150 [00:42<06:00,  2.52s/it]Requesting API:   5%|▌         | 8/150 [00:42<04:36,  1.95s/it]Requesting API:   6%|▌         | 9/150 [00:43<03:22,  1.44s/it]Requesting API:   7%|▋         | 10/150 [00:46<04:56,  2.12s/it]Requesting API:   7%|▋         | 11/150 [00:48<04:21,  1.88s/it]Requesting API:   8%|▊         | 12/150 [00:50<04:46,  2.08s/it]Requesting API:   9%|▊         | 13/150 [00:51<03:48,  1.67s/it]Requesting API:   9%|▉         | 14/150 [00:52<03:07,  1.38s/it]Requesting API:  10%|█         | 15/150 [00:53<03:22,  1.50s/it]Requesting API:  11%|█         | 16/150 [00:54<03:01,  1.36s/it]Requesting API:  11%|█▏        | 17/150 [00:55<02:35,  1.17s/it]Requesting API:  12%|█▏        | 18/150 [00:57<02:40,  1.22s/it]Requesting API:  13%|█▎        | 19/150 [00:57<02:20,  1.07s/it]Requesting API:  13%|█▎        | 20/150 [00:59<02:34,  1.19s/it]Requesting API:  14%|█▍        | 21/150 [01:01<03:08,  1.46s/it]Requesting API:  16%|█▌        | 24/150 [01:02<01:44,  1.20it/s]Requesting API:  17%|█▋        | 25/150 [01:04<02:08,  1.03s/it]Requesting API:  18%|█▊        | 27/150 [01:05<01:59,  1.03it/s]Requesting API:  19%|█▊        | 28/150 [01:06<01:52,  1.09it/s]Requesting API:  19%|█▉        | 29/150 [01:07<01:45,  1.14it/s]Requesting API:  20%|██        | 30/150 [01:08<01:40,  1.20it/s]Requesting API:  21%|██        | 31/150 [01:09<02:08,  1.08s/it]Requesting API:  21%|██▏       | 32/150 [01:11<02:15,  1.15s/it]Requesting API:  22%|██▏       | 33/150 [01:11<02:00,  1.03s/it]Requesting API:  23%|██▎       | 34/150 [01:14<02:55,  1.51s/it]Requesting API:  23%|██▎       | 35/150 [01:15<02:34,  1.34s/it]Requesting API:  25%|██▍       | 37/150 [01:15<01:33,  1.21it/s]Requesting API:  25%|██▌       | 38/150 [01:16<01:26,  1.29it/s]Requesting API:  26%|██▌       | 39/150 [01:16<01:15,  1.46it/s]Requesting API:  27%|██▋       | 40/150 [01:17<01:04,  1.72it/s]Requesting API:  27%|██▋       | 41/150 [01:17<00:58,  1.86it/s]Requesting API:  28%|██▊       | 42/150 [01:18<01:00,  1.78it/s]Requesting API:  29%|██▊       | 43/150 [01:20<01:37,  1.10it/s]Requesting API:  29%|██▉       | 44/150 [01:21<01:54,  1.08s/it]Requesting API:  30%|███       | 45/150 [01:21<01:29,  1.18it/s]Requesting API:  31%|███       | 46/150 [01:22<01:15,  1.39it/s]Requesting API:  31%|███▏      | 47/150 [01:25<02:39,  1.55s/it]Requesting API:  32%|███▏      | 48/150 [01:26<02:13,  1.31s/it]Requesting API:  33%|███▎      | 49/150 [01:28<02:26,  1.45s/it]Requesting API:  33%|███▎      | 50/150 [01:28<01:50,  1.11s/it]Requesting API:  34%|███▍      | 51/150 [01:29<01:57,  1.19s/it]Requesting API:  35%|███▍      | 52/150 [01:31<02:04,  1.27s/it]Requesting API:  36%|███▌      | 54/150 [01:32<01:26,  1.11it/s]Requesting API:  37%|███▋      | 55/150 [01:33<01:21,  1.17it/s]Requesting API:  37%|███▋      | 56/150 [01:33<01:07,  1.40it/s]Requesting API:  39%|███▊      | 58/150 [01:33<00:45,  2.01it/s]Requesting API:  40%|████      | 60/150 [01:34<00:45,  1.98it/s]Requesting API:  41%|████      | 61/150 [01:35<00:41,  2.16it/s]Requesting API:  41%|████▏     | 62/150 [01:38<01:30,  1.03s/it]Requesting API:  42%|████▏     | 63/150 [01:38<01:14,  1.17it/s]Requesting API:  43%|████▎     | 64/150 [01:39<01:10,  1.22it/s]Requesting API:  43%|████▎     | 65/150 [01:39<00:57,  1.47it/s]Requesting API:  44%|████▍     | 66/150 [01:39<00:50,  1.65it/s]Requesting API:  45%|████▍     | 67/150 [01:40<00:53,  1.54it/s]Requesting API:  45%|████▌     | 68/150 [01:40<00:45,  1.82it/s]Requesting API:  46%|████▌     | 69/150 [01:41<00:38,  2.08it/s]Requesting API:  47%|████▋     | 70/150 [01:41<00:36,  2.17it/s]Requesting API:  47%|████▋     | 71/150 [01:41<00:32,  2.40it/s]Requesting API:  48%|████▊     | 72/150 [01:43<00:56,  1.39it/s]Requesting API:  49%|████▊     | 73/150 [01:43<00:46,  1.67it/s]Requesting API:  50%|█████     | 75/150 [01:45<00:49,  1.52it/s]Requesting API:  51%|█████     | 76/150 [01:47<01:27,  1.19s/it]Requesting API:  51%|█████▏    | 77/150 [01:48<01:09,  1.04it/s]Requesting API:  52%|█████▏    | 78/150 [01:52<02:21,  1.96s/it]Requesting API:  53%|█████▎    | 79/150 [01:53<01:52,  1.59s/it]Requesting API:  54%|█████▍    | 81/150 [01:54<01:12,  1.04s/it]Requesting API:  55%|█████▍    | 82/150 [01:54<01:05,  1.03it/s]Requesting API:  55%|█████▌    | 83/150 [01:55<00:55,  1.21it/s]Requesting API:  56%|█████▌    | 84/150 [01:57<01:11,  1.08s/it]Requesting API:  57%|█████▋    | 85/150 [01:57<00:56,  1.16it/s]Requesting API:  58%|█████▊    | 87/150 [01:58<00:40,  1.56it/s]Requesting API:  59%|█████▊    | 88/150 [01:59<00:56,  1.10it/s]Requesting API:  59%|█████▉    | 89/150 [02:02<01:20,  1.32s/it]Requesting API:  60%|██████    | 90/150 [02:05<01:47,  1.80s/it]Requesting API:  61%|██████    | 91/150 [02:07<01:48,  1.85s/it]Requesting API:  61%|██████▏   | 92/150 [02:07<01:21,  1.41s/it]Requesting API:  63%|██████▎   | 95/150 [02:09<00:48,  1.13it/s]Requesting API:  64%|██████▍   | 96/150 [02:10<00:49,  1.09it/s]Requesting API:  65%|██████▍   | 97/150 [02:10<00:42,  1.25it/s]Requesting API:  65%|██████▌   | 98/150 [02:12<00:57,  1.11s/it]Requesting API:  66%|██████▌   | 99/150 [02:13<00:51,  1.01s/it]Requesting API:  67%|██████▋   | 100/150 [02:14<00:46,  1.07it/s]Requesting API:  67%|██████▋   | 101/150 [02:15<00:47,  1.04it/s]Requesting API:  69%|██████▊   | 103/150 [02:16<00:34,  1.38it/s]Requesting API:  70%|███████   | 105/150 [02:17<00:30,  1.46it/s]Requesting API:  71%|███████▏  | 107/150 [02:17<00:23,  1.82it/s]Requesting API:  72%|███████▏  | 108/150 [02:19<00:28,  1.45it/s]Requesting API:  73%|███████▎  | 109/150 [02:19<00:27,  1.49it/s]Requesting API:  73%|███████▎  | 110/150 [02:20<00:23,  1.71it/s]Requesting API:  74%|███████▍  | 111/150 [02:20<00:26,  1.49it/s]Requesting API:  75%|███████▍  | 112/150 [02:21<00:21,  1.74it/s]Requesting API:  75%|███████▌  | 113/150 [02:22<00:31,  1.18it/s]Requesting API:  76%|███████▌  | 114/150 [02:23<00:24,  1.45it/s]Requesting API:  77%|███████▋  | 115/150 [02:24<00:26,  1.31it/s]Requesting API:  77%|███████▋  | 116/150 [02:24<00:27,  1.24it/s]Requesting API:  78%|███████▊  | 117/150 [02:25<00:21,  1.51it/s]Requesting API:  79%|███████▉  | 119/150 [02:25<00:13,  2.33it/s]Requesting API:  80%|████████  | 120/150 [02:26<00:16,  1.81it/s]Requesting API:  81%|████████  | 121/150 [02:29<00:32,  1.13s/it]Requesting API:  81%|████████▏ | 122/150 [02:30<00:32,  1.16s/it]Requesting API:  82%|████████▏ | 123/150 [02:32<00:34,  1.27s/it]Requesting API:  83%|████████▎ | 124/150 [02:33<00:31,  1.22s/it]Requesting API:  83%|████████▎ | 125/150 [02:34<00:30,  1.22s/it]Requesting API:  84%|████████▍ | 126/150 [02:35<00:25,  1.04s/it]Requesting API:  85%|████████▍ | 127/150 [02:35<00:19,  1.21it/s]Requesting API:  85%|████████▌ | 128/150 [02:36<00:18,  1.17it/s]Requesting API:  87%|████████▋ | 130/150 [02:37<00:16,  1.22it/s]Requesting API:  87%|████████▋ | 131/150 [02:38<00:13,  1.44it/s]Requesting API:  88%|████████▊ | 132/150 [02:41<00:23,  1.32s/it]Requesting API:  89%|████████▊ | 133/150 [02:43<00:24,  1.46s/it]Requesting API:  90%|█████████ | 135/150 [02:47<00:25,  1.70s/it]Requesting API:  91%|█████████▏| 137/150 [02:47<00:14,  1.11s/it]Requesting API:  92%|█████████▏| 138/150 [02:48<00:12,  1.07s/it]Requesting API:  93%|█████████▎| 139/150 [02:49<00:12,  1.11s/it]Requesting API:  93%|█████████▎| 140/150 [02:53<00:19,  1.92s/it]Requesting API:  94%|█████████▍| 141/150 [02:54<00:14,  1.66s/it]Requesting API:  95%|█████████▍| 142/150 [02:55<00:11,  1.46s/it]Requesting API:  95%|█████████▌| 143/150 [02:58<00:12,  1.75s/it]Requesting API:  96%|█████████▌| 144/150 [02:58<00:08,  1.33s/it]Requesting API:  97%|█████████▋| 145/150 [03:04<00:12,  2.57s/it]Requesting API:  97%|█████████▋| 146/150 [03:09<00:13,  3.45s/it]Requesting API:  98%|█████████▊| 147/150 [03:10<00:07,  2.62s/it]Requesting API:  99%|█████████▊| 148/150 [03:18<00:08,  4.33s/it]Requesting API:  99%|█████████▉| 149/150 [03:23<00:04,  4.43s/it]Requesting API: 100%|██████████| 150/150 [03:30<00:00,  5.15s/it]Requesting API: 100%|██████████| 150/150 [03:30<00:00,  1.40s/it]
+2026-07-27:11:45:30 INFO     [loggers.evaluation_tracker:247] Saving results aggregated
+local-completions ({'base_url': 'http://j-d693d419-2451-4a52-8ad8-prefill-0-0.j-d693d419-2451-4a52-8ad8:10000/v1/completions', 'model': 'Qwen3.5-35B-A3B-FP8', 'tokenizer': 'Qwen/Qwen3.5-35B-A3B-FP8', 'max_retries': 10, 'max_length': 8192, 'timeout': 1800, 'num_concurrent': 50}), gen_kwargs: ({}), limit: 150.0, num_fewshot: 25, batch_size: 1
+|Tasks|Version|     Filter     |n-shot|  Metric   |   |Value |   |Stderr|
+|-----|------:|----------------|-----:|-----------|---|-----:|---|-----:|
+|gsm8k|      3|flexible-extract|    25|exact_match|↑  |0.8600|±  |0.0284|
+|     |       |strict-match    |    25|exact_match|↑  |0.8533|±  |0.0290|
+
+[bench:measure:prefill] wall=235.6s reqs=150 ttft_avg=9.76s prefill_avg=0.866s e2e_avg=9.8s prompt_tok=717476 gen_tok=150 gen_tok_per_s=0.6 total_tok_per_s=3046.0 ext_hit_pct=0.0
+[bench:measure:decode] wall=235.6s reqs=150 ttft_avg=0.91s prefill_avg=0.314s e2e_avg=42.8s prompt_tok=717476 gen_tok=18423 gen_tok_per_s=78.2 total_tok_per_s=3123.6 ext_hit_pct=100.0
+BENCH COMPLETE
+pass measure role prefill: reqs=150 ok
+pass measure role decode: reqs=150 ok
+RESULT: PASS
+
