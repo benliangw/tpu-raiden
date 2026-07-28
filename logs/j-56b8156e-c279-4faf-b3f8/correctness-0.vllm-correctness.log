@@ -1,0 +1,77 @@
+Waiting for prefill up (http://j-56b8156e-c279-4faf-b3f8-prefill-0-0.j-56b8156e-c279-4faf-b3f8:8000/health, up to 5400s)
+prefill is up (1730s)
+Waiting for decode up (http://j-56b8156e-c279-4faf-b3f8-decode-0-0.j-56b8156e-c279-4faf-b3f8:7200/health, up to 5400s)
+decode is up (0s)
+Waiting for proxy up (http://j-56b8156e-c279-4faf-b3f8-prefill-0-0.j-56b8156e-c279-4faf-b3f8:10000/healthcheck, up to 600s)
+proxy is up (0s)
+Waiting for engine readiness (first compile, up to 60 min)...
+Engines are ready.
+===== Smoke test: prefill->Raiden KV transfer->decode =====
+--- request 1: Good morning. What are the capitals of the US, China and Armenia?
+curl: (18) transfer closed with outstanding read data remaining
+
+request 1 FAILED
+
+--- known-answer probes: three-way equivalence (cold/warm/proxy)
+len8192-cold: REQUEST ERROR: <urlopen error [Errno 111] Connection refused>
+len8192-warm: REQUEST ERROR: <urlopen error [Errno 111] Connection refused>
+len8192-proxy: REQUEST ERROR: HTTP Error 500: Internal Server Error
+len8192: FAIL (no output: cold=None warm=None proxy=None)
+len32768-cold: REQUEST ERROR: <urlopen error [Errno 111] Connection refused>
+len32768-warm: REQUEST ERROR: <urlopen error [Errno 111] Connection refused>
+len32768-proxy: REQUEST ERROR: HTTP Error 500: Internal Server Error
+len32768: FAIL (no output: cold=None warm=None proxy=None)
+known-answer summary: {"len8192-apc-transparency": false, "len8192-transfer-equivalence": false, "len32768-apc-transparency": false, "len32768-transfer-equivalence": false}
+===== Eviction equivalence (deterministic doc churn) =====
+[equivalence:seed] doc0 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:seed] doc1 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:seed] doc2 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:seed] doc3 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:seed] doc4 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:seed] doc5 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:seed] doc6 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:seed] doc7 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:seed] doc8 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:seed] doc9 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:seed] doc10 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:seed] doc11 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:seed] doc12 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:seed] doc13 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:seed] doc14 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:seed] doc15 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:seed] doc16 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:seed] doc17 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:seed] doc18 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:seed] doc19 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:seed] doc20 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:seed] doc21 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:seed] doc22 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:seed] doc23 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:revisit] doc0 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:revisit] doc1 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:revisit] doc2 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:revisit] doc3 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:revisit] doc4 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:revisit] doc5 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:revisit] doc6 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:revisit] doc7 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:revisit] doc8 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:revisit] doc9 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:revisit] doc10 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:revisit] doc11 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:revisit] doc12 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:revisit] doc13 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:revisit] doc14 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:revisit] doc15 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:revisit] doc16 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:revisit] doc17 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:revisit] doc18 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:revisit] doc19 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:revisit] doc20 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:revisit] doc21 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:revisit] doc22 ERROR: HTTP Error 500: Internal Server Error
+[equivalence:revisit] doc23 ERROR: HTTP Error 500: Internal Server Error
+[equivalence] post-eviction KA ERROR: [Errno 2] No such file or directory: '/cdk-outputs/outputs/j-56b8156e-c279-4faf-b3f8-correctness-0/j-56b8156e-c279-4faf-b3f8-correctness-0-0-rlql7/vllm-correctness/smoke_ka_len32768-cold.json'
+EQUIVALENCE COMPLETE (errors=49)
+RESULT: FAIL (one or more correctness checks failed; see lines above)
+
