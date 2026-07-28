@@ -1,0 +1,74 @@
+Waiting for prefill up (http://j-4f55aa30-a264-4e7a-903d-prefill-0-0.j-4f55aa30-a264-4e7a-903d:8000/health, up to 5400s)
+prefill is up (1120s)
+Waiting for decode up (http://j-4f55aa30-a264-4e7a-903d-decode-0-0.j-4f55aa30-a264-4e7a-903d:7200/health, up to 5400s)
+decode is up (0s)
+Waiting for proxy up (http://j-4f55aa30-a264-4e7a-903d-prefill-0-0.j-4f55aa30-a264-4e7a-903d:10000/healthcheck, up to 600s)
+proxy is up (0s)
+Waiting for engine readiness (first compile, up to 60 min)...
+Engines are ready.
+===== Smoke test: prefill->Raiden KV transfer->decode =====
+--- request 1: Good morning. What are the capitals of the US, China and Armenia?
+{"id":"cmpl-61b66760-005e-40bd-aede-a3dd290f7ad1","object":"text_completion","created":1785208145,"model":"Qwen3.5-35B-A3B-FP8","choices":[{"index":0,"text":"\n\n<think>\nThinking Process:\n\n1.  **Analyze the Request:**\n    *   Greeting: \"Good morning.\"\n    *   Question: \"What are the capitals of the US, China and Armenia?\"\n    *   Entities involved: United States (US), China, Armenia.\n   ","logprobs":null,"finish_reason":"length","stop_reason":null,"token_ids":[271,248068,198,90700,8340,25,271,16,13,220,2972,2014,53983,279,5952,64700,198,262,348,256,469,42187,25,328,14773,6353,1149,198,262,348,256,15380,25,328,3710,513,279,89798,314,279,2201,11,5440,321,69101,7285,198,262,348,256,50495,6197,25,3516,4042,318,1966,681,5440,11,69101,13,198,262],"prompt_logprobs":null,"prompt_token_ids":[14773,6353,13,3437,513,279,89798,314,279,2201,11,5440,321,69101,30],"routed_experts":null}],"service_tier":null,"system_fingerprint":"vllm-0.25.1-dp8-ep-18eeab0d","usage":{"prompt_tokens":15,"total_tokens":79,"completion_tokens":64,"prompt_tokens_details":{"cached_tokens":14,"multimodal_tokens":null}},"kv_transfer_params":null,"metrics":null}
+--- known-answer probes: three-way equivalence (cold/warm/proxy)
+len8192-cold: token=88 token_ids=[88, 88, 88, 88, 88, 88, 88, 88] text='yyyyyyyy'
+len8192-warm: token=88 token_ids=[88, 88, 88, 88, 88, 88, 88, 88] text='yyyyyyyy'
+len8192-proxy: token=88 token_ids=[88, 88, 88, 88, 88, 88, 88, 88] text='yyyyyyyy'
+len8192: apc=PASS transfer=PASS len=8192 cold=[88, 88, 88, 88, 88, 88, 88, 88] warm=[88, 88, 88, 88, 88, 88, 88, 88] proxy=[88, 88, 88, 88, 88, 88, 88, 88]
+len32768-cold: token=89 token_ids=[89, 89, 89, 89, 89, 89, 89, 89] text='zzzzzzzz'
+len32768-warm: token=89 token_ids=[89, 89, 89, 89, 89, 89, 89, 89] text='zzzzzzzz'
+len32768-proxy: token=89 token_ids=[89, 89, 89, 89, 89, 89, 89, 89] text='zzzzzzzz'
+len32768: apc=PASS transfer=PASS len=32768 cold=[89, 89, 89, 89, 89, 89, 89, 89] warm=[89, 89, 89, 89, 89, 89, 89, 89] proxy=[89, 89, 89, 89, 89, 89, 89, 89]
+known-answer summary: {"len8192-apc-transparency": true, "len8192-transfer-equivalence": true, "len32768-apc-transparency": true, "len32768-transfer-equivalence": true}
+===== Eviction equivalence (deterministic doc churn) =====
+[equivalence:seed] doc0 token_ids=[200, 200, 200, 200, 200, 200, 200, 200]
+[equivalence:seed] doc1 token_ids=[248046, 198, 248045, 248068, 198, 90700, 8340, 25]
+[equivalence:seed] doc2 token_ids=[202, 202, 202, 202, 202, 202, 202, 202]
+[equivalence:seed] doc3 token_ids=[203, 203, 203, 203, 203, 203, 203, 203]
+[equivalence:seed] doc4 token_ids=[204, 204, 204, 204, 204, 204, 204, 204]
+[equivalence:seed] doc5 token_ids=[248046, 198, 248045, 74455, 198, 248068, 271, 248069]
+[equivalence:seed] doc6 token_ids=[206, 206, 206, 206, 206, 206, 206, 206]
+[equivalence:seed] doc7 token_ids=[207, 207, 207, 207, 207, 207, 207, 207]
+[equivalence:seed] doc8 token_ids=[208, 208, 208, 208, 208, 208, 208, 208]
+[equivalence:seed] doc9 token_ids=[209, 209, 209, 209, 209, 209, 209, 209]
+[equivalence:seed] doc10 token_ids=[210, 210, 210, 210, 210, 210, 210, 210]
+[equivalence:seed] doc11 token_ids=[211, 211, 211, 211, 211, 211, 211, 211]
+[equivalence:seed] doc12 token_ids=[212, 212, 212, 212, 212, 212, 212, 212]
+[equivalence:seed] doc13 token_ids=[213, 213, 213, 213, 213, 213, 213, 213]
+[equivalence:seed] doc14 token_ids=[214, 214, 214, 214, 214, 214, 214, 214]
+[equivalence:seed] doc15 token_ids=[215, 215, 215, 215, 215, 215, 215, 215]
+[equivalence:seed] doc16 token_ids=[216, 216, 216, 216, 216, 216, 216, 216]
+[equivalence:seed] doc17 token_ids=[217, 217, 217, 217, 217, 217, 217, 217]
+[equivalence:seed] doc18 token_ids=[218, 218, 218, 218, 218, 218, 218, 218]
+[equivalence:seed] doc19 token_ids=[219, 219, 219, 219, 219, 219, 219, 219]
+[equivalence:seed] doc20 token_ids=[220, 220, 220, 220, 220, 220, 220, 220]
+[equivalence:seed] doc21 token_ids=[221, 221, 221, 221, 221, 221, 221, 221]
+[equivalence:seed] doc22 token_ids=[15, 15, 15, 15, 15, 15, 15, 15]
+[equivalence:seed] doc23 token_ids=[223, 223, 223, 223, 223, 223, 223, 223]
+[equivalence:revisit] doc0 token_ids=[210, 210, 210, 210, 210, 210, 210, 210]
+[equivalence:revisit] doc1 token_ids=[211, 211, 211, 211, 211, 211, 211, 211]
+[equivalence:revisit] doc2 token_ids=[212, 212, 212, 212, 212, 212, 212, 212]
+[equivalence:revisit] doc3 token_ids=[213, 213, 213, 213, 213, 213, 213, 213]
+[equivalence:revisit] doc4 token_ids=[214, 214, 214, 214, 214, 214, 214, 214]
+[equivalence:revisit] doc5 token_ids=[215, 215, 215, 215, 215, 215, 215, 215]
+[equivalence:revisit] doc6 token_ids=[216, 216, 216, 216, 216, 216, 216, 216]
+[equivalence:revisit] doc7 token_ids=[217, 217, 217, 217, 217, 217, 217, 217]
+[equivalence:revisit] doc8 token_ids=[218, 218, 218, 218, 218, 218, 218, 218]
+[equivalence:revisit] doc9 token_ids=[219, 219, 219, 219, 219, 219, 219, 219]
+[equivalence:revisit] doc10 token_ids=[220, 220, 220, 220, 220, 220, 220, 220]
+[equivalence:revisit] doc11 token_ids=[221, 221, 221, 221, 221, 221, 221, 221]
+[equivalence:revisit] doc12 token_ids=[15, 15, 15, 15, 15, 15, 15, 15]
+[equivalence:revisit] doc13 token_ids=[248044, 248045, 271, 760, 1156, 369, 9859, 364]
+[equivalence:revisit] doc14 token_ids=[271, 760, 1156, 369, 9859, 364, 264, 1965]
+[equivalence:revisit] doc15 token_ids=[225, 225, 225, 225, 225, 225, 225, 225]
+[equivalence:revisit] doc16 token_ids=[271, 2, 220, 17, 15, 17, 19, 220]
+[equivalence:revisit] doc17 token_ids=[20, 20, 20, 20, 20, 20, 20, 20]
+[equivalence:revisit] doc18 token_ids=[37, 426, 426, 426, 426, 426, 426, 426]
+[equivalence:revisit] doc19 token_ids=[271, 2, 220, 16, 13, 27416, 271, 1919]
+[equivalence:revisit] doc20 token_ids=[1450, 271, 248068, 198, 90700, 8340, 25, 271]
+[equivalence:revisit] doc21 token_ids=[231, 231, 231, 231, 231, 231, 231, 231]
+[equivalence:revisit] doc22 token_ids=[16467, 16467, 16467, 16467, 16467, 16467, 16467, 16467]
+[equivalence:revisit] doc23 token_ids=[198, 248045, 198, 248045, 198, 248045, 198, 248045]
+[equivalence] post-eviction KA PASS cold=[89, 89, 89, 89, 89, 89, 89, 89] revisit=[89, 89, 89, 89, 89, 89, 89, 89]
+EQUIVALENCE COMPLETE (errors=0)
+RESULT: PASS
+
