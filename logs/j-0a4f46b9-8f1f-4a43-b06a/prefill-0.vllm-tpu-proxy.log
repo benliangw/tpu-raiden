@@ -1,0 +1,933 @@
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:10000 (Press CTRL+C to quit)
+Initialized 1 prefill clients and 1 decode clients.
+INFO:     10.36.28.13:53778 - "GET /healthcheck HTTP/1.1" 200 OK
+PERF PROXY req_received req_id=67880295-65eb-4dc2-b1c5-7b0d9bc00558 ts=1785221876.505537
+PERF PROXY prefill_send req_id=67880295-65eb-4dc2-b1c5-7b0d9bc00558 ts=1785221876.542133
+INFO:     10.36.34.8:60774 - "GET /healthcheck HTTP/1.1" 200 OK
+PERF PROXY latency summary | prefill: n=1 avg=5164.29ms min=5164.29ms max=5164.29ms
+PERF PROXY prefill_recv req_id=67880295-65eb-4dc2-b1c5-7b0d9bc00558 ts=1785221881.706425 dur_ms=5164.29
+INFO:     10.36.28.13:53790 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=67880295-65eb-4dc2-b1c5-7b0d9bc00558 ts=1785221881.706895
+PERF PROXY first_chunk req_id=67880295-65eb-4dc2-b1c5-7b0d9bc00558 ts=1785221886.451697 dur_from_decode_send_ms=4744.80 ttft_ms=9946.24
+PERF PROXY req_received req_id=60a4064b-c99c-4743-a337-4fe824002987 ts=1785221886.465893
+PERF PROXY prefill_send req_id=60a4064b-c99c-4743-a337-4fe824002987 ts=1785221886.468997
+PERF PROXY prefill_recv req_id=60a4064b-c99c-4743-a337-4fe824002987 ts=1785221886.957179 dur_ms=488.18 kv_uuid=1058586949575461
+INFO:     10.36.28.13:35870 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=60a4064b-c99c-4743-a337-4fe824002987 ts=1785221886.957541 kv_uuid=1058586949575461
+PERF PROXY first_chunk req_id=60a4064b-c99c-4743-a337-4fe824002987 ts=1785221907.169281 dur_from_decode_send_ms=20211.74 ttft_ms=20703.46 kv_uuid=1058586949575461
+PERF PROXY req_received req_id=dd6a6616-60ec-44dc-a51d-69da58a77f2f ts=1785221915.106370
+PERF PROXY prefill_send req_id=dd6a6616-60ec-44dc-a51d-69da58a77f2f ts=1785221915.113212
+PERF PROXY latency summary | decode_first: n=2 avg=12478.27ms min=4744.80ms max=20211.74ms | prefill: n=3 avg=2162.67ms min=488.18ms max=5164.29ms | prefill_from_req: n=2 avg=2846.17ms min=491.36ms max=5200.97ms | ttft: n=2 avg=15324.85ms min=9946.24ms max=20703.46ms
+PERF PROXY prefill_recv req_id=dd6a6616-60ec-44dc-a51d-69da58a77f2f ts=1785221915.948761 dur_ms=835.55 kv_uuid=773312650570453
+INFO:     10.36.28.13:59224 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=dd6a6616-60ec-44dc-a51d-69da58a77f2f ts=1785221915.949726 kv_uuid=773312650570453
+PERF PROXY first_chunk req_id=dd6a6616-60ec-44dc-a51d-69da58a77f2f ts=1785221918.865697 dur_from_decode_send_ms=2915.97 ttft_ms=3760.42 kv_uuid=773312650570453
+PERF PROXY req_received req_id=6c4cf69d-0732-4609-b68a-b314df2b7402 ts=1785221931.867301
+PERF PROXY prefill_send req_id=6c4cf69d-0732-4609-b68a-b314df2b7402 ts=1785221931.881694
+PERF PROXY prefill_recv req_id=6c4cf69d-0732-4609-b68a-b314df2b7402 ts=1785221935.218240 dur_ms=3336.55 kv_uuid=801467795421097
+INFO:     10.36.28.13:48758 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=6c4cf69d-0732-4609-b68a-b314df2b7402 ts=1785221935.220475 kv_uuid=801467795421097
+PERF PROXY first_chunk req_id=6c4cf69d-0732-4609-b68a-b314df2b7402 ts=1785221938.053945 dur_from_decode_send_ms=2833.47 ttft_ms=6191.06 kv_uuid=801467795421097
+PERF PROXY req_received req_id=b4bf4381-a1db-425d-8e1e-c4025fbf57dd ts=1785221938.338844
+PERF PROXY prefill_send req_id=b4bf4381-a1db-425d-8e1e-c4025fbf57dd ts=1785221938.353061
+PERF PROXY prefill_recv req_id=b4bf4381-a1db-425d-8e1e-c4025fbf57dd ts=1785221942.114806 dur_ms=3761.74 kv_uuid=995865406022969
+INFO:     10.36.28.13:48768 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=b4bf4381-a1db-425d-8e1e-c4025fbf57dd ts=1785221942.117657 kv_uuid=995865406022969
+PERF PROXY first_chunk req_id=b4bf4381-a1db-425d-8e1e-c4025fbf57dd ts=1785221944.911476 dur_from_decode_send_ms=2793.82 ttft_ms=6576.91 kv_uuid=995865406022969
+PERF PROXY req_received req_id=ff6f3f15-0c78-4ce2-ae75-aa108b951059 ts=1785221944.928894
+PERF PROXY prefill_send req_id=ff6f3f15-0c78-4ce2-ae75-aa108b951059 ts=1785221944.942447
+PERF PROXY latency summary | decode_first: n=5 avg=6699.96ms min=2793.82ms max=20211.74ms | prefill: n=6 avg=2890.65ms min=488.18ms max=5164.29ms | prefill_from_req: n=5 avg=2734.28ms min=491.36ms max=5200.97ms | ttft: n=5 avg=9435.62ms min=3760.42ms max=20703.46ms
+PERF PROXY prefill_recv req_id=ff6f3f15-0c78-4ce2-ae75-aa108b951059 ts=1785221948.700024 dur_ms=3757.58 kv_uuid=695444090756893
+INFO:     10.36.28.13:36080 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=ff6f3f15-0c78-4ce2-ae75-aa108b951059 ts=1785221948.702582 kv_uuid=695444090756893
+PERF PROXY first_chunk req_id=ff6f3f15-0c78-4ce2-ae75-aa108b951059 ts=1785221951.483426 dur_from_decode_send_ms=2780.84 ttft_ms=6559.43 kv_uuid=695444090756893
+PERF PROXY req_received req_id=ba827622-03e1-429c-8fc3-80bc8dc69b70 ts=1785221951.500629
+PERF PROXY prefill_send req_id=ba827622-03e1-429c-8fc3-80bc8dc69b70 ts=1785221951.515280
+PERF PROXY prefill_recv req_id=ba827622-03e1-429c-8fc3-80bc8dc69b70 ts=1785221955.275284 dur_ms=3760.00 kv_uuid=314332676197329
+INFO:     10.36.28.13:52542 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=ba827622-03e1-429c-8fc3-80bc8dc69b70 ts=1785221955.277933 kv_uuid=314332676197329
+PERF PROXY first_chunk req_id=ba827622-03e1-429c-8fc3-80bc8dc69b70 ts=1785221958.065346 dur_from_decode_send_ms=2787.41 ttft_ms=6569.34 kv_uuid=314332676197329
+PERF PROXY req_received req_id=7e86a101-efe8-4290-a783-b9188076ffa6 ts=1785221958.081701
+PERF PROXY prefill_send req_id=7e86a101-efe8-4290-a783-b9188076ffa6 ts=1785221958.096074
+PERF PROXY prefill_recv req_id=7e86a101-efe8-4290-a783-b9188076ffa6 ts=1785221961.854916 dur_ms=3758.84 kv_uuid=311120226103973
+INFO:     10.36.28.13:52544 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=7e86a101-efe8-4290-a783-b9188076ffa6 ts=1785221961.857449 kv_uuid=311120226103973
+PERF PROXY first_chunk req_id=7e86a101-efe8-4290-a783-b9188076ffa6 ts=1785221964.647361 dur_from_decode_send_ms=2789.91 ttft_ms=6570.15 kv_uuid=311120226103973
+PERF PROXY req_received req_id=f7be4cde-d399-489f-ad9b-f35894bda197 ts=1785221964.663739
+PERF PROXY prefill_send req_id=f7be4cde-d399-489f-ad9b-f35894bda197 ts=1785221964.678255
+PERF PROXY prefill_recv req_id=f7be4cde-d399-489f-ad9b-f35894bda197 ts=1785221968.448328 dur_ms=3770.07 kv_uuid=766955656851433
+INFO:     10.36.28.13:49710 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=f7be4cde-d399-489f-ad9b-f35894bda197 ts=1785221968.451149 kv_uuid=766955656851433
+PERF PROXY first_chunk req_id=f7be4cde-d399-489f-ad9b-f35894bda197 ts=1785221971.233903 dur_from_decode_send_ms=2782.75 ttft_ms=6574.78 kv_uuid=766955656851433
+PERF PROXY req_received req_id=a9ed239b-8e14-479b-be73-8085c9684056 ts=1785221971.254550
+PERF PROXY prefill_send req_id=a9ed239b-8e14-479b-be73-8085c9684056 ts=1785221971.268358
+PERF PROXY prefill_recv req_id=a9ed239b-8e14-479b-be73-8085c9684056 ts=1785221975.027174 dur_ms=3758.82 kv_uuid=634067204800121
+INFO:     10.36.28.13:37104 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=a9ed239b-8e14-479b-be73-8085c9684056 ts=1785221975.029971 kv_uuid=634067204800121
+PERF PROXY first_chunk req_id=a9ed239b-8e14-479b-be73-8085c9684056 ts=1785221977.691702 dur_from_decode_send_ms=2661.73 ttft_ms=6441.77 kv_uuid=634067204800121
+PERF PROXY req_received req_id=c3ddcfd4-c5b5-4bf4-a1c3-54b0250b2e08 ts=1785221977.714476
+PERF PROXY prefill_send req_id=c3ddcfd4-c5b5-4bf4-a1c3-54b0250b2e08 ts=1785221977.727986
+PERF PROXY latency summary | decode_first: n=10 avg=4730.25ms min=2661.73ms max=20211.74ms | prefill: n=11 avg=3286.38ms min=488.18ms max=5164.29ms | prefill_from_req: n=10 avg=3257.09ms min=491.36ms max=5200.97ms | ttft: n=10 avg=7989.36ms min=3760.42ms max=20703.46ms
+PERF PROXY prefill_recv req_id=c3ddcfd4-c5b5-4bf4-a1c3-54b0250b2e08 ts=1785221981.486564 dur_ms=3758.58 kv_uuid=252260000833157
+INFO:     10.36.28.13:37114 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=c3ddcfd4-c5b5-4bf4-a1c3-54b0250b2e08 ts=1785221981.489324 kv_uuid=252260000833157
+PERF PROXY first_chunk req_id=c3ddcfd4-c5b5-4bf4-a1c3-54b0250b2e08 ts=1785221984.271948 dur_from_decode_send_ms=2782.62 ttft_ms=6561.95 kv_uuid=252260000833157
+PERF PROXY req_received req_id=88497b7a-40c5-472b-9da4-a7ef46d84524 ts=1785221984.289503
+PERF PROXY prefill_send req_id=88497b7a-40c5-472b-9da4-a7ef46d84524 ts=1785221984.303223
+PERF PROXY prefill_recv req_id=88497b7a-40c5-472b-9da4-a7ef46d84524 ts=1785221988.067806 dur_ms=3764.58 kv_uuid=345978163422305
+INFO:     10.36.28.13:38830 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=88497b7a-40c5-472b-9da4-a7ef46d84524 ts=1785221988.070481 kv_uuid=345978163422305
+PERF PROXY first_chunk req_id=88497b7a-40c5-472b-9da4-a7ef46d84524 ts=1785221990.720653 dur_from_decode_send_ms=2650.17 ttft_ms=6435.89 kv_uuid=345978163422305
+PERF PROXY req_received req_id=3266e87d-9bfd-43cc-92cc-8cd7a74caa0a ts=1785221990.737252
+PERF PROXY prefill_send req_id=3266e87d-9bfd-43cc-92cc-8cd7a74caa0a ts=1785221990.752380
+PERF PROXY prefill_recv req_id=3266e87d-9bfd-43cc-92cc-8cd7a74caa0a ts=1785221994.513511 dur_ms=3761.13 kv_uuid=308802981623205
+INFO:     10.36.28.13:42132 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=3266e87d-9bfd-43cc-92cc-8cd7a74caa0a ts=1785221994.516072 kv_uuid=308802981623205
+PERF PROXY first_chunk req_id=3266e87d-9bfd-43cc-92cc-8cd7a74caa0a ts=1785221997.185688 dur_from_decode_send_ms=2669.62 ttft_ms=6452.89 kv_uuid=308802981623205
+PERF PROXY req_received req_id=3845a969-a63d-4042-8944-43fa0fbd630b ts=1785221997.201659
+PERF PROXY prefill_send req_id=3845a969-a63d-4042-8944-43fa0fbd630b ts=1785221997.216325
+PERF PROXY prefill_recv req_id=3845a969-a63d-4042-8944-43fa0fbd630b ts=1785222000.975419 dur_ms=3759.09 kv_uuid=440857727849257
+INFO:     10.36.28.13:42138 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=3845a969-a63d-4042-8944-43fa0fbd630b ts=1785222000.977907 kv_uuid=440857727849257
+PERF PROXY first_chunk req_id=3845a969-a63d-4042-8944-43fa0fbd630b ts=1785222003.642016 dur_from_decode_send_ms=2664.11 ttft_ms=6444.63 kv_uuid=440857727849257
+PERF PROXY req_received req_id=149b590b-aaaf-4054-af27-39aca6fb986d ts=1785222003.658633
+PERF PROXY prefill_send req_id=149b590b-aaaf-4054-af27-39aca6fb986d ts=1785222003.672768
+PERF PROXY prefill_recv req_id=149b590b-aaaf-4054-af27-39aca6fb986d ts=1785222007.429791 dur_ms=3757.02 kv_uuid=71569529782497
+INFO:     10.36.28.13:53908 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=149b590b-aaaf-4054-af27-39aca6fb986d ts=1785222007.432314 kv_uuid=71569529782497
+PERF PROXY first_chunk req_id=149b590b-aaaf-4054-af27-39aca6fb986d ts=1785222010.103676 dur_from_decode_send_ms=2671.36 ttft_ms=6449.59 kv_uuid=71569529782497
+PERF PROXY req_received req_id=ab76b9dc-59eb-4abe-90e1-d9e1ff4a50bd ts=1785222010.126245
+PERF PROXY prefill_send req_id=ab76b9dc-59eb-4abe-90e1-d9e1ff4a50bd ts=1785222010.140155
+PERF PROXY latency summary | decode_first: n=15 avg=4049.36ms min=2650.17ms max=20211.74ms | prefill: n=16 avg=3434.65ms min=488.18ms max=5164.29ms | prefill_from_req: n=15 avg=3430.99ms min=491.36ms max=5200.97ms | ttft: n=15 avg=7482.57ms min=3760.42ms max=20703.46ms
+PERF PROXY prefill_recv req_id=ab76b9dc-59eb-4abe-90e1-d9e1ff4a50bd ts=1785222013.902534 dur_ms=3762.38 kv_uuid=767515596431973
+INFO:     10.36.28.13:59792 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=ab76b9dc-59eb-4abe-90e1-d9e1ff4a50bd ts=1785222013.905134 kv_uuid=767515596431973
+PERF PROXY first_chunk req_id=ab76b9dc-59eb-4abe-90e1-d9e1ff4a50bd ts=1785222016.568626 dur_from_decode_send_ms=2663.49 ttft_ms=6447.20 kv_uuid=767515596431973
+PERF PROXY req_received req_id=a6bf4815-cba6-47c6-84ba-a94792fcf60f ts=1785222016.586253
+PERF PROXY prefill_send req_id=a6bf4815-cba6-47c6-84ba-a94792fcf60f ts=1785222016.599972
+PERF PROXY prefill_recv req_id=a6bf4815-cba6-47c6-84ba-a94792fcf60f ts=1785222020.354801 dur_ms=3754.83 kv_uuid=725336099375421
+INFO:     10.36.28.13:59806 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=a6bf4815-cba6-47c6-84ba-a94792fcf60f ts=1785222020.357080 kv_uuid=725336099375421
+PERF PROXY first_chunk req_id=a6bf4815-cba6-47c6-84ba-a94792fcf60f ts=1785222023.015652 dur_from_decode_send_ms=2658.57 ttft_ms=6434.18 kv_uuid=725336099375421
+PERF PROXY req_received req_id=5dd1d571-5021-44fb-9972-bcc2d092dcb4 ts=1785222023.032581
+PERF PROXY prefill_send req_id=5dd1d571-5021-44fb-9972-bcc2d092dcb4 ts=1785222023.046098
+PERF PROXY prefill_recv req_id=5dd1d571-5021-44fb-9972-bcc2d092dcb4 ts=1785222026.805987 dur_ms=3759.89 kv_uuid=959908507962405
+INFO:     10.36.28.13:47986 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=5dd1d571-5021-44fb-9972-bcc2d092dcb4 ts=1785222026.808713 kv_uuid=959908507962405
+PERF PROXY first_chunk req_id=5dd1d571-5021-44fb-9972-bcc2d092dcb4 ts=1785222029.474885 dur_from_decode_send_ms=2666.17 ttft_ms=6447.03 kv_uuid=959908507962405
+PERF PROXY req_received req_id=8a685db2-e470-42cc-9c01-487fc104be0a ts=1785222029.491070
+PERF PROXY prefill_send req_id=8a685db2-e470-42cc-9c01-487fc104be0a ts=1785222029.504763
+PERF PROXY prefill_recv req_id=8a685db2-e470-42cc-9c01-487fc104be0a ts=1785222033.263000 dur_ms=3758.24 kv_uuid=1106394316217629
+INFO:     10.36.28.13:40586 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=8a685db2-e470-42cc-9c01-487fc104be0a ts=1785222033.265300 kv_uuid=1106394316217629
+PERF PROXY first_chunk req_id=8a685db2-e470-42cc-9c01-487fc104be0a ts=1785222035.932541 dur_from_decode_send_ms=2667.24 ttft_ms=6446.27 kv_uuid=1106394316217629
+PERF PROXY req_received req_id=c4195d52-bd4f-4ed3-8c6f-be3d83ececf8 ts=1785222035.949506
+PERF PROXY prefill_send req_id=c4195d52-bd4f-4ed3-8c6f-be3d83ececf8 ts=1785222035.962602
+PERF PROXY prefill_recv req_id=c4195d52-bd4f-4ed3-8c6f-be3d83ececf8 ts=1785222039.726420 dur_ms=3763.82 kv_uuid=441569553540053
+INFO:     10.36.28.13:40594 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=c4195d52-bd4f-4ed3-8c6f-be3d83ececf8 ts=1785222039.729046 kv_uuid=441569553540053
+PERF PROXY first_chunk req_id=c4195d52-bd4f-4ed3-8c6f-be3d83ececf8 ts=1785222042.382542 dur_from_decode_send_ms=2653.50 ttft_ms=6437.79 kv_uuid=441569553540053
+PERF PROXY req_received req_id=9e5b0e8b-1feb-45dc-8445-a7ccdd22915d ts=1785222042.406124
+PERF PROXY prefill_send req_id=9e5b0e8b-1feb-45dc-8445-a7ccdd22915d ts=1785222042.419531
+PERF PROXY latency summary | decode_first: n=20 avg=3702.47ms min=2650.17ms max=20211.74ms | prefill: n=21 avg=3511.80ms min=488.18ms max=5164.29ms | prefill_from_req: n=20 avg=3517.79ms min=491.36ms max=5200.97ms | ttft: n=20 avg=7222.55ms min=3760.42ms max=20703.46ms
+PERF PROXY prefill_recv req_id=9e5b0e8b-1feb-45dc-8445-a7ccdd22915d ts=1785222046.176176 dur_ms=3756.64 kv_uuid=225551536570953
+INFO:     10.36.28.13:35986 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=9e5b0e8b-1feb-45dc-8445-a7ccdd22915d ts=1785222046.178577 kv_uuid=225551536570953
+PERF PROXY first_chunk req_id=9e5b0e8b-1feb-45dc-8445-a7ccdd22915d ts=1785222048.844334 dur_from_decode_send_ms=2665.76 ttft_ms=6442.77 kv_uuid=225551536570953
+PERF PROXY req_received req_id=2d35eb4e-ec79-4194-bb74-c2bb328755ea ts=1785222048.860412
+PERF PROXY prefill_send req_id=2d35eb4e-ec79-4194-bb74-c2bb328755ea ts=1785222048.873503
+PERF PROXY prefill_recv req_id=2d35eb4e-ec79-4194-bb74-c2bb328755ea ts=1785222052.630865 dur_ms=3757.36 kv_uuid=851571571968297
+INFO:     10.36.28.13:39762 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=2d35eb4e-ec79-4194-bb74-c2bb328755ea ts=1785222052.633508 kv_uuid=851571571968297
+PERF PROXY first_chunk req_id=2d35eb4e-ec79-4194-bb74-c2bb328755ea ts=1785222055.291873 dur_from_decode_send_ms=2658.37 ttft_ms=6436.01 kv_uuid=851571571968297
+PERF PROXY req_received req_id=4bb8e2db-65e9-44db-ba21-af1ed3ea3260 ts=1785222055.308346
+PERF PROXY prefill_send req_id=4bb8e2db-65e9-44db-ba21-af1ed3ea3260 ts=1785222055.321924
+PERF PROXY prefill_recv req_id=4bb8e2db-65e9-44db-ba21-af1ed3ea3260 ts=1785222059.082217 dur_ms=3760.29 kv_uuid=248245238470113
+INFO:     10.36.28.13:39764 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=4bb8e2db-65e9-44db-ba21-af1ed3ea3260 ts=1785222059.084522 kv_uuid=248245238470113
+PERF PROXY first_chunk req_id=4bb8e2db-65e9-44db-ba21-af1ed3ea3260 ts=1785222061.748550 dur_from_decode_send_ms=2664.03 ttft_ms=6444.76 kv_uuid=248245238470113
+PERF PROXY req_received req_id=68d8eb1e-56a1-41da-9e1e-c2506e8358a0 ts=1785222061.765393
+PERF PROXY prefill_send req_id=68d8eb1e-56a1-41da-9e1e-c2506e8358a0 ts=1785222061.779386
+PERF PROXY prefill_recv req_id=68d8eb1e-56a1-41da-9e1e-c2506e8358a0 ts=1785222065.536278 dur_ms=3756.89 kv_uuid=458069228234913
+INFO:     10.36.28.13:48922 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=68d8eb1e-56a1-41da-9e1e-c2506e8358a0 ts=1785222065.538570 kv_uuid=458069228234913
+PERF PROXY first_chunk req_id=68d8eb1e-56a1-41da-9e1e-c2506e8358a0 ts=1785222068.194474 dur_from_decode_send_ms=2655.90 ttft_ms=6433.89 kv_uuid=458069228234913
+PERF PROXY req_received req_id=fe3dd8ba-da84-43f4-8907-fab0e6a082ad ts=1785222068.211133
+PERF PROXY prefill_send req_id=fe3dd8ba-da84-43f4-8907-fab0e6a082ad ts=1785222068.224549
+PERF PROXY prefill_recv req_id=fe3dd8ba-da84-43f4-8907-fab0e6a082ad ts=1785222071.978778 dur_ms=3754.23 kv_uuid=823868244407609
+INFO:     10.36.28.13:48936 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=fe3dd8ba-da84-43f4-8907-fab0e6a082ad ts=1785222071.981363 kv_uuid=823868244407609
+PERF PROXY first_chunk req_id=fe3dd8ba-da84-43f4-8907-fab0e6a082ad ts=1785222074.644372 dur_from_decode_send_ms=2663.01 ttft_ms=6438.02 kv_uuid=823868244407609
+PERF PROXY req_received req_id=47340d60-ad4a-47bb-ba4d-5811f9e90e9c ts=1785222074.667862
+PERF PROXY prefill_send req_id=47340d60-ad4a-47bb-ba4d-5811f9e90e9c ts=1785222074.682351
+PERF PROXY latency summary | decode_first: n=25 avg=3494.26ms min=2650.17ms max=20211.74ms | prefill: n=26 avg=3558.93ms min=488.18ms max=5164.29ms | prefill_from_req: n=25 avg=3569.28ms min=491.36ms max=5200.97ms | ttft: n=25 avg=7065.86ms min=3760.42ms max=20703.46ms
+PERF PROXY prefill_recv req_id=47340d60-ad4a-47bb-ba4d-5811f9e90e9c ts=1785222078.437935 dur_ms=3755.58 kv_uuid=161399929415865
+INFO:     10.36.28.13:44584 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=47340d60-ad4a-47bb-ba4d-5811f9e90e9c ts=1785222078.440411 kv_uuid=161399929415865
+PERF PROXY first_chunk req_id=47340d60-ad4a-47bb-ba4d-5811f9e90e9c ts=1785222081.106196 dur_from_decode_send_ms=2665.79 ttft_ms=6443.12 kv_uuid=161399929415865
+PERF PROXY req_received req_id=ef37d2f0-7716-483f-8259-d353d7e097b7 ts=1785222081.122668
+PERF PROXY prefill_send req_id=ef37d2f0-7716-483f-8259-d353d7e097b7 ts=1785222081.136477
+PERF PROXY prefill_recv req_id=ef37d2f0-7716-483f-8259-d353d7e097b7 ts=1785222084.894224 dur_ms=3757.75 kv_uuid=1120366892279765
+INFO:     10.36.28.13:48998 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=ef37d2f0-7716-483f-8259-d353d7e097b7 ts=1785222084.896467 kv_uuid=1120366892279765
+PERF PROXY first_chunk req_id=ef37d2f0-7716-483f-8259-d353d7e097b7 ts=1785222087.555403 dur_from_decode_send_ms=2658.94 ttft_ms=6437.27 kv_uuid=1120366892279765
+PERF PROXY req_received req_id=eb4e7dd7-60f9-4359-9297-a2668dd40a4a ts=1785222087.575068
+PERF PROXY prefill_send req_id=eb4e7dd7-60f9-4359-9297-a2668dd40a4a ts=1785222087.590172
+PERF PROXY prefill_recv req_id=eb4e7dd7-60f9-4359-9297-a2668dd40a4a ts=1785222091.347391 dur_ms=3757.22 kv_uuid=946794011053189
+INFO:     10.36.28.13:49006 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=eb4e7dd7-60f9-4359-9297-a2668dd40a4a ts=1785222091.349894 kv_uuid=946794011053189
+PERF PROXY first_chunk req_id=eb4e7dd7-60f9-4359-9297-a2668dd40a4a ts=1785222094.021634 dur_from_decode_send_ms=2671.74 ttft_ms=6451.25 kv_uuid=946794011053189
+PERF PROXY req_received req_id=664a3b08-3b65-4591-886f-522326a7c898 ts=1785222094.039999
+PERF PROXY prefill_send req_id=664a3b08-3b65-4591-886f-522326a7c898 ts=1785222094.054008
+PERF PROXY prefill_recv req_id=664a3b08-3b65-4591-886f-522326a7c898 ts=1785222094.494752 dur_ms=440.74 kv_uuid=247715350378565
+INFO:     10.36.28.13:54478 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=664a3b08-3b65-4591-886f-522326a7c898 ts=1785222094.496923 kv_uuid=247715350378565
+PERF PROXY first_chunk req_id=664a3b08-3b65-4591-886f-522326a7c898 ts=1785222097.159048 dur_from_decode_send_ms=2662.13 ttft_ms=3123.45 kv_uuid=247715350378565
+PERF PROXY req_received req_id=d266fc33-2759-4ca3-b692-1b1cb44c7e9b ts=1785222097.174927
+PERF PROXY prefill_send req_id=d266fc33-2759-4ca3-b692-1b1cb44c7e9b ts=1785222097.188292
+PERF PROXY prefill_recv req_id=d266fc33-2759-4ca3-b692-1b1cb44c7e9b ts=1785222097.629719 dur_ms=441.43 kv_uuid=627319600503341
+INFO:     10.36.28.13:54494 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=d266fc33-2759-4ca3-b692-1b1cb44c7e9b ts=1785222097.632192 kv_uuid=627319600503341
+PERF PROXY first_chunk req_id=d266fc33-2759-4ca3-b692-1b1cb44c7e9b ts=1785222100.292224 dur_from_decode_send_ms=2660.03 ttft_ms=3121.90 kv_uuid=627319600503341
+PERF PROXY req_received req_id=f2caa540-2704-4ab2-8742-cf5e4803165f ts=1785222100.308489
+PERF PROXY prefill_send req_id=f2caa540-2704-4ab2-8742-cf5e4803165f ts=1785222100.322696
+PERF PROXY prefill_recv req_id=f2caa540-2704-4ab2-8742-cf5e4803165f ts=1785222100.765904 dur_ms=443.21 kv_uuid=488329211623853
+INFO:     10.36.28.13:52138 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=f2caa540-2704-4ab2-8742-cf5e4803165f ts=1785222100.768601 kv_uuid=488329211623853
+PERF PROXY first_chunk req_id=f2caa540-2704-4ab2-8742-cf5e4803165f ts=1785222103.422656 dur_from_decode_send_ms=2654.06 ttft_ms=3118.91 kv_uuid=488329211623853
+PERF PROXY req_received req_id=26d81df3-a401-460d-ab30-55bdd53345a8 ts=1785222103.444531
+PERF PROXY prefill_send req_id=26d81df3-a401-460d-ab30-55bdd53345a8 ts=1785222103.459085
+PERF PROXY prefill_recv req_id=26d81df3-a401-460d-ab30-55bdd53345a8 ts=1785222103.902782 dur_ms=443.70 kv_uuid=920968116917649
+INFO:     10.36.28.13:52146 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=26d81df3-a401-460d-ab30-55bdd53345a8 ts=1785222103.905481 kv_uuid=920968116917649
+PERF PROXY first_chunk req_id=26d81df3-a401-460d-ab30-55bdd53345a8 ts=1785222106.559161 dur_from_decode_send_ms=2653.68 ttft_ms=3119.37 kv_uuid=920968116917649
+PERF PROXY req_received req_id=567c57b0-8dde-41db-98db-8599246bc6bf ts=1785222106.576091
+PERF PROXY prefill_send req_id=567c57b0-8dde-41db-98db-8599246bc6bf ts=1785222106.591241
+PERF PROXY prefill_recv req_id=567c57b0-8dde-41db-98db-8599246bc6bf ts=1785222107.034672 dur_ms=443.43 kv_uuid=550636166413013
+INFO:     10.36.28.13:52156 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=567c57b0-8dde-41db-98db-8599246bc6bf ts=1785222107.036831 kv_uuid=550636166413013
+PERF PROXY latency summary | decode_first: n=33 avg=3292.17ms min=2650.17ms max=20211.74ms | prefill: n=33 avg=3098.78ms min=440.74ms max=5164.29ms | prefill_from_req: n=33 avg=3117.19ms min=459.16ms max=5200.97ms | ttft: n=32 avg=6514.43ms min=3118.91ms max=20703.46ms
+PERF PROXY first_chunk req_id=567c57b0-8dde-41db-98db-8599246bc6bf ts=1785222109.695778 dur_from_decode_send_ms=2658.95 ttft_ms=3124.65 kv_uuid=550636166413013
+PERF PROXY req_received req_id=f084e5ca-fdfc-4fb8-93a9-ceb690f246ac ts=1785222109.712842
+PERF PROXY prefill_send req_id=f084e5ca-fdfc-4fb8-93a9-ceb690f246ac ts=1785222109.726813
+PERF PROXY prefill_recv req_id=f084e5ca-fdfc-4fb8-93a9-ceb690f246ac ts=1785222110.168114 dur_ms=441.30 kv_uuid=928221838266585
+INFO:     10.36.28.13:54990 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=f084e5ca-fdfc-4fb8-93a9-ceb690f246ac ts=1785222110.170611 kv_uuid=928221838266585
+PERF PROXY first_chunk req_id=f084e5ca-fdfc-4fb8-93a9-ceb690f246ac ts=1785222112.840186 dur_from_decode_send_ms=2669.58 ttft_ms=3132.28 kv_uuid=928221838266585
+PERF PROXY req_received req_id=1f93178b-b726-4a6a-a6ec-a35d41d2efbc ts=1785222112.857517
+PERF PROXY prefill_send req_id=1f93178b-b726-4a6a-a6ec-a35d41d2efbc ts=1785222112.871879
+PERF PROXY prefill_recv req_id=1f93178b-b726-4a6a-a6ec-a35d41d2efbc ts=1785222113.313504 dur_ms=441.63 kv_uuid=129510876020937
+INFO:     10.36.28.13:55006 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=1f93178b-b726-4a6a-a6ec-a35d41d2efbc ts=1785222113.315776 kv_uuid=129510876020937
+PERF PROXY first_chunk req_id=1f93178b-b726-4a6a-a6ec-a35d41d2efbc ts=1785222115.972736 dur_from_decode_send_ms=2656.96 ttft_ms=3120.07 kv_uuid=129510876020937
+PERF PROXY req_received req_id=4c7b242a-447c-446f-83b6-56e456e9af75 ts=1785222115.989495
+PERF PROXY prefill_send req_id=4c7b242a-447c-446f-83b6-56e456e9af75 ts=1785222116.003085
+PERF PROXY prefill_recv req_id=4c7b242a-447c-446f-83b6-56e456e9af75 ts=1785222116.447045 dur_ms=443.96 kv_uuid=765745754030309
+INFO:     10.36.28.13:55022 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=4c7b242a-447c-446f-83b6-56e456e9af75 ts=1785222116.449698 kv_uuid=765745754030309
+PERF PROXY first_chunk req_id=4c7b242a-447c-446f-83b6-56e456e9af75 ts=1785222119.110853 dur_from_decode_send_ms=2661.15 ttft_ms=3126.10 kv_uuid=765745754030309
+PERF PROXY req_received req_id=3653afe7-2458-4666-8da3-abbdb58753ed ts=1785222119.128070
+PERF PROXY prefill_send req_id=3653afe7-2458-4666-8da3-abbdb58753ed ts=1785222119.142334
+PERF PROXY prefill_recv req_id=3653afe7-2458-4666-8da3-abbdb58753ed ts=1785222119.585017 dur_ms=442.68 kv_uuid=97439922358365
+INFO:     10.36.28.13:54730 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=3653afe7-2458-4666-8da3-abbdb58753ed ts=1785222119.587547 kv_uuid=97439922358365
+PERF PROXY first_chunk req_id=3653afe7-2458-4666-8da3-abbdb58753ed ts=1785222122.250945 dur_from_decode_send_ms=2663.40 ttft_ms=3127.65 kv_uuid=97439922358365
+PERF PROXY req_received req_id=a7a32f62-eaca-4fd6-aba9-f21dfc0ead50 ts=1785222122.268120
+PERF PROXY prefill_send req_id=a7a32f62-eaca-4fd6-aba9-f21dfc0ead50 ts=1785222122.281459
+PERF PROXY prefill_recv req_id=a7a32f62-eaca-4fd6-aba9-f21dfc0ead50 ts=1785222122.724396 dur_ms=442.94 kv_uuid=854670072975645
+INFO:     10.36.28.13:54732 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=a7a32f62-eaca-4fd6-aba9-f21dfc0ead50 ts=1785222122.726808 kv_uuid=854670072975645
+PERF PROXY first_chunk req_id=a7a32f62-eaca-4fd6-aba9-f21dfc0ead50 ts=1785222125.384284 dur_from_decode_send_ms=2657.48 ttft_ms=3120.77 kv_uuid=854670072975645
+PERF PROXY req_received req_id=ff388175-917a-4470-ba3e-145494986441 ts=1785222125.401117
+PERF PROXY prefill_send req_id=ff388175-917a-4470-ba3e-145494986441 ts=1785222125.415239
+PERF PROXY prefill_recv req_id=ff388175-917a-4470-ba3e-145494986441 ts=1785222125.857815 dur_ms=442.58 kv_uuid=886581224319541
+INFO:     10.36.28.13:54736 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=ff388175-917a-4470-ba3e-145494986441 ts=1785222125.860045 kv_uuid=886581224319541
+PERF PROXY first_chunk req_id=ff388175-917a-4470-ba3e-145494986441 ts=1785222128.519995 dur_from_decode_send_ms=2659.95 ttft_ms=3123.53 kv_uuid=886581224319541
+PERF PROXY req_received req_id=81196459-8b6a-4533-8dd9-777221cdce73 ts=1785222128.536688
+PERF PROXY prefill_send req_id=81196459-8b6a-4533-8dd9-777221cdce73 ts=1785222128.549827
+PERF PROXY prefill_recv req_id=81196459-8b6a-4533-8dd9-777221cdce73 ts=1785222128.991094 dur_ms=441.27 kv_uuid=1068958794561073
+INFO:     10.36.28.13:34014 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=81196459-8b6a-4533-8dd9-777221cdce73 ts=1785222128.993443 kv_uuid=1068958794561073
+PERF PROXY first_chunk req_id=81196459-8b6a-4533-8dd9-777221cdce73 ts=1785222131.650249 dur_from_decode_send_ms=2656.81 ttft_ms=3118.33 kv_uuid=1068958794561073
+PERF PROXY req_received req_id=133ff19f-0472-4fea-ab27-7ba8b7902b0b ts=1785222131.666865
+PERF PROXY prefill_send req_id=133ff19f-0472-4fea-ab27-7ba8b7902b0b ts=1785222131.679907
+PERF PROXY prefill_recv req_id=133ff19f-0472-4fea-ab27-7ba8b7902b0b ts=1785222132.122736 dur_ms=442.83 kv_uuid=38829058869977
+INFO:     10.36.28.13:34018 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=133ff19f-0472-4fea-ab27-7ba8b7902b0b ts=1785222132.124877 kv_uuid=38829058869977
+PERF PROXY first_chunk req_id=133ff19f-0472-4fea-ab27-7ba8b7902b0b ts=1785222134.789617 dur_from_decode_send_ms=2664.74 ttft_ms=3127.41 kv_uuid=38829058869977
+PERF PROXY req_received req_id=aabf1942-c662-40f7-a5fc-cca9e8c3f50c ts=1785222134.814190
+PERF PROXY prefill_send req_id=aabf1942-c662-40f7-a5fc-cca9e8c3f50c ts=1785222134.827179
+PERF PROXY prefill_recv req_id=aabf1942-c662-40f7-a5fc-cca9e8c3f50c ts=1785222135.269420 dur_ms=442.24 kv_uuid=80307214762165
+INFO:     10.36.28.13:34026 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=aabf1942-c662-40f7-a5fc-cca9e8c3f50c ts=1785222135.271811 kv_uuid=80307214762165
+PERF PROXY first_chunk req_id=aabf1942-c662-40f7-a5fc-cca9e8c3f50c ts=1785222137.941282 dur_from_decode_send_ms=2669.47 ttft_ms=3131.42 kv_uuid=80307214762165
+PERF PROXY req_received req_id=6ed345b8-5ccb-42b5-8074-9f5449b21c5b ts=1785222137.961979
+PERF PROXY prefill_send req_id=6ed345b8-5ccb-42b5-8074-9f5449b21c5b ts=1785222137.975897
+PERF PROXY prefill_recv req_id=6ed345b8-5ccb-42b5-8074-9f5449b21c5b ts=1785222138.417621 dur_ms=441.72 kv_uuid=102234843701829
+INFO:     10.36.28.13:34042 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=6ed345b8-5ccb-42b5-8074-9f5449b21c5b ts=1785222138.419750 kv_uuid=102234843701829
+PERF PROXY latency summary | decode_first: n=43 avg=3145.91ms min=2650.17ms max=20211.74ms | prefill: n=43 avg=2481.00ms min=440.74ms max=5164.29ms | prefill_from_req: n=43 avg=2499.40ms min=459.16ms max=5200.97ms | ttft: n=42 avg=5707.47ms min=3118.33ms max=20703.46ms
+PERF PROXY first_chunk req_id=6ed345b8-5ccb-42b5-8074-9f5449b21c5b ts=1785222141.092508 dur_from_decode_send_ms=2672.76 ttft_ms=3135.13 kv_uuid=102234843701829
+PERF PROXY req_received req_id=e1b73202-9d9c-4283-8475-105a21d381d2 ts=1785222141.111939
+PERF PROXY prefill_send req_id=e1b73202-9d9c-4283-8475-105a21d381d2 ts=1785222141.125498
+PERF PROXY prefill_recv req_id=e1b73202-9d9c-4283-8475-105a21d381d2 ts=1785222141.568376 dur_ms=442.88 kv_uuid=552365134190245
+INFO:     10.36.28.13:49144 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=e1b73202-9d9c-4283-8475-105a21d381d2 ts=1785222141.570879 kv_uuid=552365134190245
+PERF PROXY first_chunk req_id=e1b73202-9d9c-4283-8475-105a21d381d2 ts=1785222144.236383 dur_from_decode_send_ms=2665.50 ttft_ms=3129.34 kv_uuid=552365134190245
+PERF PROXY req_received req_id=4100c154-b032-4dec-ba9c-5feec5f328ad ts=1785222144.253194
+PERF PROXY prefill_send req_id=4100c154-b032-4dec-ba9c-5feec5f328ad ts=1785222144.266429
+PERF PROXY prefill_recv req_id=4100c154-b032-4dec-ba9c-5feec5f328ad ts=1785222144.708469 dur_ms=442.04 kv_uuid=639828234635373
+INFO:     10.36.28.13:49156 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=4100c154-b032-4dec-ba9c-5feec5f328ad ts=1785222144.710886 kv_uuid=639828234635373
+PERF PROXY first_chunk req_id=4100c154-b032-4dec-ba9c-5feec5f328ad ts=1785222147.373935 dur_from_decode_send_ms=2663.05 ttft_ms=3125.31 kv_uuid=639828234635373
+PERF PROXY req_received req_id=17146de6-49aa-4708-a25f-a2b96d9f589b ts=1785222147.393450
+PERF PROXY prefill_send req_id=17146de6-49aa-4708-a25f-a2b96d9f589b ts=1785222147.406735
+PERF PROXY prefill_recv req_id=17146de6-49aa-4708-a25f-a2b96d9f589b ts=1785222147.847802 dur_ms=441.07 kv_uuid=250685350971661
+INFO:     10.36.28.13:49168 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=17146de6-49aa-4708-a25f-a2b96d9f589b ts=1785222147.850266 kv_uuid=250685350971661
+PERF PROXY first_chunk req_id=17146de6-49aa-4708-a25f-a2b96d9f589b ts=1785222150.513103 dur_from_decode_send_ms=2662.84 ttft_ms=3124.26 kv_uuid=250685350971661
+PERF PROXY req_received req_id=3d39087f-e623-4007-a96c-d6a744693ad5 ts=1785222150.532401
+PERF PROXY prefill_send req_id=3d39087f-e623-4007-a96c-d6a744693ad5 ts=1785222150.545485
+PERF PROXY prefill_recv req_id=3d39087f-e623-4007-a96c-d6a744693ad5 ts=1785222150.988456 dur_ms=442.97 kv_uuid=779785527151641
+INFO:     10.36.28.13:49698 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=3d39087f-e623-4007-a96c-d6a744693ad5 ts=1785222150.991005 kv_uuid=779785527151641
+PERF PROXY first_chunk req_id=3d39087f-e623-4007-a96c-d6a744693ad5 ts=1785222153.650631 dur_from_decode_send_ms=2659.63 ttft_ms=3122.72 kv_uuid=779785527151641
+PERF PROXY req_received req_id=c8e4b888-5ad9-4105-bcd6-c8e0418483db ts=1785222153.670916
+PERF PROXY prefill_send req_id=c8e4b888-5ad9-4105-bcd6-c8e0418483db ts=1785222153.683755
+PERF PROXY prefill_recv req_id=c8e4b888-5ad9-4105-bcd6-c8e0418483db ts=1785222154.126905 dur_ms=443.15 kv_uuid=229347324664189
+INFO:     10.36.28.13:49708 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=c8e4b888-5ad9-4105-bcd6-c8e0418483db ts=1785222154.129407 kv_uuid=229347324664189
+PERF PROXY first_chunk req_id=c8e4b888-5ad9-4105-bcd6-c8e0418483db ts=1785222156.789998 dur_from_decode_send_ms=2660.59 ttft_ms=3123.72 kv_uuid=229347324664189
+PERF PROXY req_received req_id=2696180a-db5b-44e6-97cd-71f26fa8f1ca ts=1785222156.809682
+PERF PROXY prefill_send req_id=2696180a-db5b-44e6-97cd-71f26fa8f1ca ts=1785222156.823731
+PERF PROXY prefill_recv req_id=2696180a-db5b-44e6-97cd-71f26fa8f1ca ts=1785222157.265099 dur_ms=441.37 kv_uuid=320816213005225
+INFO:     10.36.28.13:49716 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=2696180a-db5b-44e6-97cd-71f26fa8f1ca ts=1785222157.267628 kv_uuid=320816213005225
+PERF PROXY first_chunk req_id=2696180a-db5b-44e6-97cd-71f26fa8f1ca ts=1785222159.930428 dur_from_decode_send_ms=2662.80 ttft_ms=3125.37 kv_uuid=320816213005225
+PERF PROXY req_received req_id=a05f1e8d-4250-4034-a308-1003a1fb3837 ts=1785222159.951264
+PERF PROXY prefill_send req_id=a05f1e8d-4250-4034-a308-1003a1fb3837 ts=1785222159.964531
+PERF PROXY prefill_recv req_id=a05f1e8d-4250-4034-a308-1003a1fb3837 ts=1785222160.408357 dur_ms=443.83 kv_uuid=545050929668189
+INFO:     10.36.28.13:53782 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=a05f1e8d-4250-4034-a308-1003a1fb3837 ts=1785222160.410735 kv_uuid=545050929668189
+PERF PROXY first_chunk req_id=a05f1e8d-4250-4034-a308-1003a1fb3837 ts=1785222163.088508 dur_from_decode_send_ms=2677.77 ttft_ms=3141.92 kv_uuid=545050929668189
+PERF PROXY req_received req_id=9906ca89-fade-4a0b-a192-2da09e1d88d2 ts=1785222163.105064
+PERF PROXY prefill_send req_id=9906ca89-fade-4a0b-a192-2da09e1d88d2 ts=1785222163.118965
+PERF PROXY prefill_recv req_id=9906ca89-fade-4a0b-a192-2da09e1d88d2 ts=1785222163.562613 dur_ms=443.65 kv_uuid=169864232178545
+INFO:     10.36.28.13:53790 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=9906ca89-fade-4a0b-a192-2da09e1d88d2 ts=1785222163.564928 kv_uuid=169864232178545
+PERF PROXY first_chunk req_id=9906ca89-fade-4a0b-a192-2da09e1d88d2 ts=1785222166.225338 dur_from_decode_send_ms=2660.41 ttft_ms=3125.01 kv_uuid=169864232178545
+PERF PROXY req_received req_id=730346d8-7112-4084-a473-53d41afb4cc2 ts=1785222166.251118
+PERF PROXY prefill_send req_id=730346d8-7112-4084-a473-53d41afb4cc2 ts=1785222166.264917
+PERF PROXY prefill_recv req_id=730346d8-7112-4084-a473-53d41afb4cc2 ts=1785222166.706396 dur_ms=441.48 kv_uuid=1047691841344333
+INFO:     10.36.28.13:53802 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=730346d8-7112-4084-a473-53d41afb4cc2 ts=1785222166.708880 kv_uuid=1047691841344333
+PERF PROXY first_chunk req_id=730346d8-7112-4084-a473-53d41afb4cc2 ts=1785222169.387366 dur_from_decode_send_ms=2678.49 ttft_ms=3141.05 kv_uuid=1047691841344333
+PERF PROXY req_received req_id=352d91e2-305b-4f43-93b2-c6720009f630 ts=1785222203.200586
+PERF PROXY prefill_send req_id=352d91e2-305b-4f43-93b2-c6720009f630 ts=1785222203.209310
+PERF PROXY latency summary | decode_first: n=52 avg=3062.79ms min=2650.17ms max=20211.74ms | prefill: n=53 avg=2096.68ms min=440.74ms max=5164.29ms | prefill_from_req: n=52 avg=2146.53ms min=458.96ms max=5200.97ms | ttft: n=52 avg=5211.69ms min=3118.33ms max=20703.46ms
+PERF PROXY prefill_recv req_id=352d91e2-305b-4f43-93b2-c6720009f630 ts=1785222203.668333 dur_ms=459.02
+INFO:     10.36.34.8:33712 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=352d91e2-305b-4f43-93b2-c6720009f630 ts=1785222203.668640
+PERF PROXY first_chunk req_id=352d91e2-305b-4f43-93b2-c6720009f630 ts=1785222208.735993 dur_from_decode_send_ms=5067.35 ttft_ms=5535.47
+PERF PROXY req_received req_id=01b030c2-b30d-4f64-855e-4d54ab8d9d7f ts=1785222231.302109
+PERF PROXY req_received req_id=1cda0bbb-3dab-4c17-88f5-7184f28ac664 ts=1785222231.305956
+PERF PROXY req_received req_id=490326d5-871f-4b16-88db-34754899a5ad ts=1785222231.307620
+PERF PROXY req_received req_id=b1a49dd1-fee0-4476-a926-f7d4e8d0e991 ts=1785222231.309278
+PERF PROXY req_received req_id=c27d3756-6ccc-43bb-b6db-3f98eb142795 ts=1785222231.311326
+PERF PROXY req_received req_id=795b8bc8-468f-4c02-b33b-1b865a1a49cf ts=1785222231.314823
+PERF PROXY req_received req_id=db211eb4-fa62-477c-b8c6-acc7d56e1593 ts=1785222231.316429
+PERF PROXY req_received req_id=9a9e8493-1748-492a-a365-8bef800a9400 ts=1785222231.319463
+PERF PROXY req_received req_id=d63e54a9-5e15-4d41-b998-b1d7d023b900 ts=1785222231.321239
+PERF PROXY req_received req_id=be9bf30c-32de-46ac-b8f8-48e9769ea792 ts=1785222231.322645
+PERF PROXY req_received req_id=c10af4ca-cd0f-4d36-aeee-c11d8364eecb ts=1785222231.324089
+PERF PROXY req_received req_id=ea1f8214-69f9-4eac-b01e-fbeedd517c7f ts=1785222231.326222
+PERF PROXY prefill_send req_id=01b030c2-b30d-4f64-855e-4d54ab8d9d7f ts=1785222231.358303
+PERF PROXY prefill_send req_id=1cda0bbb-3dab-4c17-88f5-7184f28ac664 ts=1785222231.396972
+PERF PROXY prefill_send req_id=490326d5-871f-4b16-88db-34754899a5ad ts=1785222231.433260
+PERF PROXY prefill_send req_id=b1a49dd1-fee0-4476-a926-f7d4e8d0e991 ts=1785222231.472010
+PERF PROXY prefill_send req_id=c27d3756-6ccc-43bb-b6db-3f98eb142795 ts=1785222231.506412
+PERF PROXY prefill_send req_id=795b8bc8-468f-4c02-b33b-1b865a1a49cf ts=1785222231.539149
+PERF PROXY prefill_send req_id=db211eb4-fa62-477c-b8c6-acc7d56e1593 ts=1785222231.572006
+PERF PROXY prefill_send req_id=9a9e8493-1748-492a-a365-8bef800a9400 ts=1785222231.604079
+PERF PROXY prefill_send req_id=d63e54a9-5e15-4d41-b998-b1d7d023b900 ts=1785222231.638413
+PERF PROXY prefill_send req_id=be9bf30c-32de-46ac-b8f8-48e9769ea792 ts=1785222231.670845
+PERF PROXY prefill_send req_id=c10af4ca-cd0f-4d36-aeee-c11d8364eecb ts=1785222231.703046
+PERF PROXY prefill_send req_id=ea1f8214-69f9-4eac-b01e-fbeedd517c7f ts=1785222231.735021
+PERF PROXY latency summary | decode_first: n=53 avg=3100.61ms min=2650.17ms max=20211.74ms | prefill: n=54 avg=2129.48ms min=440.74ms max=5164.29ms | prefill_from_req: n=53 avg=2114.86ms min=458.96ms max=5200.97ms | ttft: n=53 avg=5217.80ms min=3118.33ms max=20703.46ms
+PERF PROXY prefill_recv req_id=01b030c2-b30d-4f64-855e-4d54ab8d9d7f ts=1785222235.225980 dur_ms=3867.68 kv_uuid=381523622251969
+INFO:     10.36.34.8:44410 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=01b030c2-b30d-4f64-855e-4d54ab8d9d7f ts=1785222235.226350 kv_uuid=381523622251969
+PERF PROXY prefill_recv req_id=1cda0bbb-3dab-4c17-88f5-7184f28ac664 ts=1785222239.036492 dur_ms=7639.52 kv_uuid=173071702938973
+INFO:     10.36.34.8:44386 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=1cda0bbb-3dab-4c17-88f5-7184f28ac664 ts=1785222239.036773 kv_uuid=173071702938973
+PERF PROXY prefill_recv req_id=490326d5-871f-4b16-88db-34754899a5ad ts=1785222242.834122 dur_ms=11400.86 kv_uuid=792160907196853
+INFO:     10.36.34.8:44400 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=490326d5-871f-4b16-88db-34754899a5ad ts=1785222242.834449 kv_uuid=792160907196853
+PERF PROXY prefill_recv req_id=b1a49dd1-fee0-4476-a926-f7d4e8d0e991 ts=1785222246.631665 dur_ms=15159.65 kv_uuid=126383419568501
+INFO:     10.36.34.8:44412 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=b1a49dd1-fee0-4476-a926-f7d4e8d0e991 ts=1785222246.631966 kv_uuid=126383419568501
+PERF PROXY prefill_recv req_id=c27d3756-6ccc-43bb-b6db-3f98eb142795 ts=1785222250.433721 dur_ms=18927.31 kv_uuid=803837642550729
+INFO:     10.36.34.8:44428 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=c27d3756-6ccc-43bb-b6db-3f98eb142795 ts=1785222250.434000 kv_uuid=803837642550729
+PERF PROXY prefill_recv req_id=795b8bc8-468f-4c02-b33b-1b865a1a49cf ts=1785222254.227538 dur_ms=22688.39 kv_uuid=137343873812577
+INFO:     10.36.34.8:44440 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=795b8bc8-468f-4c02-b33b-1b865a1a49cf ts=1785222254.227833 kv_uuid=137343873812577
+PERF PROXY prefill_recv req_id=db211eb4-fa62-477c-b8c6-acc7d56e1593 ts=1785222258.022636 dur_ms=26450.63 kv_uuid=222200101769953
+INFO:     10.36.34.8:44456 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=db211eb4-fa62-477c-b8c6-acc7d56e1593 ts=1785222258.022899 kv_uuid=222200101769953
+PERF PROXY first_chunk req_id=490326d5-871f-4b16-88db-34754899a5ad ts=1785222259.883980 dur_from_decode_send_ms=17049.53 ttft_ms=28580.54 kv_uuid=792160907196853
+PERF PROXY req_received req_id=870942b3-0591-48a3-9dd5-ae3c6d576d0d ts=1785222259.894395
+PERF PROXY prefill_send req_id=870942b3-0591-48a3-9dd5-ae3c6d576d0d ts=1785222259.945035
+PERF PROXY prefill_recv req_id=9a9e8493-1748-492a-a365-8bef800a9400 ts=1785222261.818515 dur_ms=30214.44 kv_uuid=532411787788969
+INFO:     10.36.34.8:44488 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=9a9e8493-1748-492a-a365-8bef800a9400 ts=1785222261.818790 kv_uuid=532411787788969
+PERF PROXY latency summary | decode_first: n=54 avg=3358.92ms min=2650.17ms max=20211.74ms | prefill: n=62 avg=4539.51ms min=440.74ms max=33976.78ms | prefill_from_req: n=61 avg=4095.90ms min=458.96ms max=30500.40ms | ttft: n=54 avg=5650.44ms min=3118.33ms max=28580.54ms
+PERF PROXY prefill_recv req_id=d63e54a9-5e15-4d41-b998-b1d7d023b900 ts=1785222265.615196 dur_ms=33976.78 kv_uuid=876547398766913
+INFO:     10.36.34.8:44502 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=d63e54a9-5e15-4d41-b998-b1d7d023b900 ts=1785222265.615569 kv_uuid=876547398766913
+PERF PROXY prefill_recv req_id=be9bf30c-32de-46ac-b8f8-48e9769ea792 ts=1785222269.419498 dur_ms=37748.65 kv_uuid=150661183545117
+INFO:     10.36.34.8:44476 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=be9bf30c-32de-46ac-b8f8-48e9769ea792 ts=1785222269.419790 kv_uuid=150661183545117
+PERF PROXY prefill_recv req_id=c10af4ca-cd0f-4d36-aeee-c11d8364eecb ts=1785222273.230591 dur_ms=41527.54 kv_uuid=167559820587821
+INFO:     10.36.34.8:44462 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=c10af4ca-cd0f-4d36-aeee-c11d8364eecb ts=1785222273.230876 kv_uuid=167559820587821
+PERF PROXY first_chunk req_id=795b8bc8-468f-4c02-b33b-1b865a1a49cf ts=1785222273.747679 dur_from_decode_send_ms=19519.85 ttft_ms=42434.92 kv_uuid=137343873812577
+PERF PROXY req_received req_id=f1164666-39c9-402f-832d-bc0f5e20962d ts=1785222273.752947
+PERF PROXY prefill_send req_id=f1164666-39c9-402f-832d-bc0f5e20962d ts=1785222273.803255
+PERF PROXY prefill_recv req_id=ea1f8214-69f9-4eac-b01e-fbeedd517c7f ts=1785222277.030647 dur_ms=45295.63 kv_uuid=864075766893553
+INFO:     10.36.34.8:44504 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=ea1f8214-69f9-4eac-b01e-fbeedd517c7f ts=1785222277.030914 kv_uuid=864075766893553
+PERF PROXY prefill_recv req_id=870942b3-0591-48a3-9dd5-ae3c6d576d0d ts=1785222280.829214 dur_ms=20884.18 kv_uuid=1124315720872877
+INFO:     10.36.34.8:44548 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=870942b3-0591-48a3-9dd5-ae3c6d576d0d ts=1785222280.829515 kv_uuid=1124315720872877
+PERF PROXY prefill_recv req_id=f1164666-39c9-402f-832d-bc0f5e20962d ts=1785222284.629191 dur_ms=10825.94 kv_uuid=781847230695285
+INFO:     10.36.34.8:44654 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=f1164666-39c9-402f-832d-bc0f5e20962d ts=1785222284.629492 kv_uuid=781847230695285
+PERF PROXY latency summary | decode_first: n=56 avg=4491.38ms min=2650.17ms max=50615.33ms | prefill: n=67 avg=6533.31ms min=440.74ms max=45295.63ms | prefill_from_req: n=67 avg=6592.19ms min=458.96ms max=45704.73ms | ttft: n=55 avg=6319.25ms min=3118.33ms max=42434.92ms
+PERF PROXY first_chunk req_id=c27d3756-6ccc-43bb-b6db-3f98eb142795 ts=1785222301.049325 dur_from_decode_send_ms=50615.33 ttft_ms=69738.65 kv_uuid=803837642550729
+PERF PROXY req_received req_id=42e6b8fe-fcac-4d6c-9ffb-ae466663d1dc ts=1785222301.060356
+PERF PROXY prefill_send req_id=42e6b8fe-fcac-4d6c-9ffb-ae466663d1dc ts=1785222301.121633
+PERF PROXY prefill_recv req_id=42e6b8fe-fcac-4d6c-9ffb-ae466663d1dc ts=1785222304.899615 dur_ms=3777.98 kv_uuid=360079999875673
+INFO:     10.36.34.8:57192 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=42e6b8fe-fcac-4d6c-9ffb-ae466663d1dc ts=1785222304.899994 kv_uuid=360079999875673
+PERF PROXY first_chunk req_id=01b030c2-b30d-4f64-855e-4d54ab8d9d7f ts=1785222316.635663 dur_from_decode_send_ms=81409.31 ttft_ms=85334.78 kv_uuid=381523622251969
+PERF PROXY req_received req_id=5a1f52bd-15ad-4931-9743-2f12bb1c826a ts=1785222316.640499
+PERF PROXY prefill_send req_id=5a1f52bd-15ad-4931-9743-2f12bb1c826a ts=1785222316.697431
+PERF PROXY prefill_recv req_id=5a1f52bd-15ad-4931-9743-2f12bb1c826a ts=1785222320.480636 dur_ms=3783.20 kv_uuid=233943996381241
+INFO:     10.36.34.8:52352 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=5a1f52bd-15ad-4931-9743-2f12bb1c826a ts=1785222320.480979 kv_uuid=233943996381241
+PERF PROXY first_chunk req_id=1cda0bbb-3dab-4c17-88f5-7184f28ac664 ts=1785222321.114058 dur_from_decode_send_ms=82077.29 ttft_ms=89810.44 kv_uuid=173071702938973
+PERF PROXY req_received req_id=ca4c45a3-93c2-47b0-b265-b929c92629f1 ts=1785222321.119161
+PERF PROXY prefill_send req_id=ca4c45a3-93c2-47b0-b265-b929c92629f1 ts=1785222321.172676
+PERF PROXY prefill_recv req_id=ca4c45a3-93c2-47b0-b265-b929c92629f1 ts=1785222324.946930 dur_ms=3774.25 kv_uuid=597572799991993
+INFO:     10.36.34.8:52362 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=ca4c45a3-93c2-47b0-b265-b929c92629f1 ts=1785222324.947290 kv_uuid=597572799991993
+PERF PROXY first_chunk req_id=b1a49dd1-fee0-4476-a926-f7d4e8d0e991 ts=1785222328.677672 dur_from_decode_send_ms=82045.71 ttft_ms=97372.70 kv_uuid=126383419568501
+PERF PROXY req_received req_id=c233b4c1-8ee2-46ff-b0b7-4dd452a5042e ts=1785222328.682472
+PERF PROXY prefill_send req_id=c233b4c1-8ee2-46ff-b0b7-4dd452a5042e ts=1785222328.736820
+PERF PROXY latency summary | decode_first: n=59 avg=8424.57ms min=2650.17ms max=82077.29ms | prefill: n=71 avg=6378.04ms min=440.74ms max=45295.63ms | prefill_from_req: n=70 avg=6474.10ms min=458.96ms max=45704.73ms | ttft: n=59 avg=11691.78ms min=3118.33ms max=97372.70ms
+PERF PROXY prefill_recv req_id=c233b4c1-8ee2-46ff-b0b7-4dd452a5042e ts=1785222332.510706 dur_ms=3773.89 kv_uuid=203613221043577
+INFO:     10.36.34.8:37886 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=c233b4c1-8ee2-46ff-b0b7-4dd452a5042e ts=1785222332.511101 kv_uuid=203613221043577
+PERF PROXY first_chunk req_id=db211eb4-fa62-477c-b8c6-acc7d56e1593 ts=1785222339.618053 dur_from_decode_send_ms=81595.15 ttft_ms=108304.31 kv_uuid=222200101769953
+PERF PROXY req_received req_id=fc9fb9e5-5819-4ced-866d-ec5e80cc7f39 ts=1785222339.627286
+PERF PROXY prefill_send req_id=fc9fb9e5-5819-4ced-866d-ec5e80cc7f39 ts=1785222339.682259
+PERF PROXY first_chunk req_id=9a9e8493-1748-492a-a365-8bef800a9400 ts=1785222343.341402 dur_from_decode_send_ms=81522.61 ttft_ms=112023.29 kv_uuid=532411787788969
+PERF PROXY req_received req_id=630f6f41-b43a-4965-bfec-b556b901605a ts=1785222343.346058
+PERF PROXY prefill_send req_id=630f6f41-b43a-4965-bfec-b556b901605a ts=1785222343.394442
+PERF PROXY prefill_recv req_id=fc9fb9e5-5819-4ced-866d-ec5e80cc7f39 ts=1785222343.459331 dur_ms=3777.07 kv_uuid=43510480064325
+INFO:     10.36.34.8:38154 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=fc9fb9e5-5819-4ced-866d-ec5e80cc7f39 ts=1785222343.459610 kv_uuid=43510480064325
+PERF PROXY first_chunk req_id=d63e54a9-5e15-4d41-b998-b1d7d023b900 ts=1785222347.186839 dur_from_decode_send_ms=81571.27 ttft_ms=115867.87 kv_uuid=876547398766913
+PERF PROXY req_received req_id=29d2924b-ceef-4df6-9c56-48ccecb0aedb ts=1785222347.191572
+PERF PROXY prefill_send req_id=29d2924b-ceef-4df6-9c56-48ccecb0aedb ts=1785222347.240513
+PERF PROXY prefill_recv req_id=630f6f41-b43a-4965-bfec-b556b901605a ts=1785222347.259449 dur_ms=3865.01 kv_uuid=957045081765797
+INFO:     10.36.34.8:38158 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=630f6f41-b43a-4965-bfec-b556b901605a ts=1785222347.259761 kv_uuid=957045081765797
+PERF PROXY first_chunk req_id=be9bf30c-32de-46ac-b8f8-48e9769ea792 ts=1785222350.399407 dur_from_decode_send_ms=80979.62 ttft_ms=119080.34 kv_uuid=150661183545117
+PERF PROXY req_received req_id=58ab0148-bac8-4bc1-b9ea-8d8e0f34a34c ts=1785222350.403596
+PERF PROXY prefill_send req_id=58ab0148-bac8-4bc1-b9ea-8d8e0f34a34c ts=1785222350.448049
+PERF PROXY first_chunk req_id=c233b4c1-8ee2-46ff-b0b7-4dd452a5042e ts=1785222350.709648 dur_from_decode_send_ms=18198.55 ttft_ms=22027.99 kv_uuid=203613221043577
+PERF PROXY req_received req_id=79e9ff7d-de35-4be4-bb57-539c2e4ea232 ts=1785222350.713899
+PERF PROXY prefill_send req_id=79e9ff7d-de35-4be4-bb57-539c2e4ea232 ts=1785222350.758515
+PERF PROXY prefill_recv req_id=29d2924b-ceef-4df6-9c56-48ccecb0aedb ts=1785222351.061831 dur_ms=3821.32 kv_uuid=202370662553265
+INFO:     10.36.34.8:35516 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=29d2924b-ceef-4df6-9c56-48ccecb0aedb ts=1785222351.062174 kv_uuid=202370662553265
+PERF PROXY first_chunk req_id=c10af4ca-cd0f-4d36-aeee-c11d8364eecb ts=1785222354.550548 dur_from_decode_send_ms=81319.67 ttft_ms=123232.79 kv_uuid=167559820587821
+PERF PROXY req_received req_id=02f648f8-4db9-4447-98f3-1c7ac37168ce ts=1785222354.555479
+PERF PROXY prefill_send req_id=02f648f8-4db9-4447-98f3-1c7ac37168ce ts=1785222354.607353
+PERF PROXY prefill_recv req_id=58ab0148-bac8-4bc1-b9ea-8d8e0f34a34c ts=1785222354.862980 dur_ms=4414.93 kv_uuid=648141747584201
+INFO:     10.36.34.8:35522 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=58ab0148-bac8-4bc1-b9ea-8d8e0f34a34c ts=1785222354.863353 kv_uuid=648141747584201
+PERF PROXY first_chunk req_id=ea1f8214-69f9-4eac-b01e-fbeedd517c7f ts=1785222358.385199 dur_from_decode_send_ms=81354.29 ttft_ms=127059.28 kv_uuid=864075766893553
+PERF PROXY req_received req_id=fadba0af-c78a-4d61-a239-c0536de7ee74 ts=1785222358.389507
+PERF PROXY prefill_send req_id=fadba0af-c78a-4d61-a239-c0536de7ee74 ts=1785222358.441329
+PERF PROXY prefill_recv req_id=79e9ff7d-de35-4be4-bb57-539c2e4ea232 ts=1785222358.665983 dur_ms=7907.47 kv_uuid=140659971797117
+INFO:     10.36.34.8:35532 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=79e9ff7d-de35-4be4-bb57-539c2e4ea232 ts=1785222358.666343 kv_uuid=140659971797117
+PERF PROXY first_chunk req_id=870942b3-0591-48a3-9dd5-ae3c6d576d0d ts=1785222362.227832 dur_from_decode_send_ms=81398.32 ttft_ms=102334.38 kv_uuid=1124315720872877
+PERF PROXY req_received req_id=96441687-51cd-4052-b1f1-9d50ad7bcea8 ts=1785222362.232435
+PERF PROXY prefill_send req_id=96441687-51cd-4052-b1f1-9d50ad7bcea8 ts=1785222362.280372
+PERF PROXY prefill_recv req_id=02f648f8-4db9-4447-98f3-1c7ac37168ce ts=1785222362.463610 dur_ms=7856.26 kv_uuid=390888061502553
+INFO:     10.36.34.8:35548 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=02f648f8-4db9-4447-98f3-1c7ac37168ce ts=1785222362.463898 kv_uuid=390888061502553
+PERF PROXY latency summary | decode_first: n=68 avg=16283.65ms min=2650.17ms max=82077.29ms | prefill: n=77 avg=6291.98ms min=440.74ms max=45295.63ms | prefill_from_req: n=77 avg=6350.07ms min=458.96ms max=45704.73ms | ttft: n=67 avg=22682.77ms min=3118.33ms max=127059.28ms
+PERF PROXY first_chunk req_id=fc9fb9e5-5819-4ced-866d-ec5e80cc7f39 ts=1785222365.758629 dur_from_decode_send_ms=22299.02 ttft_ms=26132.02 kv_uuid=43510480064325
+PERF PROXY first_chunk req_id=f1164666-39c9-402f-832d-bc0f5e20962d ts=1785222365.759629 dur_from_decode_send_ms=81130.14 ttft_ms=92007.61 kv_uuid=781847230695285
+PERF PROXY req_received req_id=89dbbf12-3c61-4d7e-a512-7ff142851eab ts=1785222365.764640
+PERF PROXY req_received req_id=bec40a67-3fcb-4f0d-a160-14ee2aa723f1 ts=1785222365.766101
+PERF PROXY prefill_send req_id=89dbbf12-3c61-4d7e-a512-7ff142851eab ts=1785222365.816886
+PERF PROXY prefill_send req_id=bec40a67-3fcb-4f0d-a160-14ee2aa723f1 ts=1785222365.853811
+PERF PROXY prefill_recv req_id=fadba0af-c78a-4d61-a239-c0536de7ee74 ts=1785222366.263211 dur_ms=7821.88 kv_uuid=794238315116221
+INFO:     10.36.34.8:50558 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=fadba0af-c78a-4d61-a239-c0536de7ee74 ts=1785222366.263494 kv_uuid=794238315116221
+PERF PROXY prefill_recv req_id=96441687-51cd-4052-b1f1-9d50ad7bcea8 ts=1785222370.061072 dur_ms=7780.70 kv_uuid=66757552833401
+INFO:     10.36.34.8:50570 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=96441687-51cd-4052-b1f1-9d50ad7bcea8 ts=1785222370.061435 kv_uuid=66757552833401
+PERF PROXY prefill_recv req_id=89dbbf12-3c61-4d7e-a512-7ff142851eab ts=1785222373.866548 dur_ms=8049.66 kv_uuid=114521620853325
+INFO:     10.36.34.8:41018 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=89dbbf12-3c61-4d7e-a512-7ff142851eab ts=1785222373.866940 kv_uuid=114521620853325
+PERF PROXY first_chunk req_id=630f6f41-b43a-4965-bfec-b556b901605a ts=1785222375.417581 dur_from_decode_send_ms=28157.82 ttft_ms=32072.45 kv_uuid=957045081765797
+PERF PROXY req_received req_id=d4078c35-a865-44eb-b4b6-2741cd36b765 ts=1785222375.422296
+PERF PROXY prefill_send req_id=d4078c35-a865-44eb-b4b6-2741cd36b765 ts=1785222375.473793
+PERF PROXY prefill_recv req_id=bec40a67-3fcb-4f0d-a160-14ee2aa723f1 ts=1785222377.676820 dur_ms=11823.01 kv_uuid=943492067896093
+INFO:     10.36.34.8:41014 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=bec40a67-3fcb-4f0d-a160-14ee2aa723f1 ts=1785222377.677183 kv_uuid=943492067896093
+PERF PROXY prefill_recv req_id=d4078c35-a865-44eb-b4b6-2741cd36b765 ts=1785222381.488895 dur_ms=6015.10 kv_uuid=389755943203281
+INFO:     10.36.34.8:40848 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=d4078c35-a865-44eb-b4b6-2741cd36b765 ts=1785222381.489300 kv_uuid=389755943203281
+PERF PROXY first_chunk req_id=42e6b8fe-fcac-4d6c-9ffb-ae466663d1dc ts=1785222386.528288 dur_from_decode_send_ms=81628.29 ttft_ms=85468.85 kv_uuid=360079999875673
+PERF PROXY req_received req_id=f557a412-79f6-4434-8c50-90ed56da3a6a ts=1785222386.532931
+PERF PROXY prefill_send req_id=f557a412-79f6-4434-8c50-90ed56da3a6a ts=1785222386.587470
+PERF PROXY first_chunk req_id=02f648f8-4db9-4447-98f3-1c7ac37168ce ts=1785222389.003642 dur_from_decode_send_ms=26539.74 ttft_ms=34448.98 kv_uuid=390888061502553
+PERF PROXY req_received req_id=f480236d-4018-4d02-a969-2f3934db6db6 ts=1785222389.008347
+PERF PROXY prefill_send req_id=f480236d-4018-4d02-a969-2f3934db6db6 ts=1785222389.053582
+PERF PROXY prefill_recv req_id=f557a412-79f6-4434-8c50-90ed56da3a6a ts=1785222390.366082 dur_ms=3778.61 kv_uuid=445441903301277
+INFO:     10.36.34.8:33918 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=f557a412-79f6-4434-8c50-90ed56da3a6a ts=1785222390.366446 kv_uuid=445441903301277
+PERF PROXY prefill_recv req_id=f480236d-4018-4d02-a969-2f3934db6db6 ts=1785222394.164187 dur_ms=5110.60 kv_uuid=465796715971033
+INFO:     10.36.34.8:33930 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=f480236d-4018-4d02-a969-2f3934db6db6 ts=1785222394.164579 kv_uuid=465796715971033
+PERF PROXY latency summary | decode_first: n=73 avg=18472.66ms min=2650.17ms max=82077.29ms | prefill: n=84 avg=6367.41ms min=440.74ms max=45295.63ms | prefill_from_req: n=84 avg=6425.39ms min=458.96ms max=45704.73ms | ttft: n=72 avg=24859.38ms min=3118.33ms max=127059.28ms
+PERF PROXY first_chunk req_id=89dbbf12-3c61-4d7e-a512-7ff142851eab ts=1785222397.627565 dur_from_decode_send_ms=23760.63 ttft_ms=31863.65 kv_uuid=114521620853325
+PERF PROXY req_received req_id=47263f31-b272-4515-b261-62d90e6b2151 ts=1785222397.636628
+PERF PROXY prefill_send req_id=47263f31-b272-4515-b261-62d90e6b2151 ts=1785222397.687218
+PERF PROXY prefill_recv req_id=47263f31-b272-4515-b261-62d90e6b2151 ts=1785222401.469298 dur_ms=3782.08 kv_uuid=972299335952605
+INFO:     10.36.34.8:46780 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=47263f31-b272-4515-b261-62d90e6b2151 ts=1785222401.469702 kv_uuid=972299335952605
+PERF PROXY first_chunk req_id=5a1f52bd-15ad-4931-9743-2f12bb1c826a ts=1785222402.424159 dur_from_decode_send_ms=81943.18 ttft_ms=85784.60 kv_uuid=233943996381241
+PERF PROXY req_received req_id=226d0c7f-767b-4fba-a582-5fb40ace034d ts=1785222402.428766
+PERF PROXY prefill_send req_id=226d0c7f-767b-4fba-a582-5fb40ace034d ts=1785222402.475948
+PERF PROXY prefill_recv req_id=226d0c7f-767b-4fba-a582-5fb40ace034d ts=1785222406.251306 dur_ms=3775.36 kv_uuid=254241342159349
+INFO:     10.36.34.8:46792 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=226d0c7f-767b-4fba-a582-5fb40ace034d ts=1785222406.251671 kv_uuid=254241342159349
+PERF PROXY first_chunk req_id=ca4c45a3-93c2-47b0-b265-b929c92629f1 ts=1785222406.908949 dur_from_decode_send_ms=81961.66 ttft_ms=85790.71 kv_uuid=597572799991993
+PERF PROXY req_received req_id=e04d3990-0f7a-41a9-982d-0452d2b9e702 ts=1785222406.913479
+PERF PROXY prefill_send req_id=e04d3990-0f7a-41a9-982d-0452d2b9e702 ts=1785222406.962839
+PERF PROXY prefill_recv req_id=e04d3990-0f7a-41a9-982d-0452d2b9e702 ts=1785222410.738829 dur_ms=3775.99 kv_uuid=796018798087385
+INFO:     10.36.34.8:43192 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=e04d3990-0f7a-41a9-982d-0452d2b9e702 ts=1785222410.739194 kv_uuid=796018798087385
+PERF PROXY first_chunk req_id=f480236d-4018-4d02-a969-2f3934db6db6 ts=1785222421.593072 dur_from_decode_send_ms=27428.49 ttft_ms=32585.31 kv_uuid=465796715971033
+PERF PROXY req_received req_id=3d5f69fe-526a-44b6-b919-55059b1c576f ts=1785222421.598200
+PERF PROXY prefill_send req_id=3d5f69fe-526a-44b6-b919-55059b1c576f ts=1785222421.654569
+PERF PROXY prefill_recv req_id=3d5f69fe-526a-44b6-b919-55059b1c576f ts=1785222425.438526 dur_ms=3783.96 kv_uuid=270389447087797
+INFO:     10.36.34.8:42400 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=3d5f69fe-526a-44b6-b919-55059b1c576f ts=1785222425.438874 kv_uuid=270389447087797
+PERF PROXY latency summary | decode_first: n=77 avg=20331.60ms min=2650.17ms max=82077.29ms | prefill: n=88 avg=6249.77ms min=440.74ms max=45295.63ms | prefill_from_req: n=88 avg=6307.46ms min=458.96ms max=45704.73ms | ttft: n=76 avg=26656.57ms min=3118.33ms max=127059.28ms
+PERF PROXY first_chunk req_id=226d0c7f-767b-4fba-a582-5fb40ace034d ts=1785222431.947052 dur_from_decode_send_ms=25695.38 ttft_ms=29519.00 kv_uuid=254241342159349
+PERF PROXY req_received req_id=4ca41232-1e8d-40ea-b23b-93e6c4e4891a ts=1785222431.956469
+PERF PROXY prefill_send req_id=4ca41232-1e8d-40ea-b23b-93e6c4e4891a ts=1785222432.012886
+PERF PROXY first_chunk req_id=29d2924b-ceef-4df6-9c56-48ccecb0aedb ts=1785222433.184444 dur_from_decode_send_ms=82122.27 ttft_ms=85993.44 kv_uuid=202370662553265
+PERF PROXY req_received req_id=6f793d14-3846-4263-8d12-9b493c9d5216 ts=1785222433.189283
+PERF PROXY prefill_send req_id=6f793d14-3846-4263-8d12-9b493c9d5216 ts=1785222433.232858
+PERF PROXY prefill_recv req_id=4ca41232-1e8d-40ea-b23b-93e6c4e4891a ts=1785222435.789379 dur_ms=3776.49 kv_uuid=350728118331925
+INFO:     10.36.34.8:48978 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=4ca41232-1e8d-40ea-b23b-93e6c4e4891a ts=1785222435.789707 kv_uuid=350728118331925
+PERF PROXY first_chunk req_id=58ab0148-bac8-4bc1-b9ea-8d8e0f34a34c ts=1785222436.738837 dur_from_decode_send_ms=81875.48 ttft_ms=86335.87 kv_uuid=648141747584201
+PERF PROXY req_received req_id=e1c66f10-94c9-4e72-b8f1-47327b19b595 ts=1785222436.743848
+PERF PROXY prefill_send req_id=e1c66f10-94c9-4e72-b8f1-47327b19b595 ts=1785222436.795215
+PERF PROXY prefill_recv req_id=6f793d14-3846-4263-8d12-9b493c9d5216 ts=1785222439.592461 dur_ms=6359.60 kv_uuid=118299002294913
+INFO:     10.36.34.8:48992 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=6f793d14-3846-4263-8d12-9b493c9d5216 ts=1785222439.592787 kv_uuid=118299002294913
+PERF PROXY first_chunk req_id=79e9ff7d-de35-4be4-bb57-539c2e4ea232 ts=1785222440.288131 dur_from_decode_send_ms=81621.79 ttft_ms=89575.01 kv_uuid=140659971797117
+PERF PROXY req_received req_id=5a55c943-1b69-443b-8b51-9aaaa9e42ad0 ts=1785222440.293336
+PERF PROXY prefill_send req_id=5a55c943-1b69-443b-8b51-9aaaa9e42ad0 ts=1785222440.340566
+PERF PROXY prefill_recv req_id=e1c66f10-94c9-4e72-b8f1-47327b19b595 ts=1785222443.391279 dur_ms=6596.06 kv_uuid=48790553984137
+INFO:     10.36.34.8:43156 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=e1c66f10-94c9-4e72-b8f1-47327b19b595 ts=1785222443.391627 kv_uuid=48790553984137
+PERF PROXY prefill_recv req_id=5a55c943-1b69-443b-8b51-9aaaa9e42ad0 ts=1785222447.185301 dur_ms=6844.73 kv_uuid=340370809732413
+INFO:     10.36.34.8:43160 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=5a55c943-1b69-443b-8b51-9aaaa9e42ad0 ts=1785222447.185670 kv_uuid=340370809732413
+PERF PROXY first_chunk req_id=fadba0af-c78a-4d61-a239-c0536de7ee74 ts=1785222448.300327 dur_from_decode_send_ms=82036.83 ttft_ms=89911.45 kv_uuid=794238315116221
+PERF PROXY req_received req_id=12a0db51-a866-41e1-b769-d919f173a0d6 ts=1785222448.305277
+PERF PROXY prefill_send req_id=12a0db51-a866-41e1-b769-d919f173a0d6 ts=1785222448.359134
+PERF PROXY first_chunk req_id=6f793d14-3846-4263-8d12-9b493c9d5216 ts=1785222450.474670 dur_from_decode_send_ms=10881.88 ttft_ms=17286.25 kv_uuid=118299002294913
+PERF PROXY req_received req_id=97079732-f724-4f5a-b71a-9fd41856d9f7 ts=1785222450.479168
+PERF PROXY prefill_send req_id=97079732-f724-4f5a-b71a-9fd41856d9f7 ts=1785222450.523559
+PERF PROXY first_chunk req_id=3d5f69fe-526a-44b6-b919-55059b1c576f ts=1785222451.715509 dur_from_decode_send_ms=26276.63 ttft_ms=30118.15 kv_uuid=270389447087797
+PERF PROXY first_chunk req_id=96441687-51cd-4052-b1f1-9d50ad7bcea8 ts=1785222451.716547 dur_from_decode_send_ms=81655.11 ttft_ms=89484.68 kv_uuid=66757552833401
+PERF PROXY req_received req_id=1a99be33-07bf-4c0f-8c08-5418e74dc707 ts=1785222451.721015
+PERF PROXY req_received req_id=639525a8-072a-407b-aeea-1ad3e52da73f ts=1785222451.722632
+PERF PROXY prefill_send req_id=1a99be33-07bf-4c0f-8c08-5418e74dc707 ts=1785222451.771750
+PERF PROXY prefill_send req_id=639525a8-072a-407b-aeea-1ad3e52da73f ts=1785222451.802031
+PERF PROXY prefill_recv req_id=12a0db51-a866-41e1-b769-d919f173a0d6 ts=1785222452.136056 dur_ms=3776.92 kv_uuid=184244857165085
+INFO:     10.36.34.8:52774 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=12a0db51-a866-41e1-b769-d919f173a0d6 ts=1785222452.136359 kv_uuid=184244857165085
+PERF PROXY first_chunk req_id=4ca41232-1e8d-40ea-b23b-93e6c4e4891a ts=1785222453.407055 dur_from_decode_send_ms=17617.35 ttft_ms=21452.19 kv_uuid=350728118331925
+PERF PROXY req_received req_id=07760ec3-aea7-4c70-8332-2cf7765b9869 ts=1785222453.411631
+PERF PROXY prefill_send req_id=07760ec3-aea7-4c70-8332-2cf7765b9869 ts=1785222453.458768
+PERF PROXY prefill_recv req_id=97079732-f724-4f5a-b71a-9fd41856d9f7 ts=1785222455.933451 dur_ms=5409.89 kv_uuid=154186056889893
+INFO:     10.36.34.8:52776 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=97079732-f724-4f5a-b71a-9fd41856d9f7 ts=1785222455.933788 kv_uuid=154186056889893
+PERF PROXY prefill_recv req_id=1a99be33-07bf-4c0f-8c08-5418e74dc707 ts=1785222459.736702 dur_ms=7964.95 kv_uuid=342027877424261
+INFO:     10.36.34.8:52780 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=1a99be33-07bf-4c0f-8c08-5418e74dc707 ts=1785222459.737057 kv_uuid=342027877424261
+PERF PROXY first_chunk req_id=bec40a67-3fcb-4f0d-a160-14ee2aa723f1 ts=1785222459.739945 dur_from_decode_send_ms=82062.76 ttft_ms=93976.12 kv_uuid=943492067896093
+PERF PROXY req_received req_id=b9d6c0cf-d9cc-43f0-a374-d330d60f53c9 ts=1785222459.748901
+PERF PROXY prefill_send req_id=b9d6c0cf-d9cc-43f0-a374-d330d60f53c9 ts=1785222459.800171
+PERF PROXY latency summary | decode_first: n=87 avg=25212.18ms min=2650.17ms max=82122.27ms | prefill: n=95 avg=6217.98ms min=440.74ms max=45295.63ms | prefill_from_req: n=95 avg=6275.15ms min=458.96ms max=45704.73ms | ttft: n=86 avg=30925.02ms min=3118.33ms max=127059.28ms
+PERF PROXY first_chunk req_id=d4078c35-a865-44eb-b4b6-2741cd36b765 ts=1785222463.265383 dur_from_decode_send_ms=81776.08 ttft_ms=87843.76 kv_uuid=389755943203281
+PERF PROXY req_received req_id=acb86fdc-c19f-4abf-94a7-cd920abb385a ts=1785222463.270182
+PERF PROXY prefill_send req_id=acb86fdc-c19f-4abf-94a7-cd920abb385a ts=1785222463.316010
+PERF PROXY prefill_recv req_id=639525a8-072a-407b-aeea-1ad3e52da73f ts=1785222463.534763 dur_ms=11732.73 kv_uuid=32728882835145
+INFO:     10.36.34.8:52792 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=639525a8-072a-407b-aeea-1ad3e52da73f ts=1785222463.535071 kv_uuid=32728882835145
+PERF PROXY prefill_recv req_id=07760ec3-aea7-4c70-8332-2cf7765b9869 ts=1785222467.334679 dur_ms=13875.91 kv_uuid=1106342336240789
+INFO:     10.36.34.8:52796 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=07760ec3-aea7-4c70-8332-2cf7765b9869 ts=1785222467.335048 kv_uuid=1106342336240789
+PERF PROXY prefill_recv req_id=b9d6c0cf-d9cc-43f0-a374-d330d60f53c9 ts=1785222471.129893 dur_ms=11329.72 kv_uuid=521529932059833
+INFO:     10.36.34.8:48718 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=b9d6c0cf-d9cc-43f0-a374-d330d60f53c9 ts=1785222471.130240 kv_uuid=521529932059833
+PERF PROXY first_chunk req_id=f557a412-79f6-4434-8c50-90ed56da3a6a ts=1785222472.612480 dur_from_decode_send_ms=82246.03 ttft_ms=86080.26 kv_uuid=445441903301277
+PERF PROXY req_received req_id=3d061f44-e558-4c00-8184-8f7abac20811 ts=1785222472.616897
+PERF PROXY prefill_send req_id=3d061f44-e558-4c00-8184-8f7abac20811 ts=1785222472.665621
+PERF PROXY prefill_recv req_id=acb86fdc-c19f-4abf-94a7-cd920abb385a ts=1785222474.923390 dur_ms=11607.38 kv_uuid=982778414753337
+INFO:     10.36.34.8:48734 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=acb86fdc-c19f-4abf-94a7-cd920abb385a ts=1785222474.923672 kv_uuid=982778414753337
+PERF PROXY first_chunk req_id=12a0db51-a866-41e1-b769-d919f173a0d6 ts=1785222476.764776 dur_from_decode_send_ms=24628.42 ttft_ms=28460.16 kv_uuid=184244857165085
+PERF PROXY req_received req_id=0e6e814c-0730-45b3-b1e7-c82a716fa00f ts=1785222476.769543
+PERF PROXY prefill_send req_id=0e6e814c-0730-45b3-b1e7-c82a716fa00f ts=1785222476.820134
+PERF PROXY prefill_recv req_id=3d061f44-e558-4c00-8184-8f7abac20811 ts=1785222478.729867 dur_ms=6064.25 kv_uuid=310435776210509
+INFO:     10.36.34.8:45844 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=3d061f44-e558-4c00-8184-8f7abac20811 ts=1785222478.730160 kv_uuid=310435776210509
+PERF PROXY prefill_recv req_id=0e6e814c-0730-45b3-b1e7-c82a716fa00f ts=1785222482.538890 dur_ms=5718.76 kv_uuid=519453748616069
+INFO:     10.36.34.8:34066 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=0e6e814c-0730-45b3-b1e7-c82a716fa00f ts=1785222482.539178 kv_uuid=519453748616069
+PERF PROXY first_chunk req_id=47263f31-b272-4515-b261-62d90e6b2151 ts=1785222483.545475 dur_from_decode_send_ms=82075.77 ttft_ms=85909.85 kv_uuid=972299335952605
+PERF PROXY first_chunk req_id=639525a8-072a-407b-aeea-1ad3e52da73f ts=1785222491.916523 dur_from_decode_send_ms=28381.45 ttft_ms=40195.93 kv_uuid=32728882835145
+PERF PROXY first_chunk req_id=e04d3990-0f7a-41a9-982d-0452d2b9e702 ts=1785222492.539461 dur_from_decode_send_ms=81800.27 ttft_ms=85626.65 kv_uuid=796018798087385
+PERF PROXY first_chunk req_id=b9d6c0cf-d9cc-43f0-a374-d330d60f53c9 ts=1785222493.161931 dur_from_decode_send_ms=22031.69 ttft_ms=33413.74 kv_uuid=521529932059833
+PERF PROXY latency summary | decode_first: n=94 avg=27035.97ms min=2650.17ms max=82246.03ms | prefill: n=101 avg=6445.91ms min=440.74ms max=45295.63ms | prefill_from_req: n=101 avg=6502.93ms min=458.96ms max=45704.73ms | ttft: n=93 avg=33409.49ms min=3118.33ms max=127059.28ms
+PERF PROXY first_chunk req_id=07760ec3-aea7-4c70-8332-2cf7765b9869 ts=1785222494.093244 dur_from_decode_send_ms=26758.20 ttft_ms=40682.21 kv_uuid=1106342336240789
+PERF PROXY first_chunk req_id=3d061f44-e558-4c00-8184-8f7abac20811 ts=1785222499.697270 dur_from_decode_send_ms=20967.11 ttft_ms=27081.03 kv_uuid=310435776210509
+PERF PROXY latency summary | decode_first: n=96 avg=27543.34ms min=2650.17ms max=82246.03ms | prefill: n=101 avg=6445.91ms min=440.74ms max=45295.63ms | prefill_from_req: n=101 avg=6502.93ms min=458.96ms max=45704.73ms | ttft: n=95 avg=33419.43ms min=3118.33ms max=127059.28ms
+PERF PROXY first_chunk req_id=e1c66f10-94c9-4e72-b8f1-47327b19b595 ts=1785222525.204098 dur_from_decode_send_ms=81812.47 ttft_ms=88461.14 kv_uuid=48790553984137
+PERF PROXY first_chunk req_id=5a55c943-1b69-443b-8b51-9aaaa9e42ad0 ts=1785222528.318860 dur_from_decode_send_ms=81133.19 ttft_ms=88026.28 kv_uuid=340370809732413
+PERF PROXY first_chunk req_id=97079732-f724-4f5a-b71a-9fd41856d9f7 ts=1785222537.339992 dur_from_decode_send_ms=81406.20 ttft_ms=86861.62 kv_uuid=154186056889893
+PERF PROXY first_chunk req_id=1a99be33-07bf-4c0f-8c08-5418e74dc707 ts=1785222541.076590 dur_from_decode_send_ms=81339.53 ttft_ms=89356.20 kv_uuid=342027877424261
+PERF PROXY latency summary | decode_first: n=100 avg=29685.15ms min=2650.17ms max=82246.03ms | prefill: n=101 avg=6445.91ms min=440.74ms max=45295.63ms | prefill_from_req: n=101 avg=6502.93ms min=458.96ms max=45704.73ms | ttft: n=99 avg=35631.83ms min=3118.33ms max=127059.28ms
+PERF PROXY first_chunk req_id=acb86fdc-c19f-4abf-94a7-cd920abb385a ts=1785222555.398888 dur_from_decode_send_ms=80475.22 ttft_ms=92129.46 kv_uuid=982778414753337
+PERF PROXY first_chunk req_id=0e6e814c-0730-45b3-b1e7-c82a716fa00f ts=1785222562.889585 dur_from_decode_send_ms=80350.41 ttft_ms=86120.90 kv_uuid=519453748616069
+PERF PROXY req_received req_id=2ba5948d-3e7c-4fcb-a09d-f605919f7351 ts=1785222563.125638
+PERF PROXY req_received req_id=7dfcf2bb-4109-4388-acfb-5f244d4e94b8 ts=1785222563.128403
+PERF PROXY req_received req_id=b395aa2e-84ae-4124-9c99-10f0e8b3523d ts=1785222563.129829
+PERF PROXY req_received req_id=6a03bf18-6ac5-43f3-a555-9812bea8a1c2 ts=1785222563.131384
+PERF PROXY req_received req_id=b2735b88-6637-4fe7-bdb6-296148091dd5 ts=1785222563.132948
+PERF PROXY req_received req_id=1f2bde5b-30f3-4241-b249-8ed3914b909c ts=1785222563.134218
+PERF PROXY req_received req_id=edc115c4-c204-4f55-b02c-c4bf2ce98160 ts=1785222563.135872
+PERF PROXY req_received req_id=33da1bec-1689-4e4b-94d9-a513570ee00e ts=1785222563.137730
+PERF PROXY req_received req_id=15bde23e-c1a5-40a1-b3ee-0d4cdae90c6c ts=1785222563.139390
+PERF PROXY req_received req_id=fbb355f2-9212-4a17-b2ba-605df2df52d2 ts=1785222563.141039
+PERF PROXY req_received req_id=2fac04b3-5d94-49a8-be8a-0fa10953a951 ts=1785222563.142931
+PERF PROXY req_received req_id=6be66dac-5a20-4135-877a-9ad607949720 ts=1785222563.144814
+PERF PROXY prefill_send req_id=2ba5948d-3e7c-4fcb-a09d-f605919f7351 ts=1785222563.202545
+PERF PROXY prefill_send req_id=b395aa2e-84ae-4124-9c99-10f0e8b3523d ts=1785222563.236980
+PERF PROXY prefill_send req_id=6a03bf18-6ac5-43f3-a555-9812bea8a1c2 ts=1785222563.269863
+PERF PROXY prefill_send req_id=7dfcf2bb-4109-4388-acfb-5f244d4e94b8 ts=1785222563.300503
+PERF PROXY prefill_send req_id=b2735b88-6637-4fe7-bdb6-296148091dd5 ts=1785222563.331524
+PERF PROXY prefill_send req_id=1f2bde5b-30f3-4241-b249-8ed3914b909c ts=1785222563.362083
+PERF PROXY prefill_send req_id=edc115c4-c204-4f55-b02c-c4bf2ce98160 ts=1785222563.394290
+PERF PROXY prefill_send req_id=33da1bec-1689-4e4b-94d9-a513570ee00e ts=1785222563.424528
+PERF PROXY prefill_send req_id=15bde23e-c1a5-40a1-b3ee-0d4cdae90c6c ts=1785222563.455868
+PERF PROXY prefill_send req_id=fbb355f2-9212-4a17-b2ba-605df2df52d2 ts=1785222563.485454
+PERF PROXY prefill_send req_id=2fac04b3-5d94-49a8-be8a-0fa10953a951 ts=1785222563.515980
+PERF PROXY prefill_send req_id=6be66dac-5a20-4135-877a-9ad607949720 ts=1785222563.547724
+PERF PROXY prefill_recv req_id=2ba5948d-3e7c-4fcb-a09d-f605919f7351 ts=1785222566.980724 dur_ms=3778.18 kv_uuid=698649795855449
+INFO:     10.36.34.8:55028 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=2ba5948d-3e7c-4fcb-a09d-f605919f7351 ts=1785222566.980993 kv_uuid=698649795855449
+PERF PROXY prefill_recv req_id=b395aa2e-84ae-4124-9c99-10f0e8b3523d ts=1785222570.778999 dur_ms=7542.02 kv_uuid=259229489791625
+INFO:     10.36.34.8:55036 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=b395aa2e-84ae-4124-9c99-10f0e8b3523d ts=1785222570.779279 kv_uuid=259229489791625
+PERF PROXY prefill_recv req_id=6a03bf18-6ac5-43f3-a555-9812bea8a1c2 ts=1785222574.579271 dur_ms=11309.41 kv_uuid=834636194257885
+INFO:     10.36.34.8:55064 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=6a03bf18-6ac5-43f3-a555-9812bea8a1c2 ts=1785222574.579544 kv_uuid=834636194257885
+PERF PROXY first_chunk req_id=2ba5948d-3e7c-4fcb-a09d-f605919f7351 ts=1785222578.015350 dur_from_decode_send_ms=11034.36 ttft_ms=14891.93 kv_uuid=698649795855449
+PERF PROXY req_received req_id=be036683-f903-479e-baac-cd6ed3e0c3f9 ts=1785222578.019653
+PERF PROXY prefill_send req_id=be036683-f903-479e-baac-cd6ed3e0c3f9 ts=1785222578.069970
+PERF PROXY prefill_recv req_id=7dfcf2bb-4109-4388-acfb-5f244d4e94b8 ts=1785222578.377326 dur_ms=15076.82 kv_uuid=658327238042929
+INFO:     10.36.34.8:55050 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=7dfcf2bb-4109-4388-acfb-5f244d4e94b8 ts=1785222578.377583 kv_uuid=658327238042929
+PERF PROXY prefill_recv req_id=b2735b88-6637-4fe7-bdb6-296148091dd5 ts=1785222582.178918 dur_ms=18847.39 kv_uuid=415226594385013
+INFO:     10.36.34.8:55078 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=b2735b88-6637-4fe7-bdb6-296148091dd5 ts=1785222582.179207 kv_uuid=415226594385013
+PERF PROXY latency summary | decode_first: n=102 avg=29999.02ms min=2650.17ms max=82246.03ms | prefill: n=107 avg=6824.37ms min=440.74ms max=45295.63ms | prefill_from_req: n=106 avg=6736.40ms min=458.96ms max=45704.73ms | ttft: n=102 avg=36477.38ms min=3118.33ms max=127059.28ms
+PERF PROXY prefill_recv req_id=1f2bde5b-30f3-4241-b249-8ed3914b909c ts=1785222585.979097 dur_ms=22617.01 kv_uuid=1071969415316469
+INFO:     10.36.34.8:55090 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=1f2bde5b-30f3-4241-b249-8ed3914b909c ts=1785222585.979447 kv_uuid=1071969415316469
+PERF PROXY prefill_recv req_id=edc115c4-c204-4f55-b02c-c4bf2ce98160 ts=1785222589.788714 dur_ms=26394.42 kv_uuid=799942371047113
+INFO:     10.36.34.8:55094 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=edc115c4-c204-4f55-b02c-c4bf2ce98160 ts=1785222589.788992 kv_uuid=799942371047113
+PERF PROXY prefill_recv req_id=33da1bec-1689-4e4b-94d9-a513570ee00e ts=1785222593.591328 dur_ms=30166.80 kv_uuid=1005878704071693
+INFO:     10.36.34.8:55106 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=33da1bec-1689-4e4b-94d9-a513570ee00e ts=1785222593.591635 kv_uuid=1005878704071693
+PERF PROXY prefill_recv req_id=15bde23e-c1a5-40a1-b3ee-0d4cdae90c6c ts=1785222597.401032 dur_ms=33945.16 kv_uuid=844216373075085
+INFO:     10.36.34.8:55112 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=15bde23e-c1a5-40a1-b3ee-0d4cdae90c6c ts=1785222597.401371 kv_uuid=844216373075085
+PERF PROXY first_chunk req_id=b2735b88-6637-4fe7-bdb6-296148091dd5 ts=1785222599.613528 dur_from_decode_send_ms=17434.32 ttft_ms=36485.90 kv_uuid=415226594385013
+PERF PROXY req_received req_id=c9203089-8c7a-4ecf-860c-0cabf3a46275 ts=1785222599.622727
+PERF PROXY prefill_send req_id=c9203089-8c7a-4ecf-860c-0cabf3a46275 ts=1785222599.673268
+PERF PROXY prefill_recv req_id=fbb355f2-9212-4a17-b2ba-605df2df52d2 ts=1785222601.199950 dur_ms=37714.50 kv_uuid=581469570299421
+INFO:     10.36.34.8:55120 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=fbb355f2-9212-4a17-b2ba-605df2df52d2 ts=1785222601.200221 kv_uuid=581469570299421
+PERF PROXY prefill_recv req_id=2fac04b3-5d94-49a8-be8a-0fa10953a951 ts=1785222605.000722 dur_ms=41484.74 kv_uuid=580662924977729
+INFO:     10.36.34.8:55122 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=2fac04b3-5d94-49a8-be8a-0fa10953a951 ts=1785222605.000992 kv_uuid=580662924977729
+PERF PROXY first_chunk req_id=6a03bf18-6ac5-43f3-a555-9812bea8a1c2 ts=1785222607.921589 dur_from_decode_send_ms=33342.05 ttft_ms=44793.74 kv_uuid=834636194257885
+PERF PROXY req_received req_id=ef824f31-ba8c-4bcf-8e6b-cd15223168b0 ts=1785222607.926564
+PERF PROXY prefill_send req_id=ef824f31-ba8c-4bcf-8e6b-cd15223168b0 ts=1785222607.978977
+PERF PROXY prefill_recv req_id=6be66dac-5a20-4135-877a-9ad607949720 ts=1785222608.798672 dur_ms=45250.95 kv_uuid=869386220222409
+INFO:     10.36.34.8:55126 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=6be66dac-5a20-4135-877a-9ad607949720 ts=1785222608.798947 kv_uuid=869386220222409
+PERF PROXY prefill_recv req_id=be036683-f903-479e-baac-cd6ed3e0c3f9 ts=1785222612.596288 dur_ms=34526.32 kv_uuid=868511795063353
+INFO:     10.36.34.8:56224 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=be036683-f903-479e-baac-cd6ed3e0c3f9 ts=1785222612.596546 kv_uuid=868511795063353
+PERF PROXY latency summary | decode_first: n=104 avg=29910.35ms min=2650.17ms max=82246.03ms | prefill: n=115 avg=8664.47ms min=440.74ms max=45295.63ms | prefill_from_req: n=114 avg=8670.36ms min=458.96ms max=45704.73ms | ttft: n=104 avg=36557.43ms min=3118.33ms max=127059.28ms
+PERF PROXY prefill_recv req_id=c9203089-8c7a-4ecf-860c-0cabf3a46275 ts=1785222616.396434 dur_ms=16723.17 kv_uuid=269561817068969
+INFO:     10.36.34.8:35948 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=c9203089-8c7a-4ecf-860c-0cabf3a46275 ts=1785222616.396709 kv_uuid=269561817068969
+PERF PROXY first_chunk req_id=1f2bde5b-30f3-4241-b249-8ed3914b909c ts=1785222618.800534 dur_from_decode_send_ms=32821.09 ttft_ms=55666.59 kv_uuid=1071969415316469
+PERF PROXY req_received req_id=cb050a10-2fd9-4542-a00e-f572b6e42989 ts=1785222618.805109
+PERF PROXY prefill_send req_id=cb050a10-2fd9-4542-a00e-f572b6e42989 ts=1785222618.855672
+PERF PROXY prefill_recv req_id=ef824f31-ba8c-4bcf-8e6b-cd15223168b0 ts=1785222620.194695 dur_ms=12215.72 kv_uuid=7830696665381
+INFO:     10.36.34.8:58586 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=ef824f31-ba8c-4bcf-8e6b-cd15223168b0 ts=1785222620.194965 kv_uuid=7830696665381
+PERF PROXY prefill_recv req_id=cb050a10-2fd9-4542-a00e-f572b6e42989 ts=1785222624.003077 dur_ms=5147.40 kv_uuid=426522021520073
+INFO:     10.36.34.8:41678 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=cb050a10-2fd9-4542-a00e-f572b6e42989 ts=1785222624.003350 kv_uuid=426522021520073
+PERF PROXY first_chunk req_id=33da1bec-1689-4e4b-94d9-a513570ee00e ts=1785222639.465968 dur_from_decode_send_ms=45874.33 ttft_ms=76328.51 kv_uuid=1005878704071693
+PERF PROXY req_received req_id=03a510b2-1951-4df3-9b75-fd62b7383406 ts=1785222639.475077
+PERF PROXY prefill_send req_id=03a510b2-1951-4df3-9b75-fd62b7383406 ts=1785222639.527406
+PERF PROXY prefill_recv req_id=03a510b2-1951-4df3-9b75-fd62b7383406 ts=1785222643.310580 dur_ms=3783.17 kv_uuid=932845467560765
+INFO:     10.36.34.8:49076 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=03a510b2-1951-4df3-9b75-fd62b7383406 ts=1785222643.310849 kv_uuid=932845467560765
+PERF PROXY latency summary | decode_first: n=107 avg=30071.34ms min=2650.17ms max=82246.03ms | prefill: n=118 avg=8623.39ms min=440.74ms max=45295.63ms | prefill_from_req: n=118 avg=8699.15ms min=458.96ms max=45704.73ms | ttft: n=106 avg=37112.90ms min=3118.33ms max=127059.28ms
+PERF PROXY first_chunk req_id=cb050a10-2fd9-4542-a00e-f572b6e42989 ts=1785222652.265555 dur_from_decode_send_ms=28262.21 ttft_ms=33461.20 kv_uuid=426522021520073
+PERF PROXY req_received req_id=337046b3-dfe0-4075-a8ff-c86b5cd969e8 ts=1785222652.270465
+PERF PROXY prefill_send req_id=337046b3-dfe0-4075-a8ff-c86b5cd969e8 ts=1785222652.323953
+PERF PROXY first_chunk req_id=b395aa2e-84ae-4124-9c99-10f0e8b3523d ts=1785222652.882502 dur_from_decode_send_ms=82103.22 ttft_ms=89755.08 kv_uuid=259229489791625
+PERF PROXY req_received req_id=a1a41e7f-adac-4911-b7cd-49bd0c87e84f ts=1785222652.886713
+PERF PROXY prefill_send req_id=a1a41e7f-adac-4911-b7cd-49bd0c87e84f ts=1785222652.934412
+PERF PROXY prefill_recv req_id=337046b3-dfe0-4075-a8ff-c86b5cd969e8 ts=1785222656.102768 dur_ms=3778.81 kv_uuid=246353917107069
+INFO:     10.36.34.8:60912 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=337046b3-dfe0-4075-a8ff-c86b5cd969e8 ts=1785222656.103039 kv_uuid=246353917107069
+PERF PROXY prefill_recv req_id=a1a41e7f-adac-4911-b7cd-49bd0c87e84f ts=1785222659.904727 dur_ms=6970.32 kv_uuid=926955200776921
+INFO:     10.36.34.8:60922 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=a1a41e7f-adac-4911-b7cd-49bd0c87e84f ts=1785222659.905015 kv_uuid=926955200776921
+PERF PROXY first_chunk req_id=7dfcf2bb-4109-4388-acfb-5f244d4e94b8 ts=1785222660.569117 dur_from_decode_send_ms=82191.53 ttft_ms=97442.24 kv_uuid=658327238042929
+PERF PROXY req_received req_id=1364c113-78b9-49ed-b8d2-aa2ae7067a5d ts=1785222660.573705
+PERF PROXY prefill_send req_id=1364c113-78b9-49ed-b8d2-aa2ae7067a5d ts=1785222660.625065
+PERF PROXY prefill_recv req_id=1364c113-78b9-49ed-b8d2-aa2ae7067a5d ts=1785222664.397802 dur_ms=3772.74 kv_uuid=499800199764041
+INFO:     10.36.34.8:53822 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=1364c113-78b9-49ed-b8d2-aa2ae7067a5d ts=1785222664.398073 kv_uuid=499800199764041
+PERF PROXY first_chunk req_id=03a510b2-1951-4df3-9b75-fd62b7383406 ts=1785222665.652065 dur_from_decode_send_ms=22341.22 ttft_ms=26177.74 kv_uuid=932845467560765
+PERF PROXY req_received req_id=eaa75e0c-ff63-466e-b01e-0b998728b281 ts=1785222665.656790
+PERF PROXY prefill_send req_id=eaa75e0c-ff63-466e-b01e-0b998728b281 ts=1785222665.705759
+PERF PROXY prefill_recv req_id=eaa75e0c-ff63-466e-b01e-0b998728b281 ts=1785222669.480696 dur_ms=3774.94 kv_uuid=945915375842117
+INFO:     10.36.34.8:59212 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=eaa75e0c-ff63-466e-b01e-0b998728b281 ts=1785222669.480965 kv_uuid=945915375842117
+PERF PROXY first_chunk req_id=a1a41e7f-adac-4911-b7cd-49bd0c87e84f ts=1785222670.739678 dur_from_decode_send_ms=10834.66 ttft_ms=17853.65 kv_uuid=926955200776921
+PERF PROXY req_received req_id=339df5e1-3e7c-468c-9a5e-805d3c1f0a0b ts=1785222670.748305
+PERF PROXY prefill_send req_id=339df5e1-3e7c-468c-9a5e-805d3c1f0a0b ts=1785222670.797777
+PERF PROXY first_chunk req_id=edc115c4-c204-4f55-b02c-c4bf2ce98160 ts=1785222671.666964 dur_from_decode_send_ms=81877.97 ttft_ms=108531.34 kv_uuid=799942371047113
+PERF PROXY req_received req_id=f435fd32-6a48-42ab-81ac-f586a3d139c9 ts=1785222671.671347
+PERF PROXY prefill_send req_id=f435fd32-6a48-42ab-81ac-f586a3d139c9 ts=1785222671.719100
+PERF PROXY prefill_recv req_id=339df5e1-3e7c-468c-9a5e-805d3c1f0a0b ts=1785222674.574296 dur_ms=3776.52 kv_uuid=449179839912357
+INFO:     10.36.34.8:59218 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=339df5e1-3e7c-468c-9a5e-805d3c1f0a0b ts=1785222674.574563 kv_uuid=449179839912357
+PERF PROXY first_chunk req_id=337046b3-dfe0-4075-a8ff-c86b5cd969e8 ts=1785222674.753631 dur_from_decode_send_ms=18650.59 ttft_ms=22483.98 kv_uuid=246353917107069
+PERF PROXY req_received req_id=d76e5b52-6178-40e7-a4b2-adc7113d219b ts=1785222674.758427
+PERF PROXY prefill_send req_id=d76e5b52-6178-40e7-a4b2-adc7113d219b ts=1785222674.809811
+PERF PROXY prefill_recv req_id=f435fd32-6a48-42ab-81ac-f586a3d139c9 ts=1785222678.380931 dur_ms=6661.83 kv_uuid=50002008222237
+INFO:     10.36.34.8:59234 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=f435fd32-6a48-42ab-81ac-f586a3d139c9 ts=1785222678.381213 kv_uuid=50002008222237
+PERF PROXY first_chunk req_id=15bde23e-c1a5-40a1-b3ee-0d4cdae90c6c ts=1785222679.344728 dur_from_decode_send_ms=81943.36 ttft_ms=116205.64 kv_uuid=844216373075085
+PERF PROXY req_received req_id=48c3701b-085b-4dd1-bd05-d640fda06c92 ts=1785222679.349059
+PERF PROXY prefill_send req_id=48c3701b-085b-4dd1-bd05-d640fda06c92 ts=1785222679.395431
+PERF PROXY first_chunk req_id=eaa75e0c-ff63-466e-b01e-0b998728b281 ts=1785222682.142563 dur_from_decode_send_ms=12661.60 ttft_ms=16486.64 kv_uuid=945915375842117
+PERF PROXY req_received req_id=64115de3-ff6f-439d-9bbb-221da081ba5d ts=1785222682.147356
+PERF PROXY prefill_recv req_id=d76e5b52-6178-40e7-a4b2-adc7113d219b ts=1785222682.182689 dur_ms=7372.88 kv_uuid=139728189371357
+INFO:     10.36.34.8:41340 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=d76e5b52-6178-40e7-a4b2-adc7113d219b ts=1785222682.182947 kv_uuid=139728189371357
+PERF PROXY prefill_send req_id=64115de3-ff6f-439d-9bbb-221da081ba5d ts=1785222682.196030
+PERF PROXY latency summary | decode_first: n=116 avg=31829.57ms min=2650.17ms max=82246.03ms | prefill: n=125 avg=8429.35ms min=440.74ms max=45295.63ms | prefill_from_req: n=125 avg=8503.71ms min=458.96ms max=45704.73ms | ttft: n=115 avg=38803.18ms min=3118.33ms max=127059.28ms
+PERF PROXY first_chunk req_id=fbb355f2-9212-4a17-b2ba-605df2df52d2 ts=1785222683.192857 dur_from_decode_send_ms=81992.64 ttft_ms=120052.05 kv_uuid=581469570299421
+PERF PROXY req_received req_id=96d1f342-b623-4027-8a9c-3d58fa34b5ec ts=1785222683.197164
+PERF PROXY prefill_send req_id=96d1f342-b623-4027-8a9c-3d58fa34b5ec ts=1785222683.241183
+PERF PROXY first_chunk req_id=c9203089-8c7a-4ecf-860c-0cabf3a46275 ts=1785222685.978945 dur_from_decode_send_ms=69582.24 ttft_ms=86356.82 kv_uuid=269561817068969
+PERF PROXY req_received req_id=afa8c556-2564-45f8-a59a-d58cf7912915 ts=1785222685.983458
+PERF PROXY prefill_recv req_id=48c3701b-085b-4dd1-bd05-d640fda06c92 ts=1785222685.988804 dur_ms=6593.37 kv_uuid=345906023077041
+INFO:     10.36.34.8:41350 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=48c3701b-085b-4dd1-bd05-d640fda06c92 ts=1785222685.989055 kv_uuid=345906023077041
+PERF PROXY prefill_send req_id=afa8c556-2564-45f8-a59a-d58cf7912915 ts=1785222686.032654
+PERF PROXY first_chunk req_id=2fac04b3-5d94-49a8-be8a-0fa10953a951 ts=1785222686.748937 dur_from_decode_send_ms=81747.95 ttft_ms=123606.26 kv_uuid=580662924977729
+PERF PROXY req_received req_id=d249c87e-9a37-4f43-9493-609b7b77d5ff ts=1785222686.759152
+PERF PROXY prefill_send req_id=d249c87e-9a37-4f43-9493-609b7b77d5ff ts=1785222686.802440
+PERF PROXY prefill_recv req_id=64115de3-ff6f-439d-9bbb-221da081ba5d ts=1785222689.788627 dur_ms=7592.60 kv_uuid=367459983003693
+INFO:     10.36.34.8:41364 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=64115de3-ff6f-439d-9bbb-221da081ba5d ts=1785222689.788890 kv_uuid=367459983003693
+PERF PROXY first_chunk req_id=6be66dac-5a20-4135-877a-9ad607949720 ts=1785222690.599566 dur_from_decode_send_ms=81800.62 ttft_ms=127455.03 kv_uuid=869386220222409
+PERF PROXY req_received req_id=38342782-efd3-4505-aaa7-192a70b2b7a2 ts=1785222690.604354
+PERF PROXY prefill_send req_id=38342782-efd3-4505-aaa7-192a70b2b7a2 ts=1785222690.649282
+PERF PROXY prefill_recv req_id=96d1f342-b623-4027-8a9c-3d58fa34b5ec ts=1785222693.587806 dur_ms=10346.62 kv_uuid=325218513562693
+INFO:     10.36.34.8:41366 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=96d1f342-b623-4027-8a9c-3d58fa34b5ec ts=1785222693.588062 kv_uuid=325218513562693
+PERF PROXY first_chunk req_id=be036683-f903-479e-baac-cd6ed3e0c3f9 ts=1785222694.135111 dur_from_decode_send_ms=81538.57 ttft_ms=116116.27 kv_uuid=868511795063353
+PERF PROXY req_received req_id=64399f2b-a53f-493e-aa8c-7ed5e1832cc7 ts=1785222694.139632
+PERF PROXY prefill_send req_id=64399f2b-a53f-493e-aa8c-7ed5e1832cc7 ts=1785222694.182627
+PERF PROXY first_chunk req_id=f435fd32-6a48-42ab-81ac-f586a3d139c9 ts=1785222695.690491 dur_from_decode_send_ms=17309.28 ttft_ms=24019.92 kv_uuid=50002008222237
+PERF PROXY req_received req_id=d8676517-68df-422c-ab2a-55e3b0658c8a ts=1785222695.694704
+PERF PROXY prefill_send req_id=d8676517-68df-422c-ab2a-55e3b0658c8a ts=1785222695.740954
+PERF PROXY prefill_recv req_id=afa8c556-2564-45f8-a59a-d58cf7912915 ts=1785222697.386612 dur_ms=11353.96 kv_uuid=1095520146870085
+INFO:     10.36.34.8:58082 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=afa8c556-2564-45f8-a59a-d58cf7912915 ts=1785222697.386870 kv_uuid=1095520146870085
+PERF PROXY prefill_recv req_id=d249c87e-9a37-4f43-9493-609b7b77d5ff ts=1785222701.183024 dur_ms=14380.58 kv_uuid=16929103015097
+INFO:     10.36.34.8:58084 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=d249c87e-9a37-4f43-9493-609b7b77d5ff ts=1785222701.183321 kv_uuid=16929103015097
+PERF PROXY first_chunk req_id=ef824f31-ba8c-4bcf-8e6b-cd15223168b0 ts=1785222702.141258 dur_from_decode_send_ms=81946.29 ttft_ms=94215.76 kv_uuid=7830696665381
+PERF PROXY req_received req_id=b5434eaa-f20f-4d54-9b41-19a40666901a ts=1785222702.145856
+PERF PROXY prefill_send req_id=b5434eaa-f20f-4d54-9b41-19a40666901a ts=1785222702.193235
+PERF PROXY prefill_recv req_id=38342782-efd3-4505-aaa7-192a70b2b7a2 ts=1785222704.979539 dur_ms=14330.26 kv_uuid=909828329490857
+INFO:     10.36.34.8:58094 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=38342782-efd3-4505-aaa7-192a70b2b7a2 ts=1785222704.979800 kv_uuid=909828329490857
+PERF PROXY prefill_recv req_id=64399f2b-a53f-493e-aa8c-7ed5e1832cc7 ts=1785222708.775880 dur_ms=14593.25 kv_uuid=686177653512377
+INFO:     10.36.34.8:58108 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=64399f2b-a53f-493e-aa8c-7ed5e1832cc7 ts=1785222708.776182 kv_uuid=686177653512377
+PERF PROXY prefill_recv req_id=d8676517-68df-422c-ab2a-55e3b0658c8a ts=1785222712.571815 dur_ms=16830.86 kv_uuid=783639832492409
+INFO:     10.36.34.8:43204 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=d8676517-68df-422c-ab2a-55e3b0658c8a ts=1785222712.572103 kv_uuid=783639832492409
+PERF PROXY latency summary | decode_first: n=123 avg=33781.36ms min=2650.17ms max=82246.03ms | prefill: n=133 avg=8644.29ms min=440.74ms max=45295.63ms | prefill_from_req: n=133 avg=8716.97ms min=458.96ms max=45704.73ms | ttft: n=122 avg=42247.44ms min=3118.33ms max=127455.03ms
+PERF PROXY first_chunk req_id=1364c113-78b9-49ed-b8d2-aa2ae7067a5d ts=1785222713.349467 dur_from_decode_send_ms=48951.39 ttft_ms=52776.58 kv_uuid=499800199764041
+PERF PROXY req_received req_id=ed2efae8-12a0-4b95-8ecb-1b4d79654c6d ts=1785222713.353879
+PERF PROXY prefill_send req_id=ed2efae8-12a0-4b95-8ecb-1b4d79654c6d ts=1785222713.404640
+PERF PROXY prefill_recv req_id=b5434eaa-f20f-4d54-9b41-19a40666901a ts=1785222716.382209 dur_ms=14188.97 kv_uuid=885875015056557
+INFO:     10.36.34.8:43214 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=b5434eaa-f20f-4d54-9b41-19a40666901a ts=1785222716.382504 kv_uuid=885875015056557
+PERF PROXY prefill_recv req_id=ed2efae8-12a0-4b95-8ecb-1b4d79654c6d ts=1785222720.189819 dur_ms=6785.18 kv_uuid=203002228484197
+INFO:     10.36.34.8:42018 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=ed2efae8-12a0-4b95-8ecb-1b4d79654c6d ts=1785222720.190123 kv_uuid=203002228484197
+PERF PROXY first_chunk req_id=d249c87e-9a37-4f43-9493-609b7b77d5ff ts=1785222724.158089 dur_from_decode_send_ms=22974.77 ttft_ms=37399.59 kv_uuid=16929103015097
+PERF PROXY req_received req_id=2e30e11f-5415-4dda-9014-b9319cbb699d ts=1785222724.167610
+PERF PROXY prefill_send req_id=2e30e11f-5415-4dda-9014-b9319cbb699d ts=1785222724.217286
+PERF PROXY first_chunk req_id=38342782-efd3-4505-aaa7-192a70b2b7a2 ts=1785222726.331384 dur_from_decode_send_ms=21351.58 ttft_ms=35727.71 kv_uuid=909828329490857
+PERF PROXY req_received req_id=f93360b3-0428-49f0-9ddf-33db87d7b807 ts=1785222726.336417
+PERF PROXY prefill_send req_id=f93360b3-0428-49f0-9ddf-33db87d7b807 ts=1785222726.381578
+PERF PROXY prefill_recv req_id=2e30e11f-5415-4dda-9014-b9319cbb699d ts=1785222727.993609 dur_ms=3776.32 kv_uuid=956826503058977
+INFO:     10.36.34.8:49488 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=2e30e11f-5415-4dda-9014-b9319cbb699d ts=1785222727.993875 kv_uuid=956826503058977
+PERF PROXY prefill_recv req_id=f93360b3-0428-49f0-9ddf-33db87d7b807 ts=1785222731.796601 dur_ms=5415.02 kv_uuid=319217979912733
+INFO:     10.36.34.8:49048 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=f93360b3-0428-49f0-9ddf-33db87d7b807 ts=1785222731.796884 kv_uuid=319217979912733
+PERF PROXY first_chunk req_id=64399f2b-a53f-493e-aa8c-7ed5e1832cc7 ts=1785222739.578976 dur_from_decode_send_ms=30802.79 ttft_ms=45440.28 kv_uuid=686177653512377
+PERF PROXY req_received req_id=f7622fad-019e-4022-b7f5-a9f4c945198b ts=1785222739.583869
+PERF PROXY prefill_send req_id=f7622fad-019e-4022-b7f5-a9f4c945198b ts=1785222739.635433
+PERF PROXY first_chunk req_id=339df5e1-3e7c-468c-9a5e-805d3c1f0a0b ts=1785222741.437772 dur_from_decode_send_ms=66863.21 ttft_ms=70690.31 kv_uuid=449179839912357
+PERF PROXY req_received req_id=5091e18c-7186-48b9-9ad9-9fee076a330d ts=1785222741.441979
+PERF PROXY prefill_send req_id=5091e18c-7186-48b9-9ad9-9fee076a330d ts=1785222741.489695
+PERF PROXY latency summary | decode_first: n=127 avg=33835.43ms min=2650.17ms max=82246.03ms | prefill: n=138 avg=8577.05ms min=440.74ms max=45295.63ms | prefill_from_req: n=137 avg=8684.08ms min=458.96ms max=45704.73ms | ttft: n=127 avg=42489.94ms min=3118.33ms max=127455.03ms
+PERF PROXY prefill_recv req_id=f7622fad-019e-4022-b7f5-a9f4c945198b ts=1785222743.413241 dur_ms=3777.81 kv_uuid=951385478003481
+INFO:     10.36.34.8:51614 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=f7622fad-019e-4022-b7f5-a9f4c945198b ts=1785222743.413542 kv_uuid=951385478003481
+PERF PROXY prefill_recv req_id=5091e18c-7186-48b9-9ad9-9fee076a330d ts=1785222747.213532 dur_ms=5723.84 kv_uuid=1116104520089017
+INFO:     10.36.34.8:51618 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=5091e18c-7186-48b9-9ad9-9fee076a330d ts=1785222747.213804 kv_uuid=1116104520089017
+PERF PROXY first_chunk req_id=d76e5b52-6178-40e7-a4b2-adc7113d219b ts=1785222764.278841 dur_from_decode_send_ms=82095.89 ttft_ms=89521.19 kv_uuid=139728189371357
+PERF PROXY req_received req_id=a2f94aeb-e2aa-492a-b3a2-4374d665dff3 ts=1785222764.286491
+PERF PROXY prefill_send req_id=a2f94aeb-e2aa-492a-b3a2-4374d665dff3 ts=1785222764.337646
+PERF PROXY first_chunk req_id=48c3701b-085b-4dd1-bd05-d640fda06c92 ts=1785222767.692491 dur_from_decode_send_ms=81703.44 ttft_ms=88344.16 kv_uuid=345906023077041
+PERF PROXY req_received req_id=60b24c3b-e1dd-4abf-9b8f-48b18345d59a ts=1785222767.697226
+PERF PROXY prefill_send req_id=60b24c3b-e1dd-4abf-9b8f-48b18345d59a ts=1785222767.744853
+PERF PROXY prefill_recv req_id=a2f94aeb-e2aa-492a-b3a2-4374d665dff3 ts=1785222768.115622 dur_ms=3777.98 kv_uuid=256851932456173
+INFO:     10.36.34.8:37594 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=a2f94aeb-e2aa-492a-b3a2-4374d665dff3 ts=1785222768.115894 kv_uuid=256851932456173
+PERF PROXY first_chunk req_id=64115de3-ff6f-439d-9bbb-221da081ba5d ts=1785222771.554789 dur_from_decode_send_ms=81765.90 ttft_ms=89408.18 kv_uuid=367459983003693
+PERF PROXY req_received req_id=aa130653-da6d-41bf-bc83-71af8e896ca9 ts=1785222771.559422
+PERF PROXY prefill_send req_id=aa130653-da6d-41bf-bc83-71af8e896ca9 ts=1785222771.607754
+PERF PROXY prefill_recv req_id=60b24c3b-e1dd-4abf-9b8f-48b18345d59a ts=1785222771.914885 dur_ms=4170.03 kv_uuid=530491886713537
+INFO:     10.36.34.8:44234 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=60b24c3b-e1dd-4abf-9b8f-48b18345d59a ts=1785222771.915172 kv_uuid=530491886713537
+PERF PROXY latency summary | decode_first: n=131 avg=35301.28ms min=2650.17ms max=82246.03ms | prefill: n=141 avg=8491.53ms min=440.74ms max=45295.63ms | prefill_from_req: n=141 avg=8562.91ms min=458.96ms max=45704.73ms | ttft: n=130 avg=43565.35ms min=3118.33ms max=127455.03ms
+PERF PROXY first_chunk req_id=96d1f342-b623-4027-8a9c-3d58fa34b5ec ts=1785222775.391782 dur_from_decode_send_ms=81803.72 ttft_ms=92195.53 kv_uuid=325218513562693
+PERF PROXY req_received req_id=75a72e34-4b3b-4a26-b2e1-ce691cd622b4 ts=1785222775.396828
+PERF PROXY prefill_send req_id=75a72e34-4b3b-4a26-b2e1-ce691cd622b4 ts=1785222775.445900
+PERF PROXY prefill_recv req_id=aa130653-da6d-41bf-bc83-71af8e896ca9 ts=1785222775.713645 dur_ms=4105.89 kv_uuid=628234400873005
+INFO:     10.36.34.8:44242 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=aa130653-da6d-41bf-bc83-71af8e896ca9 ts=1785222775.713909 kv_uuid=628234400873005
+PERF PROXY first_chunk req_id=afa8c556-2564-45f8-a59a-d58cf7912915 ts=1785222779.237543 dur_from_decode_send_ms=81850.67 ttft_ms=93254.80 kv_uuid=1095520146870085
+PERF PROXY req_received req_id=69d1022a-b077-496e-a2ef-d32584c4ebfe ts=1785222779.246178
+PERF PROXY prefill_send req_id=69d1022a-b077-496e-a2ef-d32584c4ebfe ts=1785222779.294829
+PERF PROXY prefill_recv req_id=75a72e34-4b3b-4a26-b2e1-ce691cd622b4 ts=1785222779.512000 dur_ms=4066.10 kv_uuid=848750060456281
+INFO:     10.36.34.8:57036 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=75a72e34-4b3b-4a26-b2e1-ce691cd622b4 ts=1785222779.512284 kv_uuid=848750060456281
+PERF PROXY first_chunk req_id=5091e18c-7186-48b9-9ad9-9fee076a330d ts=1785222781.228660 dur_from_decode_send_ms=34014.86 ttft_ms=39787.58 kv_uuid=1116104520089017
+PERF PROXY req_received req_id=a1cb7e1e-e444-4dcc-b748-d46f9396c226 ts=1785222781.233623
+PERF PROXY prefill_send req_id=a1cb7e1e-e444-4dcc-b748-d46f9396c226 ts=1785222781.280217
+PERF PROXY prefill_recv req_id=69d1022a-b077-496e-a2ef-d32584c4ebfe ts=1785222783.326190 dur_ms=4031.36 kv_uuid=978568887021881
+INFO:     10.36.34.8:57048 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=69d1022a-b077-496e-a2ef-d32584c4ebfe ts=1785222783.326476 kv_uuid=978568887021881
+PERF PROXY prefill_recv req_id=a1cb7e1e-e444-4dcc-b748-d46f9396c226 ts=1785222787.136230 dur_ms=5856.01 kv_uuid=961719651805121
+INFO:     10.36.34.8:57050 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=a1cb7e1e-e444-4dcc-b748-d46f9396c226 ts=1785222787.136502 kv_uuid=961719651805121
+PERF PROXY first_chunk req_id=d8676517-68df-422c-ab2a-55e3b0658c8a ts=1785222793.837540 dur_from_decode_send_ms=81265.44 ttft_ms=98143.60 kv_uuid=783639832492409
+PERF PROXY req_received req_id=8a2a0723-8fbf-40ce-8bfe-387c859dec1f ts=1785222793.843314
+PERF PROXY prefill_send req_id=8a2a0723-8fbf-40ce-8bfe-387c859dec1f ts=1785222793.896155
+PERF PROXY prefill_recv req_id=8a2a0723-8fbf-40ce-8bfe-387c859dec1f ts=1785222797.672023 dur_ms=3775.87 kv_uuid=126377899424053
+INFO:     10.36.34.8:42370 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=8a2a0723-8fbf-40ce-8bfe-387c859dec1f ts=1785222797.672338 kv_uuid=126377899424053
+PERF PROXY first_chunk req_id=b5434eaa-f20f-4d54-9b41-19a40666901a ts=1785222797.870295 dur_from_decode_send_ms=81487.79 ttft_ms=95725.39 kv_uuid=885875015056557
+PERF PROXY req_received req_id=5ca52665-1db8-4710-8bc0-868ae7093d8d ts=1785222797.876623
+PERF PROXY prefill_send req_id=5ca52665-1db8-4710-8bc0-868ae7093d8d ts=1785222797.928149
+PERF PROXY first_chunk req_id=ed2efae8-12a0-4b95-8ecb-1b4d79654c6d ts=1785222801.403553 dur_from_decode_send_ms=81213.43 ttft_ms=88050.42 kv_uuid=203002228484197
+PERF PROXY first_chunk req_id=aa130653-da6d-41bf-bc83-71af8e896ca9 ts=1785222801.404438 dur_from_decode_send_ms=25690.53 ttft_ms=29845.65 kv_uuid=628234400873005
+PERF PROXY req_received req_id=9424bb4d-ab67-40f8-b3c6-25770183a7f5 ts=1785222801.409415
+PERF PROXY req_received req_id=6d0b9a1f-a23a-4735-a746-81be36d1de9c ts=1785222801.411061
+PERF PROXY prefill_send req_id=9424bb4d-ab67-40f8-b3c6-25770183a7f5 ts=1785222801.458116
+PERF PROXY prefill_send req_id=6d0b9a1f-a23a-4735-a746-81be36d1de9c ts=1785222801.491117
+PERF PROXY prefill_recv req_id=5ca52665-1db8-4710-8bc0-868ae7093d8d ts=1785222801.712397 dur_ms=3784.25 kv_uuid=780779508680461
+INFO:     10.36.34.8:45406 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=5ca52665-1db8-4710-8bc0-868ae7093d8d ts=1785222801.712650 kv_uuid=780779508680461
+PERF PROXY latency summary | decode_first: n=137 avg=36569.28ms min=2650.17ms max=82246.03ms | prefill: n=148 avg=8290.40ms min=440.74ms max=45295.63ms | prefill_from_req: n=147 avg=8389.74ms min=458.96ms max=45704.73ms | ttft: n=137 avg=45259.11ms min=3118.33ms max=127455.03ms
+PERF PROXY prefill_recv req_id=9424bb4d-ab67-40f8-b3c6-25770183a7f5 ts=1785222805.512505 dur_ms=4054.39 kv_uuid=908789421865185
+INFO:     10.36.34.8:45420 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=9424bb4d-ab67-40f8-b3c6-25770183a7f5 ts=1785222805.512809 kv_uuid=908789421865185
+PERF PROXY first_chunk req_id=69d1022a-b077-496e-a2ef-d32584c4ebfe ts=1785222806.298199 dur_from_decode_send_ms=22971.72 ttft_ms=27052.77 kv_uuid=978568887021881
+PERF PROXY prefill_recv req_id=6d0b9a1f-a23a-4735-a746-81be36d1de9c ts=1785222809.313347 dur_ms=7822.23 kv_uuid=1100370383388365
+INFO:     10.36.34.8:45424 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=6d0b9a1f-a23a-4735-a746-81be36d1de9c ts=1785222809.313629 kv_uuid=1100370383388365
+PERF PROXY first_chunk req_id=2e30e11f-5415-4dda-9014-b9319cbb699d ts=1785222809.857846 dur_from_decode_send_ms=81863.97 ttft_ms=85691.06 kv_uuid=956826503058977
+PERF PROXY first_chunk req_id=8a2a0723-8fbf-40ce-8bfe-387c859dec1f ts=1785222812.035779 dur_from_decode_send_ms=14363.44 ttft_ms=18193.62 kv_uuid=126377899424053
+PERF PROXY first_chunk req_id=f93360b3-0428-49f0-9ddf-33db87d7b807 ts=1785222813.277336 dur_from_decode_send_ms=81480.45 ttft_ms=86941.88 kv_uuid=319217979912733
+PERF PROXY first_chunk req_id=f7622fad-019e-4022-b7f5-a9f4c945198b ts=1785222825.067715 dur_from_decode_send_ms=81654.17 ttft_ms=85484.66 kv_uuid=951385478003481
+PERF PROXY latency summary | decode_first: n=143 avg=37579.04ms min=2650.17ms max=82246.03ms | prefill: n=149 avg=8287.26ms min=440.74ms max=45295.63ms | prefill_from_req: n=149 avg=8357.70ms min=458.96ms max=45704.73ms | ttft: n=142 avg=45801.85ms min=3118.33ms max=127455.03ms
+PERF PROXY first_chunk req_id=a2f94aeb-e2aa-492a-b3a2-4374d665dff3 ts=1785222849.594476 dur_from_decode_send_ms=81478.58 ttft_ms=85308.79 kv_uuid=256851932456173
+PERF PROXY first_chunk req_id=60b24c3b-e1dd-4abf-9b8f-48b18345d59a ts=1785222853.322256 dur_from_decode_send_ms=81407.08 ttft_ms=85626.01 kv_uuid=530491886713537
+PERF PROXY first_chunk req_id=75a72e34-4b3b-4a26-b2e1-ce691cd622b4 ts=1785222860.150257 dur_from_decode_send_ms=80637.97 ttft_ms=84754.25 kv_uuid=848750060456281
+PERF PROXY first_chunk req_id=a1cb7e1e-e444-4dcc-b748-d46f9396c226 ts=1785222867.623453 dur_from_decode_send_ms=80486.95 ttft_ms=86390.63 kv_uuid=961719651805121
+PERF PROXY latency summary | decode_first: n=147 avg=38756.48ms min=2650.17ms max=82246.03ms | prefill: n=149 avg=8287.26ms min=440.74ms max=45295.63ms | prefill_from_req: n=149 avg=8357.70ms min=458.96ms max=45704.73ms | ttft: n=146 avg=46890.01ms min=3118.33ms max=127455.03ms
+PERF PROXY first_chunk req_id=5ca52665-1db8-4710-8bc0-868ae7093d8d ts=1785222882.579601 dur_from_decode_send_ms=80866.95 ttft_ms=84703.72 kv_uuid=780779508680461
+PERF PROXY first_chunk req_id=9424bb4d-ab67-40f8-b3c6-25770183a7f5 ts=1785222885.693973 dur_from_decode_send_ms=80181.16 ttft_ms=84285.45 kv_uuid=908789421865185
+PERF PROXY first_chunk req_id=6d0b9a1f-a23a-4735-a746-81be36d1de9c ts=1785222889.435085 dur_from_decode_send_ms=80121.46 ttft_ms=88024.37 kv_uuid=1100370383388365
+
