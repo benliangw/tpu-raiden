@@ -1,0 +1,68 @@
+Waiting for prefill up (http://j-ee06b5ce-f0dc-4fb4-833a-prefill-0-0.j-ee06b5ce-f0dc-4fb4-833a:8000/health, up to 5400s)
+prefill is up (1095s)
+Waiting for decode up (http://j-ee06b5ce-f0dc-4fb4-833a-decode-0-0.j-ee06b5ce-f0dc-4fb4-833a:7200/health, up to 5400s)
+decode is up (1750s)
+Waiting for proxy up (http://j-ee06b5ce-f0dc-4fb4-833a-prefill-0-0.j-ee06b5ce-f0dc-4fb4-833a:10000/healthcheck, up to 600s)
+proxy is up (0s)
+Waiting for engine readiness (first compile, up to 60 min)...
+Engines are ready.
+===== Smoke test: prefill->Raiden KV transfer->decode =====
+--- request 1: Good morning. What are the capitals of the US, China and Armenia?
+{"id":"cmpl-9aa9af72-5969-4b33-87b0-d0d6422f1916","object":"text_completion","created":1785203544,"model":"Qwen3.5-35B-A3B-FP8","choices":[{"index":0,"text":"\n\n<think>\nThinking Process:\n\n1.  **Analyze the Request:**\n    *   Time of day: \"Good morning.\" (Greeting)\n    *   Question: \"What are the capitals of the US, China and Armenia?\"\n    *   Entities: United States (US), China,","logprobs":null,"finish_reason":"length","stop_reason":null,"token_ids":[271,248068,198,90700,8340,25,271,16,13,220,2972,2014,53983,279,5952,64700,198,262,348,256,3984,314,1834,25,328,14773,6353,1149,318,38,42187,8,198,262,348,256,15380,25,328,3710,513,279,89798,314,279,2201,11,5440,321,69101,7285,198,262,348,256,50495,25,3516,4042,318,1966,681,5440,11],"prompt_logprobs":null,"prompt_token_ids":[14773,6353,13,3437,513,279,89798,314,279,2201,11,5440,321,69101,30],"routed_experts":null}],"service_tier":null,"system_fingerprint":"vllm-0.25.1-dp8-ep-18eeab0d","usage":{"prompt_tokens":15,"total_tokens":79,"completion_tokens":64,"prompt_tokens_details":{"cached_tokens":14,"multimodal_tokens":null}},"kv_transfer_params":null,"metrics":null}
+--- known-answer probes: three-way equivalence (cold/warm/proxy)
+Traceback (most recent call last):
+  File "<stdin>", line 2, in <module>
+ValueError: too many values to unpack (expected 4)
+===== Eviction equivalence (deterministic doc churn) =====
+[equivalence:seed] doc0 token_ids=[200, 200, 200, 200, 200, 200, 200, 200]
+[equivalence:seed] doc1 token_ids=[248046, 198, 248045, 248068, 198, 90700, 8340, 25]
+[equivalence:seed] doc2 token_ids=[202, 202, 202, 202, 202, 202, 202, 202]
+[equivalence:seed] doc3 token_ids=[203, 203, 203, 203, 203, 203, 203, 203]
+[equivalence:seed] doc4 token_ids=[204, 204, 204, 204, 204, 204, 204, 204]
+[equivalence:seed] doc5 token_ids=[248046, 198, 248045, 74455, 198, 248068, 198, 760]
+[equivalence:seed] doc6 token_ids=[206, 206, 206, 206, 206, 206, 206, 206]
+[equivalence:seed] doc7 token_ids=[207, 207, 207, 207, 207, 207, 207, 207]
+[equivalence:seed] doc8 token_ids=[208, 208, 208, 208, 208, 208, 208, 208]
+[equivalence:seed] doc9 token_ids=[209, 209, 209, 209, 209, 209, 209, 209]
+[equivalence:seed] doc10 token_ids=[210, 210, 210, 210, 210, 210, 210, 210]
+[equivalence:seed] doc11 token_ids=[211, 211, 211, 211, 211, 211, 211, 211]
+[equivalence:seed] doc12 token_ids=[212, 212, 212, 212, 212, 212, 212, 212]
+[equivalence:seed] doc13 token_ids=[213, 213, 213, 213, 213, 213, 213, 213]
+[equivalence:seed] doc14 token_ids=[214, 214, 214, 214, 214, 214, 214, 214]
+[equivalence:seed] doc15 token_ids=[215, 215, 215, 215, 215, 215, 215, 215]
+[equivalence:seed] doc16 token_ids=[216, 216, 216, 216, 216, 216, 216, 216]
+[equivalence:seed] doc17 token_ids=[217, 217, 217, 217, 217, 217, 217, 217]
+[equivalence:seed] doc18 token_ids=[218, 218, 218, 218, 218, 218, 218, 218]
+[equivalence:seed] doc19 token_ids=[219, 219, 219, 219, 219, 219, 219, 219]
+[equivalence:seed] doc20 token_ids=[220, 220, 220, 220, 220, 220, 220, 220]
+[equivalence:seed] doc21 token_ids=[221, 221, 221, 221, 221, 221, 221, 221]
+[equivalence:seed] doc22 token_ids=[15, 15, 15, 15, 15, 15, 15, 15]
+[equivalence:seed] doc23 token_ids=[223, 223, 223, 223, 223, 223, 223, 223]
+[equivalence:revisit] doc0 token_ids=[210, 210, 210, 210, 210, 210, 210, 210]
+[equivalence:revisit] doc1 token_ids=[211, 211, 211, 211, 211, 211, 211, 211]
+[equivalence:revisit] doc2 token_ids=[212, 212, 212, 212, 212, 212, 212, 212]
+[equivalence:revisit] doc3 token_ids=[213, 213, 213, 213, 213, 213, 213, 213]
+[equivalence:revisit] doc4 token_ids=[214, 214, 214, 214, 214, 214, 214, 214]
+[equivalence:revisit] doc5 token_ids=[215, 215, 215, 215, 215, 215, 215, 215]
+[equivalence:revisit] doc6 token_ids=[216, 216, 216, 216, 216, 216, 216, 216]
+[equivalence:revisit] doc7 token_ids=[217, 217, 217, 217, 217, 217, 217, 217]
+[equivalence:revisit] doc8 token_ids=[218, 218, 218, 218, 218, 218, 218, 218]
+[equivalence:revisit] doc9 token_ids=[219, 219, 219, 219, 219, 219, 219, 219]
+[equivalence:revisit] doc10 token_ids=[220, 220, 220, 220, 220, 220, 220, 220]
+[equivalence:revisit] doc11 token_ids=[221, 221, 221, 221, 221, 221, 221, 221]
+[equivalence:revisit] doc12 token_ids=[15, 15, 15, 15, 15, 15, 15, 15]
+[equivalence:revisit] doc13 token_ids=[248046, 198, 248045, 846, 198, 248045, 248046, 198]
+[equivalence:revisit] doc14 token_ids=[271, 760, 1156, 369, 9859, 364, 264, 1965]
+[equivalence:revisit] doc15 token_ids=[225, 225, 225, 225, 225, 225, 225, 225]
+[equivalence:revisit] doc16 token_ids=[271, 2, 220, 16, 13, 27416, 271, 1919]
+[equivalence:revisit] doc17 token_ids=[271, 248068, 198, 90700, 8340, 25, 271, 16]
+[equivalence:revisit] doc18 token_ids=[37, 426, 426, 426, 426, 426, 426, 426]
+[equivalence:revisit] doc19 token_ids=[271, 2, 220, 16, 13, 220, 16, 13]
+[equivalence:revisit] doc20 token_ids=[1450, 271, 248068, 198, 90700, 8340, 25, 271]
+[equivalence:revisit] doc21 token_ids=[231, 231, 231, 231, 231, 231, 231, 231]
+[equivalence:revisit] doc22 token_ids=[16467, 16467, 16467, 16467, 16467, 16467, 16467, 16467]
+[equivalence:revisit] doc23 token_ids=[198, 25497, 151958, 154617, 25, 25497, 151958, 154617]
+[equivalence] post-eviction KA ERROR: [Errno 2] No such file or directory: '/cdk-outputs/outputs/j-ee06b5ce-f0dc-4fb4-833a-correctness-0/j-ee06b5ce-f0dc-4fb4-833a-correctness-0-0-7c4cq/vllm-correctness/smoke_ka_len32768-cold.json'
+EQUIVALENCE COMPLETE (errors=1)
+RESULT: FAIL (one or more correctness checks failed; see lines above)
+
