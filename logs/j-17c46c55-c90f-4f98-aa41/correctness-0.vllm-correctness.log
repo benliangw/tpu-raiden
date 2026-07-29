@@ -1,0 +1,32 @@
+Waiting for prefill up (http://j-17c46c55-c90f-4f98-aa41-prefill-0-0.j-17c46c55-c90f-4f98-aa41:8000/health, up to 5400s)
+prefill is up (1080s)
+Waiting for decode up (http://j-17c46c55-c90f-4f98-aa41-decode-0-0.j-17c46c55-c90f-4f98-aa41:7200/health, up to 5400s)
+decode is up (0s)
+Waiting for proxy up (http://j-17c46c55-c90f-4f98-aa41-prefill-0-0.j-17c46c55-c90f-4f98-aa41:10000/healthcheck, up to 600s)
+proxy is up (0s)
+Waiting for engine readiness (first compile, up to 60 min)...
+Engines are ready.
+===== Smoke test: prefill->Raiden KV transfer->decode =====
+--- request 1: Good morning. What are the capitals of the US, China and Armenia?
+curl: (18) transfer closed with outstanding read data remaining
+
+request 1 FAILED
+
+--- known-answer probes: three-way equivalence (cold/warm/proxy)
+len8192-cold: token=88 token_ids=[88, 88, 88, 88, 88, 88, 88, 88] text='yyyyyyyy'
+len8192-warm: token=88 token_ids=[88, 88, 88, 88, 88, 88, 88, 88] text='yyyyyyyy'
+len8192-proxy: REQUEST ERROR: timed out
+len8192: FAIL (no output: cold=[88, 88, 88, 88, 88, 88, 88, 88] warm=[88, 88, 88, 88, 88, 88, 88, 88] proxy=None)
+len32768-cold: token=89 token_ids=[89, 89, 89, 89, 89, 89, 89, 89] text='zzzzzzzz'
+len32768-warm: token=89 token_ids=[89, 89, 89, 89, 89, 89, 89, 89] text='zzzzzzzz'
+len32768-proxy: REQUEST ERROR: timed out
+len32768: FAIL (no output: cold=[89, 89, 89, 89, 89, 89, 89, 89] warm=[89, 89, 89, 89, 89, 89, 89, 89] proxy=None)
+known-answer summary: {"len8192-apc-transparency": false, "len8192-transfer-equivalence": false, "len32768-apc-transparency": false, "len32768-transfer-equivalence": false}
+===== Eviction equivalence (deterministic doc churn) =====
+[equivalence:seed] doc0 ERROR: timed out
+[equivalence:seed] doc1 ERROR: timed out
+[equivalence:seed] doc2 ERROR: timed out
+[equivalence:seed] doc3 ERROR: timed out
+[equivalence:seed] doc4 ERROR: timed out
+[equivalence:seed] doc5 ERROR: timed out
+
