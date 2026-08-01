@@ -1177,7 +1177,11 @@ TEST_F(KVCacheStoreEmbeddedControllerTest,
   auto* raiden_controller = KVCacheStoreTest::GetController(store);
   ASSERT_NE(raiden_controller, nullptr);
   EXPECT_EQ(store.num_registered_workers(), 1);
-  const int total_free = raiden_controller->block_manager()->num_free_blocks();
+  // DeallocateBlockIds unlocks blocks (making them evictable) but never
+  // clears is_allocated, so reclamation is visible in the locked count, not
+  // num_free_blocks().
+  const int base_locked =
+      raiden_controller->block_manager()->num_locked_blocks();
 
   // 1. Save hash_a to host: insert as HBM, pin, save, poll, release.
   ASSERT_TRUE(
@@ -1196,8 +1200,8 @@ TEST_F(KVCacheStoreEmbeddedControllerTest,
     }
   }
   store.Release({"hash_a"});
-  EXPECT_EQ(raiden_controller->block_manager()->num_free_blocks(),
-            total_free - 1);
+  EXPECT_EQ(raiden_controller->block_manager()->num_locked_blocks(),
+            base_locked + 1);
 
   // 2. Displace hash_a to the eviction-candidate list; the candidate keeps
   // its host block.
@@ -1207,22 +1211,24 @@ TEST_F(KVCacheStoreEmbeddedControllerTest,
           .first);
   EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
               ::testing::ElementsAre("hash_a"));
-  EXPECT_EQ(raiden_controller->block_manager()->num_free_blocks(),
-            total_free - 1);
+  EXPECT_EQ(raiden_controller->block_manager()->num_locked_blocks(),
+            base_locked + 1);
 
   // 3. Re-admit hash_a with a fresh HBM slice (re-store of the same prefix).
   // The rescue replaces the candidate's value; its stale host block must
   // return to the allocator.
   ASSERT_TRUE(store.InsertAndLock(
       {"hash_a"}, {RaidenBlockID(rid, -1, 2, BlockStatus::HBM)}, false));
-  EXPECT_EQ(raiden_controller->block_manager()->num_free_blocks(), total_free);
+  EXPECT_EQ(raiden_controller->block_manager()->num_locked_blocks(),
+            base_locked);
   EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
               ::testing::IsEmpty());
 
   // 4. Roll back the admission: the fresh HBM entry is deleted, and nothing
   // double-frees the already-reclaimed host block.
   EXPECT_EQ(store.ReleaseAndDelete({"hash_a"}), 1);
-  EXPECT_EQ(raiden_controller->block_manager()->num_free_blocks(), total_free);
+  EXPECT_EQ(raiden_controller->block_manager()->num_locked_blocks(),
+            base_locked);
   auto lookup_a = store.Lookup({"hash_a"});
   ASSERT_TRUE(lookup_a.ok());
   EXPECT_EQ(lookup_a->size(), 0);
@@ -1248,7 +1254,10 @@ TEST_F(KVCacheStoreEmbeddedControllerTest,
   RaidenId rid{"test_job", "0", "test_cache", 0};
   KVCacheStore store(1, std::move(controller), "", rid);
   auto* raiden_controller = KVCacheStoreTest::GetController(store);
-  const int total_free = raiden_controller->block_manager()->num_free_blocks();
+  // Reclamation unlocks the block rather than clearing is_allocated, so
+  // track the locked count (see CandidateReadmissionReclaimsHostBlock).
+  const int base_locked =
+      raiden_controller->block_manager()->num_locked_blocks();
 
   // Give hash_a a real allocated host block, then displace it.
   auto host_ids_or = raiden_controller->AllocateBlockIds(1);
@@ -1265,14 +1274,15 @@ TEST_F(KVCacheStoreEmbeddedControllerTest,
           .first);
   EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
               ::testing::ElementsAre("hash_a"));
-  EXPECT_EQ(raiden_controller->block_manager()->num_free_blocks(),
-            total_free - 1);
+  EXPECT_EQ(raiden_controller->block_manager()->num_locked_blocks(),
+            base_locked + 1);
 
   // Re-insert hash_a with a device-only slice: the candidate's host block
   // must be reclaimed as its value is replaced.
   store.Insert({"hash_a"}, {RaidenBlockID(rid, -1, 3, BlockStatus::HBM)},
                false);
-  EXPECT_EQ(raiden_controller->block_manager()->num_free_blocks(), total_free);
+  EXPECT_EQ(raiden_controller->block_manager()->num_locked_blocks(),
+            base_locked);
   EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
               ::testing::IsEmpty());
 }
