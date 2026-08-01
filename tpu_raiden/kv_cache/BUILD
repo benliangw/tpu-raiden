@@ -130,6 +130,7 @@ cc_library(
         ":kv_cache_metadata_shm",
         ":kv_cache_store",
         ":raiden_id",
+        "//tpu_raiden/core/controller:raiden_controller",
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
