@@ -214,6 +214,20 @@ class KVCacheStore:
     """Returns the RaidenId associated with this store."""
     return RaidenId(impl=self._impl.raiden_id)
 
+  @property
+  def raiden_controller_address(self) -> str:
+    """Address of this store's in-process RaidenController."""
+    return self._impl.raiden_controller_address
+
+  @property
+  def store_server_address(self) -> str:
+    """Address peers use to reach this store's KVCacheStoreService.
+
+    Empty when store_server_ip was not set (nothing is published, so peers
+    cannot discover this store).
+    """
+    return self._impl.store_server_address
+
   def lookup(
       self,
       block_hashes: list[bytes],
