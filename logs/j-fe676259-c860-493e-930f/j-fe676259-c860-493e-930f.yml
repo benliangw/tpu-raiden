@@ -1,0 +1,334 @@
+# OffloadingControllerV2 (raiden KVCacheStore) phase-1 PERF recipe.
+# Clone of perf-recipe-32b-bm-on.yml with the connector swapped to
+# TPURaidenOffloadingConnector, so V1/V2 numbers stay directly comparable —
+# run this one head-to-head against perf-recipe-32b-bm-on.yml on the SAME
+# image. It measures throughput/TTFT only and never inspects model output.
+# For the offload roundtrip correctness gate use
+# correctness-recipe-32b-v2-store.yml.
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: ttpu-32b-off-v2
+  namespace: cloud-devkit-jobs
+spec:
+  successPolicy:
+    operator: All
+    targetReplicatedJobs:
+      - bench
+  replicatedJobs:
+    # vllm-server: Runs vLLM serve on TPU.
+    - name: vllm-server
+      replicas: 1
+      template:
+        spec:
+          ttlSecondsAfterFinished: 900
+          backoffLimit: 0
+          template:
+            spec:
+              restartPolicy: Never
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: "2x2x1"
+                cloud.google.com/gke-tpu-accelerator: "tpu7x"
+
+              volumes:
+                - name: dshm
+                  emptyDir:
+                    medium: Memory
+                    sizeLimit: "64Gi"
+                - name: hf-token-volume
+                  secret:
+                    secretName: vllm-hf-token
+                    items:
+                      - key: HF_TOKEN
+                        path: token
+                - name: huggingface-storage
+                  ephemeral:
+                    volumeClaimTemplate:
+                      spec:
+                        storageClassName: "premium-rwo"
+                        accessModes: [ "ReadWriteOnce" ]
+                        resources:
+                          requests:
+                            storage: 600Gi
+                # The default image predates the V2 store path, so both the
+                # vllm-torchtpu branch and the wheel-#1 raiden build are
+                # injected at start-up (same pattern as qwen35_offloading.yml).
+                - name: torchtpu-vllm-nfs
+                  nfs:
+                    server: 10.225.237.178
+                    path: /workspace/vllm-torchtpu/raiden_controller
+                - name: wheels-nfs
+                  nfs:
+                    server: 10.225.237.178
+                    path: /workspace/wheels
+
+              containers:
+                - name: vllm-server
+                  image: "us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/torchtpu-vllm:yinlin_google_com_block-major-raiden-t211b-syncfix"
+                  imagePullPolicy: Always
+                  env:
+                    - name: MODEL
+                      value: "Qwen/Qwen3-32B"
+                    - name: PORT
+                      value: "8000"
+                    - name: OFFLOAD_MODE
+                      value: "on"
+                    - name: GPU_MEM_UTIL
+                      value: "0.85"
+                    - name: KV_OFFLOADING_SIZE
+                      value: "200"
+                    # Port the scheduler-side KVCacheStore binds its raiden
+                    # controller on; per-rank KVCacheManagers dial it to
+                    # register as shards. Must not collide with the disagg
+                    # stack's standalone RaidenControllerServer port when both
+                    # run on one deployment.
+                    - name: RAIDEN_CONTROLLER_PORT
+                      value: "47800"
+                    - name: TPU_TOPOLOGY
+                      value: "2x2x1"
+                    - name: TPU_CHIPS_PER_HOST_BOUNDS
+                      value: "2,2,1"
+                    - name: TPU_HOST_BOUNDS
+                      value: "1,1,1"
+                    - name: TPU_STDERR_LOG_LEVEL
+                      value: "0"
+                    - name: VLLM_LOGGING_LEVEL
+                      value: "INFO"
+                    - name: PERFETTO
+                      value: "false"
+                    - name: VLLM_TPU_BLOCK_MAJOR_KV
+                      value: "1"
+                    # Explicitly disable megascale (single-host)
+                    - name: MEGASCALE_NUM_SLICES
+                      value: ""
+                    - name: MEGASCALE_SLICE_ID
+                      value: ""
+                    - name: TPU_PROCESS_ADDRESSES
+                      value: ""
+                    - name: TPU_WORKER_HOSTNAMES
+                      value: ""
+                    - name: TPU_PROCESS_PORT
+                      value: ""
+                    - name: MEGASCALE_COORDINATOR_ADDRESS
+                      value: ""
+                    - name: MEGASCALE_PORT
+                      value: ""
+
+                  volumeMounts:
+                    - name: hf-token-volume
+                      mountPath: /root/.cache/huggingface/token
+                      subPath: token
+                      readOnly: true
+                    - name: huggingface-storage
+                      mountPath: /root/.cache/huggingface/
+                    - name: dshm
+                      mountPath: /dev/shm
+                    - name: torchtpu-vllm-nfs
+                      mountPath: /root/torchtpu-vllm
+                    - name: wheels-nfs
+                      mountPath: /root/wheels
+                      readOnly: true
+
+                  command: [ "/bin/bash", "-c" ]
+                  args:
+                    - |
+                      set -eo pipefail
+                      : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                      export CDK_OUTPUT_DIR
+                      mkdir -p "$CDK_OUTPUT_DIR"
+                      export PYTHONUNBUFFERED=1
+
+                      # ---- Inject the V2 code: branch source + wheel #1 ----
+                      # The image has neither raiden_store.py nor the wheel-#1
+                      # raiden build, so both come from NFS at start-up.
+                      echo "===== Syncing dependencies to pyproject.toml ====="
+                      mkdir -p /tmp/depsync
+                      sed -E '/"(torch-tpu|vllm)==/d' /root/torchtpu-vllm/pyproject.toml > /tmp/depsync/pyproject.toml
+                      uv pip install --system -r /tmp/depsync/pyproject.toml --index-url https://pypi.org/simple
+
+                      RAIDEN_WHL=/root/wheels/tpu_raiden_torch-0.0.1.dev20260801211407-1_raiden_controller_7c3d506-cp312-cp312-manylinux_2_31_x86_64.whl
+                      [ -n "$RAIDEN_WHL" ] || { echo "RESULT: FAIL (no tpu_raiden_torch wheel in /root/wheels)"; exit 1; }
+                      echo "Installing raiden wheel: $RAIDEN_WHL"
+                      uv pip install --system --no-deps "$RAIDEN_WHL"
+
+                      export PYTHONPATH=/root/torchtpu-vllm/src:/root/torchtpu-vllm:${PYTHONPATH:-}
+
+                      # Fail in seconds, not after a 20-minute model load, if
+                      # the wheel predates wheel #1 or the branch is stale.
+                      # NB: one-liner on purpose — a heredoc inside this YAML
+                      # block scalar would hand Python uniformly indented code.
+                      python3 -c 'from tpu_raiden.api.torch.kv_cache_store import KVCacheStore as S; assert hasattr(S, "num_registered_workers"), "raiden wheel predates wheel #1 (no num_registered_workers)"; import vllm_torchtpu.offload.raiden_connector as rc; assert hasattr(rc, "TPURaidenOffloadingConnector"); print("V2 preflight OK:", rc.__file__)' \
+                        || { echo "RESULT: FAIL (V2 preflight)"; exit 1; }
+
+                      # Set up Perfetto tracing / custom libtpu if enabled
+                      if [ "$PERFETTO" = "true" ]; then
+                        echo "Enabling Perfetto tracing with custom libtpu..."
+                        export TPU_LIBRARY_PATH="/root/cloud-devkit/base/bin/libtpu.so"
+                        mkdir -p "$(dirname "$TPU_LIBRARY_PATH")"
+                        gcloud storage cp gs://cloud-devkit/libs/libtpu/20260521/libtpu.so "$TPU_LIBRARY_PATH"
+                        export TPU_VMODULE="tpu_pjrt_client=1,pjrt_stream_executor_client=1,tpu_pjrt_compiler_utils=1"
+                      fi
+
+                      # jparkerh tip (2026-05-21): disable enhanced launch
+                      # barrier to avoid an H2D-path deadlock on first cache
+                      # hit.
+                      export LIBTPU_INIT_ARGS="--xla_tpu_use_enhanced_launch_barrier=false ${LIBTPU_INIT_ARGS:-}"
+                      # Enlarge libtpu's premapped DMA staging region so
+                      # D2H/H2D copies don't fall back to per-call pin.
+                      # NB: This is PER-DEVICE.
+                      export TPU_PREMAPPED_BUFFER_SIZE=$((16 * 1024 * 1024 * 1024))
+                      export TPU_PREMAPPED_BUFFER_TRANSFER_THRESHOLD_BYTES=$((16 * 1024 * 1024 * 1024))
+                      export MODEL_IMPL_TYPE=vllm
+                      export USE_BATCHED_RPA_KERNEL=1
+                      export VLLM_MOE_ROUTING_SIMULATION_STRATEGY=uniform_random
+                      # Required by the V2 store path: without it raiden's
+                      # controller/worker servers are process-wide singletons
+                      # that silently reuse the first bound port. The module
+                      # also sets it defensively, but pod env does not survive
+                      # vllm's spawn(), so export it here too.
+                      export RAIDEN_DISABLE_SINGLETON_WORKER=1
+
+                      OFFLOAD_ARGS=()
+                      if [ "$OFFLOAD_MODE" = "on" ]; then
+                        # Capacity goes through cpu_bytes_to_use, NOT
+                        # --kv-offloading-size. With kv_offloading_size set and
+                        # the default "native" backend, VllmConfig.
+                        # _post_init_kv_transfer_config overwrites kv_connector
+                        # with "OffloadingConnector" — and because
+                        # raiden_connector.py imports that name, the factory's
+                        # getattr(module, connector_name) still resolves, so the
+                        # job silently comes up on the STOCK connector and dies
+                        # at the first store. CPUOffloadingSpec reads
+                        # cpu_bytes_to_use straight out of extra_config.
+                        KV_BYTES=$((KV_OFFLOADING_SIZE * 1024 * 1024 * 1024))
+                        KV_CFG=$(cat <<EOF
+                      {"kv_connector":"TPURaidenOffloadingConnector","kv_role":"kv_both","kv_connector_module_path":"vllm_torchtpu.offload.raiden_connector","kv_connector_extra_config":{"cpu_bytes_to_use":${KV_BYTES},"raiden_controller_port":${RAIDEN_CONTROLLER_PORT}}}
+                      EOF
+                      )
+                        OFFLOAD_ARGS=(
+                          --kv-transfer-config "$KV_CFG"
+                        )
+                        echo "Starting vLLM server (offload=V2-store, GPU_MEM_UTIL=$GPU_MEM_UTIL, KV=$KV_OFFLOADING_SIZE GiB, controller port=$RAIDEN_CONTROLLER_PORT)..."
+                      else
+                        echo "Starting vLLM server (offload=OFF, GPU_MEM_UTIL=$GPU_MEM_UTIL)..."
+                      fi
+
+                      exec vllm serve "$MODEL" \
+                          --tensor-parallel-size=8 \
+                          --gpu-memory-utilization="$GPU_MEM_UTIL" \
+                          "${OFFLOAD_ARGS[@]}" \
+                          --async-scheduling \
+                          --port="$PORT" \
+                          2>&1 | tee "$CDK_OUTPUT_DIR/server.log"
+
+                  resources:
+                    limits:
+                      google.com/tpu: 4
+                      memory: "900Gi"
+                      cpu: "16"
+                    requests:
+                      google.com/tpu: 4
+                      memory: "900Gi"
+                      cpu: "16"
+
+    # bench: Runs benchmark client against vllm-server.
+    - name: bench
+      replicas: 1
+      template:
+        spec:
+          ttlSecondsAfterFinished: 900
+          backoffLimit: 0
+          template:
+            spec:
+              restartPolicy: Never
+
+              volumes:
+                - name: hf-token-volume
+                  secret:
+                    secretName: vllm-hf-token
+                    items:
+                      - key: HF_TOKEN
+                        path: token
+
+              containers:
+                - name: vllm-bench
+                  image: vllm/vllm-tpu:nightly
+                  imagePullPolicy: Always
+                  env:
+                    - name: JS_NAME
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                    - name: MODEL
+                      value: "Qwen/Qwen3-32B"
+                    - name: PORT
+                      value: "8000"
+                    - name: NUM_PREFIXES
+                      value: "96"
+                    - name: NUM_PROMPTS
+                      value: "1024"
+                    - name: PREFIX_LEN
+                      value: "8192"
+                    - name: MAX_CONCURRENCY
+                      value: "64"
+                    - name: OUTPUT_LEN
+                      value: "256"
+
+                  volumeMounts:
+                    - name: hf-token-volume
+                      mountPath: /root/.cache/huggingface/token
+                      subPath: token
+                      readOnly: true
+
+                  command: [ "/bin/bash", "-c" ]
+                  args:
+                    - |
+                      set -eo pipefail
+                      : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                      export CDK_OUTPUT_DIR
+                      mkdir -p "$CDK_OUTPUT_DIR"
+                      export PYTHONUNBUFFERED=1
+
+                      VLLM_SERVER_DNS="${JS_NAME}-vllm-server-0-0.${JS_NAME}"
+                      echo "Waiting for vLLM at http://${VLLM_SERVER_DNS}:${PORT}/health (up to 90 min)..."
+                      max_wait=$((180 * 60))
+                      waited=0
+                      while ! curl -sf "http://${VLLM_SERVER_DNS}:${PORT}/health" >/dev/null 2>&1; do
+                        if [ "$waited" -ge "$max_wait" ]; then
+                          echo "ERROR: vllm-server not ready within 90 minutes"
+                          exit 1
+                        fi
+                        if [ "$waited" -gt 0 ] && [ $((waited % 60)) -eq 0 ]; then
+                          echo "  ...still waiting (${waited}s elapsed)"
+                        fi
+                        sleep 1
+                        waited=$((waited + 1))
+                      done
+                      echo "vllm-server ready (${waited}s)"
+
+                      echo "Running vllm bench serve..."
+                      vllm bench serve \
+                          --backend vllm \
+                          --model "$MODEL" \
+                          --host "$VLLM_SERVER_DNS" \
+                          --port "$PORT" \
+                          --dataset-name prefix_repetition \
+                          --prefix-repetition-num-prefixes "$NUM_PREFIXES" \
+                          --prefix-repetition-prefix-len "$PREFIX_LEN" \
+                          --prefix-repetition-suffix-len 256 \
+                          --prefix-repetition-output-len "$OUTPUT_LEN" \
+                          --num-prompts "$NUM_PROMPTS" \
+                          --max-concurrency "$MAX_CONCURRENCY" \
+                          --request-rate inf \
+                          --save-result \
+                          --ignore-eos \
+                          --result-filename "$CDK_OUTPUT_DIR/bench_result.json" \
+                          --seed 42 2>&1 | tee "$CDK_OUTPUT_DIR/bench.log"
+
+                  resources:
+                    limits:
+                      memory: "8Gi"
+                      cpu: "2"
+                    requests:
+                      memory: "4Gi"
+                      cpu: "1"

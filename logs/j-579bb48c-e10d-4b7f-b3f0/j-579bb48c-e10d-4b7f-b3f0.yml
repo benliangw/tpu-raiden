@@ -1,0 +1,367 @@
+# OffloadingControllerV2 (raiden KVCacheStore) phase-1 CORRECTNESS recipe.
+#
+# Same server shape as perf-recipe-32b-v2-store.yml, but GPU_MEM_UTIL is small
+# and the KV budget tight, so HBM cannot hold the working set and every replayed
+# prefix must come back through the offload store. The check job replaces the
+# throughput benchmark with the §6 phase-1 roundtrip gate:
+#
+#   pass 1  -> N distinct long prompts, greedy decode, outputs recorded
+#   churn   -> M distinct filler prompts evict pass-1 blocks from HBM
+#   pass 2  -> the SAME N prompts replayed; output must be byte-identical
+#
+# A wrong reload (bad rows, unfenced save reading HBM mid-write, a load landing
+# in the wrong device blocks) changes the continuation, so exact-match is the
+# assertion. --async-scheduling stays ON deliberately: that is the config where
+# the scheduler runs ahead of the device and the save fence is load-bearing.
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: ttpu-32b-off-v2-correctness
+  namespace: cloud-devkit-jobs
+spec:
+  successPolicy:
+    operator: All
+    targetReplicatedJobs:
+      - check
+  replicatedJobs:
+    # vllm-server: Runs vLLM serve on TPU with the V2 store path.
+    - name: vllm-server
+      replicas: 1
+      template:
+        spec:
+          ttlSecondsAfterFinished: 900
+          backoffLimit: 0
+          template:
+            spec:
+              restartPolicy: Never
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: "2x2x1"
+                cloud.google.com/gke-tpu-accelerator: "tpu7x"
+
+              volumes:
+                - name: dshm
+                  emptyDir:
+                    medium: Memory
+                    sizeLimit: "64Gi"
+                - name: hf-token-volume
+                  secret:
+                    secretName: vllm-hf-token
+                    items:
+                      - key: HF_TOKEN
+                        path: token
+                - name: huggingface-storage
+                  ephemeral:
+                    volumeClaimTemplate:
+                      spec:
+                        storageClassName: "premium-rwo"
+                        accessModes: [ "ReadWriteOnce" ]
+                        resources:
+                          requests:
+                            storage: 600Gi
+                - name: torchtpu-vllm-nfs
+                  nfs:
+                    server: 10.225.237.178
+                    path: /workspace/vllm-torchtpu/raiden_controller
+                - name: wheels-nfs
+                  nfs:
+                    server: 10.225.237.178
+                    path: /workspace/wheels
+
+              containers:
+                - name: vllm-server
+                  image: "us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/torchtpu-vllm:yinlin_google_com_block-major-raiden-t211b-syncfix"
+                  imagePullPolicy: Always
+                  env:
+                    - name: MODEL
+                      value: "Qwen/Qwen3-32B"
+                    - name: PORT
+                      value: "8000"
+                    - name: OFFLOAD_MODE
+                      value: "on"
+                    # Deliberately small: the working set must not fit in HBM,
+                    # so replayed prefixes come back from the store, not from
+                    # the GPU prefix cache.
+                    - name: GPU_MEM_UTIL
+                      value: "0.3"
+                    - name: KV_OFFLOADING_SIZE
+                      value: "40"
+                    - name: RAIDEN_CONTROLLER_PORT
+                      value: "47800"
+                    - name: TPU_TOPOLOGY
+                      value: "2x2x1"
+                    - name: TPU_CHIPS_PER_HOST_BOUNDS
+                      value: "2,2,1"
+                    - name: TPU_HOST_BOUNDS
+                      value: "1,1,1"
+                    - name: TPU_STDERR_LOG_LEVEL
+                      value: "0"
+                    - name: VLLM_LOGGING_LEVEL
+                      value: "INFO"
+                    - name: VLLM_TPU_BLOCK_MAJOR_KV
+                      value: "1"
+                    # Explicitly disable megascale (single-host)
+                    - name: MEGASCALE_NUM_SLICES
+                      value: ""
+                    - name: MEGASCALE_SLICE_ID
+                      value: ""
+                    - name: TPU_PROCESS_ADDRESSES
+                      value: ""
+                    - name: TPU_WORKER_HOSTNAMES
+                      value: ""
+                    - name: TPU_PROCESS_PORT
+                      value: ""
+                    - name: MEGASCALE_COORDINATOR_ADDRESS
+                      value: ""
+                    - name: MEGASCALE_PORT
+                      value: ""
+
+                  volumeMounts:
+                    - name: hf-token-volume
+                      mountPath: /root/.cache/huggingface/token
+                      subPath: token
+                      readOnly: true
+                    - name: huggingface-storage
+                      mountPath: /root/.cache/huggingface/
+                    - name: dshm
+                      mountPath: /dev/shm
+                    - name: torchtpu-vllm-nfs
+                      mountPath: /root/torchtpu-vllm
+                    - name: wheels-nfs
+                      mountPath: /root/wheels
+                      readOnly: true
+
+                  command: [ "/bin/bash", "-c" ]
+                  args:
+                    - |
+                      set -eo pipefail
+                      : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                      export CDK_OUTPUT_DIR
+                      mkdir -p "$CDK_OUTPUT_DIR"
+                      export PYTHONUNBUFFERED=1
+
+                      # ---- Inject the V2 code: branch source + wheel #1 ----
+                      echo "===== Syncing dependencies to pyproject.toml ====="
+                      mkdir -p /tmp/depsync
+                      sed -E '/"(torch-tpu|vllm)==/d' /root/torchtpu-vllm/pyproject.toml > /tmp/depsync/pyproject.toml
+                      uv pip install --system -r /tmp/depsync/pyproject.toml --index-url https://pypi.org/simple
+
+                      RAIDEN_WHL=/root/wheels/tpu_raiden_torch-0.0.1.dev20260801211407-1_raiden_controller_7c3d506-cp312-cp312-manylinux_2_31_x86_64.whl
+                      [ -n "$RAIDEN_WHL" ] || { echo "RESULT: FAIL (no tpu_raiden_torch wheel in /root/wheels)"; exit 1; }
+                      echo "Installing raiden wheel: $RAIDEN_WHL"
+                      uv pip install --system --no-deps "$RAIDEN_WHL"
+
+                      export PYTHONPATH=/root/torchtpu-vllm/src:/root/torchtpu-vllm:${PYTHONPATH:-}
+
+                      python3 -c 'from tpu_raiden.api.torch.kv_cache_store import KVCacheStore as S; assert hasattr(S, "num_registered_workers"), "raiden wheel predates wheel #1 (no num_registered_workers)"; import vllm_torchtpu.offload.raiden_connector as rc; assert hasattr(rc, "TPURaidenOffloadingConnector"); print("V2 preflight OK:", rc.__file__)' \
+                        || { echo "RESULT: FAIL (V2 preflight)"; exit 1; }
+
+                      export LIBTPU_INIT_ARGS="--xla_tpu_use_enhanced_launch_barrier=false ${LIBTPU_INIT_ARGS:-}"
+                      export TPU_PREMAPPED_BUFFER_SIZE=$((16 * 1024 * 1024 * 1024))
+                      export TPU_PREMAPPED_BUFFER_TRANSFER_THRESHOLD_BYTES=$((16 * 1024 * 1024 * 1024))
+                      export MODEL_IMPL_TYPE=vllm
+                      export USE_BATCHED_RPA_KERNEL=1
+                      export VLLM_MOE_ROUTING_SIMULATION_STRATEGY=uniform_random
+                      # Pod env does not survive vllm's spawn(); re-export.
+                      export RAIDEN_DISABLE_SINGLETON_WORKER=1
+
+                      OFFLOAD_ARGS=()
+                      if [ "$OFFLOAD_MODE" = "on" ]; then
+                        # cpu_bytes_to_use, NOT --kv-offloading-size: the latter
+                        # makes VllmConfig._post_init_kv_transfer_config
+                        # overwrite kv_connector with "OffloadingConnector".
+                        KV_BYTES=$((KV_OFFLOADING_SIZE * 1024 * 1024 * 1024))
+                        KV_CFG=$(cat <<EOF
+                      {"kv_connector":"TPURaidenOffloadingConnector","kv_role":"kv_both","kv_connector_module_path":"vllm_torchtpu.offload.raiden_connector","kv_connector_extra_config":{"cpu_bytes_to_use":${KV_BYTES},"raiden_controller_port":${RAIDEN_CONTROLLER_PORT}}}
+                      EOF
+                      )
+                        OFFLOAD_ARGS=(--kv-transfer-config "$KV_CFG")
+                        echo "Starting vLLM server (offload=V2-store, GPU_MEM_UTIL=$GPU_MEM_UTIL, KV=$KV_OFFLOADING_SIZE GiB, controller port=$RAIDEN_CONTROLLER_PORT)..."
+                      else
+                        echo "Starting vLLM server (offload=OFF, GPU_MEM_UTIL=$GPU_MEM_UTIL)..."
+                      fi
+
+                      exec vllm serve "$MODEL" \
+                          --tensor-parallel-size=8 \
+                          --gpu-memory-utilization="$GPU_MEM_UTIL" \
+                          "${OFFLOAD_ARGS[@]}" \
+                          --async-scheduling \
+                          --port="$PORT" \
+                          2>&1 | tee "$CDK_OUTPUT_DIR/server.log"
+
+                  resources:
+                    limits:
+                      google.com/tpu: 4
+                      memory: "900Gi"
+                      cpu: "16"
+                    requests:
+                      google.com/tpu: 4
+                      memory: "900Gi"
+                      cpu: "16"
+
+    # check: offload roundtrip correctness gate (not a benchmark).
+    - name: check
+      replicas: 1
+      template:
+        spec:
+          ttlSecondsAfterFinished: 900
+          backoffLimit: 0
+          template:
+            spec:
+              restartPolicy: Never
+              containers:
+                - name: correctness-check
+                  image: vllm/vllm-tpu:nightly
+                  imagePullPolicy: Always
+                  env:
+                    - name: JS_NAME
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                    - name: MODEL
+                      value: "Qwen/Qwen3-32B"
+                    - name: PORT
+                      value: "8000"
+                    # Prompts replayed for the exact-match check.
+                    - name: NUM_PROMPTS
+                      value: "8"
+                    # Distinct filler prompts issued between the two passes to
+                    # push pass-1 blocks out of HBM and into the store.
+                    - name: NUM_CHURN
+                      value: "24"
+                    # Words per prompt; ~1.3 tokens/word, so 6000 ~ 8k tokens.
+                    - name: PROMPT_WORDS
+                      value: "6000"
+                    - name: OUTPUT_LEN
+                      value: "64"
+
+                  command: [ "/bin/bash", "-c" ]
+                  args:
+                    - |
+                      set -eo pipefail
+                      : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                      export CDK_OUTPUT_DIR
+                      mkdir -p "$CDK_OUTPUT_DIR"
+                      export PYTHONUNBUFFERED=1
+
+                      export VLLM_HOST="${JS_NAME}-vllm-server-0-0.${JS_NAME}"
+                      echo "Waiting for vLLM at http://${VLLM_HOST}:${PORT}/health (up to 180 min)..."
+                      waited=0
+                      while ! curl -sf "http://${VLLM_HOST}:${PORT}/health" >/dev/null 2>&1; do
+                        if [ "$waited" -ge $((180 * 60)) ]; then
+                          echo "RESULT: FAIL (vllm-server not ready)"; exit 1
+                        fi
+                        if [ "$waited" -gt 0 ] && [ $((waited % 60)) -eq 0 ]; then
+                          echo "  ...still waiting (${waited}s elapsed)"
+                        fi
+                        sleep 1; waited=$((waited + 1))
+                      done
+                      echo "vllm-server ready (${waited}s)"
+
+                      python3 - <<'PYEOF' 2>&1 | tee "$CDK_OUTPUT_DIR/correctness.log"
+                      import json, os, sys, time, urllib.request
+
+                      HOST = os.environ["VLLM_HOST"]
+                      PORT = os.environ["PORT"]
+                      MODEL = os.environ["MODEL"]
+                      N = int(os.environ["NUM_PROMPTS"])
+                      CHURN = int(os.environ["NUM_CHURN"])
+                      WORDS = int(os.environ["PROMPT_WORDS"])
+                      OUT = int(os.environ["OUTPUT_LEN"])
+                      BASE = f"http://{HOST}:{PORT}"
+
+                      def prompt(tag, i):
+                          # Deterministic, high-entropy, and distinct per (tag, i)
+                          # so no two prompts share a prefix block.
+                          head = f"[{tag}-{i:04d}] "
+                          body = " ".join(f"w{i}x{j}" for j in range(WORDS))
+                          return head + body + "\nSummarize the above in one line:"
+
+                      def complete(text):
+                          req = urllib.request.Request(
+                              f"{BASE}/v1/completions",
+                              data=json.dumps({
+                                  "model": MODEL, "prompt": text,
+                                  "max_tokens": OUT, "temperature": 0.0,
+                                  "seed": 42, "ignore_eos": True,
+                              }).encode(),
+                              headers={"Content-Type": "application/json"})
+                          t0 = time.time()
+                          with urllib.request.urlopen(req, timeout=1800) as r:
+                              body = json.loads(r.read())
+                          usage = body.get("usage") or {}
+                          details = usage.get("prompt_tokens_details") or {}
+                          return (body["choices"][0]["text"],
+                                  time.time() - t0,
+                                  details.get("cached_tokens"))
+
+                      def dump_metrics(tag):
+                          try:
+                              with urllib.request.urlopen(f"{BASE}/metrics", timeout=60) as r:
+                                  lines = r.read().decode().splitlines()
+                          except Exception as e:
+                              print(f"[metrics:{tag}] unavailable: {e}")
+                              return
+                          keep = [l for l in lines
+                                  if not l.startswith("#")
+                                  and any(w in l for w in ("prefix", "cache", "kv"))]
+                          print(f"[metrics:{tag}]")
+                          for l in keep:
+                              print("   ", l)
+
+                      prompts = [prompt("doc", i) for i in range(N)]
+
+                      print(f"=== pass 1: {N} prompts, {WORDS} words each ===")
+                      first = [complete(p) for p in prompts]
+                      for i, (_, dt, cached) in enumerate(first):
+                          print(f"  doc-{i:04d}: {dt:6.2f}s cached_tokens={cached}")
+                      dump_metrics("after-pass-1")
+
+                      print(f"=== churn: {CHURN} distinct fillers to evict HBM ===")
+                      for i in range(CHURN):
+                          complete(prompt("churn", i))
+                      dump_metrics("after-churn")
+
+                      print(f"=== pass 2: replaying the same {N} prompts ===")
+                      second = [complete(p) for p in prompts]
+                      for i, (_, dt, cached) in enumerate(second):
+                          print(f"  doc-{i:04d}: {dt:6.2f}s cached_tokens={cached}")
+                      dump_metrics("after-pass-2")
+
+                      mismatches = []
+                      for i, ((a, ta, _), (b, tb, _)) in enumerate(zip(first, second)):
+                          if a != b:
+                              mismatches.append(i)
+                              print(f"MISMATCH doc-{i:04d}")
+                              print(f"  pass1: {a[:200]!r}")
+                              print(f"  pass2: {b[:200]!r}")
+
+                      t1 = sum(t for _, t, _ in first) / max(len(first), 1)
+                      t2 = sum(t for _, t, _ in second) / max(len(second), 1)
+                      print(f"mean latency: pass1={t1:.2f}s pass2={t2:.2f}s")
+
+                      cached2 = [c for _, _, c in second if c]
+                      if not cached2:
+                          # Soft: the field is version-dependent, and a run where
+                          # nothing was reloaded still proves nothing was
+                          # CORRUPTED. Flagged loudly because it means the gate
+                          # did not actually exercise the reload path.
+                          print("WARNING: pass 2 reported no cached prompt tokens — "
+                                "the replay may not have hit the offload store at all. "
+                                "Check the metrics dumps above and lower GPU_MEM_UTIL "
+                                "or raise NUM_CHURN.")
+
+                      if mismatches:
+                          print(f"RESULT: FAIL ({len(mismatches)}/{N} prompts diverged "
+                                f"after offload roundtrip: {mismatches})")
+                          sys.exit(1)
+                      print(f"RESULT: PASS ({N}/{N} prompts byte-identical after "
+                            f"offload roundtrip)")
+                      PYEOF
+
+                  resources:
+                    limits:
+                      memory: "8Gi"
+                      cpu: "2"
+                    requests:
+                      memory: "4Gi"
+                      cpu: "1"
