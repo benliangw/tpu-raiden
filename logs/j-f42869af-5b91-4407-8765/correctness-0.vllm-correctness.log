@@ -1,0 +1,26 @@
+Waiting for prefill up (http://j-f42869af-5b91-4407-8765-prefill-0-0.j-f42869af-5b91-4407-8765:8000/health, up to 5400s)
+prefill is up (990s)
+Waiting for decode up (http://j-f42869af-5b91-4407-8765-decode-0-0.j-f42869af-5b91-4407-8765:7200/health, up to 5400s)
+decode is up (0s)
+Waiting for proxy up (http://j-f42869af-5b91-4407-8765-prefill-0-0.j-f42869af-5b91-4407-8765:10000/healthcheck, up to 600s)
+proxy is up (0s)
+Waiting for engine readiness (first compile, up to 60 min)...
+Engines are ready.
+===== Smoke test: prefill->Raiden KV transfer->decode =====
+--- request 1: Good morning. What are the capitals of the US, China and Armenia?
+{"id":"cmpl-4a8995c3-62c7-4771-afa2-1cd6a28c2ce6","object":"text_completion","created":1785403246,"model":"Qwen3.5-35B-A3B-FP8","choices":[{"index":0,"text":"\n\n<think>\nThinking Process:\n\n1.  **Analyze the Request:**\n    *   Time of day: \"Good morning\" (greeting).\n    *   Question: \"What are the capitals of the US, China and Armenia?\"\n    *   Entities involved: United States (US), China","logprobs":null,"finish_reason":"length","stop_reason":null,"token_ids":[271,248068,198,90700,8340,25,271,16,13,220,2972,2014,53983,279,5952,64700,198,262,348,256,3984,314,1834,25,328,14773,6353,1,318,70,42187,553,198,262,348,256,15380,25,328,3710,513,279,89798,314,279,2201,11,5440,321,69101,7285,198,262,348,256,50495,6197,25,3516,4042,318,1966,681,5440],"prompt_logprobs":null,"prompt_token_ids":[14773,6353,13,3437,513,279,89798,314,279,2201,11,5440,321,69101,30],"routed_experts":null}],"service_tier":null,"system_fingerprint":"vllm-0.25.1-dp8-ep-18eeab0d","usage":{"prompt_tokens":15,"total_tokens":79,"completion_tokens":64,"prompt_tokens_details":{"cached_tokens":14,"multimodal_tokens":null}},"kv_transfer_params":null,"metrics":null}
+--- known-answer probes: three-way equivalence (cold/warm/proxy)
+len8192-cold: token=88 token_ids=[88, 88, 88, 88, 88, 88, 88, 88] text='yyyyyyyy'
+len8192-warm: token=88 token_ids=[88, 88, 88, 88, 88, 88, 88, 88] text='yyyyyyyy'
+len8192-proxy: token=88 token_ids=[88, 88, 88, 88, 88, 88, 88, 88] text='yyyyyyyy'
+len8192: apc=PASS transfer=PASS len=8192 cold=[88, 88, 88, 88, 88, 88, 88, 88] warm=[88, 88, 88, 88, 88, 88, 88, 88] proxy=[88, 88, 88, 88, 88, 88, 88, 88]
+len32768-cold: token=89 token_ids=[89, 89, 89, 89, 89, 89, 89, 89] text='zzzzzzzz'
+len32768-warm: token=89 token_ids=[89, 89, 89, 89, 89, 89, 89, 89] text='zzzzzzzz'
+len32768-proxy: token=89 token_ids=[89, 89, 89, 89, 89, 89, 89, 89] text='zzzzzzzz'
+len32768: apc=PASS transfer=PASS len=32768 cold=[89, 89, 89, 89, 89, 89, 89, 89] warm=[89, 89, 89, 89, 89, 89, 89, 89] proxy=[89, 89, 89, 89, 89, 89, 89, 89]
+known-answer summary: {"len8192-apc-transparency": true, "len8192-transfer-equivalence": true, "len32768-apc-transparency": true, "len32768-transfer-equivalence": true}
+===== Eviction equivalence (deterministic doc churn) =====
+[equivalence] post-eviction KA PASS cold=[89, 89, 89, 89, 89, 89, 89, 89] revisit=[89, 89, 89, 89, 89, 89, 89, 89]
+EQUIVALENCE COMPLETE (errors=0)
+RESULT: PASS
+
