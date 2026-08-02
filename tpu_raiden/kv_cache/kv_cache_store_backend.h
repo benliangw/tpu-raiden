@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
@@ -87,6 +88,20 @@ struct LookupOptions {
   int max_tier = -1;
 };
 
+// Per-hash classification of an InsertAndLock batch. On success the three
+// lists partition the batch's fate: `existing` hashes were already present
+// and only got pinned (their slices untouched), `inserted` hashes were newly
+// inserted and pinned, and `displaced` holds the entries pushed to the
+// eviction-candidate list to make room (restored if the batch is later
+// reverted via ReleaseAndDelete). On failure the operation was fully rolled
+// back and the lists are empty.
+struct InsertAndLockResult {
+  bool success = false;
+  std::vector<std::string> existing;
+  std::vector<std::string> inserted;
+  BlockSliceList displaced;
+};
+
 // Abstract interface for KV cache index storage backends.
 // Implementations must be thread-safe.
 class KVCacheStoreBackend {
@@ -121,6 +136,18 @@ class KVCacheStoreBackend {
   virtual bool InsertAndLock(absl::Span<const std::string> block_hashes,
                              absl::Span<const RaidenBlockID> slices,
                              bool on_host) = 0;
+
+  // InsertAndLock plus a per-hash classification of the batch (existing vs
+  // newly inserted vs displaced entries) — see InsertAndLockResult. The
+  // default implementation delegates to InsertAndLock and reports only
+  // `success`; backends able to classify (HostOffloadBackend) override it.
+  virtual InsertAndLockResult InsertAndLockDetailed(
+      absl::Span<const std::string> block_hashes,
+      absl::Span<const RaidenBlockID> slices, bool on_host) {
+    InsertAndLockResult result;
+    result.success = InsertAndLock(block_hashes, slices, on_host);
+    return result;
+  }
 
   // Reverts an InsertAndLock operation: unpins hashes, erases non-host blocks
   // whose pin count drops to 0, and restores candidate evictions.
@@ -173,6 +200,19 @@ class KVCacheStoreBackend {
   // Retrieves eviction candidate keys from the backend (for
   // testing/diagnostics).
   virtual std::vector<std::string> GetEvictCandidateKeys() const { return {}; }
+
+  // Removes EVERY entry from this backend — active, pinned-check-passing,
+  // and eviction candidates alike — returning host blocks to the allocator,
+  // wiping the crash-recovery metadata, unregistering from the global
+  // registry, and dropping all pending candidate-restoration records.
+  // Fails without mutating anything if any entry is still pinned: a pin
+  // marks a caller-held reference (an in-flight admission), and clearing
+  // under it would silently invalidate that caller's state. Returns the
+  // number of entries removed.
+  virtual absl::StatusOr<size_t> Clear() {
+    return absl::UnimplementedError(
+        "Clear is not implemented by this backend");
+  }
 
   // The peer-facing KVCacheStoreService server this backend hosts, if any.
   // Returning non-null tells the owning KVCacheStore to publish THIS server

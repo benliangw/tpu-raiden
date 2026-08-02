@@ -287,8 +287,15 @@ std::pair<bool, BlockSliceList> HostOffloadBackend::Insert(
 
 bool HostOffloadBackend::InsertAndLock(
     absl::Span<const std::string> block_hashes,
+    absl::Span<const RaidenBlockID> slices, bool on_host) {
+  return InsertAndLockDetailed(block_hashes, slices, on_host).success;
+}
+
+InsertAndLockResult HostOffloadBackend::InsertAndLockDetailed(
+    absl::Span<const std::string> block_hashes,
     absl::Span<const RaidenBlockID> slices, bool /*on_host*/) {
   absl::MutexLock lock(mutex_);
+  InsertAndLockResult result;
 
   std::vector<size_t> existing_indices;
   std::vector<size_t> new_indices;
@@ -306,7 +313,7 @@ bool HostOffloadBackend::InsertAndLock(
       for (size_t j = 0; j < idx; ++j) {
         lru_cache_.Unpin(block_hashes[existing_indices[j]]);
       }
-      return false;
+      return result;
     }
   }
 
@@ -314,10 +321,9 @@ bool HostOffloadBackend::InsertAndLock(
     for (size_t i : existing_indices) {
       lru_cache_.Unpin(block_hashes[i]);
     }
-    return false;
+    return result;
   }
 
-  size_t eviction_count = 0;
   for (auto it = new_indices.rbegin(); it != new_indices.rend(); ++it) {
     size_t i = *it;
     const std::string& hash = block_hashes[i];
@@ -330,9 +336,10 @@ bool HostOffloadBackend::InsertAndLock(
       evicted = lru_cache_.Put(hash, RaidenBlockID());
     }
     if (evicted.has_value()) {
-      eviction_count++;
+      result.displaced.push_back(std::move(*evicted));
     }
   }
+  const size_t eviction_count = result.displaced.size();
 
   for (size_t idx = 0; idx < new_indices.size(); ++idx) {
     size_t i = new_indices[idx];
@@ -353,14 +360,24 @@ bool HostOffloadBackend::InsertAndLock(
       for (size_t j = 0; j < eviction_count; ++j) {
         lru_cache_.RestoreLastCandidate();
       }
-      return false;
+      result.displaced.clear();
+      return result;
     }
   }
 
   if (eviction_count > 0) {
     pending_eviction_counts_[GetSortedHashes(block_hashes)] = eviction_count;
   }
-  return true;
+  result.success = true;
+  result.existing.reserve(existing_indices.size());
+  for (size_t i : existing_indices) {
+    result.existing.push_back(block_hashes[i]);
+  }
+  result.inserted.reserve(new_indices.size());
+  for (size_t i : new_indices) {
+    result.inserted.push_back(block_hashes[i]);
+  }
+  return result;
 }
 
 size_t HostOffloadBackend::ReleaseAndDelete(
@@ -395,6 +412,64 @@ size_t HostOffloadBackend::ReleaseAndDelete(
   }
 
   return deleted_blocks;
+}
+
+absl::StatusOr<size_t> HostOffloadBackend::Clear() {
+  std::shared_ptr<global_registry::GlobalRegistryClient> client;
+  RaidenId local_id;
+  std::vector<std::string> host_resident_hashes;
+  size_t cleared = 0;
+
+  {
+    absl::MutexLock lock(mutex_);
+    // Reject-without-mutating when anything is pinned: a pin marks a
+    // caller-held reference (an in-flight admission), and clearing under it
+    // would silently invalidate that caller's state. Callers drain first.
+    for (const auto& [key, it] : lru_cache_.map()) {
+      if (it->pin_count > 0) {
+        return absl::FailedPreconditionError(absl::StrCat(
+            "Clear rejected: block hash is still pinned (drain in-flight "
+            "admissions first): ",
+            absl::BytesToHexString(key)));
+      }
+    }
+
+    std::vector<int> host_ids_to_deallocate;
+    for (const auto& [key, it] : lru_cache_.map()) {
+      const RaidenBlockID& block = it->value;
+      ClearMetadataEntry(block);
+      if (block.host_block_id >= 0 &&
+          (block.status == BlockStatus::HOST ||
+           block.status == BlockStatus::HOST_AND_HBM)) {
+        host_ids_to_deallocate.push_back(block.host_block_id);
+        host_resident_hashes.push_back(key);
+      }
+    }
+    cleared = lru_cache_.size();
+    lru_cache_.Clear();
+    pending_eviction_counts_.clear();
+
+    if (raiden_controller_ != nullptr && !host_ids_to_deallocate.empty()) {
+      absl::Status status =
+          raiden_controller_->DeallocateBlockIds(host_ids_to_deallocate);
+      if (!status.ok()) {
+        LOG(WARNING) << "Clear: failed to deallocate "
+                     << host_ids_to_deallocate.size()
+                     << " host blocks: " << status.message();
+      }
+    }
+    client = registry_client_;
+    local_id = raiden_id_;
+  }
+
+  if (client != nullptr && !host_resident_hashes.empty()) {
+    auto status = client->Unregister(host_resident_hashes, local_id);
+    if (!status.ok()) {
+      LOG(WARNING) << "Clear: global registry unregister failed: "
+                   << status.message();
+    }
+  }
+  return cleared;
 }
 
 void HostOffloadBackend::Delete(absl::Span<const std::string> block_hashes,

@@ -84,6 +84,30 @@ class KVCacheStoreTest {
     return store.backend() ? store.backend()->GetEvictCandidateKeys()
                            : std::vector<std::string>{};
   }
+
+  // Drives the save-commit path directly with an already-completed transfer,
+  // so tests can stage the exact LRU state the commit will observe (the real
+  // path races with the 10 ms poller thread).
+  static void PollSavesDirect(KVCacheStore& store,
+                              std::vector<std::string> hashes,
+                              std::vector<int> host_ids) {
+    std::vector<KVCacheStore::SaveState> ready;
+    ready.push_back(KVCacheStore::SaveState{tsl::Future<>(absl::OkStatus()),
+                                            std::move(hashes),
+                                            std::move(host_ids)});
+    store.PollSavesInternal(std::move(ready));
+  }
+
+  // Registers a pending (never-completed) save so tests can hold the store
+  // in a deterministic in-flight state; completing the returned promise ends
+  // it (the sentinel hash then resolves as failed — it was never inserted).
+  static tsl::Promise<> AddPendingSave(KVCacheStore& store) {
+    auto [promise, future] = tsl::MakePromise<>();
+    absl::MutexLock lock(&store.mutex_);
+    store.active_saves_.push_back(KVCacheStore::SaveState{
+        std::move(future), {"__pending_sentinel__"}, {0}});
+    return std::move(promise);
+  }
 };
 
 namespace {
@@ -1285,6 +1309,188 @@ TEST_F(KVCacheStoreEmbeddedControllerTest,
             base_locked);
   EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
               ::testing::IsEmpty());
+}
+
+TEST(KVCacheStoreTest, InsertAndLockDetailedClassifiesBatch) {
+  RaidenId rid{"test_job", "0", "test_cache", 0};
+  KVCacheStore store(2);
+
+  // hash_a pre-exists (unpinned); hash_b is new. The batch must classify
+  // them apart, with no displacement at capacity 2.
+  ASSERT_TRUE(
+      store.Insert({"hash_a"}, {RaidenBlockID(rid, 0, BlockStatus::HOST)}, true)
+          .first);
+  InsertAndLockResult result = store.InsertAndLockDetailed(
+      {"hash_a", "hash_b"},
+      {RaidenBlockID(rid, 0, BlockStatus::HOST),
+       RaidenBlockID(rid, -1, 1, BlockStatus::HBM)},
+      false);
+  EXPECT_TRUE(result.success);
+  EXPECT_THAT(result.existing, ::testing::ElementsAre("hash_a"));
+  EXPECT_THAT(result.inserted, ::testing::ElementsAre("hash_b"));
+  EXPECT_THAT(result.displaced, ::testing::IsEmpty());
+  EXPECT_EQ(store.GetPinCount("hash_a"), 1);
+  EXPECT_EQ(store.GetPinCount("hash_b"), 1);
+
+  // Capacity full and everything pinned: the admission fails, is fully
+  // rolled back, and reports empty lists.
+  InsertAndLockResult rejected = store.InsertAndLockDetailed(
+      {"hash_c"}, {RaidenBlockID(rid, -1, 2, BlockStatus::HBM)}, false);
+  EXPECT_FALSE(rejected.success);
+  EXPECT_THAT(rejected.existing, ::testing::IsEmpty());
+  EXPECT_THAT(rejected.inserted, ::testing::IsEmpty());
+  EXPECT_THAT(rejected.displaced, ::testing::IsEmpty());
+  EXPECT_EQ(store.GetPinCount("hash_a"), 1);
+  auto lookup_c = store.Lookup({"hash_c"});
+  ASSERT_TRUE(lookup_c.ok());
+  EXPECT_EQ(lookup_c->size(), 0);
+
+  // With the pins released, admitting hash_c displaces the LRU entry into
+  // the candidate list and reports it.
+  store.Release({"hash_a", "hash_b"});
+  InsertAndLockResult displacing = store.InsertAndLockDetailed(
+      {"hash_c"}, {RaidenBlockID(rid, -1, 2, BlockStatus::HBM)}, false);
+  EXPECT_TRUE(displacing.success);
+  EXPECT_THAT(displacing.inserted, ::testing::ElementsAre("hash_c"));
+  ASSERT_EQ(displacing.displaced.size(), 1);
+  EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
+              ::testing::ElementsAre(displacing.displaced[0].first));
+
+  // Reverting the admission restores the displaced candidate.
+  EXPECT_EQ(store.ReleaseAndDelete({"hash_c"}), 1);
+  EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
+              ::testing::IsEmpty());
+  auto lookup_restored = store.Lookup({displacing.displaced[0].first});
+  ASSERT_TRUE(lookup_restored.ok());
+  EXPECT_EQ(lookup_restored->size(), 1);
+}
+
+TEST(KVCacheStoreTest, ClearRejectsPinnedThenWipesStore) {
+  RaidenId rid{"test_job", "0", "test_cache", 0};
+  KVCacheStore store(2);
+
+  ASSERT_TRUE(store
+                  .Insert({"hash_a", "hash_b"},
+                          {RaidenBlockID(rid, 0, BlockStatus::HOST),
+                           RaidenBlockID(rid, 1, BlockStatus::HOST)},
+                          true)
+                  .first);
+  // Displace hash_a into the candidate list; Clear must wipe candidates too.
+  ASSERT_TRUE(
+      store.Insert({"hash_c"}, {RaidenBlockID(rid, 2, BlockStatus::HOST)}, true)
+          .first);
+  EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
+              ::testing::ElementsAre("hash_a"));
+
+  // A pinned entry (an in-flight admission's reference) rejects the clear
+  // without mutating anything.
+  ASSERT_TRUE(store.Pin({"hash_b"}));
+  auto rejected = store.Clear();
+  EXPECT_TRUE(absl::IsFailedPrecondition(rejected.status()));
+  auto lookup_b = store.Lookup({"hash_b"});
+  ASSERT_TRUE(lookup_b.ok());
+  EXPECT_EQ(lookup_b->size(), 1);
+
+  store.Release({"hash_b"});
+  auto cleared = store.Clear();
+  ASSERT_TRUE(cleared.ok());
+  EXPECT_EQ(*cleared, 3);  // hash_a (candidate), hash_b, hash_c.
+  for (const std::string hash : {"hash_a", "hash_b", "hash_c"}) {
+    auto lookup_res = store.Lookup({hash});
+    ASSERT_TRUE(lookup_res.ok());
+    EXPECT_EQ(lookup_res->size(), 0) << hash;
+  }
+  EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
+              ::testing::IsEmpty());
+
+  // Idempotent on an empty store, and the store remains fully usable.
+  auto cleared_again = store.Clear();
+  ASSERT_TRUE(cleared_again.ok());
+  EXPECT_EQ(*cleared_again, 0);
+  EXPECT_TRUE(
+      store.Insert({"hash_d"}, {RaidenBlockID(rid, 3, BlockStatus::HOST)}, true)
+          .first);
+}
+
+TEST(KVCacheStoreTest, ClearRejectsWhileTransfersInFlight) {
+  KVCacheStore store(2);
+  tsl::Promise<> pending = KVCacheStoreTest::AddPendingSave(store);
+
+  auto rejected = store.Clear();
+  EXPECT_TRUE(absl::IsFailedPrecondition(rejected.status()));
+
+  // Complete the transfer and drain: the clear then goes through.
+  pending.Set(absl::OkStatus());
+  for (int i = 0; i < 1000; ++i) {
+    auto [done, failed, still_pending] = store.PollSaveStatus();
+    if (still_pending.empty()) break;
+    absl::SleepFor(absl::Milliseconds(1));
+  }
+  auto cleared = store.Clear();
+  ASSERT_TRUE(cleared.ok());
+  EXPECT_EQ(*cleared, 0);
+}
+
+// [R5a] The save-commit path must handle a hash that vanished mid-save (pin
+// contract broken, e.g. released and deleted): before the fix, a
+// batch-prefix lookup reported every hash after the first miss as done
+// without committing it, and its host block leaked permanently.
+TEST_F(KVCacheStoreEmbeddedControllerTest,
+       PollSavesReportsVanishedHashFailedWithoutLeaking) {
+  auto controller =
+      std::make_unique<::tpu_raiden::controller::RaidenController>(
+          unit_, 10, 1, 512, orchestrator_address_, "");
+  RaidenId rid{"test_job", "0", "test_cache", 0};
+  KVCacheStore store(4, std::move(controller), "", rid);
+  auto* raiden_controller = KVCacheStoreTest::GetController(store);
+  ASSERT_NE(raiden_controller, nullptr);
+  const int base_locked =
+      raiden_controller->block_manager()->num_locked_blocks();
+
+  // hash_a is present (pinned HBM, as during a real save); hash_gone
+  // vanished after its transfer was issued. hash_b comes AFTER the miss —
+  // the prefix-lookup bug reported it done without committing it.
+  ASSERT_TRUE(
+      store.Insert({"hash_a"}, {RaidenBlockID(rid, -1, 0, BlockStatus::HBM)},
+                   false)
+          .first);
+  ASSERT_TRUE(
+      store.Insert({"hash_b"}, {RaidenBlockID(rid, -1, 1, BlockStatus::HBM)},
+                   false)
+          .first);
+  ASSERT_TRUE(store.Pin({"hash_a", "hash_b"}));
+
+  auto host_ids_or = raiden_controller->AllocateBlockIds(3);
+  ASSERT_TRUE(host_ids_or.ok());
+  const std::vector<int> host_ids(host_ids_or->begin(), host_ids_or->end());
+  EXPECT_EQ(raiden_controller->block_manager()->num_locked_blocks(),
+            base_locked + 3);
+  KVCacheStoreTest::PollSavesDirect(store, {"hash_a", "hash_gone", "hash_b"},
+                                    host_ids);
+
+  auto [done, failed, pending] = store.PollSaveStatus();
+  EXPECT_THAT(done, ::testing::UnorderedElementsAre("hash_a", "hash_b"));
+  EXPECT_THAT(failed, ::testing::ElementsAre("hash_gone"));
+
+  // Both present hashes were committed with their host blocks; the vanished
+  // hash's block went back to the allocator.
+  auto lookup_res = store.Lookup({"hash_a", "hash_b"});
+  ASSERT_TRUE(lookup_res.ok());
+  ASSERT_EQ(lookup_res->size(), 2);
+  EXPECT_EQ((*lookup_res)[0].second.status, BlockStatus::HOST_AND_HBM);
+  EXPECT_EQ((*lookup_res)[0].second.host_block_id, host_ids[0]);
+  EXPECT_EQ((*lookup_res)[1].second.status, BlockStatus::HOST_AND_HBM);
+  EXPECT_EQ((*lookup_res)[1].second.host_block_id, host_ids[2]);
+  EXPECT_EQ(raiden_controller->block_manager()->num_locked_blocks(),
+            base_locked + 2);
+
+  // Clear returns the committed blocks too once the pins are dropped.
+  store.Release({"hash_a", "hash_b"});
+  auto cleared = store.Clear();
+  ASSERT_TRUE(cleared.ok());
+  EXPECT_EQ(*cleared, 2);
+  EXPECT_EQ(raiden_controller->block_manager()->num_locked_blocks(),
+            base_locked);
 }
 
 TEST_F(KVCacheStoreEmbeddedControllerTest, SaveMultiWorkerSuccess) {

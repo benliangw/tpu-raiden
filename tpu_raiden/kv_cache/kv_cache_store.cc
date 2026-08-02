@@ -537,6 +537,31 @@ bool KVCacheStore::InsertAndLock(const std::vector<std::string>& block_hashes,
   return true;
 }
 
+InsertAndLockResult KVCacheStore::InsertAndLockDetailed(
+    const std::vector<std::string>& block_hashes,
+    const std::vector<RaidenBlockID>& slices, bool on_host) {
+  if (backends_.empty()) return InsertAndLockResult{};
+
+  // The primary backend is the source of truth for the classification;
+  // secondary backends mirror the admission exactly like InsertAndLock.
+  InsertAndLockResult result =
+      backends_[0]->InsertAndLockDetailed(block_hashes, slices, on_host);
+  if (!result.success) {
+    return result;
+  }
+  for (size_t i = 1; i < backends_.size(); ++i) {
+    if (!backends_[i]) continue;
+    if (!backends_[i]->InsertAndLock(block_hashes, slices, on_host)) {
+      backends_[0]->ReleaseAndDelete(block_hashes);
+      for (size_t j = 1; j < i; ++j) {
+        if (backends_[j]) backends_[j]->ReleaseAndDelete(block_hashes);
+      }
+      return InsertAndLockResult{};
+    }
+  }
+  return result;
+}
+
 size_t KVCacheStore::ReleaseAndDelete(
     const std::vector<std::string>& block_hashes) {
   size_t total_deleted = 0;
@@ -1033,6 +1058,58 @@ absl::StatusOr<size_t> KVCacheStore::RecoverFromLocalManifest() {
   return backend()->RecoverFromLocalManifest();
 }
 
+absl::StatusOr<size_t> KVCacheStore::Clear() {
+  {
+    absl::MutexLock lock(&mutex_);
+    // Reject rather than drain: draining means blocking on device DMA from
+    // inside the store while the caller believes it is resetting — the
+    // caller owns the poll loop, so the caller drains. The checks cover the
+    // whole in-flight window, including batches between launch and their
+    // active_* registration (saving_hashes_ et al. are set first).
+    if (!active_saves_.empty() || !saving_hashes_.empty()) {
+      return absl::FailedPreconditionError(
+          "Clear rejected: saves in flight; drain PollSaveStatus first");
+    }
+    if (!active_loads_.empty() || !loading_hashes_.empty()) {
+      return absl::FailedPreconditionError(
+          "Clear rejected: loads in flight; drain PollLoadStatus first");
+    }
+    if (!active_remote_reads_.empty() || !reading_hashes_.empty()) {
+      return absl::FailedPreconditionError(
+          "Clear rejected: remote reads in flight; drain "
+          "PollRemoteReadStatus first");
+    }
+  }
+
+  // Backend Clear() rejects atomically if anything is pinned, and otherwise
+  // wipes entries + candidates, returns host blocks to the allocator, wipes
+  // the recovery metadata, and unregisters from the global registry.
+  size_t cleared = 0;
+  for (size_t i = 0; i < backends_.size(); ++i) {
+    if (!backends_[i]) continue;
+    auto cleared_or = backends_[i]->Clear();
+    if (!cleared_or.ok()) {
+      return cleared_or.status();
+    }
+    if (i == 0) {
+      cleared = cleared_or.value();
+    }
+  }
+
+  // Drop unpolled results of past transfers: they reference entries that no
+  // longer exist, and a reset caller must start from a blank slate.
+  {
+    absl::MutexLock lock(&mutex_);
+    done_saves_.clear();
+    failed_saves_.clear();
+    done_loads_.clear();
+    failed_loads_.clear();
+    done_remote_reads_.clear();
+    failed_remote_reads_.clear();
+  }
+  return cleared;
+}
+
 size_t KVCacheStore::Evict(const std::vector<std::string>& block_hashes) {
   if (block_hashes.empty()) {
     return 0;
@@ -1109,34 +1186,42 @@ void KVCacheStore::PollSavesInternal(std::vector<SaveState> ready_saves) {
     if (status.ok()) {
       std::vector<global_registry::Registration> write_through_regs;
       write_through_regs.reserve(state.block_hashes.size());
-      auto lookup_or = backend()->Lookup(state.block_hashes);
-      if (lookup_or.ok()) {
-        const auto& slices = lookup_or.value();
-        std::vector<std::string> update_hashes;
-        std::vector<RaidenBlockID> update_slices;
-        for (size_t i = 0; i < state.block_hashes.size(); ++i) {
-          const auto& hash = state.block_hashes[i];
-          if (i < slices.size()) {
-            RaidenBlockID block = slices[i].second;
-            block.host_block_id = state.host_block_ids[i];
-            block.status = BlockStatus::HOST_AND_HBM;
-            update_hashes.push_back(hash);
-            update_slices.push_back(block);
-            if (registry_client_) {
-              write_through_regs.push_back({
-                  .prefix_hash = hash,
-                  .raiden_id = raiden_id_,
-                  .block_id = state.host_block_ids[i],
-              });
-            }
+      std::vector<std::string> update_hashes;
+      std::vector<RaidenBlockID> update_slices;
+      // Commit per hash. A batch-prefix Lookup halts at the first miss, so
+      // it used to report every later hash done without committing it and
+      // leak its host block permanently. Local tier only: a hash that
+      // vanished locally but exists on a peer must not have this node's
+      // host block committed onto its REMOTE slice.
+      for (size_t i = 0; i < state.block_hashes.size(); ++i) {
+        const auto& hash = state.block_hashes[i];
+        auto lookup_or = backend()->Lookup(absl::MakeConstSpan(&hash, 1),
+                                           LookupOptions{.max_tier = 0});
+        if (lookup_or.ok() && !lookup_or.value().empty()) {
+          RaidenBlockID block = lookup_or.value()[0].second;
+          block.host_block_id = state.host_block_ids[i];
+          block.status = BlockStatus::HOST_AND_HBM;
+          update_hashes.push_back(hash);
+          update_slices.push_back(block);
+          if (registry_client_) {
+            write_through_regs.push_back({
+                .prefix_hash = hash,
+                .raiden_id = raiden_id_,
+                .block_id = state.host_block_ids[i],
+            });
           }
           done_saves_.push_back(hash);
+        } else {
+          // The entry vanished mid-save (pin contract broken or deleted):
+          // nothing points at the host copy, so return the block to the
+          // allocator and report the hash failed — never done-but-
+          // uncommitted.
+          DeallocateBlockIds(absl::MakeConstSpan(&state.host_block_ids[i], 1));
+          failed_saves_.push_back(hash);
         }
-        if (!update_hashes.empty()) {
-          backend()->Insert(update_hashes, update_slices, /*on_host=*/true);
-        }
-      } else {
-        DeallocateBlockIds(state.host_block_ids);
+      }
+      if (!update_hashes.empty()) {
+        backend()->Insert(update_hashes, update_slices, /*on_host=*/true);
       }
       if (!write_through_regs.empty() && registry_client_ &&
           write_through_pool_) {
