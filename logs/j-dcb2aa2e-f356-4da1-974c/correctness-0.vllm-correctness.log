@@ -1,0 +1,46 @@
+Waiting for prefill up (http://j-dcb2aa2e-f356-4da1-974c-prefill-0-0.j-dcb2aa2e-f356-4da1-974c:8000/health, up to 5400s)
+prefill is up (1005s)
+Waiting for decode up (http://j-dcb2aa2e-f356-4da1-974c-decode-0-0.j-dcb2aa2e-f356-4da1-974c:7200/health, up to 5400s)
+decode is up (0s)
+Waiting for proxy up (http://j-dcb2aa2e-f356-4da1-974c-prefill-0-0.j-dcb2aa2e-f356-4da1-974c:10000/healthcheck, up to 600s)
+proxy is up (0s)
+Waiting for engine readiness (first compile, up to 60 min)...
+Engines are ready.
+===== Smoke test: prefill->Raiden KV transfer->decode =====
+--- request 1: Good morning. What are the capitals of the US, China and Armenia?
+{"id":"cmpl-fdfbb2c7-c86a-4115-a79f-749e07f644c9","object":"text_completion","created":1785721202,"model":"Qwen3.5-35B-A3B-FP8","choices":[{"index":0,"text":"\n\nHere are the capitals of the countries you mentioned:\n\n*   **United States:** Washington, D.C.\n*   **China:** Beijing\n*   **Armenia:** Yerevan\n\n*(Note: I assumed \"US\" referred to the United States and \"Good morning\" was a greeting rather","logprobs":null,"finish_reason":"length","stop_reason":null,"token_ids":[271,8160,513,279,89798,314,279,5656,488,9444,25,271,9,256,2972,21675,4042,64700,6312,11,414,707,13,198,9,256,2972,21591,64700,25701,198,9,256,2972,6737,5498,667,64700,783,475,15190,271,6391,8839,25,353,18533,328,1966,1,13464,310,279,3516,4042,321,328,14773,6353,1,557,264,40719,4598],"prompt_logprobs":null,"prompt_token_ids":[14773,6353,13,3437,513,279,89798,314,279,2201,11,5440,321,69101,30],"routed_experts":null}],"service_tier":null,"system_fingerprint":"vllm-0.26.0-dp8-ep-8cf8c9d7","usage":{"prompt_tokens":15,"total_tokens":79,"completion_tokens":64,"prompt_tokens_details":{"cached_tokens":14,"created_cache_tokens":null,"multimodal_tokens":null}},"kv_transfer_params":null,"ec_transfer_params":null,"metrics":null}
+--- known-answer probes: three-way equivalence (cold/warm/proxy)
+len2048-cold: token=84 token_ids=[84, 84, 84, 198, 84, 198, 84, 198] text='uuu\nu\nu\n'
+len2048-warm: token=84 token_ids=[84, 84, 84, 198, 84, 198, 84, 198] text='uuu\nu\nu\n'
+len2048-proxy: token=84 token_ids=[271, 2, 220, 17, 15, 17, 18, 220] text='\n\n# 2023 '
+len2048: apc=PASS transfer=FAIL len=2048 cold=[84, 84, 84, 198, 84, 198, 84, 198] warm=[84, 84, 84, 198, 84, 198, 84, 198] proxy=[271, 2, 220, 17, 15, 17, 18, 220]
+len4096-cold: token=85 token_ids=[85, 85, 85, 85, 85, 85, 85, 85] text='vvvvvvvv'
+len4096-warm: token=85 token_ids=[85, 85, 85, 85, 85, 85, 85, 85] text='vvvvvvvv'
+len4096-proxy: token=85 token_ids=[85, 85, 85, 85, 85, 85, 85, 85] text='vvvvvvvv'
+len4096: apc=PASS transfer=PASS len=4096 cold=[85, 85, 85, 85, 85, 85, 85, 85] warm=[85, 85, 85, 85, 85, 85, 85, 85] proxy=[85, 85, 85, 85, 85, 85, 85, 85]
+len8192-cold: token=88 token_ids=[88, 88, 88, 88, 88, 88, 88, 88] text='yyyyyyyy'
+len8192-warm: token=88 token_ids=[88, 88, 88, 88, 88, 88, 88, 88] text='yyyyyyyy'
+len8192-proxy: token=88 token_ids=[271, 2, 220, 16, 24, 23, 23, 271] text='\n\n# 1988\n\n'
+len8192: apc=PASS transfer=FAIL len=8192 cold=[88, 88, 88, 88, 88, 88, 88, 88] warm=[88, 88, 88, 88, 88, 88, 88, 88] proxy=[271, 2, 220, 16, 24, 23, 23, 271]
+len16384-cold: token=86 token_ids=[86, 86, 86, 86, 86, 86, 86, 86] text='wwwwwwww'
+len16384-warm: token=86 token_ids=[86, 86, 86, 86, 86, 86, 86, 86] text='wwwwwwww'
+len16384-proxy: token=86 token_ids=[86, 86, 86, 86, 86, 86, 86, 86] text='wwwwwwww'
+len16384: apc=PASS transfer=PASS len=16384 cold=[86, 86, 86, 86, 86, 86, 86, 86] warm=[86, 86, 86, 86, 86, 86, 86, 86] proxy=[86, 86, 86, 86, 86, 86, 86, 86]
+len24576-cold: token=87 token_ids=[87, 87, 87, 87, 87, 87, 87, 87] text='xxxxxxxx'
+len24576-warm: token=87 token_ids=[87, 87, 87, 87, 87, 87, 87, 87] text='xxxxxxxx'
+len24576-proxy: token=87 token_ids=[55, 87, 55, 87, 55, 87, 55, 87] text='XxXxXxXx'
+len24576: apc=PASS transfer=FAIL len=24576 cold=[87, 87, 87, 87, 87, 87, 87, 87] warm=[87, 87, 87, 87, 87, 87, 87, 87] proxy=[55, 87, 55, 87, 55, 87, 55, 87]
+len32768-cold: token=89 token_ids=[89, 89, 89, 89, 89, 89, 89, 89] text='zzzzzzzz'
+len32768-warm: token=89 token_ids=[89, 89, 89, 89, 89, 89, 89, 89] text='zzzzzzzz'
+len32768-proxy: token=89 token_ids=[89, 89, 89, 89, 89, 89, 89, 89] text='zzzzzzzz'
+len32768: apc=PASS transfer=PASS len=32768 cold=[89, 89, 89, 89, 89, 89, 89, 89] warm=[89, 89, 89, 89, 89, 89, 89, 89] proxy=[89, 89, 89, 89, 89, 89, 89, 89]
+len36864-cold: token=90 token_ids=[90, 90, 90, 90, 90, 90, 90, 90] text='{{{{{{{{'
+len36864-warm: token=90 token_ids=[90, 90, 90, 90, 90, 90, 90, 90] text='{{{{{{{{'
+len36864-proxy: token=90 token_ids=[90, 90, 90, 90, 90, 90, 90, 90] text='{{{{{{{{'
+len36864: apc=PASS transfer=PASS len=36864 cold=[90, 90, 90, 90, 90, 90, 90, 90] warm=[90, 90, 90, 90, 90, 90, 90, 90] proxy=[90, 90, 90, 90, 90, 90, 90, 90]
+known-answer summary: {"len2048-apc-transparency": true, "len2048-transfer-equivalence": false, "len4096-apc-transparency": true, "len4096-transfer-equivalence": true, "len8192-apc-transparency": true, "len8192-transfer-equivalence": false, "len16384-apc-transparency": true, "len16384-transfer-equivalence": true, "len24576-apc-transparency": true, "len24576-transfer-equivalence": false, "len32768-apc-transparency": true, "len32768-transfer-equivalence": true, "len36864-apc-transparency": true, "len36864-transfer-equivalence": true}
+===== Eviction equivalence (deterministic doc churn) =====
+[equivalence] post-eviction KA PASS cold=[89, 89, 89, 89, 89, 89, 89, 89] revisit=[89, 89, 89, 89, 89, 89, 89, 89]
+EQUIVALENCE COMPLETE (errors=0)
+RESULT: FAIL (one or more correctness checks failed; see lines above)
+
