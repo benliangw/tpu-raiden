@@ -1,0 +1,381 @@
+# OffloadingControllerV2 (raiden KVCacheStore) phase-2 RESTART-RECOVERY gate.
+#
+# One self-driving pod proves warm-cache recovery across an engine crash:
+#
+#   run 1  -> N deterministic prompts, greedy decode, outputs recorded; the
+#             offloading connector saves every full block into the store,
+#             whose host pools and directory live in shared memory
+#             (RAIDEN_SHM_KEY).
+#   crash  -> SIGKILL of the whole server process group: no destructors, no
+#             cleanup — exactly the failure recovery exists for. /dev/shm is
+#             pod-level tmpfs, so the KV bytes and the metadata table
+#             survive the process death.
+#   run 2  -> a fresh vllm serve re-attaches: the store recovers its
+#             directory inside plain construction (entries come back as
+#             unpinned HOST), gated by the config-derived
+#             RAIDEN_SHM_MODEL_UID. The SAME prompts are replayed; the gate
+#             asserts (a) byte-identical outputs and (b) external prefix
+#             cache hits > 0 — recovered entries actually served the replay
+#             (HBM starts empty after the restart, so external hits can only
+#             come from the recovered store).
+#
+# The driver runs inside the server pod (localhost), so no cross-pod
+# coordination is needed for the kill.
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: ttpu-qwen35-v2-recovery
+  namespace: cloud-devkit-jobs
+spec:
+  successPolicy:
+    operator: All
+    targetReplicatedJobs:
+      - recovery
+  ttlSecondsAfterFinished: 900
+  replicatedJobs:
+    - name: recovery
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            spec:
+              restartPolicy: Never
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: 2x2x1
+                cloud.google.com/gke-tpu-accelerator: tpu7x
+              initContainers:
+                - name: tpu-node-setup
+                  image: busybox
+                  securityContext:
+                    privileged: true
+                  command: ["/bin/sh", "-c"]
+                  args:
+                    - |
+                      sysctl -w vm.max_map_count=8388608
+                      if [ -f /sys/module/vfio_iommu_type1/parameters/dma_entry_limit ]; then
+                        echo 2000000 > /sys/module/vfio_iommu_type1/parameters/dma_entry_limit
+                        echo "Successfully increased dma_entry_limit"
+                      fi
+              containers:
+              - name: vllm-server
+                image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:latest
+                imagePullPolicy: Always
+                command: ["/bin/bash", "-c"]
+                args:
+                - |
+                  set -eo pipefail
+                  : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                  export CDK_OUTPUT_DIR
+                  mkdir -p "$CDK_OUTPUT_DIR"
+                  export PYTHONUNBUFFERED=1
+
+                  echo "===== Syncing dependencies to pyproject.toml ====="
+                  mkdir -p /tmp/depsync
+                  # Only torch-tpu is stripped; vllm deliberately installs from
+                  # the pyproject pin (0.26.0) — the :latest image's baked vllm
+                  # checkout varies across rebuilds and has shipped pre-0.26
+                  # layouts that break the raiden_connector imports.
+                  sed -E '/"torch-tpu==/d' /root/torchtpu-vllm/pyproject.toml > /tmp/depsync/pyproject.toml
+                  uv pip install --system -r /tmp/depsync/pyproject.toml --index-url https://pypi.org/simple
+
+                  # torch-tpu stays at the image's baked build: the pyproject pin
+                  # (AR dev20260728090214) links absl lts_20260526, while raiden
+                  # wheels resolve torch_tpu symbols from libpywrap at import and
+                  # are built against absl lts_20260107 like the baked torch_tpu.
+                  # Installing the AR build kills raiden import with undefined
+                  # torch_tpu::Materialize (lts namespace is mangled into the name).
+                  echo "Using image torch-tpu (pyproject pin stripped; ABI-matched to the raiden wheel)"
+
+                  # Wheel #2: tpu-raiden benliangw/raiden_controller @ 1224ae8.
+                  RAIDEN_WHL=/root/wheels/tpu_raiden_torch-0.0.1.dev20260802225533-1_raiden_controller_9147f37-cp312-cp312-manylinux_2_31_x86_64.whl
+                  [ -f "$RAIDEN_WHL" ] || { echo "RESULT: FAIL (wheel #2 not in /root/wheels)"; exit 1; }
+                  uv pip install --system --no-deps "$RAIDEN_WHL"
+
+                  export PYTHONPATH=/root/torchtpu-vllm/src:/root/torchtpu-vllm:${PYTHONPATH:-}
+
+                  python3 -c 'from tpu_raiden.api.torch.kv_cache_store import KVCacheStore as S; assert hasattr(S, "num_registered_workers"), "raiden wheel predates wheel #1"; import vllm_torchtpu.offload.raiden_connector as rc; assert hasattr(rc, "TPURaidenOffloadingConnector"); print("V2 preflight OK:", rc.__file__)'                     || { echo "RESULT: FAIL (V2 preflight)"; exit 1; }
+
+                  echo "===== Pre-downloading $MODEL snapshot ====="
+                  DL_OK=""
+                  for i in $(seq 1 30); do
+                    if python3 -c "import os; from huggingface_hub import snapshot_download; snapshot_download(os.environ['MODEL'])"; then
+                      DL_OK=1; break
+                    fi
+                    echo "snapshot_download failed (attempt $i/30); retrying in 60s"
+                    sleep 60
+                  done
+                  [ -n "$DL_OK" ] || { echo "RESULT: FAIL (model snapshot download)"; exit 1; }
+                  export HF_HUB_OFFLINE=1
+
+                  # Pod env does not survive vllm's spawn(); re-export. The
+                  # fixed RAIDEN_SHM_KEY makes the KV segments and metadata
+                  # table re-attachable by run 2; RAIDEN_SHM_MODEL_UID is
+                  # derived by the V2 spec from the model/geometry config and
+                  # must NOT be set here.
+                  export RAIDEN_DISABLE_SINGLETON_WORKER=1
+                  export RAIDEN_SHM_KEY
+
+                  KV_BYTES=$((KV_OFFLOADING_SIZE * 1024 * 1024 * 1024))
+                  KV_CFG=$(cat <<EOF
+                  {"kv_connector":"TPURaidenOffloadingConnector","kv_role":"kv_both","kv_connector_module_path":"vllm_torchtpu.offload.raiden_connector","kv_connector_extra_config":{"cpu_bytes_to_use":${KV_BYTES},"raiden_controller_port":${RAIDEN_CONTROLLER_PORT}}}
+                  EOF
+                  )
+
+                  start_server() {
+                    # New session so the whole server tree (API server +
+                    # engine-core workers) dies with one kill -9 on the pgid.
+                    setsid bash -c "exec vllm serve '$MODEL' \
+                        --tensor_parallel_size=4 \
+                        --enable-expert-parallel \
+                        --max-model-len=8192 \
+                        --max-num-batched-tokens=4096 \
+                        --max-num-seqs=16 \
+                        --num-gpu-blocks-override=$NUM_GPU_BLOCKS_OVERRIDE \
+                        --enable-prefix-caching \
+                        --mamba-cache-mode=align \
+                        --no-async-scheduling \
+                        --language-model-only \
+                        --gpu-memory-utilization=$GPU_MEM_UTIL \
+                        --kv-transfer-config '$KV_CFG' \
+                        --port=$PORT" \
+                        > "$CDK_OUTPUT_DIR/server_run$1.log" 2>&1 &
+                    SERVER_PID=$!
+                    echo "run $1: server pgid $SERVER_PID"
+                  }
+
+                  wait_health() {
+                    local timeout=$((120 * 60)) waited=0
+                    until curl -sf "http://127.0.0.1:${PORT}/health" >/dev/null 2>&1; do
+                      if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+                        echo "RESULT: FAIL (server run $1 exited during startup; see server_run$1.log)"
+                        tail -50 "$CDK_OUTPUT_DIR/server_run$1.log" || true
+                        exit 1
+                      fi
+                      if [ "$waited" -ge "$timeout" ]; then
+                        echo "RESULT: FAIL (server run $1 not healthy in 120 min)"; exit 1
+                      fi
+                      sleep 5; waited=$((waited + 5))
+                    done
+                    echo "run $1: healthy after ${waited}s"
+                  }
+
+                  cat > /tmp/driver.py <<'PYEOF'
+                  import json, os, sys, time, urllib.request
+
+                  PORT = os.environ["PORT"]
+                  MODEL = os.environ["MODEL"]
+                  N = int(os.environ.get("NUM_PROMPTS", "8"))
+                  WORDS = int(os.environ.get("PROMPT_WORDS", "1200"))
+                  OUT = int(os.environ.get("OUTPUT_LEN", "64"))
+                  BASE = f"http://127.0.0.1:{PORT}"
+                  PHASE = sys.argv[1]
+                  RECORD = os.path.join(os.environ["CDK_OUTPUT_DIR"], "pass1.json")
+
+                  def prompt(i):
+                      head = f"[doc-{i:04d}] "
+                      body = " ".join(f"w{i}x{j}" for j in range(WORDS))
+                      return head + body + "\nSummarize the above in one line:"
+
+                  def complete(text):
+                      req = urllib.request.Request(
+                          f"{BASE}/v1/completions",
+                          data=json.dumps({
+                              "model": MODEL, "prompt": text,
+                              "max_tokens": OUT, "temperature": 0.0,
+                              "seed": 42, "ignore_eos": True,
+                          }).encode(),
+                          headers={"Content-Type": "application/json"})
+                      with urllib.request.urlopen(req, timeout=1800) as r:
+                          body = json.loads(r.read())
+                      return body["choices"][0]["text"]
+
+                  def ext_prefix_hits():
+                      with urllib.request.urlopen(f"{BASE}/metrics",
+                                                  timeout=60) as r:
+                          text = r.read().decode()
+                      total = 0.0
+                      for line in text.splitlines():
+                          if line.startswith("vllm:external_prefix_cache_hits_total"):
+                              total += float(line.rsplit(" ", 1)[1])
+                      return total
+
+                  outputs = [complete(prompt(i)) for i in range(N)]
+                  if PHASE == "warm":
+                      with open(RECORD, "w") as f:
+                          json.dump(outputs, f)
+                      print(f"warm: {N} prompts recorded")
+                      sys.exit(0)
+
+                  # PHASE == replay: compare against run 1 and require that
+                  # the recovered store actually served prefix hits.
+                  with open(RECORD) as f:
+                      first = json.load(f)
+                  mismatches = [i for i, (a, b) in enumerate(zip(first, outputs))
+                                if a != b]
+                  hits = ext_prefix_hits()
+                  print(f"replay: mismatches={mismatches} external_prefix_hits={hits}")
+                  if mismatches:
+                      print(f"RESULT: FAIL ({len(mismatches)}/{N} prompts diverged "
+                            "after crash recovery)")
+                      sys.exit(1)
+                  if hits <= 0:
+                      print("RESULT: FAIL (no external prefix hits after restart — "
+                            "the store did not recover; the replay was recomputed)")
+                      sys.exit(1)
+                  print(f"RESULT: PASS ({N}/{N} byte-identical, "
+                        f"{hits:.0f} recovered prefix hits)")
+                  PYEOF
+
+                  echo "===== run 1: start, warm, then crash ====="
+                  start_server 1
+                  wait_health 1
+                  python3 /tmp/driver.py warm 2>&1 | tee "$CDK_OUTPUT_DIR/warm.log"
+                  # Let in-flight saves reach terminal before the crash: the
+                  # gate is recovery of COMMITTED entries, not crash timing.
+                  sleep 30
+
+                  echo "===== SIGKILL server process group (no destructors) ====="
+                  kill -9 -- "-$SERVER_PID" 2>/dev/null || true
+                  # Belt and suspenders for any re-parented engine procs.
+                  pkill -9 -f "vllm serve" 2>/dev/null || true
+                  pkill -9 -f EngineCore 2>/dev/null || true
+                  sleep 10
+                  ls -la /dev/shm | tee "$CDK_OUTPUT_DIR/shm_after_crash.txt"
+
+                  echo "===== run 2: restart and replay ====="
+                  start_server 2
+                  wait_health 2
+                  python3 /tmp/driver.py replay 2>&1 | tee "$CDK_OUTPUT_DIR/replay.log"
+                  status=${PIPESTATUS[0]}
+
+                  kill -9 -- "-$SERVER_PID" 2>/dev/null || true
+                  exit "$status"
+                env:
+                  - name: MODEL
+                    value: "Qwen/Qwen3.5-35B-A3B-FP8"
+                  - name: PORT
+                    value: "8000"
+                  - name: GPU_MEM_UTIL
+                    value: "0.60"
+                  # Modest pool: the shm-backed host segments are charged
+                  # against the pod's memory, so leave headroom under the
+                  # dshm sizeLimit below.
+                  - name: KV_OFFLOADING_SIZE
+                    value: "100"
+                  - name: RAIDEN_CONTROLLER_PORT
+                    value: "47800"
+                  - name: RAIDEN_SHM_KEY
+                    value: "qwen35-v2-recovery"
+                  - name: NUM_GPU_BLOCKS_OVERRIDE
+                    value: "512"
+                  - name: NUM_PROMPTS
+                    value: "8"
+                  # Synthetic w{i}x{j} words tokenize to ~3-5 tokens each; keep
+                  # the prompt well under --max-model-len=8192 with OUTPUT_LEN.
+                  - name: PROMPT_WORDS
+                    value: "1200"
+                  - name: OUTPUT_LEN
+                    value: "64"
+                  - name: TPU_VLLM_ENABLE_UNIFIED_BLOCK_POOL
+                    value: "1"
+                  - name: RAGGED_GATED_DELTA_RULE_IMPL
+                    value: "chunked_jax_pd"
+                  - name: TPU_KV_CACHE_HEADROOM_MIB
+                    value: "10240"
+                  - name: TPU_TOPOLOGY
+                    value: "2x2x1"
+                  - name: TPU_CHIPS_PER_HOST_BOUNDS
+                    value: "2,2,1"
+                  - name: TPU_HOST_BOUNDS
+                    value: "1,1,1"
+                  - name: TPU_LIBRARY_PATH
+                    value: ""
+                  - name: VLLM_LOGGING_LEVEL
+                    value: "INFO"
+                  - name: MEGASCALE_NUM_SLICES
+                    value: ""
+                  - name: MEGASCALE_SLICE_ID
+                    value: ""
+                  - name: TPU_PROCESS_ADDRESSES
+                    value: ""
+                  - name: TPU_WORKER_HOSTNAMES
+                    value: ""
+                  - name: TPU_PROCESS_PORT
+                    value: ""
+                  - name: MEGASCALE_COORDINATOR_ADDRESS
+                    value: ""
+                  - name: MEGASCALE_PORT
+                    value: ""
+                  - name: HF_HUB_DISABLE_XET
+                    value: "1"
+                  - name: LIBTPU_INIT_ARGS
+                    value: "--xla_tpu_use_enhanced_launch_barrier=false"
+                  - name: RAIDEN_DISABLE_SINGLETON_WORKER
+                    value: "1"
+                  - name: TPU_PREMAPPED_BUFFER_SIZE
+                    value: "8589934592"
+                volumeMounts:
+                  - name: hf-token-volume
+                    mountPath: /root/.cache/huggingface/token
+                    subPath: token
+                    readOnly: true
+                  - name: huggingface-storage
+                    mountPath: /root/.cache/huggingface/
+                  - name: dshm
+                    mountPath: /dev/shm
+                  - name: torchtpu-vllm-nfs
+                    mountPath: /root/torchtpu-vllm
+                  - name: wheels-nfs
+                    mountPath: /root/wheels
+                    readOnly: true
+                securityContext:
+                  privileged: true
+                  capabilities:
+                    add:
+                    - IPC_LOCK
+                resources:
+                  limits:
+                    google.com/tpu: 4
+                    memory: "900Gi"
+                    cpu: "16"
+                  requests:
+                    google.com/tpu: 4
+                    memory: "900Gi"
+                    cpu: "16"
+                ports:
+                  - containerPort: 8000
+
+              volumes:
+              - name: dshm
+                emptyDir:
+                  medium: Memory
+                  # KV_OFFLOADING_SIZE plus the metadata table and headroom;
+                  # tmpfs usage is charged against the pod's 900Gi.
+                  sizeLimit: "200Gi"
+              - name: hf-token-volume
+                secret:
+                  secretName: vllm-hf-token
+                  items:
+                  - key: HF_TOKEN
+                    path: token
+              - name: huggingface-storage
+                ephemeral:
+                  volumeClaimTemplate:
+                    spec:
+                      storageClassName: "premium-rwo"
+                      accessModes: [ "ReadWriteOnce" ]
+                      resources:
+                        requests:
+                          storage: 256Gi
+              - name: torchtpu-vllm-nfs
+                nfs:
+                  server: 10.225.237.178
+                  # Pins the job to benliangw/raiden_controller.
+                  path: /workspace/vllm-torchtpu/raiden_controller
+              - name: wheels-nfs
+                nfs:
+                  server: 10.225.237.178
+                  path: /workspace/wheels
