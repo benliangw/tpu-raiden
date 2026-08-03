@@ -1,0 +1,57 @@
+Waiting for vLLM at http://j-c92b643e-9b2d-44d3-9c64-server-a-0-0.j-c92b643e-9b2d-44d3-9c64:8000/health (up to 180 min)...
+  ...still waiting for j-c92b643e-9b2d-44d3-9c64-server-a-0-0.j-c92b643e-9b2d-44d3-9c64 (60s elapsed)
+  ...still waiting for j-c92b643e-9b2d-44d3-9c64-server-a-0-0.j-c92b643e-9b2d-44d3-9c64 (120s elapsed)
+  ...still waiting for j-c92b643e-9b2d-44d3-9c64-server-a-0-0.j-c92b643e-9b2d-44d3-9c64 (180s elapsed)
+  ...still waiting for j-c92b643e-9b2d-44d3-9c64-server-a-0-0.j-c92b643e-9b2d-44d3-9c64 (240s elapsed)
+  ...still waiting for j-c92b643e-9b2d-44d3-9c64-server-a-0-0.j-c92b643e-9b2d-44d3-9c64 (300s elapsed)
+  ...still waiting for j-c92b643e-9b2d-44d3-9c64-server-a-0-0.j-c92b643e-9b2d-44d3-9c64 (360s elapsed)
+  ...still waiting for j-c92b643e-9b2d-44d3-9c64-server-a-0-0.j-c92b643e-9b2d-44d3-9c64 (420s elapsed)
+  ...still waiting for j-c92b643e-9b2d-44d3-9c64-server-a-0-0.j-c92b643e-9b2d-44d3-9c64 (480s elapsed)
+  ...still waiting for j-c92b643e-9b2d-44d3-9c64-server-a-0-0.j-c92b643e-9b2d-44d3-9c64 (540s elapsed)
+  ...still waiting for j-c92b643e-9b2d-44d3-9c64-server-a-0-0.j-c92b643e-9b2d-44d3-9c64 (600s elapsed)
+  ...still waiting for j-c92b643e-9b2d-44d3-9c64-server-a-0-0.j-c92b643e-9b2d-44d3-9c64 (660s elapsed)
+  ...still waiting for j-c92b643e-9b2d-44d3-9c64-server-a-0-0.j-c92b643e-9b2d-44d3-9c64 (720s elapsed)
+j-c92b643e-9b2d-44d3-9c64-server-a-0-0.j-c92b643e-9b2d-44d3-9c64 ready (724s)
+Waiting for vLLM at http://j-c92b643e-9b2d-44d3-9c64-server-b-0-0.j-c92b643e-9b2d-44d3-9c64:8000/health (up to 180 min)...
+j-c92b643e-9b2d-44d3-9c64-server-b-0-0.j-c92b643e-9b2d-44d3-9c64 ready (29s)
+=== pass 1: warming replica A with 8 prompts, 5000 words each ===
+  doc-0000:   2.64s cached_tokens=0
+  doc-0001:   2.19s cached_tokens=0
+  doc-0002:   2.18s cached_tokens=0
+  doc-0003:   2.19s cached_tokens=0
+  doc-0004:   2.18s cached_tokens=0
+  doc-0005:   2.17s cached_tokens=0
+  doc-0006:   2.17s cached_tokens=0
+  doc-0007:   2.17s cached_tokens=0
+=== waiting 15s for saves to commit and publish to the registry ===
+=== pass 2: replaying the same 8 prompts on replica B (must arrive via read_remote) ===
+  doc-0000:   2.72s cached_tokens=0
+  doc-0001:   2.19s cached_tokens=0
+  doc-0002:   2.18s cached_tokens=0
+  doc-0003:   2.18s cached_tokens=0
+  doc-0004:   2.18s cached_tokens=0
+  doc-0005:   2.17s cached_tokens=0
+  doc-0006:   2.17s cached_tokens=0
+  doc-0007:   2.17s cached_tokens=0
+=== pass 3: 8 fresh prompts on replica B (cold-TTFT baseline) ===
+  cold-0000:   2.17s cached_tokens=0
+  cold-0001:   2.17s cached_tokens=0
+  cold-0002:   2.17s cached_tokens=0
+  cold-0003:   2.17s cached_tokens=0
+  cold-0004:   2.17s cached_tokens=0
+  cold-0005:   2.17s cached_tokens=0
+  cold-0006:   2.17s cached_tokens=0
+  cold-0007:   2.17s cached_tokens=0
+pass 2: 8/8 byte-identical, early_divergences=[]
+mean latency on B: remote-hit=2.25s cold=2.17s (speedup 0.97x)
+WARNING: remote-hit latency is not below the cold baseline — the sharing plane is not paying off. Correctness still gates; investigate before trusting the perf story.
+NO-HIT doc-0000: cached_tokens=0
+NO-HIT doc-0001: cached_tokens=0
+NO-HIT doc-0002: cached_tokens=0
+NO-HIT doc-0003: cached_tokens=0
+NO-HIT doc-0004: cached_tokens=0
+NO-HIT doc-0005: cached_tokens=0
+NO-HIT doc-0006: cached_tokens=0
+NO-HIT doc-0007: cached_tokens=0
+RESULT: FAIL (8/8 replayed prompts reported no cached prompt tokens — the replay did not arrive via read_remote: [0, 1, 2, 3, 4, 5, 6, 7]. Check replica B's server.log for read_remote activity and the registry pod's logs.)
+
