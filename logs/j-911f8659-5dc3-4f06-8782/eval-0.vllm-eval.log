@@ -1,0 +1,216 @@
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
+gcsfs 2026.1.0 requires fsspec==2026.1.0, but you have fsspec 2025.3.0 which is incompatible.
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+Waiting for prefill up (http://j-911f8659-5dc3-4f06-8782-prefill-0-0.j-911f8659-5dc3-4f06-8782:8000/health, up to 5400s)
+prefill is up (1125s)
+Waiting for decode up (http://j-911f8659-5dc3-4f06-8782-decode-0-0.j-911f8659-5dc3-4f06-8782:7200/health, up to 5400s)
+decode is up (0s)
+Waiting for proxy up (http://j-911f8659-5dc3-4f06-8782-prefill-0-0.j-911f8659-5dc3-4f06-8782:10000/healthcheck, up to 600s)
+proxy is up (0s)
+Waiting for correctness to finish (beacon to stop answering, up to 2h)...
+correctness finished; starting eval
+Waiting for engine readiness...
+Engines are ready.
+===== Peak prefill throughput (no write-through) =====
+[peak-prefill:summary] docs=36 conc=12 prompt_tokens=32832 wall=329.3s prompt_tok_per_s=3589 server_ttft_avg=105.32s prefill_avg=9.145s ext_hit_pct=0.0
+PEAK-PREFILL COMPLETE (errors=0)
+===== DRAM->HBM restore latency (alternating long queries) =====
+[restore:cold] doc0 ttft=2.391s prefill=2.386s ext_hit=0/32831
+[restore:cold] doc1 ttft=2.389s prefill=2.384s ext_hit=0/32831
+[restore:cold] doc2 ttft=2.388s prefill=2.384s ext_hit=0/32831
+[restore:cold] doc3 ttft=2.393s prefill=2.388s ext_hit=0/32831
+[restore:cold] doc4 ttft=2.389s prefill=2.385s ext_hit=0/32831
+[restore:cold] doc5 ttft=2.391s prefill=2.387s ext_hit=0/32831
+[restore:cold] doc6 ttft=2.390s prefill=2.385s ext_hit=0/32831
+[restore:cold] doc7 ttft=2.396s prefill=2.391s ext_hit=0/32831
+[restore:cold] doc8 ttft=2.388s prefill=2.383s ext_hit=0/32831
+[restore:cold] doc9 ttft=2.389s prefill=2.384s ext_hit=0/32831
+[restore:cold] doc10 ttft=2.390s prefill=2.386s ext_hit=0/32831
+[restore:cold] doc11 ttft=209.451s prefill=209.446s ext_hit=0/32831
+[restore:cold] doc12 ttft=37.320s prefill=37.314s ext_hit=0/32831
+[restore:cold] doc13 ttft=2.409s prefill=2.403s ext_hit=0/32831
+[restore:cold] doc14 ttft=2.403s prefill=2.397s ext_hit=0/32831
+[restore:cold] doc15 ttft=2.401s prefill=2.395s ext_hit=0/32831
+[restore:cold] doc16 ttft=2.399s prefill=2.394s ext_hit=0/32831
+[restore:revisit] doc0 ttft=0.279s prefill=0.274s ext_hit=0/63
+[restore:revisit] doc1 ttft=1.915s prefill=0.275s ext_hit=0/63
+[restore:revisit] doc2 ttft=0.280s prefill=0.275s ext_hit=0/63
+[restore:revisit] doc3 ttft=2.050s prefill=0.274s ext_hit=0/63
+[restore:revisit] doc4 ttft=2.372s prefill=0.275s ext_hit=0/63
+[restore:revisit] doc5 ttft=2.371s prefill=0.274s ext_hit=0/63
+[restore:revisit] doc6 ttft=2.374s prefill=0.276s ext_hit=0/63
+[restore:revisit] doc7 ttft=0.279s prefill=0.274s ext_hit=0/63
+[restore:revisit] doc8 ttft=2.055s prefill=0.275s ext_hit=0/63
+[restore:revisit] doc9 ttft=2.368s prefill=0.274s ext_hit=0/63
+[restore:revisit] doc10 ttft=2.627s prefill=0.275s ext_hit=0/63
+[restore:revisit] doc11 ttft=2.394s prefill=0.275s ext_hit=0/63
+[restore:revisit] doc12 ttft=2.391s prefill=0.275s ext_hit=0/63
+[restore:revisit] doc13 ttft=2.393s prefill=0.274s ext_hit=0/63
+[restore:revisit] doc14 ttft=2.396s prefill=0.275s ext_hit=0/63
+[restore:revisit] doc15 ttft=2.399s prefill=0.276s ext_hit=0/63
+[restore:revisit] doc16 ttft=2.388s prefill=0.276s ext_hit=0/63
+[restore:cold:summary] reqs=17 ttft_avg=16.628s prefill_avg=16.623s ext_hit_pct=0.0
+[restore:revisit:summary] reqs=17 ttft_avg=1.961s prefill_avg=0.275s ext_hit_pct=0.0
+[restore:ab] ttft_ratio=0.12 restore_tok_per_s=16712
+RESTORE-LATENCY: PASS
+===== Long-context (many-shot) GSM8K offload eval =====
+Generating train split:   0%|          | 0/7473 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 7473/7473 [00:00<00:00, 155510.30 examples/s]
+Generating test split:   0%|          | 0/1319 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1319/1319 [00:00<00:00, 149634.51 examples/s]
+[lc-eval] 48 many-shot prefixes built tok_min=33045 tok_max=33300
+[lc-eval:seed] doc0 e2e=21.24s correct=0 pred=39 gold=78
+[lc-eval:seed] doc1 e2e=83.03s correct=0 pred=21 gold=8
+[lc-eval:seed] doc2 e2e=87.87s correct=0 pred=35 gold=15
+[lc-eval:seed] doc3 e2e=92.72s correct=0 pred=20 gold=1300
+[lc-eval:seed] doc4 e2e=35.25s correct=0 pred=800 gold=3200
+[lc-eval:seed] doc5 e2e=90.27s correct=0 pred=20 gold=4
+[lc-eval:seed] doc6 e2e=97.59s correct=0 pred=2 gold=10
+[lc-eval:seed] doc7 e2e=26.70s correct=1 pred=16 gold=16
+[lc-eval:seed] doc8 e2e=99.72s correct=0 pred=40 gold=6
+[lc-eval:seed] doc9 e2e=50.26s correct=1 pred=8 gold=8
+[lc-eval:seed] doc10 e2e=49.06s correct=0 pred=1 gold=2050
+[lc-eval:seed] doc11 e2e=107.02s correct=0 pred=100 gold=91
+[lc-eval:seed] doc12 e2e=88.21s correct=0 pred=-1 gold=32
+[lc-eval:seed] doc13 e2e=85.18s correct=0 pred=None gold=120000
+[lc-eval:seed] doc14 e2e=80.60s correct=0 pred=105 gold=30
+[lc-eval:seed] doc15 e2e=38.79s correct=0 pred=16 gold=14
+[lc-eval:seed] doc16 e2e=38.80s correct=0 pred=200 gold=156
+[lc-eval:seed] doc17 e2e=80.68s correct=0 pred=1 gold=12
+[lc-eval:seed] doc18 e2e=80.69s correct=0 pred=30 gold=123
+[lc-eval:seed] doc19 e2e=27.38s correct=1 pred=15 gold=15
+[lc-eval:seed] doc20 e2e=84.33s correct=0 pred=3 gold=8
+[lc-eval:seed] doc21 e2e=85.54s correct=1 pred=1 gold=1
+[lc-eval:seed] doc22 e2e=85.23s correct=0 pred=2 gold=9
+[lc-eval:seed] doc23 e2e=22.83s correct=0 pred=195 gold=75
+[lc-eval:seed] doc24 e2e=37.55s correct=0 pred=10 gold=14
+[lc-eval:seed] doc25 e2e=80.58s correct=0 pred=2000 gold=224000
+[lc-eval:seed] doc26 e2e=80.58s correct=0 pred=33 gold=14
+[lc-eval:seed] doc27 e2e=80.57s correct=0 pred=10 gold=31
+[lc-eval:seed] doc28 e2e=80.58s correct=0 pred=4 gold=2
+[lc-eval:seed] doc29 e2e=82.42s correct=0 pred=17 gold=14
+[lc-eval:seed] doc30 e2e=80.59s correct=0 pred=1 gold=31
+[lc-eval:seed] doc31 e2e=80.64s correct=0 pred=43200 gold=8400
+[lc-eval:seed] doc32 e2e=30.58s correct=1 pred=44 gold=44
+[lc-eval:seed] doc33 e2e=80.64s correct=0 pred=35 gold=100
+[lc-eval:seed] doc34 e2e=43.92s correct=0 pred=16 gold=6
+[lc-eval:seed] doc35 e2e=30.06s correct=0 pred=800 gold=310
+[lc-eval:seed] doc36 e2e=80.87s correct=0 pred=25 gold=72
+[lc-eval:seed] doc37 e2e=80.52s correct=0 pred=10935 gold=1
+[lc-eval:seed] doc38 e2e=80.53s correct=0 pred=200 gold=60
+[lc-eval:seed] doc39 e2e=80.51s correct=0 pred=3 gold=160
+[lc-eval:seed] doc40 e2e=28.79s correct=0 pred=20 gold=4
+[lc-eval:seed] doc41 e2e=81.95s correct=0 pred=50 gold=260
+[lc-eval:seed] doc42 e2e=25.71s correct=0 pred=111 gold=87
+[lc-eval:seed] doc43 e2e=81.29s correct=0 pred=5 gold=180000
+[lc-eval:seed] doc44 e2e=80.35s correct=0 pred=4 gold=2
+[lc-eval:seed] doc45 e2e=80.35s correct=0 pred=97 gold=310
+[lc-eval:seed] doc46 e2e=82.17s correct=0 pred=1 gold=9
+[lc-eval:seed] doc47 e2e=28.83s correct=0 pred=84 gold=36
+[lc-eval:seed:summary] conc=12 reqs=48 acc=0.104 wall=300.1s e2e_avg=67.49s e2e_p50=80.58s e2e_p95=97.59s req_per_s=0.16 prompt_tok_per_s=5307 gen_tok_per_s=31.8 server_ttft_avg=6.58s prefill_avg=2.410s ext_hit_pct=0.0
+[lc-eval:revisit] doc0 e2e=85.39s correct=0 pred=220 gold=10
+[lc-eval:revisit] doc1 e2e=82.97s correct=0 pred=4 gold=2640
+[lc-eval:revisit] doc2 e2e=18.46s correct=1 pred=8 gold=8
+[lc-eval:revisit] doc3 e2e=97.50s correct=0 pred=9000 gold=10
+[lc-eval:revisit] doc4 e2e=26.99s correct=0 pred=51 gold=21
+[lc-eval:revisit] doc5 e2e=95.09s correct=0 pred=51 gold=20
+[lc-eval:revisit] doc6 e2e=90.25s correct=0 pred=5 gold=45
+[lc-eval:revisit] doc7 e2e=27.58s correct=0 pred=11 gold=34
+[lc-eval:revisit] doc8 e2e=50.82s correct=1 pred=21 gold=21
+[lc-eval:revisit] doc9 e2e=99.92s correct=0 pred=60 gold=2
+[lc-eval:revisit] doc10 e2e=52.61s correct=0 pred=1 gold=20
+[lc-eval:revisit] doc11 e2e=104.48s correct=0 pred=5 gold=4
+[lc-eval:revisit] doc12 e2e=90.88s correct=0 pred=5 gold=25
+[lc-eval:revisit] doc13 e2e=84.79s correct=0 pred=80 gold=20
+[lc-eval:revisit] doc14 e2e=86.63s correct=0 pred=30 gold=23
+[lc-eval:revisit] doc15 e2e=80.56s correct=0 pred=200 gold=6
+[lc-eval:revisit] doc16 e2e=81.17s correct=0 pred=2 gold=49
+[lc-eval:revisit] doc17 e2e=80.66s correct=0 pred=-2 gold=18
+[lc-eval:revisit] doc18 e2e=80.70s correct=0 pred=18 gold=9
+[lc-eval:revisit] doc19 e2e=18.18s correct=0 pred=41 gold=19
+[lc-eval:revisit] doc20 e2e=80.64s correct=0 pred=8 gold=18
+[lc-eval:revisit] doc21 e2e=80.63s correct=0 pred=880 gold=1198
+[lc-eval:revisit] doc22 e2e=80.63s correct=0 pred=2 gold=320
+[lc-eval:revisit] doc23 e2e=80.64s correct=0 pred=14 gold=50
+[lc-eval:revisit] doc24 e2e=34.43s correct=0 pred=9 gold=5
+[lc-eval:revisit] doc25 e2e=82.13s correct=0 pred=40 gold=240000
+[lc-eval:revisit] doc26 e2e=50.06s correct=0 pred=27 gold=45
+[lc-eval:revisit] doc27 e2e=81.76s correct=0 pred=720 gold=48
+[lc-eval:revisit] doc28 e2e=19.90s correct=1 pred=15 gold=15
+[lc-eval:revisit] doc29 e2e=80.53s correct=0 pred=1 gold=50
+[lc-eval:revisit] doc30 e2e=80.51s correct=0 pred=1 gold=15
+[lc-eval:revisit] doc31 e2e=80.54s correct=0 pred=42 gold=21
+[lc-eval:revisit] doc32 e2e=80.58s correct=0 pred=21900 gold=803
+[lc-eval:revisit] doc33 e2e=81.18s correct=0 pred=21797 gold=67
+[lc-eval:revisit] doc34 e2e=81.17s correct=0 pred=180 gold=350
+[lc-eval:revisit] doc35 e2e=80.51s correct=0 pred=12 gold=2
+[lc-eval:revisit] doc36 e2e=80.51s correct=0 pred=-1 gold=32
+[lc-eval:revisit] doc37 e2e=29.23s correct=0 pred=7.8 gold=16
+[lc-eval:revisit] doc38 e2e=80.41s correct=0 pred=65 gold=80
+[lc-eval:revisit] doc39 e2e=80.38s correct=0 pred=24 gold=36
+[lc-eval:revisit] doc40 e2e=32.83s correct=0 pred=20 gold=88
+[lc-eval:revisit] doc41 e2e=29.57s correct=0 pred=288 gold=6
+[lc-eval:revisit] doc42 e2e=80.35s correct=0 pred=2 gold=12
+[lc-eval:revisit] doc43 e2e=80.33s correct=0 pred=6 gold=15
+[lc-eval:revisit] doc44 e2e=80.32s correct=0 pred=6 gold=34
+[lc-eval:revisit] doc45 e2e=80.30s correct=0 pred=4 gold=20
+[lc-eval:revisit] doc46 e2e=80.31s correct=0 pred=32 gold=92
+[lc-eval:revisit] doc47 e2e=39.94s correct=0 pred=18 gold=38
+[lc-eval:revisit:summary] conc=12 reqs=48 acc=0.062 wall=319.7s e2e_avg=70.12s e2e_p50=80.54s e2e_p95=97.50s req_per_s=0.15 prompt_tok_per_s=4982 gen_tok_per_s=31.3 server_ttft_avg=6.26s prefill_avg=2.409s ext_hit_pct=0.0
+LC-EVAL COMPLETE (errors=0)
+===== Long-context GSM8K scored by lm_eval =====
+[gsm8k:seed] lm_eval --model local-completions --model_args base_url=http://j-911f8659-5dc3-4f06-8782-prefill-0-0.j-911f8659-5dc3-4f06-8782:10000/v1/completions,model=Qwen3.5-35B-A3B-FP8,tokenizer=Qwen/Qwen3.5-35B-A3B-FP8,max_retries=10,max_length=65536,timeout=1800,num_concurrent=12 --tasks gsm8k --num_fewshot 200 --limit 24 --seed 1234,1234,1234,1234 --output_path /cdk-outputs/outputs/j-911f8659-5dc3-4f06-8782-eval-0/j-911f8659-5dc3-4f06-8782-eval-0-0-kq9wh/vllm-eval/lm_eval_seed
+2026-08-03:03:59:33 WARNING  [config.evaluate_config:287] --limit SHOULD ONLY BE USED FOR TESTING. REAL METRICS SHOULD NOT BE COMPUTED USING LIMIT.
+2026-08-03:03:59:45 INFO     [_cli.run:388] Selected Tasks: ['gsm8k']
+2026-08-03:03:59:46 INFO     [evaluator:214] Setting random seed to 1234 | Setting numpy seed to 1234 | Setting torch manual seed to 1234 | Setting fewshot manual seed to 1234
+2026-08-03:03:59:46 INFO     [evaluator:239] Initializing local-completions model, with arguments: {'base_url': 'http://j-911f8659-5dc3-4f06-8782-prefill-0-0.j-911f8659-5dc3-4f06-8782:10000/v1/completions', 'model': 'Qwen3.5-35B-A3B-FP8', 'tokenizer': 'Qwen/Qwen3.5-35B-A3B-FP8', 'max_retries': 10, 'max_length': 65536, 'timeout': 1800, 'num_concurrent': 12}
+2026-08-03:03:59:46 INFO     [models.openai_completions:42] Remote tokenizer not supported. Using huggingface tokenizer backend.
+2026-08-03:03:59:46 INFO     [models.api_models:179] Using max length 65536 - 1
+2026-08-03:03:59:46 INFO     [models.api_models:200] Using tokenizer huggingface
+2026-08-03:03:59:54 INFO     [evaluator_utils:446] Selected tasks:
+2026-08-03:03:59:54 INFO     [evaluator_utils:480] Task: gsm8k (gsm8k/gsm8k.yaml)
+2026-08-03:03:59:54 INFO     [evaluator:314] gsm8k: Using gen_kwargs: {'until': ['Question:', '</s>', '<|im_end|>'], 'do_sample': False, 'temperature': 0.0}
+2026-08-03:03:59:54 WARNING  [evaluator:333] Overwriting default num_fewshot of gsm8k from 5 to 200
+2026-08-03:03:59:54 INFO     [api.task:312] Building contexts for gsm8k on rank 0...
+  0%|          | 0/24 [00:00<?, ?it/s]  4%|▍         | 1/24 [00:00<00:03,  6.57it/s]  8%|▊         | 2/24 [00:00<00:03,  6.71it/s] 12%|█▎        | 3/24 [00:00<00:03,  6.73it/s] 17%|█▋        | 4/24 [00:00<00:02,  6.72it/s] 21%|██        | 5/24 [00:00<00:02,  6.72it/s] 25%|██▌       | 6/24 [00:00<00:02,  6.69it/s] 29%|██▉       | 7/24 [00:01<00:02,  6.73it/s] 33%|███▎      | 8/24 [00:01<00:02,  6.75it/s] 38%|███▊      | 9/24 [00:01<00:02,  6.80it/s] 42%|████▏     | 10/24 [00:01<00:02,  6.81it/s] 46%|████▌     | 11/24 [00:01<00:01,  6.82it/s] 50%|█████     | 12/24 [00:01<00:01,  6.83it/s] 54%|█████▍    | 13/24 [00:01<00:01,  6.82it/s] 58%|█████▊    | 14/24 [00:02<00:01,  6.85it/s] 62%|██████▎   | 15/24 [00:02<00:01,  6.84it/s] 67%|██████▋   | 16/24 [00:02<00:01,  6.80it/s] 71%|███████   | 17/24 [00:02<00:01,  6.79it/s] 75%|███████▌  | 18/24 [00:02<00:00,  6.79it/s] 79%|███████▉  | 19/24 [00:02<00:00,  6.81it/s] 83%|████████▎ | 20/24 [00:02<00:00,  6.80it/s] 88%|████████▊ | 21/24 [00:03<00:00,  6.74it/s] 92%|█████████▏| 22/24 [00:03<00:00,  6.66it/s] 96%|█████████▌| 23/24 [00:03<00:00,  3.73it/s]100%|██████████| 24/24 [00:03<00:00,  4.28it/s]100%|██████████| 24/24 [00:03<00:00,  6.07it/s]
+2026-08-03:03:59:58 INFO     [evaluator:585] Running generate_until requests
+Requesting API:   0%|          | 0/24 [00:00<?, ?it/s]Requesting API:   4%|▍         | 1/24 [00:25<09:57, 25.98s/it]Requesting API:   8%|▊         | 2/24 [00:30<04:54, 13.38s/it]Requesting API:  12%|█▎        | 3/24 [00:32<02:47,  7.96s/it]Requesting API:  17%|█▋        | 4/24 [00:32<01:41,  5.06s/it]Requesting API:  21%|██        | 5/24 [00:36<01:30,  4.78s/it]Requesting API:  25%|██▌       | 6/24 [00:39<01:10,  3.89s/it]Requesting API:  29%|██▉       | 7/24 [00:40<00:52,  3.11s/it]Requesting API:  33%|███▎      | 8/24 [00:47<01:06,  4.16s/it]Requesting API:  38%|███▊      | 9/24 [00:49<00:55,  3.72s/it]Requesting API:  42%|████▏     | 10/24 [00:53<00:54,  3.88s/it]Requesting API:  46%|████▌     | 11/24 [00:57<00:47,  3.63s/it]Requesting API:  50%|█████     | 12/24 [00:58<00:36,  3.07s/it]Requesting API:  54%|█████▍    | 13/24 [01:11<01:05,  5.99s/it]Requesting API:  58%|█████▊    | 14/24 [01:12<00:43,  4.36s/it]Requesting API:  62%|██████▎   | 15/24 [01:12<00:28,  3.14s/it]Requesting API:  67%|██████▋   | 16/24 [01:16<00:27,  3.46s/it]Requesting API:  71%|███████   | 17/24 [01:16<00:17,  2.51s/it]Requesting API:  75%|███████▌  | 18/24 [01:22<00:20,  3.48s/it]Requesting API:  79%|███████▉  | 19/24 [01:32<00:26,  5.24s/it]Requesting API:  83%|████████▎ | 20/24 [01:35<00:19,  4.84s/it]Requesting API:  88%|████████▊ | 21/24 [01:38<00:12,  4.02s/it]Requesting API:  92%|█████████▏| 22/24 [01:42<00:08,  4.17s/it]Requesting API:  96%|█████████▌| 23/24 [01:45<00:03,  3.74s/it]Requesting API: 100%|██████████| 24/24 [01:49<00:00,  3.98s/it]Requesting API: 100%|██████████| 24/24 [01:49<00:00,  4.58s/it]
+2026-08-03:04:01:52 INFO     [loggers.evaluation_tracker:247] Saving results aggregated
+local-completions ({'base_url': 'http://j-911f8659-5dc3-4f06-8782-prefill-0-0.j-911f8659-5dc3-4f06-8782:10000/v1/completions', 'model': 'Qwen3.5-35B-A3B-FP8', 'tokenizer': 'Qwen/Qwen3.5-35B-A3B-FP8', 'max_retries': 10, 'max_length': 65536, 'timeout': 1800, 'num_concurrent': 12}), gen_kwargs: ({}), limit: 24.0, num_fewshot: 200, batch_size: 1
+|Tasks|Version|     Filter     |n-shot|  Metric   |   |Value |   |Stderr|
+|-----|------:|----------------|-----:|-----------|---|-----:|---|-----:|
+|gsm8k|      3|flexible-extract|   200|exact_match|↑  |0.2917|±  |0.0948|
+|     |       |strict-match    |   200|exact_match|↑  |0.2917|±  |0.0948|
+
+[result:seed] strict=0.2916666666666667 flexible=0.2916666666666667
+[gsm8k:seed:summary] fewshot=200 limit=24 conc=12 reqs=24 wall=142.0s prompt_tok_per_req=37778 prompt_tok_per_s=6387 gen_tok_per_s=17.0 server_ttft_avg=12.55s prefill_avg=2.642s ext_hit_pct=0.0
+[gsm8k:revisit] lm_eval --model local-completions --model_args base_url=http://j-911f8659-5dc3-4f06-8782-prefill-0-0.j-911f8659-5dc3-4f06-8782:10000/v1/completions,model=Qwen3.5-35B-A3B-FP8,tokenizer=Qwen/Qwen3.5-35B-A3B-FP8,max_retries=10,max_length=65536,timeout=1800,num_concurrent=12 --tasks gsm8k --num_fewshot 200 --limit 24 --seed 1234,1234,1234,1234 --output_path /cdk-outputs/outputs/j-911f8659-5dc3-4f06-8782-eval-0/j-911f8659-5dc3-4f06-8782-eval-0-0-kq9wh/vllm-eval/lm_eval_revisit
+2026-08-03:04:01:55 WARNING  [config.evaluate_config:287] --limit SHOULD ONLY BE USED FOR TESTING. REAL METRICS SHOULD NOT BE COMPUTED USING LIMIT.
+2026-08-03:04:02:06 INFO     [_cli.run:388] Selected Tasks: ['gsm8k']
+2026-08-03:04:02:08 INFO     [evaluator:214] Setting random seed to 1234 | Setting numpy seed to 1234 | Setting torch manual seed to 1234 | Setting fewshot manual seed to 1234
+2026-08-03:04:02:08 INFO     [evaluator:239] Initializing local-completions model, with arguments: {'base_url': 'http://j-911f8659-5dc3-4f06-8782-prefill-0-0.j-911f8659-5dc3-4f06-8782:10000/v1/completions', 'model': 'Qwen3.5-35B-A3B-FP8', 'tokenizer': 'Qwen/Qwen3.5-35B-A3B-FP8', 'max_retries': 10, 'max_length': 65536, 'timeout': 1800, 'num_concurrent': 12}
+2026-08-03:04:02:08 INFO     [models.openai_completions:42] Remote tokenizer not supported. Using huggingface tokenizer backend.
+2026-08-03:04:02:08 INFO     [models.api_models:179] Using max length 65536 - 1
+2026-08-03:04:02:08 INFO     [models.api_models:200] Using tokenizer huggingface
+2026-08-03:04:02:16 INFO     [evaluator_utils:446] Selected tasks:
+2026-08-03:04:02:16 INFO     [evaluator_utils:480] Task: gsm8k (gsm8k/gsm8k.yaml)
+2026-08-03:04:02:16 INFO     [evaluator:314] gsm8k: Using gen_kwargs: {'until': ['Question:', '</s>', '<|im_end|>'], 'do_sample': False, 'temperature': 0.0}
+2026-08-03:04:02:16 WARNING  [evaluator:333] Overwriting default num_fewshot of gsm8k from 5 to 200
+2026-08-03:04:02:16 INFO     [api.task:312] Building contexts for gsm8k on rank 0...
+  0%|          | 0/24 [00:00<?, ?it/s]  4%|▍         | 1/24 [00:00<00:03,  6.62it/s]  8%|▊         | 2/24 [00:00<00:03,  6.65it/s] 12%|█▎        | 3/24 [00:00<00:03,  6.65it/s] 17%|█▋        | 4/24 [00:00<00:03,  6.65it/s] 21%|██        | 5/24 [00:00<00:02,  6.71it/s] 25%|██▌       | 6/24 [00:00<00:02,  6.71it/s] 29%|██▉       | 7/24 [00:01<00:02,  6.69it/s] 33%|███▎      | 8/24 [00:01<00:02,  6.69it/s] 38%|███▊      | 9/24 [00:01<00:02,  6.68it/s] 42%|████▏     | 10/24 [00:01<00:02,  6.70it/s] 46%|████▌     | 11/24 [00:01<00:01,  6.71it/s] 50%|█████     | 12/24 [00:01<00:01,  6.72it/s] 54%|█████▍    | 13/24 [00:01<00:01,  6.70it/s] 58%|█████▊    | 14/24 [00:02<00:01,  6.68it/s] 62%|██████▎   | 15/24 [00:02<00:01,  6.67it/s] 67%|██████▋   | 16/24 [00:02<00:01,  6.65it/s] 71%|███████   | 17/24 [00:02<00:01,  6.64it/s] 75%|███████▌  | 18/24 [00:02<00:00,  6.61it/s] 79%|███████▉  | 19/24 [00:02<00:00,  6.51it/s] 83%|████████▎ | 20/24 [00:03<00:00,  6.42it/s] 88%|████████▊ | 21/24 [00:03<00:00,  6.49it/s] 92%|█████████▏| 22/24 [00:03<00:00,  6.53it/s] 96%|█████████▌| 23/24 [00:03<00:00,  3.58it/s]100%|██████████| 24/24 [00:04<00:00,  4.16it/s]100%|██████████| 24/24 [00:04<00:00,  5.94it/s]
+2026-08-03:04:02:20 INFO     [evaluator:585] Running generate_until requests
+Requesting API:   0%|          | 0/24 [00:00<?, ?it/s]Requesting API:   4%|▍         | 1/24 [00:14<05:35, 14.57s/it]Requesting API:   8%|▊         | 2/24 [00:15<02:19,  6.35s/it]Requesting API:  12%|█▎        | 3/24 [00:16<01:24,  4.03s/it]Requesting API:  17%|█▋        | 4/24 [00:20<01:17,  3.87s/it]Requesting API:  21%|██        | 5/24 [00:23<01:07,  3.57s/it]Requesting API:  25%|██▌       | 6/24 [00:29<01:22,  4.61s/it]Requesting API:  29%|██▉       | 7/24 [00:32<01:09,  4.10s/it]Requesting API:  33%|███▎      | 8/24 [00:33<00:46,  2.89s/it]Requesting API:  38%|███▊      | 9/24 [00:34<00:37,  2.48s/it]Requesting API:  42%|████▏     | 10/24 [00:35<00:27,  1.99s/it]Requesting API:  46%|████▌     | 11/24 [00:38<00:27,  2.14s/it]Requesting API:  50%|█████     | 12/24 [00:43<00:37,  3.14s/it]Requesting API:  58%|█████▊    | 14/24 [00:49<00:31,  3.15s/it]Requesting API:  62%|██████▎   | 15/24 [00:53<00:29,  3.26s/it]Requesting API:  67%|██████▋   | 16/24 [00:53<00:20,  2.56s/it]Requesting API:  71%|███████   | 17/24 [01:00<00:25,  3.67s/it]Requesting API:  75%|███████▌  | 18/24 [01:07<00:26,  4.50s/it]Requesting API:  79%|███████▉  | 19/24 [01:11<00:21,  4.33s/it]Requesting API:  83%|████████▎ | 20/24 [01:12<00:14,  3.51s/it]Requesting API:  88%|████████▊ | 21/24 [01:16<00:10,  3.63s/it]Requesting API:  92%|█████████▏| 22/24 [01:17<00:05,  2.74s/it]Requesting API:  96%|█████████▌| 23/24 [01:20<00:02,  2.82s/it]Requesting API: 100%|██████████| 24/24 [01:35<00:00,  6.48s/it]Requesting API: 100%|██████████| 24/24 [01:35<00:00,  3.97s/it]
+2026-08-03:04:03:59 INFO     [loggers.evaluation_tracker:247] Saving results aggregated
+local-completions ({'base_url': 'http://j-911f8659-5dc3-4f06-8782-prefill-0-0.j-911f8659-5dc3-4f06-8782:10000/v1/completions', 'model': 'Qwen3.5-35B-A3B-FP8', 'tokenizer': 'Qwen/Qwen3.5-35B-A3B-FP8', 'max_retries': 10, 'max_length': 65536, 'timeout': 1800, 'num_concurrent': 12}), gen_kwargs: ({}), limit: 24.0, num_fewshot: 200, batch_size: 1
+|Tasks|Version|     Filter     |n-shot|  Metric   |   |Value |   |Stderr|
+|-----|------:|----------------|-----:|-----------|---|-----:|---|-----:|
+|gsm8k|      3|flexible-extract|   200|exact_match|↑  |0.2917|±  |0.0948|
+|     |       |strict-match    |   200|exact_match|↑  |0.2500|±  |0.0903|
+
+[result:revisit] strict=0.25 flexible=0.2916666666666667
+[gsm8k:revisit:summary] fewshot=200 limit=24 conc=12 reqs=24 wall=126.9s prompt_tok_per_req=37778 prompt_tok_per_s=7143 gen_tok_per_s=18.9 server_ttft_avg=2.08s prefill_avg=0.514s ext_hit_pct=0.0
+WARN seed strict=0.2916666666666667 below 0.5: expected at this context length, the replay check below is the real gate
+GSM8K: FAIL
+  - revisit strict=0.25 != seed strict=0.2916666666666667 on an identical replay
+STAGES: peak-prefill=PASS restore=PASS lc-eval=PASS gsm8k=FAIL
+RESULT: FAIL (see stage statuses above)
+
