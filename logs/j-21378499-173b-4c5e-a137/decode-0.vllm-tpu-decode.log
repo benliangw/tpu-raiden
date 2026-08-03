@@ -1263,3 +1263,39 @@ E0000 00:00:1785721718.636390    7888 pjrt_state.cc:252] PjrtBackend::GetClient 
 (Worker pid=7888) ERROR 08-03 01:48:38 [multiproc_executor.py:901]     backend_class = creator_fn(
 (Worker pid=7888) ERROR 08-03 01:48:38 [multiproc_executor.py:901]                     ^^^^^^^^^^^
 (Worker pid=7888) ERROR 08-03 01:48:38 [multiproc_executor.py:901] RuntimeError: PjRtClient is not initialized.
+E0000 00:00:1785722271.055203    7892 pjrt_state.cc:252] PjrtBackend::GetClient failed to initialize: DEADLINE_EXCEEDED: retrieving a PjRtClient failed with: TPU initialization failed: Failed to connect to localhost:40521
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901] WorkerProc failed to start.
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901] Traceback (most recent call last):
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 868, in worker_main
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]     worker = WorkerProc(*args, **kwargs)
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]     return func(*args, **kwargs)
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 629, in __init__
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]     self.worker.init_device()
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/worker/worker_base.py", line 331, in init_device
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]     self.worker.init_device()  # type: ignore
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]     ^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]   File "/root/torchtpu-vllm/src/vllm_torchtpu/worker/tpu_worker.py", line 298, in init_device
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]     init_distributed_environment(
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]   File "/usr/local/lib/python3.12/site-packages/vllm/distributed/parallel_state.py", line 1656, in init_distributed_environment
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]     torch.distributed.init_process_group(
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]   File "/usr/local/lib/python3.12/site-packages/torch/distributed/c10d_logger.py", line 83, in wrapper
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]     return func(*args, **kwargs)
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]   File "/usr/local/lib/python3.12/site-packages/torch/distributed/c10d_logger.py", line 97, in wrapper
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]     func_return = func(*args, **kwargs)
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]                   ^^^^^^^^^^^^^^^^^^^^^
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]   File "/usr/local/lib/python3.12/site-packages/torch/distributed/distributed_c10d.py", line 1838, in init_process_group
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]     default_pg, _ = _new_process_group_helper(
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]   File "/usr/local/lib/python3.12/site-packages/torch/distributed/distributed_c10d.py", line 2164, in _new_process_group_helper
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]     backend_class = creator_fn(
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901]                     ^^^^^^^^^^^
+(Worker pid=7892) ERROR 08-03 01:57:51 [multiproc_executor.py:901] RuntimeError: PjRtClient is not initialized.
+/usr/local/lib/python3.12/multiprocessing/resource_tracker.py:279: UserWarning: resource_tracker: There appear to be 7 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '
+/usr/local/lib/python3.12/multiprocessing/resource_tracker.py:279: UserWarning: resource_tracker: There appear to be 7 leaked shared_memory objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '
+
