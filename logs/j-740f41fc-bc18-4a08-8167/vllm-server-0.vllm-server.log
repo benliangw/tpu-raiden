@@ -1,0 +1,45 @@
+===== Syncing dependencies to pyproject.toml =====
+Using Python 3.12.13 environment at: /usr/local
+Resolved 102 packages in 531ms
+Downloading jaxlib (81.5MiB)
+Downloading jax (3.1MiB)
+Downloading libtpu (205.5MiB)
+ Downloaded jax
+ Downloaded jaxlib
+ Downloaded libtpu
+Prepared 3 packages in 2.38s
+Uninstalled 3 packages in 277ms
+Installed 3 packages in 16ms
+ - jax==0.10.0
+ + jax==0.10.2
+ - jaxlib==0.10.0
+ + jaxlib==0.10.2
+ - libtpu==0.0.40
+ + libtpu==0.0.43
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 4ms
+Prepared 1 package in 591ms
+Uninstalled 1 package in 87ms
+Installed 1 package in 3ms
+ - torch-tpu==0.1.1 (from file:///artifact-source/opt/wheels/torch_tpu-0.1.1-cp312-cp312-manylinux_2_31_x86_64.whl)
+ + torch-tpu==0.1.1.dev20260728090214 (from file:///root/wheels/torch_tpu-0.1.1.dev20260728090214-cp312-cp312-manylinux_2_31_x86_64.whl)
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 3ms
+Prepared 1 package in 245ms
+Installed 1 package in 2ms
+ + tpu-raiden-torch==0.0.1.dev20260802195059 (from file:///root/wheels/tpu_raiden_torch-0.0.1.dev20260802195059-1_raiden_controller_1224ae8-cp312-cp312-manylinux_2_31_x86_64.whl)
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1785725961.630478     114 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1785725961.640325     114 tpu_profiler_plugin.cc:712] PyTorch PrivateUse1ProfilerRegistry not found. Native TPU profiling will be disabled (this is expected on PyTorch < 2.12).
+I0000 00:00:1785725962.550732     114 device_rt.cc:125] PjRt runtime initialization deferred for tpu
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+Registered Python module for 'tpu'.
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "/usr/local/lib/python3.12/site-packages/tpu_raiden/api/torch/kv_cache_store.py", line 26, in <module>
+    from tpu_raiden.frameworks.torch import _tpu_raiden_torch as _impl
+ImportError: /usr/local/lib/python3.12/site-packages/tpu_raiden/frameworks/torch/_tpu_raiden_torch.so: undefined symbol: _ZN9torch_tpu11MaterializeEN4absl12lts_202601074SpanIKNS_15DeviceBufferRefEEENS_21MaterializationReasonENS_19MaterializationModeE
+RESULT: FAIL (V2 preflight)
+
