@@ -1,0 +1,164 @@
+===== Syncing dependencies to pyproject.toml =====
+Using Python 3.12.13 environment at: /usr/local
+Resolved 216 packages in 1.72s
+Downloading pynvvideocodec (41.2MiB)
+Downloading nvidia-cudnn-frontend (3.5MiB)
+Downloading nvidia-cutlass-dsl-libs-base (2.7MiB)
+Downloading nvidia-cutlass-dsl-libs-cu13 (83.9MiB)
+Downloading nvidia-cutlass-dsl-libs-cu12 (84.3MiB)
+Downloading apache-tvm-ffi (2.5MiB)
+Downloading jaxlib (81.5MiB)
+Downloading libtpu (205.5MiB)
+Downloading torchcodec (2.9MiB)
+Downloading vllm (289.6MiB)
+Downloading jax (3.1MiB)
+Downloading nvidia-cuda-nvdisasm (4.6MiB)
+Downloading flashinfer-python (13.9MiB)
+ Downloaded apache-tvm-ffi
+ Downloaded nvidia-cutlass-dsl-libs-base
+ Downloaded torchcodec
+ Downloaded nvidia-cudnn-frontend
+ Downloaded nvidia-cuda-nvdisasm
+ Downloaded jax
+ Downloaded pynvvideocodec
+ Downloaded nvidia-cutlass-dsl-libs-cu12
+ Downloaded nvidia-cutlass-dsl-libs-cu13
+ Downloaded jaxlib
+ Downloaded libtpu
+ Downloaded flashinfer-python
+ Downloaded vllm
+Prepared 18 packages in 6.76s
+Uninstalled 12 packages in 2.00s
+Installed 18 packages in 191ms
+ - apache-tvm-ffi==0.1.9
+ + apache-tvm-ffi==0.1.10
+ - flashinfer-python==0.6.11.post2
+ + flashinfer-python==0.6.14
+ - humming-kernels==0.1.2
+ + humming-kernels==0.1.10
+ - jax==0.10.0
+ + jax==0.10.2
+ - jaxlib==0.10.0
+ + jaxlib==0.10.2
+ - libtpu==0.0.40
+ + libtpu==0.0.43
+ + nvidia-cuda-nvdisasm==13.3.73
+ - nvidia-cudnn-frontend==1.18.0
+ + nvidia-cudnn-frontend==1.26.0
+ - nvidia-cutlass-dsl==4.5.2
+ + nvidia-cutlass-dsl==4.6.0
+ - nvidia-cutlass-dsl-libs-base==4.5.2
+ + nvidia-cutlass-dsl-libs-base==4.6.0
+ + nvidia-cutlass-dsl-libs-core==4.6.0
+ + nvidia-cutlass-dsl-libs-cu12==4.6.0
+ - nvidia-cutlass-dsl-libs-cu13==4.5.2
+ + nvidia-cutlass-dsl-libs-cu13==4.6.0
+ + nvtx==0.2.15
+ + pynvvideocodec==2.0.4
+ - tokenspeed-mla==0.1.2
+ + tokenspeed-mla==0.1.8
+ + torchcodec==0.15.0
+ - vllm==0.23.1rc1.dev927+gc0e8e1f12.d20260708.tpu (from file:///root/cloud-devkit/vllm)
+ + vllm==0.26.0
+Using image torch-tpu (pyproject pin stripped; ABI-matched to the raiden wheel)
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 5ms
+Prepared 1 package in 234ms
+Installed 1 package in 2ms
+ + tpu-raiden-torch==0.0.1.dev20260803004933 (from file:///root/wheels/tpu_raiden_torch-0.0.1.dev20260803004933-1_raiden_controller_5ad8d47-cp312-cp312-manylinux_2_31_x86_64.whl)
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1785744942.456168     105 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1785744942.734961     105 tpu_profiler_plugin.cc:707] PyTorch PrivateUse1ProfilerRegistry not found. Native TPU profiling will be disabled (this is expected on PyTorch < 2.12).
+I0000 00:00:1785744948.891402     105 device_rt.cc:124] PjRt runtime initialization deferred for tpu
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+INFO 08-03 08:15:50 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-03 08:15:50 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-03 08:15:50 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 08-03 08:15:50 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-03 08:15:50 [tpu_info.py:26] 
+INFO 08-03 08:15:50 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-03 08:15:50 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 08-03 08:15:50 [tpu_platform.py:896] Pin memory is not supported on TPU.
+INFO 08-03 08:16:02 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-03 08:16:02 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+V2 preflight OK: /root/torchtpu-vllm/src/vllm_torchtpu/offload/raiden_connector.py
+===== Pre-downloading Qwen/Qwen3.5-35B-A3B-FP8 snapshot =====
+Fetching 28 files:   0%|          | 0/28 [00:00<?, ?it/s]Fetching 28 files:   4%|▎         | 1/28 [00:00<00:03,  7.97it/s]Fetching 28 files:  32%|███▏      | 9/28 [00:56<02:03,  6.51s/it]Fetching 28 files:  46%|████▋     | 13/28 [01:36<01:58,  7.90s/it]Fetching 28 files:  61%|██████    | 17/28 [01:45<01:04,  5.85s/it]Fetching 28 files:  68%|██████▊   | 19/28 [02:09<01:03,  7.10s/it]Fetching 28 files: 100%|██████████| 28/28 [02:09<00:00,  4.63s/it]
+===== run 1: start, warm, then crash =====
+run 1: server pgid 376
+run 1: healthy after 865s
+warm: 8 prompts recorded
+===== SIGKILL server process group (no destructors) =====
+/bin/bash: line 203:   376 Killed                  setsid bash -c "exec vllm serve '$MODEL'       --tensor_parallel_size=4       --enable-expert-parallel       --max-model-len=8192       --max-num-batched-tokens=4096       --max-num-seqs=16       --num-gpu-blocks-override=$NUM_GPU_BLOCKS_OVERRIDE       --enable-prefix-caching       --mamba-cache-mode=align       --no-async-scheduling       --language-model-only       --gpu-memory-utilization=$GPU_MEM_UTIL       --kv-transfer-config '$KV_CFG'       --port=$PORT" > "$CDK_OUTPUT_DIR/server_run$1.log" 2>&1
+total 104858476
+drwxrwxrwt  3 root root       1080 Aug  3 08:33 .
+drwxr-xr-x 10 root root       3180 Aug  3 08:15 ..
+-rw-------  1 root root  251658260 Aug  3 08:33 psm_71a2ace0
+-rw-------  1 root root  167772210 Aug  3 08:33 psm_8275d751
+-rw-------  1 root root  251658260 Aug  3 08:33 psm_a76ebfaf
+-rw-------  1 root root  251658260 Aug  3 08:33 psm_de75bc24
+-rw-------  1 root root  251658260 Aug  3 08:33 psm_e235f726
+-rw-------  1 root root   25165848 Aug  3 08:24 psm_e635f754
+-rw-r--r--  1 root root     331776 Aug  3 08:32 qwen35-v2-recovery_metadata
+-rw-r--r--  1 root root 2684358656 Aug  3 08:32 qwen35-v2-recovery_node0_dev_0_seg_0
+-rw-r--r--  1 root root 2684358656 Aug  3 08:32 qwen35-v2-recovery_node0_dev_0_seg_1
+-rw-r--r--  1 root root 2684358656 Aug  3 08:32 qwen35-v2-recovery_node0_dev_0_seg_2
+-rw-r--r--  1 root root 2684358656 Aug  3 08:32 qwen35-v2-recovery_node0_dev_0_seg_3
+-rw-r--r--  1 root root 2684358656 Aug  3 08:33 qwen35-v2-recovery_node0_dev_0_seg_4
+-rw-r--r--  1 root root 2684358656 Aug  3 08:33 qwen35-v2-recovery_node0_dev_0_seg_5
+-rw-r--r--  1 root root 2684358656 Aug  3 08:33 qwen35-v2-recovery_node0_dev_0_seg_6
+-rw-r--r--  1 root root 2684358656 Aug  3 08:33 qwen35-v2-recovery_node0_dev_0_seg_7
+-rw-r--r--  1 root root 2684358656 Aug  3 08:33 qwen35-v2-recovery_node0_dev_0_seg_8
+-rw-r--r--  1 root root 2684358656 Aug  3 08:33 qwen35-v2-recovery_node0_dev_0_seg_9
+-rw-r--r--  1 root root 2684358656 Aug  3 08:32 qwen35-v2-recovery_node1_dev_0_seg_0
+-rw-r--r--  1 root root 2684358656 Aug  3 08:32 qwen35-v2-recovery_node1_dev_0_seg_1
+-rw-r--r--  1 root root 2684358656 Aug  3 08:32 qwen35-v2-recovery_node1_dev_0_seg_2
+-rw-r--r--  1 root root 2684358656 Aug  3 08:32 qwen35-v2-recovery_node1_dev_0_seg_3
+-rw-r--r--  1 root root 2684358656 Aug  3 08:33 qwen35-v2-recovery_node1_dev_0_seg_4
+-rw-r--r--  1 root root 2684358656 Aug  3 08:33 qwen35-v2-recovery_node1_dev_0_seg_5
+-rw-r--r--  1 root root 2684358656 Aug  3 08:33 qwen35-v2-recovery_node1_dev_0_seg_6
+-rw-r--r--  1 root root 2684358656 Aug  3 08:33 qwen35-v2-recovery_node1_dev_0_seg_7
+-rw-r--r--  1 root root 2684358656 Aug  3 08:33 qwen35-v2-recovery_node1_dev_0_seg_8
+-rw-r--r--  1 root root 2684358656 Aug  3 08:33 qwen35-v2-recovery_node1_dev_0_seg_9
+-rw-r--r--  1 root root 2684358656 Aug  3 08:32 qwen35-v2-recovery_node2_dev_0_seg_0
+-rw-r--r--  1 root root 2684358656 Aug  3 08:32 qwen35-v2-recovery_node2_dev_0_seg_1
+-rw-r--r--  1 root root 2684358656 Aug  3 08:32 qwen35-v2-recovery_node2_dev_0_seg_2
+-rw-r--r--  1 root root 2684358656 Aug  3 08:32 qwen35-v2-recovery_node2_dev_0_seg_3
+-rw-r--r--  1 root root 2684358656 Aug  3 08:33 qwen35-v2-recovery_node2_dev_0_seg_4
+-rw-r--r--  1 root root 2684358656 Aug  3 08:33 qwen35-v2-recovery_node2_dev_0_seg_5
+-rw-r--r--  1 root root 2684358656 Aug  3 08:33 qwen35-v2-recovery_node2_dev_0_seg_6
+-rw-r--r--  1 root root 2684358656 Aug  3 08:33 qwen35-v2-recovery_node2_dev_0_seg_7
+-rw-r--r--  1 root root 2684358656 Aug  3 08:33 qwen35-v2-recovery_node2_dev_0_seg_8
+-rw-r--r--  1 root root 2684358656 Aug  3 08:33 qwen35-v2-recovery_node2_dev_0_seg_9
+-rw-r--r--  1 root root 2684358656 Aug  3 08:32 qwen35-v2-recovery_node3_dev_0_seg_0
+-rw-r--r--  1 root root 2684358656 Aug  3 08:32 qwen35-v2-recovery_node3_dev_0_seg_1
+-rw-r--r--  1 root root 2684358656 Aug  3 08:32 qwen35-v2-recovery_node3_dev_0_seg_2
+-rw-r--r--  1 root root 2684358656 Aug  3 08:32 qwen35-v2-recovery_node3_dev_0_seg_3
+-rw-r--r--  1 root root 2684358656 Aug  3 08:33 qwen35-v2-recovery_node3_dev_0_seg_4
+-rw-r--r--  1 root root 2684358656 Aug  3 08:33 qwen35-v2-recovery_node3_dev_0_seg_5
+-rw-r--r--  1 root root 2684358656 Aug  3 08:33 qwen35-v2-recovery_node3_dev_0_seg_6
+-rw-r--r--  1 root root 2684358656 Aug  3 08:33 qwen35-v2-recovery_node3_dev_0_seg_7
+-rw-r--r--  1 root root 2684358656 Aug  3 08:33 qwen35-v2-recovery_node3_dev_0_seg_8
+-rw-r--r--  1 root root 2684358656 Aug  3 08:33 qwen35-v2-recovery_node3_dev_0_seg_9
+-rw-------  1 root root         32 Aug  3 08:21 sem.mp-277mhdrs
+-rw-------  1 root root         32 Aug  3 08:21 sem.mp-6qzamgaz
+-rw-------  1 root root         32 Aug  3 08:21 sem.mp-k1uyo0zf
+-rw-------  1 root root         32 Aug  3 08:21 sem.mp-p_3llrvr
+drwxr-xr-x  3 root root         60 Aug  3 08:21 torch_tpu_cache
+===== run 2: restart and replay =====
+run 2: server pgid 18543
+run 2: healthy after 260s
+replay[0]: exact=True lcp_chars=169
+replay[1]: exact=True lcp_chars=182
+replay[2]: exact=True lcp_chars=169
+replay[3]: exact=True lcp_chars=169
+replay[4]: exact=True lcp_chars=169
+replay[5]: exact=True lcp_chars=169
+replay[6]: exact=True lcp_chars=169
+replay[7]: exact=True lcp_chars=169
+replay: 8/8 byte-identical, early_divergences=[] external_prefix_hits=50176.0
+RESULT: PASS (50176 recovered prefix hits, 8/8 byte-identical, 0 early divergences)
+
