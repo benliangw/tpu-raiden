@@ -30,7 +30,9 @@
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/string_view.h"
 #include "xla/pjrt/pjrt_client.h"
 #include "xla/shape.h"
 #include "tpu_raiden/core/host_memory_allocator.h"
@@ -48,9 +50,14 @@ inline std::optional<std::vector<const uint8_t*>> CastExternalPointers(
   return cast_ptrs;
 }
 
+// shm_key_suffix disambiguates the shm segment namespace between processes
+// that share RAIDEN_SHM_KEY on one host (e.g. "_node<rank>" for TP workers):
+// the per-device suffix inside the allocator collapses to _dev_0 when every
+// worker process sees its own device as local id 0, and colliding names make
+// all ranks silently attach — and corrupt — one segment.
 inline HostBufferAllocator CreateHostMemoryAllocator(
     xla::PjRtClient* client, int64_t max_blocks = 0,
-    size_t total_payload_bytes = 0) {
+    size_t total_payload_bytes = 0, absl::string_view shm_key_suffix = "") {
   const char* shm_key_env = std::getenv("RAIDEN_SHM_KEY");
   if (shm_key_env != nullptr && std::strlen(shm_key_env) > 0) {
     SharedMemoryHeader expected_schema;
@@ -66,7 +73,7 @@ inline HostBufferAllocator CreateHostMemoryAllocator(
     expected_schema.total_payload_bytes = total_payload_bytes;
 
     auto allocator_or = SharedMemoryHostMemoryAllocator::Create(
-        client, shm_key_env, expected_schema);
+        client, absl::StrCat(shm_key_env, shm_key_suffix), expected_schema);
     if (!allocator_or.ok()) {
       absl::Status status = allocator_or.status();
       return [status](size_t size_bytes, const xla::PjRtDevice* device)
