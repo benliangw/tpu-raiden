@@ -1,0 +1,710 @@
+# OffloadingControllerV2 (raiden KVCacheStore) phase-4 CROSS-INSTANCE recipe.
+#
+# Two identical Qwen3-32B single-host replicas share one global registry: a
+# prefix computed by replica A is a REMOTE hit on replica B, pulled P2P from
+# A's host pool straight into B's HBM (read_remote). Shape per the design's
+# §6 phase 4: 2 serving replicas + 1 CPU pod running global_registry_server
+# and raiden_orchestrator_main + 1 check pod.
+#
+# The check job is the phase-4 gate:
+#
+#   pass 1 -> N distinct long prompts, greedy decode on replica A (warms the
+#             store; saved blocks are published to the registry by raiden)
+#   pass 2 -> the SAME N prompts on replica B; B never computed them, so
+#             every prefix block must arrive via registry lookup +
+#             read_remote. Outputs must not diverge from pass 1 almost
+#             immediately (the corrupt-fetched-KV signature); full byte
+#             equality is reported but NOT gated — two replicas are not
+#             byte-deterministic on this stack (see vllm-torchtpu PR #62
+#             evals), while benign divergence flips a token mid-rollout
+#             and keeps a long common prefix.
+#   pass 3 -> N FRESH prompts on replica B: the cold-TTFT baseline the
+#             pass-2 latency is compared against (near-local TTFT is
+#             reported, only correctness is a hard failure).
+#
+# Registry-down degradation and namespace mismatches are unit-tested; this
+# job proves the happy path end to end on real TPUs.
+#
+# Deploy prerequisites (on the remote VM, after the raiden wheel build):
+#   cp bazel-bin/tpu_raiden/kv_cache/global_registry/global_registry_server \
+#      bazel-bin/tpu_raiden/core/controller/raiden_orchestrator_main \
+#      /workspace/wheels/
+# build.sh already builds and symlinks both binaries; the wheel does not
+# bundle them, so the registry pod runs them from the wheels NFS mount.
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: ttpu-32b-off-v2-xreplica
+  namespace: cloud-devkit-jobs
+spec:
+  successPolicy:
+    operator: All
+    targetReplicatedJobs:
+      - check
+  replicatedJobs:
+    # registry: global registry + orchestrator, the phase-4 control plane.
+    # CPU-only; must outlive both servers, so it never exits on its own and
+    # fails loudly if either binary dies.
+    - name: registry
+      replicas: 1
+      template:
+        spec:
+          ttlSecondsAfterFinished: 900
+          backoffLimit: 0
+          template:
+            spec:
+              restartPolicy: Never
+              volumes:
+                - name: wheels-nfs
+                  nfs:
+                    server: 10.225.237.178
+                    path: /workspace/wheels
+              containers:
+                - name: registry
+                  image: "us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/torchtpu-vllm:yinlin_google_com_block-major-raiden-t211b-syncfix"
+                  imagePullPolicy: Always
+                  env:
+                    - name: REGISTRY_PORT
+                      value: "48500"
+                    - name: ORCH_PORT
+                      value: "48600"
+                  volumeMounts:
+                    - name: wheels-nfs
+                      mountPath: /root/wheels
+                      readOnly: true
+                  command: [ "/bin/bash", "-c" ]
+                  args:
+                    - |
+                      set -eo pipefail
+                      : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                      export CDK_OUTPUT_DIR
+                      mkdir -p "$CDK_OUTPUT_DIR"
+                      export GLOG_alsologtostderr=1
+
+                      for bin in global_registry_server raiden_orchestrator_main; do
+                        [ -x "/root/wheels/$bin" ] || {
+                          echo "RESULT: FAIL (/root/wheels/$bin missing — copy it from" \
+                               "bazel-bin after the raiden build, see the recipe header)"
+                          exit 1
+                        }
+                      done
+
+                      echo "Starting global_registry_server on :${REGISTRY_PORT}"
+                      /root/wheels/global_registry_server --port="${REGISTRY_PORT}" \
+                        > "$CDK_OUTPUT_DIR/registry.log" 2>&1 &
+                      REGISTRY_PID=$!
+                      echo "Starting raiden_orchestrator_main on :${ORCH_PORT}"
+                      /root/wheels/raiden_orchestrator_main --port="${ORCH_PORT}" \
+                        > "$CDK_OUTPUT_DIR/orchestrator.log" 2>&1 &
+                      ORCH_PID=$!
+
+                      # Either process dying is a hard failure: servers would
+                      # silently degrade to local-only lookups.
+                      while true; do
+                        kill -0 "$REGISTRY_PID" 2>/dev/null || {
+                          echo "RESULT: FAIL (global_registry_server exited)"
+                          tail -50 "$CDK_OUTPUT_DIR/registry.log"; exit 1
+                        }
+                        kill -0 "$ORCH_PID" 2>/dev/null || {
+                          echo "RESULT: FAIL (raiden_orchestrator_main exited)"
+                          tail -50 "$CDK_OUTPUT_DIR/orchestrator.log"; exit 1
+                        }
+                        sleep 5
+                      done
+                  resources:
+                    limits:
+                      memory: "8Gi"
+                      cpu: "4"
+                    requests:
+                      memory: "4Gi"
+                      cpu: "2"
+
+    # server-a / server-b: identical V2-store replicas (dense Qwen3-32B,
+    # single host, TP8) plus the phase-4 config: the
+    # registry/orchestrator addresses, store_server_ip = pod IP
+    # (bind-and-advertise, so peers can dial this store), and a legible
+    # per-replica raiden_job_name (the registry keys stores by RaidenId, so
+    # the names must differ).
+    - name: server-a
+      replicas: 1
+      template:
+        spec:
+          ttlSecondsAfterFinished: 900
+          backoffLimit: 0
+          template:
+            spec:
+              restartPolicy: Never
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: "2x2x1"
+                cloud.google.com/gke-tpu-accelerator: "tpu7x"
+              volumes:
+                - name: dshm
+                  emptyDir:
+                    medium: Memory
+                    sizeLimit: "64Gi"
+                - name: hf-token-volume
+                  secret:
+                    secretName: vllm-hf-token
+                    items:
+                      - key: HF_TOKEN
+                        path: token
+                - name: huggingface-storage
+                  ephemeral:
+                    volumeClaimTemplate:
+                      spec:
+                        storageClassName: "premium-rwo"
+                        accessModes: [ "ReadWriteOnce" ]
+                        resources:
+                          requests:
+                            storage: 600Gi
+                - name: torchtpu-vllm-nfs
+                  nfs:
+                    server: 10.225.237.178
+                    path: /workspace/vllm-torchtpu/raiden_controller
+                - name: wheels-nfs
+                  nfs:
+                    server: 10.225.237.178
+                    path: /workspace/wheels
+              containers:
+                - name: vllm-server
+                  image: "us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/torchtpu-vllm:yinlin_google_com_block-major-raiden-t211b-syncfix"
+                  imagePullPolicy: Always
+                  env:
+                    - name: REPLICA
+                      value: "a"
+                    - name: JS_NAME
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                    - name: MY_POD_IP
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: status.podIP
+                    - name: MODEL
+                      value: "Qwen/Qwen3-32B"
+                    - name: PORT
+                      value: "8000"
+                    - name: GPU_MEM_UTIL
+                      value: "0.3"
+                    - name: KV_OFFLOADING_SIZE
+                      value: "40"
+                    - name: RAIDEN_CONTROLLER_PORT
+                      value: "47800"
+                    - name: REGISTRY_PORT
+                      value: "48500"
+                    - name: ORCH_PORT
+                      value: "48600"
+                    - name: RAIDEN_WHL
+                      value: "/root/wheels/tpu_raiden_torch-0.0.1.dev20260803004933-1_raiden_controller_5ad8d47-cp312-cp312-manylinux_2_31_x86_64.whl"
+                    - name: TPU_TOPOLOGY
+                      value: "2x2x1"
+                    - name: TPU_CHIPS_PER_HOST_BOUNDS
+                      value: "2,2,1"
+                    - name: TPU_HOST_BOUNDS
+                      value: "1,1,1"
+                    - name: TPU_STDERR_LOG_LEVEL
+                      value: "0"
+                    - name: VLLM_LOGGING_LEVEL
+                      value: "INFO"
+                    - name: VLLM_TPU_BLOCK_MAJOR_KV
+                      value: "1"
+                    # Explicitly disable megascale (single-host)
+                    - name: MEGASCALE_NUM_SLICES
+                      value: ""
+                    - name: MEGASCALE_SLICE_ID
+                      value: ""
+                    - name: TPU_PROCESS_ADDRESSES
+                      value: ""
+                    - name: TPU_WORKER_HOSTNAMES
+                      value: ""
+                    - name: TPU_PROCESS_PORT
+                      value: ""
+                    - name: MEGASCALE_COORDINATOR_ADDRESS
+                      value: ""
+                    - name: MEGASCALE_PORT
+                      value: ""
+                  volumeMounts:
+                    - name: hf-token-volume
+                      mountPath: /root/.cache/huggingface/token
+                      subPath: token
+                      readOnly: true
+                    - name: huggingface-storage
+                      mountPath: /root/.cache/huggingface/
+                    - name: dshm
+                      mountPath: /dev/shm
+                    - name: torchtpu-vllm-nfs
+                      mountPath: /root/torchtpu-vllm
+                    - name: wheels-nfs
+                      mountPath: /root/wheels
+                      readOnly: true
+                  command: [ "/bin/bash", "-c" ]
+                  args:
+                    - |
+                      set -eo pipefail
+                      : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                      export CDK_OUTPUT_DIR
+                      mkdir -p "$CDK_OUTPUT_DIR"
+                      export PYTHONUNBUFFERED=1
+
+                      # ---- Inject the V2 code: branch source + wheel ----
+                      echo "===== Syncing dependencies to pyproject.toml ====="
+                      mkdir -p /tmp/depsync
+                      sed -E '/"torch-tpu==/d' /root/torchtpu-vllm/pyproject.toml > /tmp/depsync/pyproject.toml
+                      uv pip install --system -r /tmp/depsync/pyproject.toml --index-url https://pypi.org/simple
+
+                      if [ "$RAIDEN_WHL" = "newest" ]; then
+                        RAIDEN_WHL=$(ls -t /root/wheels/tpu_raiden_torch-*raiden_controller*-cp312-*.whl 2>/dev/null | head -1)
+                      fi
+                      [ -n "$RAIDEN_WHL" ] && [ -f "$RAIDEN_WHL" ] || { echo "RESULT: FAIL (no tpu_raiden_torch wheel in /root/wheels)"; exit 1; }
+                      echo "Installing raiden wheel: $RAIDEN_WHL"
+                      uv pip install --system --no-deps "$RAIDEN_WHL"
+
+                      export PYTHONPATH=/root/torchtpu-vllm/src:/root/torchtpu-vllm:${PYTHONPATH:-}
+
+                      # Phase-4 preflight: the wheel must ship the remote-read
+                      # surface, and the branch the namespace derivation.
+                      python3 -c 'from tpu_raiden.api.torch.kv_cache_store import KVCacheStore as S; assert hasattr(S, "num_registered_workers"), "raiden wheel predates wheel #1"; assert hasattr(S, "read_remote") and hasattr(S, "poll_remote_read_status"), "raiden wheel predates the remote-read surface"; import vllm_torchtpu.offload.raiden_store as rs; assert hasattr(rs, "derive_offload_namespace"), "vllm-torchtpu branch predates phase 4"; import vllm_torchtpu.offload.raiden_connector as rc; assert hasattr(rc, "TPURaidenOffloadingConnector"); print("phase-4 preflight OK:", rc.__file__)' \
+                        || { echo "RESULT: FAIL (phase-4 preflight)"; exit 1; }
+
+                      # The registry never retries a failed RegisterStore, and
+                      # vLLM is also handed raiden_orchestrator_address, so wait
+                      # for BOTH control-plane ports before binding the store.
+                      REGISTRY_HOST="${JS_NAME}-registry-0-0.${JS_NAME}"
+                      for port in "${REGISTRY_PORT}" "${ORCH_PORT}"; do
+                        echo "Waiting for ${REGISTRY_HOST}:${port} (up to 10 min)..."
+                        waited=0
+                        until (exec 3<>"/dev/tcp/${REGISTRY_HOST}/${port}") 2>/dev/null; do
+                          exec 3>&- 2>/dev/null || true
+                          [ "$waited" -ge 600 ] && { echo "RESULT: FAIL (${REGISTRY_HOST}:${port} not reachable)"; exit 1; }
+                          sleep 2; waited=$((waited + 2))
+                        done
+                        exec 3>&- 2>/dev/null || true
+                        echo "${REGISTRY_HOST}:${port} reachable (${waited}s)"
+                      done
+
+                      export LIBTPU_INIT_ARGS="--xla_tpu_use_enhanced_launch_barrier=false ${LIBTPU_INIT_ARGS:-}"
+                      export TPU_PREMAPPED_BUFFER_SIZE=$((16 * 1024 * 1024 * 1024))
+                      export TPU_PREMAPPED_BUFFER_TRANSFER_THRESHOLD_BYTES=$((16 * 1024 * 1024 * 1024))
+                      export MODEL_IMPL_TYPE=vllm
+                      export USE_BATCHED_RPA_KERNEL=1
+                      export VLLM_MOE_ROUTING_SIMULATION_STRATEGY=uniform_random
+                      # Pod env does not survive vllm's spawn(); re-export.
+                      export RAIDEN_DISABLE_SINGLETON_WORKER=1
+
+                      KV_BYTES=$((KV_OFFLOADING_SIZE * 1024 * 1024 * 1024))
+                      KV_CFG=$(cat <<EOF
+                      {"kv_connector":"TPURaidenOffloadingConnector","kv_role":"kv_both","kv_connector_module_path":"vllm_torchtpu.offload.raiden_connector","kv_connector_extra_config":{"cpu_bytes_to_use":${KV_BYTES},"raiden_controller_port":${RAIDEN_CONTROLLER_PORT},"raiden_job_name":"xreplica-${REPLICA}","global_registry_address":"${REGISTRY_HOST}:${REGISTRY_PORT}","raiden_orchestrator_address":"${REGISTRY_HOST}:${ORCH_PORT}","store_server_ip":"${MY_POD_IP}"}}
+                      EOF
+                      )
+                      echo "Starting vLLM server (offload=V2-store phase 4, replica=${REPLICA}, pod IP=${MY_POD_IP}, registry=${REGISTRY_HOST}:${REGISTRY_PORT})..."
+
+                      # --enable-prompt-tokens-details: off by default in vLLM
+                      # 0.26.0, and without it usage.prompt_tokens_details is
+                      # never populated -- the check pod's cached-token gate
+                      # would fail every replay.
+                      exec vllm serve "$MODEL" \
+                          --tensor-parallel-size=8 \
+                          --gpu-memory-utilization="$GPU_MEM_UTIL" \
+                          --kv-transfer-config "$KV_CFG" \
+                          --async-scheduling \
+                          --enable-prompt-tokens-details \
+                          --port="$PORT" \
+                          2>&1 | tee "$CDK_OUTPUT_DIR/server.log"
+                  resources:
+                    limits:
+                      google.com/tpu: 4
+                      memory: "900Gi"
+                      cpu: "16"
+                    requests:
+                      google.com/tpu: 4
+                      memory: "900Gi"
+                      cpu: "16"
+
+    - name: server-b
+      replicas: 1
+      template:
+        spec:
+          ttlSecondsAfterFinished: 900
+          backoffLimit: 0
+          template:
+            spec:
+              restartPolicy: Never
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: "2x2x1"
+                cloud.google.com/gke-tpu-accelerator: "tpu7x"
+              volumes:
+                - name: dshm
+                  emptyDir:
+                    medium: Memory
+                    sizeLimit: "64Gi"
+                - name: hf-token-volume
+                  secret:
+                    secretName: vllm-hf-token
+                    items:
+                      - key: HF_TOKEN
+                        path: token
+                - name: huggingface-storage
+                  ephemeral:
+                    volumeClaimTemplate:
+                      spec:
+                        storageClassName: "premium-rwo"
+                        accessModes: [ "ReadWriteOnce" ]
+                        resources:
+                          requests:
+                            storage: 600Gi
+                - name: torchtpu-vllm-nfs
+                  nfs:
+                    server: 10.225.237.178
+                    path: /workspace/vllm-torchtpu/raiden_controller
+                - name: wheels-nfs
+                  nfs:
+                    server: 10.225.237.178
+                    path: /workspace/wheels
+              containers:
+                - name: vllm-server
+                  image: "us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/torchtpu-vllm:yinlin_google_com_block-major-raiden-t211b-syncfix"
+                  imagePullPolicy: Always
+                  env:
+                    - name: REPLICA
+                      value: "b"
+                    - name: JS_NAME
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                    - name: MY_POD_IP
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: status.podIP
+                    - name: MODEL
+                      value: "Qwen/Qwen3-32B"
+                    - name: PORT
+                      value: "8000"
+                    - name: GPU_MEM_UTIL
+                      value: "0.3"
+                    - name: KV_OFFLOADING_SIZE
+                      value: "40"
+                    - name: RAIDEN_CONTROLLER_PORT
+                      value: "47800"
+                    - name: REGISTRY_PORT
+                      value: "48500"
+                    - name: ORCH_PORT
+                      value: "48600"
+                    - name: RAIDEN_WHL
+                      value: "/root/wheels/tpu_raiden_torch-0.0.1.dev20260803004933-1_raiden_controller_5ad8d47-cp312-cp312-manylinux_2_31_x86_64.whl"
+                    - name: TPU_TOPOLOGY
+                      value: "2x2x1"
+                    - name: TPU_CHIPS_PER_HOST_BOUNDS
+                      value: "2,2,1"
+                    - name: TPU_HOST_BOUNDS
+                      value: "1,1,1"
+                    - name: TPU_STDERR_LOG_LEVEL
+                      value: "0"
+                    - name: VLLM_LOGGING_LEVEL
+                      value: "INFO"
+                    - name: VLLM_TPU_BLOCK_MAJOR_KV
+                      value: "1"
+                    # Explicitly disable megascale (single-host)
+                    - name: MEGASCALE_NUM_SLICES
+                      value: ""
+                    - name: MEGASCALE_SLICE_ID
+                      value: ""
+                    - name: TPU_PROCESS_ADDRESSES
+                      value: ""
+                    - name: TPU_WORKER_HOSTNAMES
+                      value: ""
+                    - name: TPU_PROCESS_PORT
+                      value: ""
+                    - name: MEGASCALE_COORDINATOR_ADDRESS
+                      value: ""
+                    - name: MEGASCALE_PORT
+                      value: ""
+                  volumeMounts:
+                    - name: hf-token-volume
+                      mountPath: /root/.cache/huggingface/token
+                      subPath: token
+                      readOnly: true
+                    - name: huggingface-storage
+                      mountPath: /root/.cache/huggingface/
+                    - name: dshm
+                      mountPath: /dev/shm
+                    - name: torchtpu-vllm-nfs
+                      mountPath: /root/torchtpu-vllm
+                    - name: wheels-nfs
+                      mountPath: /root/wheels
+                      readOnly: true
+                  command: [ "/bin/bash", "-c" ]
+                  args:
+                    - |
+                      set -eo pipefail
+                      : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                      export CDK_OUTPUT_DIR
+                      mkdir -p "$CDK_OUTPUT_DIR"
+                      export PYTHONUNBUFFERED=1
+
+                      # ---- Inject the V2 code: branch source + wheel ----
+                      echo "===== Syncing dependencies to pyproject.toml ====="
+                      mkdir -p /tmp/depsync
+                      sed -E '/"torch-tpu==/d' /root/torchtpu-vllm/pyproject.toml > /tmp/depsync/pyproject.toml
+                      uv pip install --system -r /tmp/depsync/pyproject.toml --index-url https://pypi.org/simple
+
+                      if [ "$RAIDEN_WHL" = "newest" ]; then
+                        RAIDEN_WHL=$(ls -t /root/wheels/tpu_raiden_torch-*raiden_controller*-cp312-*.whl 2>/dev/null | head -1)
+                      fi
+                      [ -n "$RAIDEN_WHL" ] && [ -f "$RAIDEN_WHL" ] || { echo "RESULT: FAIL (no tpu_raiden_torch wheel in /root/wheels)"; exit 1; }
+                      echo "Installing raiden wheel: $RAIDEN_WHL"
+                      uv pip install --system --no-deps "$RAIDEN_WHL"
+
+                      export PYTHONPATH=/root/torchtpu-vllm/src:/root/torchtpu-vllm:${PYTHONPATH:-}
+
+                      # Phase-4 preflight: the wheel must ship the remote-read
+                      # surface, and the branch the namespace derivation.
+                      python3 -c 'from tpu_raiden.api.torch.kv_cache_store import KVCacheStore as S; assert hasattr(S, "num_registered_workers"), "raiden wheel predates wheel #1"; assert hasattr(S, "read_remote") and hasattr(S, "poll_remote_read_status"), "raiden wheel predates the remote-read surface"; import vllm_torchtpu.offload.raiden_store as rs; assert hasattr(rs, "derive_offload_namespace"), "vllm-torchtpu branch predates phase 4"; import vllm_torchtpu.offload.raiden_connector as rc; assert hasattr(rc, "TPURaidenOffloadingConnector"); print("phase-4 preflight OK:", rc.__file__)' \
+                        || { echo "RESULT: FAIL (phase-4 preflight)"; exit 1; }
+
+                      # The registry never retries a failed RegisterStore, and
+                      # vLLM is also handed raiden_orchestrator_address, so wait
+                      # for BOTH control-plane ports before binding the store.
+                      REGISTRY_HOST="${JS_NAME}-registry-0-0.${JS_NAME}"
+                      for port in "${REGISTRY_PORT}" "${ORCH_PORT}"; do
+                        echo "Waiting for ${REGISTRY_HOST}:${port} (up to 10 min)..."
+                        waited=0
+                        until (exec 3<>"/dev/tcp/${REGISTRY_HOST}/${port}") 2>/dev/null; do
+                          exec 3>&- 2>/dev/null || true
+                          [ "$waited" -ge 600 ] && { echo "RESULT: FAIL (${REGISTRY_HOST}:${port} not reachable)"; exit 1; }
+                          sleep 2; waited=$((waited + 2))
+                        done
+                        exec 3>&- 2>/dev/null || true
+                        echo "${REGISTRY_HOST}:${port} reachable (${waited}s)"
+                      done
+
+                      export LIBTPU_INIT_ARGS="--xla_tpu_use_enhanced_launch_barrier=false ${LIBTPU_INIT_ARGS:-}"
+                      export TPU_PREMAPPED_BUFFER_SIZE=$((16 * 1024 * 1024 * 1024))
+                      export TPU_PREMAPPED_BUFFER_TRANSFER_THRESHOLD_BYTES=$((16 * 1024 * 1024 * 1024))
+                      export MODEL_IMPL_TYPE=vllm
+                      export USE_BATCHED_RPA_KERNEL=1
+                      export VLLM_MOE_ROUTING_SIMULATION_STRATEGY=uniform_random
+                      # Pod env does not survive vllm's spawn(); re-export.
+                      export RAIDEN_DISABLE_SINGLETON_WORKER=1
+
+                      KV_BYTES=$((KV_OFFLOADING_SIZE * 1024 * 1024 * 1024))
+                      KV_CFG=$(cat <<EOF
+                      {"kv_connector":"TPURaidenOffloadingConnector","kv_role":"kv_both","kv_connector_module_path":"vllm_torchtpu.offload.raiden_connector","kv_connector_extra_config":{"cpu_bytes_to_use":${KV_BYTES},"raiden_controller_port":${RAIDEN_CONTROLLER_PORT},"raiden_job_name":"xreplica-${REPLICA}","global_registry_address":"${REGISTRY_HOST}:${REGISTRY_PORT}","raiden_orchestrator_address":"${REGISTRY_HOST}:${ORCH_PORT}","store_server_ip":"${MY_POD_IP}"}}
+                      EOF
+                      )
+                      echo "Starting vLLM server (offload=V2-store phase 4, replica=${REPLICA}, pod IP=${MY_POD_IP}, registry=${REGISTRY_HOST}:${REGISTRY_PORT})..."
+
+                      # --enable-prompt-tokens-details: off by default in vLLM
+                      # 0.26.0, and without it usage.prompt_tokens_details is
+                      # never populated -- the check pod's cached-token gate
+                      # would fail every replay.
+                      exec vllm serve "$MODEL" \
+                          --tensor-parallel-size=8 \
+                          --gpu-memory-utilization="$GPU_MEM_UTIL" \
+                          --kv-transfer-config "$KV_CFG" \
+                          --async-scheduling \
+                          --enable-prompt-tokens-details \
+                          --port="$PORT" \
+                          2>&1 | tee "$CDK_OUTPUT_DIR/server.log"
+                  resources:
+                    limits:
+                      google.com/tpu: 4
+                      memory: "900Gi"
+                      cpu: "16"
+                    requests:
+                      google.com/tpu: 4
+                      memory: "900Gi"
+                      cpu: "16"
+
+    # check: warm replica A, replay on replica B, compare byte-for-byte and
+    # report the pass-2 vs cold TTFT gap.
+    - name: check
+      replicas: 1
+      template:
+        spec:
+          ttlSecondsAfterFinished: 900
+          backoffLimit: 0
+          template:
+            spec:
+              restartPolicy: Never
+              containers:
+                - name: xreplica-check
+                  image: vllm/vllm-tpu:nightly
+                  imagePullPolicy: Always
+                  env:
+                    - name: JS_NAME
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                    - name: MODEL
+                      value: "Qwen/Qwen3-32B"
+                    - name: PORT
+                      value: "8000"
+                    - name: NUM_PROMPTS
+                      value: "8"
+                    # Words per prompt; ~1.3 tokens/word, so 6000 ~ 8k tokens.
+                    - name: PROMPT_WORDS
+                      value: "6000"
+                    - name: OUTPUT_LEN
+                      value: "64"
+                    # Seconds between warming A and replaying on B, so the
+                    # last saves commit and publish to the registry.
+                    - name: PUBLISH_WAIT_S
+                      value: "15"
+                  command: [ "/bin/bash", "-c" ]
+                  args:
+                    - |
+                      set -eo pipefail
+                      : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                      export CDK_OUTPUT_DIR
+                      mkdir -p "$CDK_OUTPUT_DIR"
+                      export PYTHONUNBUFFERED=1
+
+                      export HOST_A="${JS_NAME}-server-a-0-0.${JS_NAME}"
+                      export HOST_B="${JS_NAME}-server-b-0-0.${JS_NAME}"
+                      for host in "$HOST_A" "$HOST_B"; do
+                        echo "Waiting for vLLM at http://${host}:${PORT}/health (up to 180 min)..."
+                        waited=0
+                        while ! curl -sf "http://${host}:${PORT}/health" >/dev/null 2>&1; do
+                          if [ "$waited" -ge $((180 * 60)) ]; then
+                            echo "RESULT: FAIL (${host} not ready)"; exit 1
+                          fi
+                          if [ "$waited" -gt 0 ] && [ $((waited % 60)) -eq 0 ]; then
+                            echo "  ...still waiting for ${host} (${waited}s elapsed)"
+                          fi
+                          sleep 1; waited=$((waited + 1))
+                        done
+                        echo "${host} ready (${waited}s)"
+                      done
+
+                      python3 - <<'PYEOF' 2>&1 | tee "$CDK_OUTPUT_DIR/xreplica.log"
+                      import json, os, sys, time, urllib.request
+
+                      HOST_A = os.environ["HOST_A"]
+                      HOST_B = os.environ["HOST_B"]
+                      PORT = os.environ["PORT"]
+                      MODEL = os.environ["MODEL"]
+                      N = int(os.environ["NUM_PROMPTS"])
+                      WORDS = int(os.environ["PROMPT_WORDS"])
+                      OUT = int(os.environ["OUTPUT_LEN"])
+                      PUBLISH_WAIT_S = float(os.environ["PUBLISH_WAIT_S"])
+
+                      def prompt(tag, i):
+                          # Deterministic, high-entropy, and distinct per (tag, i)
+                          # so no two prompts share a prefix block.
+                          head = f"[{tag}-{i:04d}] "
+                          body = " ".join(f"w{i}x{j}" for j in range(WORDS))
+                          return head + body + "\nSummarize the above in one line:"
+
+                      def complete(host, text):
+                          req = urllib.request.Request(
+                              f"http://{host}:{PORT}/v1/completions",
+                              data=json.dumps({
+                                  "model": MODEL, "prompt": text,
+                                  "max_tokens": OUT, "temperature": 0.0,
+                                  "seed": 42, "ignore_eos": True,
+                              }).encode(),
+                              headers={"Content-Type": "application/json"})
+                          t0 = time.time()
+                          with urllib.request.urlopen(req, timeout=1800) as r:
+                              body = json.loads(r.read())
+                          usage = body.get("usage") or {}
+                          details = usage.get("prompt_tokens_details") or {}
+                          return (body["choices"][0]["text"],
+                                  time.time() - t0,
+                                  details.get("cached_tokens"))
+
+                      prompts = [prompt("doc", i) for i in range(N)]
+
+                      print(f"=== pass 1: warming replica A with {N} prompts, "
+                            f"{WORDS} words each ===")
+                      first = [complete(HOST_A, p) for p in prompts]
+                      for i, (_, dt, cached) in enumerate(first):
+                          print(f"  doc-{i:04d}: {dt:6.2f}s cached_tokens={cached}")
+
+                      print(f"=== waiting {PUBLISH_WAIT_S:.0f}s for saves to "
+                            f"commit and publish to the registry ===")
+                      time.sleep(PUBLISH_WAIT_S)
+
+                      print(f"=== pass 2: replaying the same {N} prompts on "
+                            f"replica B (must arrive via read_remote) ===")
+                      second = [complete(HOST_B, p) for p in prompts]
+                      for i, (_, dt, cached) in enumerate(second):
+                          print(f"  doc-{i:04d}: {dt:6.2f}s cached_tokens={cached}")
+
+                      print(f"=== pass 3: {N} fresh prompts on replica B "
+                            f"(cold-TTFT baseline) ===")
+                      cold = [complete(HOST_B, prompt("cold", i)) for i in range(N)]
+                      for i, (_, dt, cached) in enumerate(cold):
+                          print(f"  cold-{i:04d}: {dt:6.2f}s cached_tokens={cached}")
+
+                      # Byte equality is informational only (replicas are not
+                      # byte-deterministic, vllm-torchtpu PR #62); the gated
+                      # signal is immediate divergence — corrupt fetched KV
+                      # garbles the continuation from the first tokens, while
+                      # a benign token flip mid-rollout keeps a long common
+                      # prefix.
+                      EARLY_DIV_CHARS = 8
+                      exact, early_div = 0, []
+                      for i, ((a, _, _), (b, _, _)) in enumerate(zip(first, second)):
+                          if a == b:
+                              exact += 1
+                              continue
+                          n = min(len(a), len(b))
+                          lcp = 0
+                          while lcp < n and a[lcp] == b[lcp]:
+                              lcp += 1
+                          print(f"MISMATCH doc-{i:04d} lcp_chars={lcp}")
+                          print(f"  replica A: {a[:200]!r}")
+                          print(f"  replica B: {b[:200]!r}")
+                          if lcp < EARLY_DIV_CHARS:
+                              early_div.append(i)
+                      print(f"pass 2: {exact}/{N} byte-identical, "
+                            f"early_divergences={early_div}")
+
+                      t_warm = sum(t for _, t, _ in second) / max(len(second), 1)
+                      t_cold = sum(t for _, t, _ in cold) / max(len(cold), 1)
+                      print(f"mean latency on B: remote-hit={t_warm:.2f}s "
+                            f"cold={t_cold:.2f}s "
+                            f"(speedup {t_cold / max(t_warm, 1e-9):.2f}x)")
+
+                      # Hard: matching outputs alone prove nothing — plain
+                      # recomputation reproduces them too. Every replayed
+                      # prompt must report cached prompt tokens, or the gate
+                      # never exercised read_remote at all.
+                      missed = [i for i, (_, _, c) in enumerate(second) if not c]
+                      # Latency stays a WARNING only: it is too noisy to gate on.
+                      if t_warm >= t_cold:
+                          print("WARNING: remote-hit latency is not below the cold "
+                                "baseline — the sharing plane is not paying off. "
+                                "Correctness still gates; investigate before "
+                                "trusting the perf story.")
+
+                      if len(early_div) > N // 2:
+                          print(f"RESULT: FAIL ({len(early_div)}/{N} prompts diverge "
+                                f"between replica A and replica B within the first "
+                                f"{EARLY_DIV_CHARS} chars — fetched KV looks "
+                                f"corrupt, not benignly nondeterministic: "
+                                f"{early_div})")
+                          sys.exit(1)
+                      if missed:
+                          for i in missed:
+                              print(f"NO-HIT doc-{i:04d}: "
+                                    f"cached_tokens={second[i][2]}")
+                          print(f"RESULT: FAIL ({len(missed)}/{N} replayed prompts "
+                                f"reported no cached prompt tokens — the replay "
+                                f"did not arrive via read_remote: {missed}. Check "
+                                f"replica B's server.log for read_remote activity "
+                                f"and the registry pod's logs.)")
+                          sys.exit(1)
+                      print(f"RESULT: PASS ({exact}/{N} byte-identical, "
+                            f"{len(early_div)} early divergences, cached-token "
+                            f"evidence on all replays; remote-hit "
+                            f"{t_cold / max(t_warm, 1e-9):.2f}x faster than cold)")
+                      PYEOF
+                  resources:
+                    limits:
+                      memory: "8Gi"
+                      cpu: "2"
+                    requests:
+                      memory: "4Gi"
+                      cpu: "1"
