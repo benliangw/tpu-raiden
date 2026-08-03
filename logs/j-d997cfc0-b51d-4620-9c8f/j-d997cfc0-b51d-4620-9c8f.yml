@@ -1,0 +1,2125 @@
+# ---------------------------------------------------------------------------
+# A/B workload with two completion gates:
+#   - correctness checks cold/warm/proxy equivalence, deterministic eviction
+#     churn, and a post-eviction replay of a known-answer prompt.
+#   - eval revisits distinct many-shot GSM8K prefixes that exceed one PCP8
+#     scheduler block. A conventional 25-shot GSM8K prompt is shorter than
+#     the 32768-token hash block and cannot exercise the offload tier. The
+#     eval pod runs that same seed/revisit shape a second time through
+#     lm_eval, at a few-shot count sized past one block, so the job also
+#     reports exact_match strict-match / flexible-extract.
+#   - eval fronts those scored stages with the baseline halves of the two
+#     offload-tier perf stages: peak-prefill (no-write-through reference
+#     for prompt_tok_per_s) and restore-latency (revisits must MISS the
+#     external cache and pay recompute), mirroring the offloading recipe.
+#
+# Pool sizing:
+#   - prefill --num-gpu-blocks-override 128 -> 1,048,576 tokens
+#     (16 x max_model_len 65536), matching --max-num-seqs 16.
+#   - decode  --num-gpu-blocks-override 262 -> 16 request blocks per sequence
+#     x 16 sequences + 6 grouping/layout blocks, also 16 x max_model_len.
+#   - CORRECTNESS_DOCS 24 / LC_DOCS 48: at ~33k tokens per doc (one full
+#     32768-token block plus a tail) both working sets overflow the pool's
+#     32 scheduler blocks, so every revisit is served after HBM eviction and
+#     the A/B keeps its signal.
+# Both overrides stay far below the 1988 blocks the engine sizes at
+# gpu_memory_utilization=0.9 (see "Overriding num_gpu_blocks=1988" in the
+# engine log), which is what makes them safe.
+# ---------------------------------------------------------------------------
+# A/B baseline for qwen35-disagg-offloading.yml.
+#
+# This recipe keeps the same Qwen3.5-35B-A3B-FP8 topology, prefix-caching
+# settings, block budgets, probes, and benchmark workload, but uses a plain
+# TPURaidenConnector with no CPU offload tier:
+#   - prefill: PCP8/TP1 on one 8-device tpu7x host
+#   - decode:  DP8/TP1 on a second 8-device tpu7x host
+#
+# The correctness and eval pods gate completion. This leg's correctness pod
+# measures recompute after HBM eviction, and its eval revisit pass recomputes
+# every many-shot prefix, so revisit ~= seed. Nothing is collected from
+# CDK_OUTPUT_DIR — it is pod-local and dies with the pod — so the pod logs are
+# the only artifact, and neither job compares itself against the other.
+#
+# Caveat: this leg runs a bare TPURaidenConnector, so the measured delta vs
+# the offloading recipe includes TPUMultiConnector wrapper overhead as well as
+# the offload tier itself. That matches the ship/no-ship question (the tier
+# cannot ship without the wrapper); wrap this leg's connector in a
+# single-child TPUMultiConnector instead if you need to isolate the tier.
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: vllm-qwen35-disagg-baseline
+spec:
+  successPolicy:
+    operator: All
+    targetReplicatedJobs:
+      - correctness
+      - eval
+  ttlSecondsAfterFinished: 600
+  replicatedJobs:
+    # ---------------------------------------------------------
+    # PREFILL (PCP8) + PROXY
+    # ---------------------------------------------------------
+    - name: prefill
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            spec:
+              dnsPolicy: ClusterFirstWithHostNet
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: 2x2x1
+                cloud.google.com/gke-tpu-accelerator: tpu7x
+              initContainers:
+                - name: tpu-node-setup
+                  image: busybox
+                  securityContext:
+                    privileged: true
+                  command: ["/bin/sh", "-c"]
+                  args:
+                    - |
+                      sysctl -w vm.max_map_count=8388608
+                      if [ -f /sys/module/vfio_iommu_type1/parameters/dma_entry_limit ]; then
+                        echo 2000000 > /sys/module/vfio_iommu_type1/parameters/dma_entry_limit
+                        echo "Successfully increased dma_entry_limit"
+                      fi
+              containers:
+              - name: vllm-tpu-prefill
+                image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:latest
+                imagePullPolicy: Always
+                command: ["/bin/bash", "-c"]
+                args:
+                - |
+                  set -eo pipefail
+                  : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                  export CDK_OUTPUT_DIR
+                  mkdir -p "$CDK_OUTPUT_DIR"
+                  export PYTHONUNBUFFERED=1
+
+                  echo "===== Syncing dependencies to pyproject.toml ====="
+                  # Keep the vllm== pin: this installs the pinned vLLM from
+                  # PyPI, replacing the image's editable install of the NFS
+                  # checkout at /root/cloud-devkit/vllm (which can drift from
+                  # the version the torchtpu-vllm code expects). Only the
+                  # torch-tpu pin is stripped; it is installed from a wheel
+                  # below.
+                  mkdir -p /tmp/depsync
+                  sed -E '/"torch-tpu==/d' /root/torchtpu-vllm/pyproject.toml > /tmp/depsync/pyproject.toml
+                  uv pip install --system -r /tmp/depsync/pyproject.toml --index-url https://pypi.org/simple
+
+
+                  # Pinned tpu-raiden build from upstream main commit
+                  # 03061df (no local tpu-raiden changes).
+                  uv pip install --system --no-deps \
+                    "/root/wheels/tpu_raiden_torch-0.0.1.dev20260802122910-1_head_03061df-cp312-cp312-manylinux_2_31_x86_64.whl"
+                  python3 -c "from tpu_raiden.rpc.raiden_controller import RaidenController, RaidenControllerServer" \
+                    || { echo "RESULT: FAIL (raiden import)"; exit 1; }
+
+                  export PYTHONPATH=/root/torchtpu-vllm/src:/root/torchtpu-vllm:${PYTHONPATH:-}
+
+                  export VLLM_HOST_IP="${JS_NAME}-prefill-0-0.${JS_NAME}"
+                  NS="${JS_NAME//[^a-zA-Z0-9_]/_}"
+                  export TPU_KV_TRANSFER_NAMESPACE="${NS}_prefill"
+                  export TPU_RAIDEN_JOB_NAME=prefill
+                  export TPU_RAIDEN_ENGINE_ID="${JS_NAME}-prefill-engine"
+                  export TPU_RAIDEN_CONTROLLER_ADDRESS="${VLLM_HOST_IP}:${CONTROLLER_PORT}"
+
+                  echo "===== Pre-downloading $MODEL snapshot ====="
+                  DL_OK=""
+                  for i in $(seq 1 30); do
+                    if python3 -c "import os; from huggingface_hub import snapshot_download; snapshot_download(os.environ['MODEL'])"; then
+                      DL_OK=1; break
+                    fi
+                    echo "snapshot_download failed (attempt $i/30); retrying in 60s"
+                    sleep 60
+                  done
+                  [ -n "$DL_OK" ] || { echo "RESULT: FAIL (model snapshot download)"; exit 1; }
+                  export HF_HUB_OFFLINE=1
+
+                  echo "===== Starting Raiden controller on :${CONTROLLER_PORT} ====="
+                  cat > /tmp/raiden_controller.py <<'PYEOF'
+                  import argparse, json, logging, os, signal, threading, time
+                  from pathlib import Path
+                  from tpu_raiden.rpc.raiden_controller import RaidenController, RaidenControllerServer
+
+                  parser = argparse.ArgumentParser()
+                  parser.add_argument("--port", type=int, required=True)
+                  parser.add_argument("--advertise-host", required=True)
+                  parser.add_argument("--request-registry-ttl-s", type=float, default=600.0)
+                  parser.add_argument("--ready-file", type=Path, required=True)
+                  args = parser.parse_args()
+
+                  logging.basicConfig(level=logging.INFO,
+                                      format="%(asctime)s %(levelname)s %(message)s",
+                                      force=True)
+                  stopping = threading.Event()
+                  signal.signal(signal.SIGINT, lambda *_: stopping.set())
+                  signal.signal(signal.SIGTERM, lambda *_: stopping.set())
+
+                  controller = RaidenController(port=args.port,
+                                                request_registry_ttl_s=args.request_registry_ttl_s)
+                  server = RaidenControllerServer(controller)
+                  server.start()
+                  payload = {
+                      "schema_version": 1,
+                      "event": "raiden_controller_ready",
+                      "pid": os.getpid(),
+                      "requested_port": args.port,
+                      "port": server.port,
+                      "advertise_host": args.advertise_host,
+                      "address": f"{args.advertise_host}:{server.port}",
+                      "request_registry_ttl_s": args.request_registry_ttl_s,
+                      "time_unix_s": time.time(),
+                  }
+                  args.ready_file.parent.mkdir(parents=True, exist_ok=True)
+                  tmp = args.ready_file.with_name(f".{args.ready_file.name}.{os.getpid()}.tmp")
+                  tmp.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")
+                  tmp.replace(args.ready_file)
+                  print(json.dumps(payload, sort_keys=True), flush=True)
+                  try:
+                      while not stopping.wait(1.0):
+                          pass
+                  finally:
+                      server.stop()
+                  PYEOF
+                  rm -f /tmp/controller.ready.json
+                  python3 /tmp/raiden_controller.py \
+                    --port "$CONTROLLER_PORT" \
+                    --advertise-host "$VLLM_HOST_IP" \
+                    --request-registry-ttl-s 600 \
+                    --ready-file /tmp/controller.ready.json \
+                    > "$CDK_OUTPUT_DIR/controller.log" 2>&1 &
+                  CONTROLLER_PID=$!
+                  for i in $(seq 1 200); do
+                    [ -s /tmp/controller.ready.json ] && break
+                    kill -0 "$CONTROLLER_PID" 2>/dev/null \
+                      || { echo "RESULT: FAIL (controller exited)"; cat "$CDK_OUTPUT_DIR/controller.log"; exit 1; }
+                    sleep 0.5
+                  done
+                  [ -s /tmp/controller.ready.json ] || { echo "RESULT: FAIL (controller not ready)"; exit 1; }
+                  cat /tmp/controller.ready.json
+
+                  COMPILATION_CONFIG='{"backend":"vllm_torchtpu.compilation.tpu_compiler.TpuCompilerAdaptor","compile_sizes":[4096],"inductor_compile_config":{"enable_auto_functionalized_v2":false,"size_asserts":false,"alignment_asserts":false,"scalar_asserts":false}}'
+
+                  KV_TRANSFER_CONFIG='{"kv_connector":"TPURaidenConnector","kv_connector_module_path":"vllm_torchtpu.distributed.kv_transfer.tpu_connector","kv_role":"kv_producer","kv_port":14579}'
+
+                  echo "===== Starting Qwen3.5 PCP8 prefill node (baseline) ====="
+                  exec vllm serve \
+                    "$MODEL" \
+                    --served-model-name "$SERVED_MODEL" \
+                    --trust-remote-code \
+                    --seed 42 \
+                    --max-model-len 65536 \
+                    --enable-expert-parallel \
+                    --disable-custom-all-reduce \
+                    --gpu-memory-utilization 0.9 \
+                    --kv-cache-dtype fp8 \
+                    --language-model-only \
+                    --max-num-batched-tokens 4096 \
+                    --max-num-seqs 16 \
+                    --no-disable-hybrid-kv-cache-manager \
+                    --attention-backend CUSTOM \
+                    --mamba-cache-mode align \
+                    --enable-prompt-tokens-details \
+                    --no-enable-log-requests \
+                    --compilation-config "$COMPILATION_CONFIG" \
+                    --enable-prefix-caching \
+                    --no-async-scheduling \
+                    --block-size 4096 \
+                    --tensor-parallel-size 1 \
+                    --host 0.0.0.0 \
+                    --port 8000 \
+                    --num-gpu-blocks-override 128 \
+                    --prefill-context-parallel-size 8 \
+                    --cp-kv-cache-interleave-size 256 \
+                    --kv-transfer-config "$KV_TRANSFER_CONFIG" \
+                    2>&1 | tee "$CDK_OUTPUT_DIR/server.log"
+                env:
+                  - name: JS_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                  - name: MODEL
+                    value: "Qwen/Qwen3.5-35B-A3B-FP8"
+                  - name: SERVED_MODEL
+                    value: "Qwen3.5-35B-A3B-FP8"
+                  - name: CONTROLLER_PORT
+                    value: "27000"
+                  - name: VLLM_LOGGING_LEVEL
+                    value: "INFO"
+                  - name: HF_HUB_DISABLE_XET
+                    value: "1"
+                  # --- device / topology (8 devices on one 2x2x1 tpu7x host) ---
+                  - name: JAX_PLATFORMS
+                    value: "tpu,cpu"
+                  - name: PJRT_DEVICE
+                    value: TPU
+                  - name: TPU_BACKEND_TYPE
+                    value: "jax"
+                  - name: VLLM_TARGET_DEVICE
+                    value: "tpu"
+                  - name: TPU_TOPOLOGY
+                    value: "2x2x1"
+                  - name: TPU_CHIPS_PER_HOST_BOUNDS
+                    value: "2,2,1"
+                  - name: TPU_HOST_BOUNDS
+                    value: "1,1,1"
+                  - name: TPU_LIBRARY_PATH
+                    value: ""
+                  - name: MEGASCALE_NUM_SLICES
+                    value: ""
+                  - name: MEGASCALE_SLICE_ID
+                    value: ""
+                  - name: TPU_PROCESS_ADDRESSES
+                    value: ""
+                  - name: TPU_WORKER_HOSTNAMES
+                    value: ""
+                  - name: TPU_PROCESS_PORT
+                    value: ""
+                  - name: MEGASCALE_COORDINATOR_ADDRESS
+                    value: ""
+                  - name: MEGASCALE_PORT
+                    value: ""
+                  # --- model / kernel config (from the live-pair script) ---
+                  - name: MODEL_IMPL_TYPE
+                    value: "vllm"
+                  - name: NEW_MODEL_DESIGN
+                    value: "0"
+                  - name: SKIP_JAX_PRECOMPILE
+                    value: "1"
+                  - name: VLLM_XLA_CHECK_RECOMPILATION
+                    value: "0"
+                  - name: USE_MOE_SPARSE_CORE
+                    value: "0"
+                  - name: TPUMISC_HMA_CHECKSUM_TRACE
+                    value: "0"
+                  - name: TPU_GDN_CONV_STATE_TILE_PAD
+                    value: "1"
+                  - name: XLA_PYTHON_CLIENT_PREALLOCATE
+                    value: "false"
+                  - name: VLLM_ALLOW_LONG_MAX_MODEL_LEN
+                    value: "1"
+                  - name: USE_BATCHED_RPA_KERNEL
+                    value: "1"
+                  - name: RAGGED_GATED_DELTA_RULE_IMPL
+                    value: "chunked_kernel_v3_pd"
+                  - name: ONEHOT_MOE_PERMUTE_THRESHOLD
+                    value: "1024"
+                  - name: TPU_RAGGED_GATHER_REDUCE_IMPL
+                    value: "fallback"
+                  - name: TPU_RAGGED_GATHER_IMPL
+                    value: "fallback"
+                  - name: LIBTPU_INIT_ARGS
+                    value: "--xla_tpu_scoped_vmem_limit_kib=65536 --xla_tpu_enable_latency_hiding_scheduler=false"
+                  # libtpu 0.0.43 can take longer than the 120 s default to
+                  # bootstrap the PCP8 LOCAL_RANK remap probe.
+                  - name: TPU_PCP_REMAP_PROBE_TIMEOUT_S
+                    value: "600"
+                  # Include model load, KV-cache profiling, and warmup.
+                  - name: VLLM_ENGINE_READY_TIMEOUT_S
+                    value: "1800"
+                  - name: TORCH_TPU_INTERNAL_TIER2_COMPILATION_CACHE
+                    value: "disabled"
+                  # --- Raiden KV transfer (from the live-pair script) ---
+                  - name: TPU_VLLM_ENABLE_UNIFIED_BLOCK_POOL
+                    value: "1"
+                  - name: TPU_USE_RAIDEN_KV_CACHE_MANAGER
+                    value: "1"
+                  - name: TPU_RAIDEN_QWEN35_ADMISSION
+                    value: "1"
+                  - name: TPU_KV_RESHARD_TRANSPORT
+                    value: "raiden"
+                  # Producer-side Stage-3 byte-span lowering needs the
+                  # destination page geometry; it cannot read the decoder's
+                  # block_size. Must track decode's --block-size 4096.
+                  - name: TPU_KV_RESHARD_DST_PAGE_TOKENS
+                    value: "4096"
+                  - name: TPU_RAIDEN_TRANSFER_PARALLELISM
+                    value: "8"
+                  - name: TPU_ENABLE_D2H_TRANSFER
+                    value: "1"
+                  - name: TPU_HMA_D2H_COPY_IMPL
+                    value: "device_put"
+                  - name: TPU_HMA_MIN_DONE_RECVING_BATCH
+                    value: "1"
+                  - name: TPU_HMA_MAX_DONE_RECVING_BATCH
+                    value: "1"
+                  - name: TPU_HMA_MAX_INFLIGHT_D2H_SENDS
+                    value: "1"
+                  - name: TPU_HMA_MAX_INFLIGHT_PULLS
+                    value: "8"
+                  - name: TPU_MAX_HOST_KV_BUFFER_SIZE
+                    value: "64"
+                  # Exceeds measured claim latency while bounding how long an
+                  # abandoned request can pin the prefill block pool.
+                  - name: TPU_P2P_WAIT_PULL_TIMEOUT
+                    value: "300"
+                  - name: TPU_KV_SHM_POOL_GB
+                    value: "8"
+                  - name: TPU_KV_TRANSFER_PORT
+                    value: "9100"
+                  - name: TPU_SIDE_CHANNEL_PORT
+                    value: "9600"
+                volumeMounts:
+                  - name: hf-token-volume
+                    mountPath: /root/.cache/huggingface/token
+                    subPath: token
+                    readOnly: true
+                  - name: huggingface-storage
+                    mountPath: /root/.cache/huggingface/
+                  - name: dshm
+                    mountPath: /dev/shm
+                  - name: torchtpu-vllm-nfs
+                    mountPath: /root/torchtpu-vllm
+                  - name: vllm-nfs
+                    mountPath: /root/cloud-devkit/vllm
+                  - name: wheels-nfs
+                    mountPath: /root/wheels
+                    readOnly: true
+                securityContext:
+                  privileged: true
+                  capabilities:
+                    add:
+                    - IPC_LOCK
+                resources:
+                  limits:
+                    google.com/tpu: "4"
+                    memory: "850Gi"
+                    cpu: "200"
+                  requests:
+                    google.com/tpu: "4"
+                    memory: "850Gi"
+                    cpu: "200"
+                ports:
+                  - containerPort: 8000
+
+              - name: vllm-tpu-proxy
+                image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:latest
+                imagePullPolicy: Always
+                command: ["/bin/bash", "-c"]
+                args:
+                  - |
+                    PREFILLER_DNS="${JS_NAME}-prefill-0-0.${JS_NAME}"
+                    DECODER_DNS="${JS_NAME}-decode-0-0.${JS_NAME}"
+
+                    python3 /root/torchtpu-vllm/examples/disagg/toy_proxy_server.py \
+                      --host 0.0.0.0 \
+                      --port 10000 \
+                      --prefiller-host $PREFILLER_DNS \
+                      --prefiller-port 8000 \
+                      --decoder-host $DECODER_DNS \
+                      --decoder-port 7200
+                env:
+                - name: JS_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                volumeMounts:
+                  - name: torchtpu-vllm-nfs
+                    mountPath: /root/torchtpu-vllm
+                    readOnly: true
+                ports:
+                - containerPort: 10000
+                resources:
+                  requests: { cpu: "8", memory: "16Gi" }
+                  limits: { cpu: "16", memory: "32Gi" }
+
+              volumes:
+              - name: dshm
+                emptyDir:
+                  medium: Memory
+              - name: hf-token-volume
+                secret:
+                  secretName: vllm-hf-token
+                  items:
+                  - key: HF_TOKEN
+                    path: token
+              - name: huggingface-storage
+                ephemeral:
+                  volumeClaimTemplate:
+                    spec:
+                      storageClassName: "premium-rwo"
+                      accessModes: [ "ReadWriteOnce" ]
+                      resources:
+                        requests:
+                          storage: 256Gi
+              - name: torchtpu-vllm-nfs
+                nfs:
+                  server: 10.225.237.178
+                  # Branch worktree, not the repo root: /workspace/vllm-torchtpu
+                  # is now a container holding .bare/ plus one folder per branch,
+                  # so this pins the job to benliangw/disagg_offloading.
+                  path: /workspace/vllm-torchtpu/disagg_offloading
+              - name: vllm-nfs
+                nfs:
+                  server: 10.225.237.178
+                  path: /workspace/vllm
+              - name: wheels-nfs
+                nfs:
+                  server: 10.225.237.178
+                  path: /workspace/wheels
+
+    # ---------------------------------------------------------
+    # DECODE (DP8)
+    # ---------------------------------------------------------
+    - name: decode
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            spec:
+              dnsPolicy: ClusterFirstWithHostNet
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: 2x2x1
+                cloud.google.com/gke-tpu-accelerator: tpu7x
+              initContainers:
+                - name: tpu-node-setup
+                  image: busybox
+                  securityContext:
+                    privileged: true
+                  command: ["/bin/sh", "-c"]
+                  args:
+                    - |
+                      sysctl -w vm.max_map_count=8388608
+                      if [ -f /sys/module/vfio_iommu_type1/parameters/dma_entry_limit ]; then
+                        echo 2000000 > /sys/module/vfio_iommu_type1/parameters/dma_entry_limit
+                        echo "Successfully increased dma_entry_limit"
+                      fi
+              containers:
+              - name: vllm-tpu-decode
+                image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:latest
+                imagePullPolicy: Always
+                command: ["/bin/bash", "-c"]
+                args:
+                - |
+                  set -eo pipefail
+                  : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                  export CDK_OUTPUT_DIR
+                  mkdir -p "$CDK_OUTPUT_DIR"
+                  export PYTHONUNBUFFERED=1
+
+                  echo "===== Syncing dependencies to pyproject.toml ====="
+                  # Keep the vllm== pin: this installs the pinned vLLM from
+                  # PyPI, replacing the image's editable install of the NFS
+                  # checkout at /root/cloud-devkit/vllm (which can drift from
+                  # the version the torchtpu-vllm code expects). Only the
+                  # torch-tpu pin is stripped; it is installed from a wheel
+                  # below.
+                  mkdir -p /tmp/depsync
+                  sed -E '/"torch-tpu==/d' /root/torchtpu-vllm/pyproject.toml > /tmp/depsync/pyproject.toml
+                  uv pip install --system -r /tmp/depsync/pyproject.toml --index-url https://pypi.org/simple
+
+
+                  # Pinned tpu-raiden build from upstream main commit
+                  # 03061df (no local tpu-raiden changes).
+                  uv pip install --system --no-deps \
+                    "/root/wheels/tpu_raiden_torch-0.0.1.dev20260802122910-1_head_03061df-cp312-cp312-manylinux_2_31_x86_64.whl"
+                  python3 -c "from tpu_raiden.rpc.raiden_controller import RaidenController, RaidenControllerServer" \
+                    || { echo "RESULT: FAIL (raiden import)"; exit 1; }
+
+                  export PYTHONPATH=/root/torchtpu-vllm/src:/root/torchtpu-vllm:${PYTHONPATH:-}
+
+                  export VLLM_HOST_IP="${JS_NAME}-decode-0-0.${JS_NAME}"
+                  NS="${JS_NAME//[^a-zA-Z0-9_]/_}"
+                  export TPU_KV_TRANSFER_NAMESPACE="${NS}_decode"
+                  export TPU_RAIDEN_JOB_NAME=decode
+                  export TPU_RAIDEN_ENGINE_ID="${JS_NAME}-decode-engine"
+                  export TPU_RAIDEN_CONTROLLER_ADDRESS="${VLLM_HOST_IP}:${CONTROLLER_PORT}"
+
+                  echo "===== Pre-downloading $MODEL snapshot ====="
+                  DL_OK=""
+                  for i in $(seq 1 30); do
+                    if python3 -c "import os; from huggingface_hub import snapshot_download; snapshot_download(os.environ['MODEL'])"; then
+                      DL_OK=1; break
+                    fi
+                    echo "snapshot_download failed (attempt $i/30); retrying in 60s"
+                    sleep 60
+                  done
+                  [ -n "$DL_OK" ] || { echo "RESULT: FAIL (model snapshot download)"; exit 1; }
+                  export HF_HUB_OFFLINE=1
+
+                  echo "===== Starting Raiden controller on :${CONTROLLER_PORT} ====="
+                  cat > /tmp/raiden_controller.py <<'PYEOF'
+                  import argparse, json, logging, os, signal, threading, time
+                  from pathlib import Path
+                  from tpu_raiden.rpc.raiden_controller import RaidenController, RaidenControllerServer
+
+                  parser = argparse.ArgumentParser()
+                  parser.add_argument("--port", type=int, required=True)
+                  parser.add_argument("--advertise-host", required=True)
+                  parser.add_argument("--request-registry-ttl-s", type=float, default=600.0)
+                  parser.add_argument("--ready-file", type=Path, required=True)
+                  args = parser.parse_args()
+
+                  logging.basicConfig(level=logging.INFO,
+                                      format="%(asctime)s %(levelname)s %(message)s",
+                                      force=True)
+                  stopping = threading.Event()
+                  signal.signal(signal.SIGINT, lambda *_: stopping.set())
+                  signal.signal(signal.SIGTERM, lambda *_: stopping.set())
+
+                  controller = RaidenController(port=args.port,
+                                                request_registry_ttl_s=args.request_registry_ttl_s)
+                  server = RaidenControllerServer(controller)
+                  server.start()
+                  payload = {
+                      "schema_version": 1,
+                      "event": "raiden_controller_ready",
+                      "pid": os.getpid(),
+                      "requested_port": args.port,
+                      "port": server.port,
+                      "advertise_host": args.advertise_host,
+                      "address": f"{args.advertise_host}:{server.port}",
+                      "request_registry_ttl_s": args.request_registry_ttl_s,
+                      "time_unix_s": time.time(),
+                  }
+                  args.ready_file.parent.mkdir(parents=True, exist_ok=True)
+                  tmp = args.ready_file.with_name(f".{args.ready_file.name}.{os.getpid()}.tmp")
+                  tmp.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")
+                  tmp.replace(args.ready_file)
+                  print(json.dumps(payload, sort_keys=True), flush=True)
+                  try:
+                      while not stopping.wait(1.0):
+                          pass
+                  finally:
+                      server.stop()
+                  PYEOF
+                  rm -f /tmp/controller.ready.json
+                  python3 /tmp/raiden_controller.py \
+                    --port "$CONTROLLER_PORT" \
+                    --advertise-host "$VLLM_HOST_IP" \
+                    --request-registry-ttl-s 600 \
+                    --ready-file /tmp/controller.ready.json \
+                    > "$CDK_OUTPUT_DIR/controller.log" 2>&1 &
+                  CONTROLLER_PID=$!
+                  for i in $(seq 1 200); do
+                    [ -s /tmp/controller.ready.json ] && break
+                    kill -0 "$CONTROLLER_PID" 2>/dev/null \
+                      || { echo "RESULT: FAIL (controller exited)"; cat "$CDK_OUTPUT_DIR/controller.log"; exit 1; }
+                    sleep 0.5
+                  done
+                  [ -s /tmp/controller.ready.json ] || { echo "RESULT: FAIL (controller not ready)"; exit 1; }
+                  cat /tmp/controller.ready.json
+
+                  COMPILATION_CONFIG='{"backend":"vllm_torchtpu.compilation.tpu_compiler.TpuCompilerAdaptor","compile_sizes":[4096],"inductor_compile_config":{"enable_auto_functionalized_v2":false,"size_asserts":false,"alignment_asserts":false,"scalar_asserts":false}}'
+
+                  KV_TRANSFER_CONFIG='{"kv_connector":"TPURaidenConnector","kv_connector_module_path":"vllm_torchtpu.distributed.kv_transfer.tpu_connector","kv_role":"kv_consumer","kv_port":14579}'
+
+                  # The live-pair script binds decode to 127.0.0.1; here the
+                  # proxy runs in another pod, so bind 0.0.0.0.
+                  # Align-mode hybrid caching needs 16 request blocks plus
+                  # six grouping/layout blocks at max_model_len=65536.
+                  echo "===== Starting Qwen3.5 DP8 decode node (baseline) ====="
+                  exec vllm serve \
+                    "$MODEL" \
+                    --served-model-name "$SERVED_MODEL" \
+                    --trust-remote-code \
+                    --seed 42 \
+                    --max-model-len 65536 \
+                    --enable-expert-parallel \
+                    --disable-custom-all-reduce \
+                    --gpu-memory-utilization 0.9 \
+                    --kv-cache-dtype fp8 \
+                    --language-model-only \
+                    --max-num-batched-tokens 4096 \
+                    --max-num-seqs 16 \
+                    --no-disable-hybrid-kv-cache-manager \
+                    --attention-backend CUSTOM \
+                    --mamba-cache-mode align \
+                    --enable-prompt-tokens-details \
+                    --no-enable-log-requests \
+                    --compilation-config "$COMPILATION_CONFIG" \
+                    --enable-prefix-caching \
+                    --no-async-scheduling \
+                    --block-size 4096 \
+                    --tensor-parallel-size 1 \
+                    --host 0.0.0.0 \
+                    --port 7200 \
+                    --num-gpu-blocks-override 262 \
+                    --prefill-context-parallel-size 1 \
+                    --data-parallel-size 8 \
+                    --data-parallel-size-local 8 \
+                    --kv-transfer-config "$KV_TRANSFER_CONFIG" \
+                    2>&1 | tee "$CDK_OUTPUT_DIR/server.log"
+                env:
+                  - name: JS_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                  - name: MODEL
+                    value: "Qwen/Qwen3.5-35B-A3B-FP8"
+                  - name: SERVED_MODEL
+                    value: "Qwen3.5-35B-A3B-FP8"
+                  - name: CONTROLLER_PORT
+                    value: "28000"
+                  - name: VLLM_LOGGING_LEVEL
+                    value: "INFO"
+                  - name: HF_HUB_DISABLE_XET
+                    value: "1"
+                  # --- device / topology (8 devices on one 2x2x1 tpu7x host) ---
+                  - name: JAX_PLATFORMS
+                    value: "tpu,cpu"
+                  - name: PJRT_DEVICE
+                    value: TPU
+                  - name: TPU_BACKEND_TYPE
+                    value: "jax"
+                  - name: VLLM_TARGET_DEVICE
+                    value: "tpu"
+                  - name: TPU_TOPOLOGY
+                    value: "2x2x1"
+                  - name: TPU_CHIPS_PER_HOST_BOUNDS
+                    value: "2,2,1"
+                  - name: TPU_HOST_BOUNDS
+                    value: "1,1,1"
+                  - name: TPU_LIBRARY_PATH
+                    value: ""
+                  - name: MEGASCALE_NUM_SLICES
+                    value: ""
+                  - name: MEGASCALE_SLICE_ID
+                    value: ""
+                  - name: TPU_PROCESS_ADDRESSES
+                    value: ""
+                  - name: TPU_WORKER_HOSTNAMES
+                    value: ""
+                  - name: TPU_PROCESS_PORT
+                    value: ""
+                  - name: MEGASCALE_COORDINATOR_ADDRESS
+                    value: ""
+                  - name: MEGASCALE_PORT
+                    value: ""
+                  # --- model / kernel config (from the live-pair script) ---
+                  - name: MODEL_IMPL_TYPE
+                    value: "vllm"
+                  - name: NEW_MODEL_DESIGN
+                    value: "0"
+                  - name: SKIP_JAX_PRECOMPILE
+                    value: "1"
+                  - name: VLLM_XLA_CHECK_RECOMPILATION
+                    value: "0"
+                  - name: USE_MOE_SPARSE_CORE
+                    value: "0"
+                  - name: TPUMISC_HMA_CHECKSUM_TRACE
+                    value: "0"
+                  - name: TPU_GDN_CONV_STATE_TILE_PAD
+                    value: "1"
+                  - name: XLA_PYTHON_CLIENT_PREALLOCATE
+                    value: "false"
+                  - name: VLLM_ALLOW_LONG_MAX_MODEL_LEN
+                    value: "1"
+                  - name: USE_BATCHED_RPA_KERNEL
+                    value: "1"
+                  - name: RAGGED_GATED_DELTA_RULE_IMPL
+                    value: "chunked_kernel_v3_pd"
+                  - name: ONEHOT_MOE_PERMUTE_THRESHOLD
+                    value: "1024"
+                  - name: TPU_RAGGED_GATHER_REDUCE_IMPL
+                    value: "fallback"
+                  - name: TPU_RAGGED_GATHER_IMPL
+                    value: "fallback"
+                  # --xla_tpu_use_enhanced_launch_barrier=false was
+                  # dropped here: libtpu 0.0.43 defaults it to true, warns
+                  # "this can cause distributed hangs", and rewrites it to
+                  # false itself, so setting it explicitly is a no-op.
+                  - name: LIBTPU_INIT_ARGS
+                    value: "--xla_tpu_scoped_vmem_limit_kib=65536 --xla_tpu_enable_latency_hiding_scheduler=false"
+                  - name: TORCH_TPU_INTERNAL_TIER2_COMPILATION_CACHE
+                    value: "disabled"
+                  # --- Raiden KV transfer (from the live-pair script) ---
+                  - name: TPU_VLLM_ENABLE_UNIFIED_BLOCK_POOL
+                    value: "1"
+                  - name: TPU_USE_RAIDEN_KV_CACHE_MANAGER
+                    value: "1"
+                  - name: TPU_RAIDEN_QWEN35_ADMISSION
+                    value: "1"
+                  - name: TPU_KV_RESHARD_TRANSPORT
+                    value: "raiden"
+                  # Producer-side Stage-3 byte-span lowering needs the
+                  # destination page geometry; it cannot read the decoder's
+                  # block_size. Must track decode's --block-size 4096.
+                  - name: TPU_KV_RESHARD_DST_PAGE_TOKENS
+                    value: "4096"
+                  - name: TPU_RAIDEN_TRANSFER_PARALLELISM
+                    value: "8"
+                  - name: TPU_ENABLE_D2H_TRANSFER
+                    value: "1"
+                  - name: TPU_HMA_D2H_COPY_IMPL
+                    value: "device_put"
+                  - name: TPU_HMA_MIN_DONE_RECVING_BATCH
+                    value: "1"
+                  - name: TPU_HMA_MAX_DONE_RECVING_BATCH
+                    value: "1"
+                  - name: TPU_HMA_MAX_INFLIGHT_D2H_SENDS
+                    value: "1"
+                  - name: TPU_HMA_MAX_INFLIGHT_PULLS
+                    value: "8"
+                  - name: TPU_MAX_HOST_KV_BUFFER_SIZE
+                    value: "64"
+                  # Exceeds measured claim latency while bounding how long an
+                  # abandoned request can pin the small prefill block pool.
+                  - name: TPU_P2P_WAIT_PULL_TIMEOUT
+                    value: "300"
+                  - name: TPU_KV_SHM_POOL_GB
+                    value: "8"
+                  - name: TPU_KV_TRANSFER_PORT
+                    value: "9100"
+                  - name: TPU_SIDE_CHANNEL_PORT
+                    value: "9600"
+                volumeMounts:
+                  - name: hf-token-volume
+                    mountPath: /root/.cache/huggingface/token
+                    subPath: token
+                    readOnly: true
+                  - name: huggingface-storage
+                    mountPath: /root/.cache/huggingface/
+                  - name: dshm
+                    mountPath: /dev/shm
+                  - name: torchtpu-vllm-nfs
+                    mountPath: /root/torchtpu-vllm
+                  - name: vllm-nfs
+                    mountPath: /root/cloud-devkit/vllm
+                  - name: wheels-nfs
+                    mountPath: /root/wheels
+                    readOnly: true
+                securityContext:
+                  privileged: true
+                  capabilities:
+                    add:
+                    - IPC_LOCK
+                resources:
+                  limits:
+                    google.com/tpu: "4"
+                    memory: "850Gi"
+                    cpu: "200"
+                  requests:
+                    google.com/tpu: "4"
+                    memory: "850Gi"
+                    cpu: "200"
+                ports:
+                  - containerPort: 7200
+
+              volumes:
+              - name: dshm
+                emptyDir:
+                  medium: Memory
+              - name: hf-token-volume
+                secret:
+                  secretName: vllm-hf-token
+                  items:
+                  - key: HF_TOKEN
+                    path: token
+              - name: huggingface-storage
+                ephemeral:
+                  volumeClaimTemplate:
+                    spec:
+                      storageClassName: "premium-rwo"
+                      accessModes: [ "ReadWriteOnce" ]
+                      resources:
+                        requests:
+                          storage: 256Gi
+              - name: torchtpu-vllm-nfs
+                nfs:
+                  server: 10.225.237.178
+                  # Branch worktree, not the repo root: /workspace/vllm-torchtpu
+                  # is now a container holding .bare/ plus one folder per branch,
+                  # so this pins the job to benliangw/disagg_offloading.
+                  path: /workspace/vllm-torchtpu/disagg_offloading
+              - name: vllm-nfs
+                nfs:
+                  server: 10.225.237.178
+                  path: /workspace/vllm
+              - name: wheels-nfs
+                nfs:
+                  server: 10.225.237.178
+                  path: /workspace/wheels
+
+    # ---------------------------------------------------------
+    # CORRECTNESS (via the disagg proxy)
+    #
+    # Gate 1 of 2: proves offloading does not change results.
+    #   - smoke: one informational NL request.
+    #   - known-answer probes: cold/warm/proxy three-way equivalence at
+    #     8192 and 32768 tokens (prefix-cache transparency + Stage-3
+    #     transfer equivalence).
+    #   - eviction equivalence: CORRECTNESS_DOCS deterministic ~33k-token
+    #     docs prefilled twice with distinct tails. Each pass holds
+    #     2 scheduler blocks per doc, overflowing the 32-block HBM pool,
+    #     so the second pass runs through CPU restore in the offloading
+    #     leg and recompute in the baseline leg. The churn exists to
+    #     apply eviction pressure, not to assert anything itself: the
+    #     two passes use distinct tails, so their outputs differ by
+    #     construction. The KA len32768 prompt is then re-issued after
+    #     the churn and must reproduce its cold token_ids exactly; that
+    #     replay is the only assertion covering the CPU-restore path.
+    - name: correctness
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            spec:
+              restartPolicy: Never
+              containers:
+              - name: vllm-correctness
+                image: vllm/vllm-tpu:nightly
+                imagePullPolicy: Always
+                command: ["/bin/bash", "-c"]
+                args:
+                  - |
+                    set -eo pipefail
+                    : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                    export CDK_OUTPUT_DIR
+                    mkdir -p "$CDK_OUTPUT_DIR"
+                    export PYTHONUNBUFFERED=1
+
+                    # Liveness beacon the eval pod sequences on. A Succeeded
+                    # pod with restartPolicy: Never keeps its address in the
+                    # JobSet headless service (which publishes not-ready
+                    # addresses), so this pod's DNS record does NOT clear when
+                    # it completes and cannot be used as a done signal. This
+                    # port stops answering the moment the container exits,
+                    # however the run ends.
+                    mkdir -p /tmp/beacon
+                    python3 -m http.server "$CORRECTNESS_BEACON_PORT" \
+                      --bind 0.0.0.0 --directory /tmp/beacon >/dev/null 2>&1 &
+
+                    PREFILLER_DNS="${JS_NAME}-prefill-0-0.${JS_NAME}"
+                    DECODER_DNS="${JS_NAME}-decode-0-0.${JS_NAME}"
+                    PROXY="http://${PREFILLER_DNS}:${PROXY_PORT}"
+
+                    wait_for() {
+                      local name="$1" url="$2" timeout="$3" elapsed=0 interval=5
+                      echo "Waiting for $name up ($url, up to ${timeout}s)"
+                      until curl -sf "$url" > /dev/null; do
+                        if [ "$elapsed" -ge "$timeout" ]; then
+                          echo "RESULT: FAIL ($name did not become healthy within ${timeout}s)" >&2
+                          exit 1
+                        fi
+                        sleep "$interval"; elapsed=$((elapsed + interval))
+                      done
+                      echo "$name is up (${elapsed}s)"
+                    }
+
+                    # Servers download deps + model and compile; allow long startup.
+                    wait_for prefill "http://$PREFILLER_DNS:8000/health" $((90 * 60))
+                    wait_for decode  "http://$DECODER_DNS:7200/health"  $((90 * 60))
+                    wait_for proxy   "$PROXY/healthcheck"               $((10 * 60))
+
+                    echo "Waiting for engine readiness (first compile, up to 60 min)..."
+                    max_wait=$((60 * 60)); waited=0
+                    until curl -sf --max-time 300 -X POST "$PROXY/v1/completions" \
+                        -H "Content-Type: application/json" \
+                        -d "{\"model\": \"$MODEL\", \"prompt\": \"Hello\", \"max_tokens\": 5}" > /dev/null; do
+                      if ! curl -sf "http://$PREFILLER_DNS:8000/health" > /dev/null 2>&1; then
+                        echo "RESULT: FAIL (prefill /health went down while waiting for engine readiness)"; exit 1
+                      fi
+                      if ! curl -sf "http://$DECODER_DNS:7200/health" > /dev/null 2>&1; then
+                        echo "RESULT: FAIL (decode /health went down while waiting for engine readiness)"; exit 1
+                      fi
+                      if [ "$waited" -ge "$max_wait" ]; then
+                        echo "RESULT: FAIL (engine not ready within 60 minutes)"; exit 1
+                      fi
+                      echo "Engine compiling, waiting 30s..."; sleep 30; waited=$((waited + 30))
+                    done
+                    echo "Engines are ready."
+
+                    echo "===== Smoke test: prefill->Raiden KV transfer->decode ====="
+                    # One informational natural-language request. Raw
+                    # (un-templated) prompts can legitimately make the instruct
+                    # model emit only special tokens (empty text), so this can't
+                    # distinguish a healthy pipeline from a corrupted KV
+                    # transfer — the known-answer probes below are the real
+                    # gate. return_token_ids exposes what was generated.
+                    fail=0
+                    i=0
+                    for prompt in \
+                      "Good morning. What are the capitals of the US, China and Armenia?"; do
+                      i=$((i + 1))
+                      echo "--- request $i: $prompt"
+                      if ! curl -fsS --max-time 600 -X POST "$PROXY/v1/completions" \
+                          -H "Content-Type: application/json" \
+                          -d "{\"model\": \"$MODEL\", \"prompt\": \"$prompt\", \"max_tokens\": 64, \"temperature\": 0, \"return_token_ids\": true}" \
+                          | tee -a "$CDK_OUTPUT_DIR/smoke.log"; then
+                        echo ""; echo "request $i FAILED"; fail=1
+                      fi
+                      echo ""
+                    done
+
+                    echo "--- known-answer probes: three-way equivalence (cold/warm/proxy)"
+                    python3 - "$PROXY" "http://$PREFILLER_DNS:8000" \
+                        "$MODEL" "$CDK_OUTPUT_DIR" <<'KA_EOF' || fail=1
+                    import json, sys, urllib.request
+                    proxy, prefill, model, outdir = sys.argv[1:]
+                    def probe(name, base_url, prompt_len, max_tokens, token):
+                        payload = {
+                            "model": model,
+                            "prompt": [token] * prompt_len,
+                            "max_tokens": max_tokens,
+                            "temperature": 0.0,
+                            "seed": 0,
+                            "ignore_eos": True,
+                            "add_special_tokens": False,
+                            "return_token_ids": True,
+                        }
+                        req = urllib.request.Request(
+                            base_url + "/v1/completions",
+                            data=json.dumps(payload).encode(),
+                            headers={"Content-Type": "application/json"})
+                        try:
+                            with urllib.request.urlopen(req, timeout=600) as r:
+                                body = json.load(r)
+                        except Exception as exc:
+                            print(f"{name}: REQUEST ERROR: {exc}")
+                            return None
+                        with open(f"{outdir}/smoke_ka_{name}.json", "w") as f:
+                            json.dump(body, f, indent=2)
+                        ids = body["choices"][0].get("token_ids")
+                        text = body["choices"][0].get("text", "")
+                        print(f"{name}: token={token} token_ids={ids} "
+                              f"text={text!r}")
+                        return ids
+
+                    # ---------------------------------------------------------
+                    # CORRECTNESS PROBES
+                    #
+                    # Run each prompt cold on prefill, warm on prefill, and
+                    # through the proxy. Warm must equal cold (prefix-cache
+                    # transparency), and proxy must equal cold (Stage-3
+                    # transfer equivalence). The lengths cover below and at
+                    # the 32768-token PCP scheduler-block boundary.
+                    def three_way(name, length, token):
+                        cold = probe(f"{name}-cold", prefill, length, 8, token)
+                        warm = probe(f"{name}-warm", prefill, length, 8, token)
+                        prox = probe(f"{name}-proxy", proxy, length, 8, token)
+                        if not cold or not warm or not prox:
+                            print(f"{name}: FAIL (no output: cold={cold} "
+                                  f"warm={warm} proxy={prox})")
+                            return {"apc": False, "transfer": False}
+                        apc_ok = warm == cold
+                        xfer_ok = prox == cold
+                        print(f"{name}: apc={'PASS' if apc_ok else 'FAIL'} "
+                              f"transfer={'PASS' if xfer_ok else 'FAIL'} "
+                              f"len={length} cold={cold} warm={warm} "
+                              f"proxy={prox}")
+                        return {"apc": apc_ok, "transfer": xfer_ok}
+
+                    # Lengths cover 1/8, 1/2, 5/8, and one full per-rank
+                    # source page. Other lengths are deliberately absent:
+                    # they hit a known Stage-3 transfer corruption on the
+                    # vLLM 0.26.0 stack (shared disagg path, unrelated to
+                    # offloading).
+                    results = {}
+                    for _name, _len, _tok in (("len4096", 4096, 85),
+                                              ("len16384", 16384, 86),
+                                              ("len20480", 20480, 93),
+                                              ("len32768", 32768, 89)):
+                        r = three_way(_name, _len, _tok)
+                        results[f"{_name}-apc-transparency"] = r["apc"]
+                        results[f"{_name}-transfer-equivalence"] = r["transfer"]
+
+                    print("known-answer summary:", json.dumps(results))
+                    sys.exit(0 if all(results.values()) else 1)
+                    KA_EOF
+
+                    echo "===== Eviction equivalence (deterministic doc churn) ====="
+                    python3 - <<'EQ_EOF' || fail=1
+                    import json
+                    import os
+                    import urllib.request
+
+                    JS = os.environ["JS_NAME"]
+                    PORT = os.environ.get("PROXY_PORT", "10000")
+                    PROXY = f"http://{JS}-prefill-0-0.{JS}:{PORT}"
+                    PREFILL = f"http://{JS}-prefill-0-0.{JS}:8000"
+                    OUT = os.environ["CDK_OUTPUT_DIR"]
+                    MODEL = os.environ["MODEL"]
+                    NDOCS = int(os.environ.get("CORRECTNESS_DOCS", "24"))
+                    PREFIX = 32768  # one prefill offloadable block (4096*pcp8)
+                    TAIL = 128
+
+                    def ask(base, prompt, max_tokens):
+                        payload = {
+                            "model": MODEL,
+                            "prompt": prompt,
+                            "max_tokens": max_tokens,
+                            "temperature": 0.0,
+                            "seed": 0,
+                            "ignore_eos": True,
+                            "add_special_tokens": False,
+                            "return_token_ids": True,
+                        }
+                        req = urllib.request.Request(
+                            base + "/v1/completions",
+                            data=json.dumps(payload).encode(),
+                            headers={"Content-Type": "application/json"})
+                        with urllib.request.urlopen(req, timeout=900) as r:
+                            ids = json.load(r)["choices"][0].get("token_ids")
+                        if not isinstance(ids, list) or len(ids) != max_tokens:
+                            raise ValueError(
+                                f"invalid token_ids response: {ids!r}")
+                        return ids
+
+                    # Two sequential passes over deterministic docs. Filler
+                    # ids 120+ (docs) and 200+ (tails) are disjoint from the
+                    # probe tokens (88/89) so no phase warms another; the
+                    # distinct per-pass tails prevent exact-request hits, so
+                    # the revisit pass exercises prefix restore in the
+                    # offloading leg and recompute in the baseline leg. At
+                    # 2 scheduler blocks per doc, each pass overflows the
+                    # 32-block pool and evicts everything before it.
+                    errors = 0
+                    for visit, tag in enumerate(("seed", "revisit")):
+                        for doc in range(NDOCS):
+                            prompt = ([120 + doc] * PREFIX
+                                      + [200 + 10 * visit + doc] * TAIL)
+                            try:
+                                ask(PROXY, prompt, 8)
+                            except Exception as exc:
+                                print(f"[equivalence:{tag}] doc{doc} "
+                                      f"ERROR: {exc}", flush=True)
+                                errors += 1
+                                continue
+
+                    # The KA len32768 prompt (token 89) was computed cold in
+                    # the probe phase; the churn above has long evicted its
+                    # HBM blocks. Re-issuing the identical greedy request
+                    # must reproduce the cold token_ids — via CPU restore in
+                    # the offloading leg, via recompute in the baseline leg.
+                    ka_ok = None
+                    try:
+                        with open(f"{OUT}/smoke_ka_len32768-cold.json") as f:
+                            cold = json.load(f)["choices"][0].get("token_ids")
+                        ids = ask(PREFILL, [89] * PREFIX, 8)
+                        ka_ok = ids == cold
+                        if not ka_ok:
+                            errors += 1
+                        print(f"[equivalence] post-eviction KA "
+                              f"{'PASS' if ka_ok else 'FAIL'} "
+                              f"cold={cold} revisit={ids}", flush=True)
+                    except Exception as exc:
+                        errors += 1
+                        print(f"[equivalence] post-eviction KA "
+                              f"ERROR: {exc}", flush=True)
+
+                    print(f"EQUIVALENCE COMPLETE (errors={errors})",
+                          flush=True)
+                    raise SystemExit(1 if errors else 0)
+                    EQ_EOF
+
+                    if [ "$fail" -ne 0 ]; then
+                      echo "RESULT: FAIL (one or more correctness checks failed; see lines above)"
+                      exit 1
+                    fi
+                    echo "RESULT: PASS"
+                env:
+                - name: JS_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                - name: MODEL
+                  value: "Qwen3.5-35B-A3B-FP8"
+                - name: PROXY_PORT
+                  value: "10000"
+                # Port this pod holds open for as long as it runs; the eval
+                # pod polls it to know when correctness traffic has stopped.
+                # Must match the eval container's value.
+                - name: CORRECTNESS_BEACON_PORT
+                  value: "9999"
+                # 24 docs x 2 scheduler blocks = 48 blocks per pass, ~1.5x
+                # the 32-block pool: every doc (and the KA prompt) is evicted
+                # from HBM before it is revisited.
+                - name: CORRECTNESS_DOCS
+                  value: "24"
+                resources:
+                  limits:
+                    memory: "4Gi"
+                    cpu: "2"
+                  requests:
+                    memory: "2Gi"
+                    cpu: "1"
+
+    # ---------------------------------------------------------
+    # EVAL (via the disagg proxy)
+    #
+    # Gate 2 of 2: one scored eval that shows the offloading benefit and
+    # reports accuracy, TTFT, and throughput. See the lc-eval notes in the
+    # file header. Waits for the correctness pod to finish (its liveness
+    # beacon stops answering) so the metrics windows see only eval traffic.
+    - name: eval
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            spec:
+              restartPolicy: Never
+              volumes:
+                - name: hf-token-volume
+                  secret:
+                    secretName: vllm-hf-token
+                    items:
+                      - key: HF_TOKEN
+                        path: token
+              containers:
+              - name: vllm-eval
+                image: vllm/vllm-tpu:nightly
+                imagePullPolicy: Always
+                volumeMounts:
+                  - name: hf-token-volume
+                    mountPath: /root/.cache/huggingface/token
+                    subPath: token
+                    readOnly: true
+                command: ["/bin/bash", "-c"]
+                args:
+                  - |
+                    set -eo pipefail
+                    : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                    export CDK_OUTPUT_DIR
+                    mkdir -p "$CDK_OUTPUT_DIR"
+                    export PYTHONUNBUFFERED=1
+
+                    # Pin the GSM8K loader and the scorer so A/B reruns use the
+                    # same client dependencies; transformers ships with the
+                    # image. datasets is pinned last so lm_eval's own range
+                    # cannot move the loader the lc-eval below has always used
+                    # (a resolver warning about that pin is expected).
+                    pip install --quiet "lm_eval[api]==0.4.12"
+                    pip install --quiet "datasets==3.6.0"
+
+                    PREFILLER_DNS="${JS_NAME}-prefill-0-0.${JS_NAME}"
+                    DECODER_DNS="${JS_NAME}-decode-0-0.${JS_NAME}"
+                    CORRECTNESS_DNS="${JS_NAME}-correctness-0-0.${JS_NAME}"
+                    PROXY="http://${PREFILLER_DNS}:${PROXY_PORT}"
+
+                    wait_for() {
+                      local name="$1" url="$2" timeout="$3" elapsed=0 interval=5
+                      echo "Waiting for $name up ($url, up to ${timeout}s)"
+                      until curl -sf "$url" > /dev/null; do
+                        if [ "$elapsed" -ge "$timeout" ]; then
+                          echo "RESULT: FAIL ($name did not become healthy within ${timeout}s)" >&2
+                          exit 1
+                        fi
+                        sleep "$interval"; elapsed=$((elapsed + interval))
+                      done
+                      echo "$name is up (${elapsed}s)"
+                    }
+
+                    # Servers download deps + model and compile; allow long startup.
+                    wait_for prefill "http://$PREFILLER_DNS:8000/health" $((90 * 60))
+                    wait_for decode  "http://$DECODER_DNS:7200/health"  $((90 * 60))
+                    wait_for proxy   "$PROXY/healthcheck"               $((10 * 60))
+
+                    # Sequence after the correctness pod so the metrics
+                    # windows below see only eval traffic. Poll its liveness
+                    # beacon, NOT its DNS record: the JobSet headless service
+                    # publishes not-ready addresses, so a Succeeded pod with
+                    # restartPolicy: Never keeps resolving forever and a
+                    # DNS-clearing wait just burns its full timeout. The
+                    # beacon port dies with the container.
+                    BEACON="http://${CORRECTNESS_DNS}:${CORRECTNESS_BEACON_PORT}/"
+                    beacon_up() { curl -sf --max-time 5 -o /dev/null "$BEACON"; }
+
+                    waited=0
+                    until beacon_up; do
+                      if [ "$waited" -ge 600 ]; then
+                        echo "correctness beacon never appeared in 10 min; assuming it already finished"
+                        break
+                      fi
+                      sleep 5; waited=$((waited + 5))
+                    done
+                    echo "Waiting for correctness to finish (beacon to stop answering, up to 2h)..."
+                    # Three consecutive misses, so a single blip on the way to
+                    # the beacon can't start the eval under correctness load.
+                    waited=0; misses=0
+                    while [ "$misses" -lt 3 ]; do
+                      if beacon_up; then
+                        misses=0
+                      else
+                        misses=$((misses + 1))
+                      fi
+                      if [ "$waited" -ge $((120 * 60)) ]; then
+                        echo "RESULT: FAIL (correctness pod still running after 2h)"; exit 1
+                      fi
+                      sleep 5; waited=$((waited + 5))
+                    done
+                    echo "correctness finished; starting eval"
+
+                    echo "Waiting for engine readiness..."
+                    until curl -sf --max-time 300 -X POST "$PROXY/v1/completions" \
+                        -H "Content-Type: application/json" \
+                        -d "{\"model\": \"$MODEL\", \"prompt\": \"Hello\", \"max_tokens\": 5}" > /dev/null; do
+                      echo "Engine not ready, waiting 30s..."; sleep 30
+                    done
+                    echo "Engines are ready."
+
+                    # ---------------------------------------------------------
+                    # PEAK PREFILL THROUGHPUT (baseline side of the A/B)
+                    #
+                    # Identical stage to qwen35-disagg-offloading.yml's
+                    # peak-prefill (see the full rationale there): all-cold
+                    # long prompts straight at the prefill engine, no proxy,
+                    # no decode, no cache hits. Here there is no offloading
+                    # connector, so the printed prompt_tok_per_s is the
+                    # no-write-through reference; the requirement "write-
+                    # through does not cost peak prefill throughput" is the
+                    # comparison of this number across the two jobs' logs.
+                    cat << 'EOF' | sed 's/^[[:space:]]\{20\}//' > /tmp/bench_peak_prefill.py
+                    import concurrent.futures as cf
+                    import json
+                    import os
+                    import re
+                    import time
+                    import urllib.request
+
+                    JS = os.environ["JS_NAME"]
+                    PREFILL = f"http://{JS}-prefill-0-0.{JS}:8000"
+                    MODEL = os.environ["MODEL"]
+                    DOCS = int(os.environ.get("PEAK_DOCS", "36"))
+                    CONC = int(os.environ.get("PEAK_CONCURRENCY", "12"))
+                    PLEN = int(os.environ.get("PEAK_PROMPT_TOKENS", "32832"))
+                    MIN_TOK_S = float(os.environ.get("PEAK_MIN_TOK_S", "0"))
+
+                    KEYS = dict(ttft_s="time_to_first_token_seconds_sum",
+                                ttft_n="time_to_first_token_seconds_count",
+                                pre_s="request_prefill_time_seconds_sum",
+                                pre_n="request_prefill_time_seconds_count",
+                                ptok="prompt_tokens_total",
+                                hit="external_prefix_cache_hits_total",
+                                q="external_prefix_cache_queries_total")
+
+                    def scrape(base):
+                        with urllib.request.urlopen(f"{base}/metrics",
+                                                    timeout=30) as r:
+                            text = r.read().decode()
+                        m = {}
+                        for line in text.splitlines():
+                            if line.startswith("#"):
+                                continue
+                            mo = re.match(
+                                r"vllm:([a-z_0-9]+)\{.*\} ([0-9.e+-]+)$", line)
+                            if mo:
+                                m[mo.group(1)] = (m.get(mo.group(1), 0.0)
+                                                  + float(mo.group(2)))
+                        return m
+
+                    # Filler ids 400+ are disjoint from every other phase
+                    # (88/89 probes, 120+/200+ correctness churn, 500+
+                    # restore docs), so nothing here warms or is warmed.
+                    def ask(doc):
+                        payload = {
+                            "model": MODEL,
+                            "prompt": [400 + doc] * PLEN,
+                            "max_tokens": 1,
+                            "temperature": 0.0,
+                            "seed": 0,
+                            "ignore_eos": True,
+                            "add_special_tokens": False,
+                        }
+                        req = urllib.request.Request(
+                            PREFILL + "/v1/completions",
+                            data=json.dumps(payload).encode(),
+                            headers={"Content-Type": "application/json"})
+                        with urllib.request.urlopen(req, timeout=900):
+                            pass
+
+                    def run(doc):
+                        try:
+                            ask(doc)
+                            return True
+                        except Exception as exc:
+                            print(f"[peak-prefill] doc{doc} ERROR: {exc}",
+                                  flush=True)
+                            return False
+
+                    before = scrape(PREFILL)
+                    t0 = time.time()
+                    with cf.ThreadPoolExecutor(max_workers=CONC) as pool:
+                        oks = list(pool.map(run, range(DOCS)))
+                    wall = time.time() - t0
+                    after = scrape(PREFILL)
+                    errors = oks.count(False)
+
+                    d = {k: after.get(v, 0) - before.get(v, 0)
+                         for k, v in KEYS.items()}
+                    n = d["ttft_n"] or 1
+                    npre = d["pre_n"] or 1
+                    q = d["q"] or 1
+                    tok_s = d["ptok"] / wall
+                    print(f"[peak-prefill:summary] docs={DOCS} conc={CONC} "
+                          f"prompt_tokens={PLEN} wall={wall:.1f}s "
+                          f"prompt_tok_per_s={tok_s:.0f} "
+                          f"server_ttft_avg={d['ttft_s']/n:.2f}s "
+                          f"prefill_avg={d['pre_s']/npre:.3f}s "
+                          f"ext_hit_pct={100*d['hit']/q:.1f}", flush=True)
+                    if d["hit"]:
+                        print(f"WARN {int(d['hit'])} external hits in a "
+                              "phase built to be all-cold: prompt_tok_per_s "
+                              "above is not a pure write-through "
+                              "measurement", flush=True)
+                    if MIN_TOK_S and tok_s < MIN_TOK_S:
+                        print(f"PEAK-PREFILL: FAIL (prompt_tok_per_s "
+                              f"{tok_s:.0f} under floor {MIN_TOK_S:.0f})",
+                              flush=True)
+                        raise SystemExit(1)
+                    print(f"PEAK-PREFILL COMPLETE (errors={errors})",
+                          flush=True)
+                    raise SystemExit(1 if errors else 0)
+                    EOF
+
+                    peak_status=PASS
+                    echo "===== Peak prefill throughput (no write-through) ====="
+                    if ! python3 /tmp/bench_peak_prefill.py 2>&1 \
+                        | tee "$CDK_OUTPUT_DIR/peak_prefill.log"; then
+                      peak_status=FAIL
+                    fi
+
+                    # ---------------------------------------------------------
+                    # DRAM->HBM RESTORE LATENCY (baseline side of the A/B)
+                    #
+                    # Identical stage to qwen35-disagg-offloading.yml's
+                    # restore-latency (see the full rationale there). With no
+                    # offloading connector this leg must observe the other
+                    # half of the acceptance test: every revisit finds its
+                    # prefix pushed out of HBM by the round-robin and gets 0
+                    # external hits (RESTORE_EXPECT=miss), so revisit ttft
+                    # stays at recompute cost. Compare revisit ttft_avg here
+                    # against the offloading job's to size the restore win.
+                    cat << 'EOF' | sed 's/^[[:space:]]\{20\}//' > /tmp/bench_restore_latency.py
+                    import json
+                    import os
+                    import re
+                    import time
+                    import urllib.request
+
+                    JS = os.environ["JS_NAME"]
+                    PREFILL = f"http://{JS}-prefill-0-0.{JS}:8000"
+                    MODEL = os.environ["MODEL"]
+                    DOCS = int(os.environ.get("RESTORE_DOCS", "17"))
+                    PLEN = int(os.environ.get("RESTORE_PROMPT_TOKENS",
+                                              "32832"))
+                    EXPECT = os.environ.get("RESTORE_EXPECT", "hit")
+                    MAX_RATIO = float(os.environ.get(
+                        "RESTORE_MAX_TTFT_RATIO", "0.75"))
+                    BLOCK = 32768
+
+                    KEYS = dict(ttft_s="time_to_first_token_seconds_sum",
+                                ttft_n="time_to_first_token_seconds_count",
+                                pre_s="request_prefill_time_seconds_sum",
+                                pre_n="request_prefill_time_seconds_count",
+                                ptok="prompt_tokens_total",
+                                hit="external_prefix_cache_hits_total",
+                                q="external_prefix_cache_queries_total")
+
+                    def scrape(base):
+                        with urllib.request.urlopen(f"{base}/metrics",
+                                                    timeout=30) as r:
+                            text = r.read().decode()
+                        m = {}
+                        for line in text.splitlines():
+                            if line.startswith("#"):
+                                continue
+                            mo = re.match(
+                                r"vllm:([a-z_0-9]+)\{.*\} ([0-9.e+-]+)$", line)
+                            if mo:
+                                m[mo.group(1)] = (m.get(mo.group(1), 0.0)
+                                                  + float(mo.group(2)))
+                        return m
+
+                    def ask(doc):
+                        payload = {
+                            "model": MODEL,
+                            "prompt": [500 + doc] * PLEN,
+                            "max_tokens": 1,
+                            "temperature": 0.0,
+                            "seed": 0,
+                            "ignore_eos": True,
+                            "add_special_tokens": False,
+                        }
+                        req = urllib.request.Request(
+                            PREFILL + "/v1/completions",
+                            data=json.dumps(payload).encode(),
+                            headers={"Content-Type": "application/json"})
+                        with urllib.request.urlopen(req, timeout=900):
+                            pass
+
+                    # Serial requests on a quiet engine: the per-request
+                    # metrics delta is exactly this request, and server TTFT
+                    # has no queueing in it.
+                    def measured(doc):
+                        before = scrape(PREFILL)
+                        ask(doc)
+                        after = scrape(PREFILL)
+                        d = {k: after.get(v, 0) - before.get(v, 0)
+                             for k, v in KEYS.items()}
+                        return {"ttft": d["ttft_s"] / (d["ttft_n"] or 1),
+                                "prefill": d["pre_s"] / (d["pre_n"] or 1),
+                                "hit": d["hit"], "q": d["q"]}
+
+                    errors = 0
+                    rounds = {}
+                    for tag in ("cold", "revisit"):
+                        rows = []
+                        for doc in range(DOCS):
+                            try:
+                                r = measured(doc)
+                            except Exception as exc:
+                                print(f"[restore:{tag}] doc{doc} "
+                                      f"ERROR: {exc}", flush=True)
+                                errors += 1
+                                continue
+                            print(f"[restore:{tag}] doc{doc} "
+                                  f"ttft={r['ttft']:.3f}s "
+                                  f"prefill={r['prefill']:.3f}s "
+                                  f"ext_hit={int(r['hit'])}/{int(r['q'])}",
+                                  flush=True)
+                            rows.append(r)
+                        rounds[tag] = rows
+
+                    def summary(tag):
+                        rows = rounds[tag]
+                        n = max(len(rows), 1)
+                        ttft = sum(r["ttft"] for r in rows) / n
+                        pre = sum(r["prefill"] for r in rows) / n
+                        hits = sum(r["hit"] for r in rows)
+                        qs = sum(r["q"] for r in rows) or 1
+                        print(f"[restore:{tag}:summary] reqs={len(rows)} "
+                              f"ttft_avg={ttft:.3f}s "
+                              f"prefill_avg={pre:.3f}s "
+                              f"ext_hit_pct={100*hits/qs:.1f}", flush=True)
+                        return ttft, 100 * hits / qs
+
+                    cold_ttft, cold_hit = summary("cold")
+                    rev_ttft, rev_hit = summary("revisit")
+                    if rounds["revisit"] and rev_ttft:
+                        print(f"[restore:ab] ttft_ratio="
+                              f"{rev_ttft/max(cold_ttft, 1e-9):.2f} "
+                              f"restore_tok_per_s={BLOCK/rev_ttft:.0f}",
+                              flush=True)
+
+                    fails = []
+                    if errors:
+                        fails.append(f"{errors} request errors")
+                    if cold_hit > 5:
+                        fails.append(
+                            f"cold pass ext_hit_pct={cold_hit:.1f}: prompts "
+                            "are not cold, the ratio gate is invalid")
+                    if EXPECT == "hit":
+                        if rev_hit < 90:
+                            fails.append(
+                                f"revisit ext_hit_pct={rev_hit:.1f} < 90: "
+                                "the DRAM tier did not serve the revisits")
+                        elif rev_ttft > MAX_RATIO * cold_ttft:
+                            fails.append(
+                                f"revisit ttft_avg={rev_ttft:.3f}s over "
+                                f"{MAX_RATIO} x cold {cold_ttft:.3f}s: "
+                                "DRAM->HBM restore is not concurrent enough "
+                                "to beat recompute")
+                    elif rev_hit > 5:
+                        fails.append(
+                            f"revisit ext_hit_pct={rev_hit:.1f} with "
+                            "offloading disabled: HBM eviction did not "
+                            "clear the prefixes")
+
+                    if fails:
+                        print("RESTORE-LATENCY: FAIL", flush=True)
+                        for msg in fails:
+                            print("  -", msg, flush=True)
+                        raise SystemExit(1)
+                    print("RESTORE-LATENCY: PASS", flush=True)
+                    EOF
+
+                    restore_status=PASS
+                    echo "===== DRAM->HBM restore latency (alternating long queries) ====="
+                    if ! python3 /tmp/bench_restore_latency.py 2>&1 \
+                        | tee "$CDK_OUTPUT_DIR/restore_latency.log"; then
+                      restore_status=FAIL
+                    fi
+
+                    # ---------------------------------------------------------
+                    # LONG-CONTEXT (MANY-SHOT) GSM8K OFFLOAD EVAL
+                    #
+                    # A plain gsm8k pass cannot show an offloading win: at
+                    # PCP8 the offload block is 32768 tokens and no 25-shot
+                    # prompt reaches it. This eval gives it that structure.
+                    # LC_DOCS distinct many-shot prefixes (each
+                    # >= LC_PREFIX_TOKENS, i.e. past one full block) stand in
+                    # for long documents, and every scored question rides one
+                    # of them. The working set (~1.5x the prefill pool)
+                    # guarantees each prefix is evicted from HBM before the
+                    # revisit pass asks a fresh question on it: the offloading
+                    # leg restores the prefix from CPU, the baseline leg
+                    # recomputes it. Prompts are deterministic and greedy, so
+                    # only revisit latency should separate the two legs.
+                    cat << 'EOF' | sed 's/^[[:space:]]\{20\}//' > /tmp/bench_lc_eval.py
+                    import concurrent.futures as cf
+                    import json
+                    import os
+                    import random
+                    import re
+                    import time
+                    import urllib.request
+
+                    from datasets import load_dataset
+                    from transformers import AutoTokenizer
+
+                    PORT = os.environ.get("PROXY_PORT", "10000")
+                    JS = os.environ["JS_NAME"]
+                    PROXY = f"http://{JS}-prefill-0-0.{JS}:{PORT}"
+                    PREFILL = f"http://{JS}-prefill-0-0.{JS}:8000"
+                    DECODE = f"http://{JS}-decode-0-0.{JS}:7200"
+                    MODEL = os.environ["MODEL"]
+                    NDOCS = int(os.environ.get("LC_DOCS", "48"))
+                    CONC = int(os.environ.get("LC_CONCURRENCY", "12"))
+                    MAXTOK = int(os.environ.get("LC_MAX_TOKENS", "256"))
+                    PREFIX_TOKENS = int(os.environ.get("LC_PREFIX_TOKENS",
+                                                       "33024"))
+                    TEST_OFFSET = int(os.environ.get("LC_TEST_OFFSET", "300"))
+                    STOP = ["Question:", "</s>", "<|im_end|>"]
+
+                    KEYS = dict(ttft_s="time_to_first_token_seconds_sum",
+                                ttft_n="time_to_first_token_seconds_count",
+                                pre_s="request_prefill_time_seconds_sum",
+                                pre_n="request_prefill_time_seconds_count",
+                                ptok="prompt_tokens_total",
+                                hit="external_prefix_cache_hits_total",
+                                q="external_prefix_cache_queries_total")
+
+                    def scrape(base):
+                        with urllib.request.urlopen(f"{base}/metrics",
+                                                    timeout=30) as r:
+                            text = r.read().decode()
+                        m = {}
+                        for line in text.splitlines():
+                            if line.startswith("#"):
+                                continue
+                            mo = re.match(
+                                r"vllm:([a-z_0-9]+)\{.*\} ([0-9.e+-]+)$", line)
+                            if mo:
+                                m[mo.group(1)] = (m.get(mo.group(1), 0.0)
+                                                  + float(mo.group(2)))
+                        return m
+
+                    tok = AutoTokenizer.from_pretrained(
+                        os.environ["TOKENIZER"])
+                    # Canonical namespaced id: newer datasets/huggingface_hub
+                    # reject the bare legacy id "gsm8k".
+                    train = load_dataset("openai/gsm8k", "main",
+                                         split="train")
+                    test = load_dataset("openai/gsm8k", "main", split="test")
+
+                    def shot(ex):
+                        return (f"Question: {ex['question']}\n"
+                                f"Answer: {ex['answer']}")
+
+                    def ntok(text):
+                        return len(tok(text,
+                                       add_special_tokens=False)["input_ids"])
+
+                    # One many-shot prefix per doc. Each doc samples the train
+                    # split with its own fixed seed, so prefixes are distinct
+                    # from each other but identical across legs and reruns —
+                    # the A/B depends on that. Shots are
+                    # appended whole (no mid-example truncation) until the
+                    # prefix passes PREFIX_TOKENS, which puts the entire first
+                    # 32768-token scheduler block inside the shared prefix;
+                    # divergence (the per-visit question) begins after it.
+                    prefixes = []
+                    for d in range(NDOCS):
+                        order = random.Random(1000 + d).sample(
+                            range(len(train)), 512)
+                        parts, est = [], 0
+                        for i in order:
+                            s = shot(train[i])
+                            parts.append(s)
+                            est += ntok(s) + 2
+                            if est >= PREFIX_TOKENS + 128:
+                                break
+                        prefix = "\n\n".join(parts) + "\n\n"
+                        spare = iter(order[len(parts):])
+                        # est over-counts the "\n\n" joiners, so top up on the
+                        # true count.
+                        while ntok(prefix) < PREFIX_TOKENS:
+                            prefix += shot(train[next(spare)]) + "\n\n"
+                        prefixes.append(prefix)
+                    lens = [ntok(p) for p in prefixes]
+                    print(f"[lc-eval] {NDOCS} many-shot prefixes built "
+                          f"tok_min={min(lens)} tok_max={max(lens)}",
+                          flush=True)
+
+                    NUM = re.compile(r"-?\d[\d,]*(?:\.\d+)?")
+
+                    def gold_of(ex):
+                        return (ex["answer"].split("####")[-1].strip()
+                                .replace(",", "").replace("$", ""))
+
+                    def pred_of(text):
+                        hits = NUM.findall(text)
+                        return hits[-1].replace(",", "") if hits else None
+
+                    def is_correct(pred, gold):
+                        if pred is None:
+                            return False
+                        try:
+                            return float(pred) == float(gold)
+                        except ValueError:
+                            return pred == gold
+
+                    def ask(doc, qidx):
+                        question = test[qidx]["question"]
+                        payload = {
+                            "model": MODEL,
+                            "prompt": (prefixes[doc]
+                                       + f"Question: {question}\nAnswer:"),
+                            "max_tokens": MAXTOK,
+                            "temperature": 0.0,
+                            "seed": 0,
+                            "stop": STOP,
+                        }
+                        req = urllib.request.Request(
+                            PROXY + "/v1/completions",
+                            data=json.dumps(payload).encode(),
+                            headers={"Content-Type": "application/json"})
+                        t0 = time.time()
+                        with urllib.request.urlopen(req, timeout=900) as r:
+                            body = json.load(r)
+                        return (time.time() - t0,
+                                body["choices"][0].get("text", ""))
+
+                    errors = 0
+                    for visit, tag in enumerate(("seed", "revisit")):
+                        before = scrape(PREFILL)
+                        gen_before = scrape(DECODE).get(
+                            "generation_tokens_total", 0.0)
+                        t_visit = time.time()
+
+                        def run(doc):
+                            qidx = TEST_OFFSET + visit * NDOCS + doc
+                            try:
+                                dt, text = ask(doc, qidx)
+                            except Exception as exc:
+                                print(f"[lc-eval:{tag}] doc{doc} "
+                                      f"ERROR: {exc}", flush=True)
+                                return None
+                            gold = gold_of(test[qidx])
+                            pred = pred_of(text)
+                            return {"visit": tag, "doc": doc,
+                                    "test_idx": qidx, "e2e_s": dt,
+                                    "pred": pred, "gold": gold,
+                                    "correct": is_correct(pred, gold)}
+
+                        with cf.ThreadPoolExecutor(max_workers=CONC) as pool:
+                            rows = list(pool.map(run, range(NDOCS)))
+                        wall = time.time() - t_visit
+                        after = scrape(PREFILL)
+                        gen_tok = (scrape(DECODE).get(
+                            "generation_tokens_total", 0.0) - gen_before)
+
+                        for doc, row in enumerate(rows):
+                            if row is None:
+                                errors += 1
+                                continue
+                            print(f"[lc-eval:{tag}] doc{doc} "
+                                  f"e2e={row['e2e_s']:.2f}s "
+                                  f"correct={int(row['correct'])} "
+                                  f"pred={row['pred']} gold={row['gold']}",
+                                  flush=True)
+
+                        d = {k: after.get(v, 0) - before.get(v, 0)
+                             for k, v in KEYS.items()}
+                        n = d["ttft_n"] or 1
+                        npre = d["pre_n"] or 1
+                        q = d["q"] or 1
+                        ok_rows = [r for r in rows if r]
+                        acc = (sum(r["correct"] for r in ok_rows)
+                               / max(len(ok_rows), 1))
+                        lat = sorted(r["e2e_s"] for r in ok_rows)
+                        def pct(p):
+                            return (lat[min(len(lat) - 1,
+                                            int(p * len(lat)))]
+                                    if lat else 0.0)
+                        print(f"[lc-eval:{tag}:summary] conc={CONC} "
+                              f"reqs={len(ok_rows)} acc={acc:.3f} "
+                              f"wall={wall:.1f}s "
+                              f"e2e_avg={sum(lat)/max(len(lat), 1):.2f}s "
+                              f"e2e_p50={pct(0.50):.2f}s "
+                              f"e2e_p95={pct(0.95):.2f}s "
+                              f"req_per_s={len(ok_rows)/wall:.2f} "
+                              f"prompt_tok_per_s={d['ptok']/wall:.0f} "
+                              f"gen_tok_per_s={gen_tok/wall:.1f} "
+                              f"server_ttft_avg={d['ttft_s']/n:.2f}s "
+                              f"prefill_avg={d['pre_s']/npre:.3f}s "
+                              f"ext_hit_pct={100*d['hit']/q:.1f}",
+                              flush=True)
+                    print(f"LC-EVAL COMPLETE (errors={errors})", flush=True)
+                    raise SystemExit(1 if errors else 0)
+                    EOF
+
+                    lc_status=PASS
+                    echo "===== Long-context (many-shot) GSM8K offload eval ====="
+                    if ! python3 /tmp/bench_lc_eval.py 2>&1 \
+                        | tee "$CDK_OUTPUT_DIR/lc_eval.log"; then
+                      lc_status=FAIL
+                    fi
+
+                    # ---------------------------------------------------------
+                    # LONG-CONTEXT GSM8K SCORED BY lm_eval
+                    #
+                    # The same offload-tier structure as the lc-eval above, but
+                    # driven by the standard harness so the job also reports
+                    # exact_match strict-match / flexible-extract.
+                    #
+                    # A conventional gsm8k pass cannot separate the legs here: 5
+                    # shots is ~1k tokens and 25 shots ~4.8k (191 tokens per
+                    # shot, measured) against a 32768-token PCP8 offload block,
+                    # and the decode-side tier only ever saves in this workload
+                    # (Raiden wins arbitration for proxied requests), so no
+                    # request short of one block can touch the tier on either
+                    # engine. GSM8K_FEWSHOT is therefore sized to clear a full
+                    # block, and the identical scored set runs twice:
+                    # GSM8K_LIMIT prompts x 2 blocks is ~1.5x the 32-block
+                    # prefill pool, so every seed-pass prefix is evicted from
+                    # HBM before the revisit pass asks for it — restored from
+                    # CPU in the offloading leg, recomputed in the baseline leg.
+                    #
+                    # The A/B signal is the revisit pass's ttft/prefill_avg/
+                    # ext_hit_pct. The scores are the correctness signal: the
+                    # revisit pass replays the seed pass exactly (same docs,
+                    # same fewshot seed, greedy), so strict/flexible must come
+                    # back identical on both legs — on the offloading leg that
+                    # equality is restored KV agreeing with recompute.
+                    cat << 'EOF' | sed 's/^[[:space:]]\{20\}//' > /tmp/gsm8k_lm_eval.py
+                    import glob
+                    import json
+                    import os
+                    import re
+                    import subprocess
+                    import time
+                    import urllib.request
+
+                    JS = os.environ["JS_NAME"]
+                    PORT = os.environ.get("PROXY_PORT", "10000")
+                    PROXY = f"http://{JS}-prefill-0-0.{JS}:{PORT}"
+                    PREFILL = f"http://{JS}-prefill-0-0.{JS}:8000"
+                    DECODE = f"http://{JS}-decode-0-0.{JS}:7200"
+                    OUT = os.environ["CDK_OUTPUT_DIR"]
+                    LIMIT = os.environ.get("GSM8K_LIMIT", "24")
+                    CONC = os.environ.get("GSM8K_CONCURRENCY", "12")
+                    FEWSHOT = os.environ.get("GSM8K_FEWSHOT", "200")
+                    MAX_LENGTH = os.environ.get("GSM8K_MAX_LENGTH", "65536")
+                    MIN_STRICT = float(os.environ.get("GSM8K_MIN_STRICT",
+                                                      "0.5"))
+                    TIMEOUT = os.environ.get("LM_EVAL_TIMEOUT", "1800")
+                    # One PCP8 prefill offload block: --block-size 4096 x pcp8.
+                    BLOCK = 32768
+
+                    KEYS = dict(ttft_s="time_to_first_token_seconds_sum",
+                                ttft_n="time_to_first_token_seconds_count",
+                                pre_s="request_prefill_time_seconds_sum",
+                                pre_n="request_prefill_time_seconds_count",
+                                ptok="prompt_tokens_total",
+                                hit="external_prefix_cache_hits_total",
+                                q="external_prefix_cache_queries_total")
+
+                    def scrape(base):
+                        with urllib.request.urlopen(f"{base}/metrics",
+                                                    timeout=30) as r:
+                            text = r.read().decode()
+                        m = {}
+                        for line in text.splitlines():
+                            if line.startswith("#"):
+                                continue
+                            mo = re.match(
+                                r"vllm:([a-z_0-9]+)\{.*\} ([0-9.e+-]+)$", line)
+                            if mo:
+                                m[mo.group(1)] = (m.get(mo.group(1), 0.0)
+                                                  + float(mo.group(2)))
+                        return m
+
+                    def score(tag):
+                        out_path = f"{OUT}/lm_eval_{tag}"
+                        cmd = [
+                            "lm_eval", "--model", "local-completions",
+                            "--model_args",
+                            f"base_url={PROXY}/v1/completions,"
+                            f"model={os.environ['MODEL']},"
+                            # lm_eval reuses `model` as the HF tokenizer repo
+                            # id, but the servers run with
+                            # --served-model-name, so the bare name is not
+                            # resolvable on the Hub.
+                            f"tokenizer={os.environ['TOKENIZER']},"
+                            # max_length must cover the many-shot prompt or
+                            # lm_eval truncates it back under one block.
+                            f"max_retries=10,max_length={MAX_LENGTH},"
+                            # lm_eval's default per-request timeout is 300s,
+                            # well under a cold 38k-token prefill queued behind
+                            # others. A client that gives up mid-request
+                            # orphans the KV the prefill engine already
+                            # published, so wait rather than abandon.
+                            f"timeout={TIMEOUT},num_concurrent={CONC}",
+                            "--tasks", "gsm8k",
+                            "--num_fewshot", FEWSHOT,
+                            "--limit", LIMIT,
+                            # The 4th seed is the fewshot sampler's: fixed, so
+                            # the revisit pass rebuilds byte-identical prompts
+                            # and both legs score the same prefixes.
+                            "--seed", "1234,1234,1234,1234",
+                            "--output_path", out_path,
+                        ]
+                        print(f"[gsm8k:{tag}] {' '.join(cmd)}", flush=True)
+                        t0 = time.time()
+                        subprocess.run(cmd, check=True)
+                        wall = time.time() - t0
+                        # lm_eval writes
+                        # <out_path>/<sanitized-model>/results_*.json
+                        found = sorted(
+                            glob.glob(f"{out_path}/**/results_*.json",
+                                      recursive=True),
+                            key=os.path.getmtime)
+                        if not found:
+                            raise SystemExit(
+                                f"{tag}: lm_eval produced no results json")
+                        with open(found[-1]) as f:
+                            m = json.load(f)["results"]["gsm8k"]
+                        return (wall,
+                                m.get("exact_match,strict-match"),
+                                m.get("exact_match,flexible-extract"))
+
+                    def run_pass(tag):
+                        before = scrape(PREFILL)
+                        gen_before = scrape(DECODE).get(
+                            "generation_tokens_total", 0.0)
+                        wall, strict, flexible = score(tag)
+                        after = scrape(PREFILL)
+                        gen_tok = (scrape(DECODE).get(
+                            "generation_tokens_total", 0.0) - gen_before)
+
+                        d = {k: after.get(v, 0) - before.get(v, 0)
+                             for k, v in KEYS.items()}
+                        n = d["ttft_n"] or 1
+                        npre = d["pre_n"] or 1
+                        q = d["q"] or 1
+                        row = {"tag": tag, "strict": strict,
+                               "flexible": flexible, "wall_s": wall,
+                               "reqs": int(d["ttft_n"]),
+                               "prompt_tok_per_req": d["ptok"] / n,
+                               "ttft_avg_s": d["ttft_s"] / n,
+                               "prefill_avg_s": d["pre_s"] / npre,
+                               "ext_hit_pct": 100 * d["hit"] / q}
+                        print(f"[result:{tag}] strict={strict} "
+                              f"flexible={flexible}", flush=True)
+                        print(f"[gsm8k:{tag}:summary] fewshot={FEWSHOT} "
+                              f"limit={LIMIT} conc={CONC} "
+                              f"reqs={row['reqs']} wall={wall:.1f}s "
+                              f"prompt_tok_per_req="
+                              f"{row['prompt_tok_per_req']:.0f} "
+                              f"prompt_tok_per_s={d['ptok']/wall:.0f} "
+                              f"gen_tok_per_s={gen_tok/wall:.1f} "
+                              f"server_ttft_avg={row['ttft_avg_s']:.2f}s "
+                              f"prefill_avg={row['prefill_avg_s']:.3f}s "
+                              f"ext_hit_pct={row['ext_hit_pct']:.1f}",
+                              flush=True)
+                        return row
+
+                    seed = run_pass("seed")
+                    revisit = run_pass("revisit")
+
+                    with open(f"{OUT}/gsm8k_scores.json", "w") as f:
+                        json.dump([seed, revisit], f, indent=2)
+
+                    # Structural warnings, not failures: they say the workload
+                    # stopped being an offload A/B, which is a recipe/sizing
+                    # problem rather than a serving regression.
+                    if seed["prompt_tok_per_req"] < BLOCK:
+                        print(f"WARN prompts average "
+                              f"{seed['prompt_tok_per_req']:.0f} tokens, under "
+                              f"one {BLOCK}-token block: raise GSM8K_FEWSHOT, "
+                              "nothing here can reach the offload tier",
+                              flush=True)
+                    if seed["ext_hit_pct"] > 5:
+                        print(f"WARN seed pass already hit the external cache "
+                              f"({seed['ext_hit_pct']:.1f}%): prefixes are "
+                              "shared or pre-warmed, so the revisit delta "
+                              "understates the tier", flush=True)
+
+                    fails = []
+                    if not seed["strict"]:
+                        fails.append(f"seed strict={seed['strict']} - nothing scored, "
+                                     "serving or decoding is broken")
+                    elif seed["strict"] < MIN_STRICT:
+                        # Advisory: at this context length the model spends the
+                        # 256-token generation budget on reasoning prose and
+                        # never emits the "#### N" line, so strict-match runs
+                        # far below its ~0.9 short-prompt value (the lc-eval
+                        # sees the same, 0.25-0.46). Low here is a prompt-shape
+                        # artefact; only zero, or seed/revisit disagreement,
+                        # means something broke.
+                        print(f"WARN seed strict={seed['strict']} below "
+                              f"{MIN_STRICT}: expected at this context length, "
+                              "the replay check below is the real gate",
+                              flush=True)
+                    # Same prompts, greedy: the revisit pass is a replay, so a
+                    # broken restore (or recompute) path garbles whole cached
+                    # prefixes and collapses flexible-extract toward zero. A
+                    # concurrent server cannot promise per-question stability:
+                    # cold-vs-cached prefill changes batch composition, which
+                    # perturbs MoE numerics enough to flip 1-2 greedy answers
+                    # in either direction (observed +2 questions on a replay,
+                    # comparable seed-vs-seed jitter across jobs, and ~1.7%
+                    # net movement across identical runs at n=1319 in
+                    # vllm-torchtpu PR #62's eval tables). Gate one-sided on
+                    # a flexible-extract DROP beyond ~15% of the questions;
+                    # improvement is never corruption, and a broken restore
+                    # path drops 20%+ toward zero. Strict-match movement is
+                    # formatting jitter: warning only.
+                    drop = seed["flexible"] - revisit["flexible"]
+                    drop_tolerance = max(3.0 / float(LIMIT), 0.15) + 1e-9
+                    print(f"[gsm8k:replay] flexible seed={seed['flexible']} "
+                          f"revisit={revisit['flexible']} drop={drop:+.4f} "
+                          f"tolerance={drop_tolerance:.4f}", flush=True)
+                    if drop > drop_tolerance:
+                        fails.append(
+                            f"revisit flexible={revisit['flexible']} dropped "
+                            f"more than {drop_tolerance:.4f} below seed "
+                            f"flexible={seed['flexible']} on an identical "
+                            "replay")
+                    if revisit["strict"] != seed["strict"]:
+                        print(f"WARN revisit strict={revisit['strict']} != "
+                              f"seed strict={seed['strict']}: formatting "
+                              "jitter from batch-composition numerics; "
+                              "flexible is the gate", flush=True)
+
+                    if fails:
+                        print("GSM8K: FAIL", flush=True)
+                        for msg in fails:
+                            print("  -", msg, flush=True)
+                        raise SystemExit(1)
+                    print("GSM8K: PASS", flush=True)
+                    EOF
+
+                    gsm8k_status=PASS
+                    echo "===== Long-context GSM8K scored by lm_eval ====="
+                    if ! python3 /tmp/gsm8k_lm_eval.py 2>&1 \
+                        | tee "$CDK_OUTPUT_DIR/gsm8k_eval.log"; then
+                      gsm8k_status=FAIL
+                    fi
+
+                    echo "STAGES: peak-prefill=$peak_status restore=$restore_status lc-eval=$lc_status gsm8k=$gsm8k_status"
+                    if [ "$peak_status" = PASS ] && [ "$restore_status" = PASS ] \
+                        && [ "$lc_status" = PASS ] && [ "$gsm8k_status" = PASS ]; then
+                      echo "RESULT: PASS"
+                    else
+                      echo "RESULT: FAIL (see stage statuses above)"
+                      exit 1
+                    fi
+                env:
+                - name: JS_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                - name: MODEL
+                  value: "Qwen3.5-35B-A3B-FP8"
+                # AutoTokenizer needs the real HF repo id; the servers are
+                # launched with --served-model-name, so the bare name is not
+                # resolvable on the Hub.
+                - name: TOKENIZER
+                  value: "Qwen/Qwen3.5-35B-A3B-FP8"
+                - name: PROXY_PORT
+                  value: "10000"
+                # Must match the correctness container's value.
+                - name: CORRECTNESS_BEACON_PORT
+                  value: "9999"
+                # lc-eval: many-shot prefix length in tokens. Must clear one
+                # PCP8 scheduler block (32768) so the whole first block lies
+                # inside the shared prefix; 33024 leaves a 256-token margin.
+                - name: LC_PREFIX_TOKENS
+                  value: "33024"
+                # 48 prefixes x ~33k tokens is ~1.5x the 128-block prefill
+                # pool: every prefix is evicted from HBM before its revisit.
+                - name: LC_DOCS
+                  value: "48"
+                # Each ~33k-token prompt holds 2 of the 32 scheduler blocks.
+                # 12 in flight (24 blocks, with 8 left as staging for KV
+                # awaiting the decode pull) oversaturates the baseline leg's
+                # prefill duty cycle (~10 concurrent at ~3.8s prefill in a
+                # ~39s request cycle), so the revisit A/B separates on
+                # throughput as well as TTFT: baseline throughput caps at the
+                # serialized-prefill rate while the offloading leg keeps
+                # scaling. Much past ~12 risks the admission stall a full
+                # pool causes (Running: 0 with the pool at 87%).
+                - name: LC_CONCURRENCY
+                  value: "12"
+                # Generation cap per scored answer; gsm8k answers stop at
+                # "Question:" well before this (~120 tokens on average).
+                - name: LC_MAX_TOKENS
+                  value: "256"
+                # Scored questions start at test[LC_TEST_OFFSET]; seed and
+                # revisit use disjoint question ranges.
+                - name: LC_TEST_OFFSET
+                  value: "300"
+                # gsm8k (lm_eval) stage. 191 tokens per gsm8k shot
+                # (measured), so 200 shots puts every prompt ~38k tokens, past
+                # the 32768-token PCP8 offload block with margin for sampling
+                # spread and still inside max_model_len 65536.
+                - name: GSM8K_FEWSHOT
+                  value: "200"
+                # Each prompt holds 2 of the 32 prefill scheduler blocks, so 24
+                # scored questions are ~1.5x the pool — the same overflow ratio
+                # the lc-eval uses to guarantee eviction before the revisit.
+                - name: GSM8K_LIMIT
+                  value: "24"
+                # Long prompts, so the lc-eval's pool-safe concurrency applies
+                # here too; 50 would risk the admission stall a full pool
+                # causes.
+                - name: GSM8K_CONCURRENCY
+                  value: "12"
+                # lm_eval truncates the prompt to max_length; it must cover the
+                # many-shot prefix or the prompts drop back under one block.
+                - name: GSM8K_MAX_LENGTH
+                  value: "65536"
+                # Advisory floor for strict-match on the seed pass: below it
+                # the stage warns, it does not fail. ~0.9 is the short-prompt
+                # value; at this context length answers are cut off before the
+                # "#### N" line (the lc-eval lands at 0.25-0.46 for the same
+                # reason), so only a zero score fails. The real gate is the
+                # revisit pass matching the seed pass exactly.
+                - name: GSM8K_MIN_STRICT
+                  value: "0.5"
+                - name: LM_EVAL_TIMEOUT
+                  value: "1800"
+                # peak-prefill stage: must stay identical to the offloading
+                # recipe's values — the A/B is a cross-job comparison of
+                # prompt_tok_per_s between the two logs.
+                - name: PEAK_DOCS
+                  value: "36"
+                - name: PEAK_CONCURRENCY
+                  value: "12"
+                - name: PEAK_PROMPT_TOKENS
+                  value: "32832"
+                - name: PEAK_MIN_TOK_S
+                  value: "0"
+                # restore stage: identical shape to the offloading recipe,
+                # but this leg has no DRAM tier, so revisits must MISS the
+                # external cache (the "next long query pushed the previous
+                # one out of HBM" observation).
+                - name: RESTORE_DOCS
+                  value: "17"
+                - name: RESTORE_PROMPT_TOKENS
+                  value: "32832"
+                - name: RESTORE_EXPECT
+                  value: "miss"
+                resources:
+                  limits:
+                    memory: "16Gi"
+                    cpu: "4"
+                  requests:
+                    memory: "8Gi"
+                    cpu: "2"
