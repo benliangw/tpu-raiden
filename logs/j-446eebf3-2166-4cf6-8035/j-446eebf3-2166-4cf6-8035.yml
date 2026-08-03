@@ -1,0 +1,394 @@
+# OffloadingControllerV2 (raiden KVCacheStore) stage-3 RESET gate.
+#
+# Exercises the reset_cache path that wheel #2's public clear() unblocked
+# (design §6 phase 2: "reset too once clear has shipped"). One self-driving
+# pod, four passes around a POST /reset_prefix_cache:
+#
+#   pass A  -> N deterministic docs, greedy decode, outputs recorded; blocks
+#              stored into the raiden store.
+#   churn   -> filler docs overflow the deliberately small HBM pool
+#              (NUM_GPU_BLOCKS_OVERRIDE), evicting pass-A blocks from HBM.
+#   pass B  -> replay: byte-identical AND external prefix hits delta > 0 —
+#              the docs came back through the store, not the GPU cache.
+#   reset   -> POST /reset_prefix_cache while idle. The connector flushes
+#              its jobs, the manager drains, and store.clear() empties the
+#              directory, returns every host block, and wipes the recovery
+#              metadata.
+#   pass C  -> replay: byte-identical AND external hit delta == 0 — a wiped
+#              store must recompute, and a delta here means clear() left
+#              entries behind. This pass also re-stores the docs.
+#   churn2 + pass D -> replay: byte-identical AND delta > 0 again — the
+#              store keeps working after a reset (allocator got its blocks
+#              back; admissions still succeed).
+#
+# REQUIRES a wheel-#2 tpu_raiden (public clear()): the preflight fails
+# loudly on wheel #1. The wheel is picked as the newest raiden_controller
+# build in /root/wheels — update to an exact pin once wheel #2 exists.
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: ttpu-qwen35-v2-reset
+  namespace: cloud-devkit-jobs
+spec:
+  successPolicy:
+    operator: All
+    targetReplicatedJobs:
+      - reset-gate
+  ttlSecondsAfterFinished: 900
+  replicatedJobs:
+    - name: reset-gate
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            spec:
+              restartPolicy: Never
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: 2x2x1
+                cloud.google.com/gke-tpu-accelerator: tpu7x
+              initContainers:
+                - name: tpu-node-setup
+                  image: busybox
+                  securityContext:
+                    privileged: true
+                  command: ["/bin/sh", "-c"]
+                  args:
+                    - |
+                      sysctl -w vm.max_map_count=8388608
+                      if [ -f /sys/module/vfio_iommu_type1/parameters/dma_entry_limit ]; then
+                        echo 2000000 > /sys/module/vfio_iommu_type1/parameters/dma_entry_limit
+                        echo "Successfully increased dma_entry_limit"
+                      fi
+              containers:
+              - name: vllm-server
+                image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:latest
+                imagePullPolicy: Always
+                command: ["/bin/bash", "-c"]
+                args:
+                - |
+                  set -eo pipefail
+                  : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                  export CDK_OUTPUT_DIR
+                  mkdir -p "$CDK_OUTPUT_DIR"
+                  export PYTHONUNBUFFERED=1
+
+                  echo "===== Syncing dependencies to pyproject.toml ====="
+                  mkdir -p /tmp/depsync
+                  # Only torch-tpu is stripped; vllm deliberately installs from
+                  # the pyproject pin (0.26.0) — the :latest image's baked vllm
+                  # checkout varies across rebuilds and has shipped pre-0.26
+                  # layouts that break the raiden_connector imports.
+                  sed -E '/"torch-tpu==/d' /root/torchtpu-vllm/pyproject.toml > /tmp/depsync/pyproject.toml
+                  uv pip install --system -r /tmp/depsync/pyproject.toml --index-url https://pypi.org/simple
+
+                  # torch-tpu stays at the image's baked build: the pyproject pin
+                  # (AR dev20260728090214) links absl lts_20260526, while raiden
+                  # wheels resolve torch_tpu symbols from libpywrap at import and
+                  # are built against absl lts_20260107 like the baked torch_tpu.
+                  # Installing the AR build kills raiden import with undefined
+                  # torch_tpu::Materialize (lts namespace is mangled into the name).
+                  echo "Using image torch-tpu (pyproject pin stripped; ABI-matched to the raiden wheel)"
+
+                  # Wheel #2: tpu-raiden benliangw/raiden_controller @ 1224ae8
+                  # (the preflight below enforces its clear()).
+                  RAIDEN_WHL=/root/wheels/tpu_raiden_torch-0.0.1.dev20260802225533-1_raiden_controller_9147f37-cp312-cp312-manylinux_2_31_x86_64.whl
+                  [ -f "$RAIDEN_WHL" ] || { echo "RESULT: FAIL (wheel #2 not in /root/wheels)"; exit 1; }
+                  echo "Installing raiden wheel: $RAIDEN_WHL"
+                  uv pip install --system --no-deps "$RAIDEN_WHL"
+
+                  export PYTHONPATH=/root/torchtpu-vllm/src:/root/torchtpu-vllm:${PYTHONPATH:-}
+
+                  python3 -c 'from tpu_raiden.api.torch.kv_cache_store import KVCacheStore as S; assert hasattr(S, "num_registered_workers"), "wheel predates wheel #1"; assert hasattr(S, "clear") and hasattr(S, "insert_and_lock_detailed"), "wheel predates wheel #2 (no clear/insert_and_lock_detailed) — the reset gate needs it"; import vllm_torchtpu.offload.raiden_connector as rc; assert hasattr(rc, "TPURaidenOffloadingConnector"); print("V2 wheel-#2 preflight OK")'                     || { echo "RESULT: FAIL (V2 wheel-#2 preflight)"; exit 1; }
+
+                  echo "===== Pre-downloading $MODEL snapshot ====="
+                  DL_OK=""
+                  for i in $(seq 1 30); do
+                    if python3 -c "import os; from huggingface_hub import snapshot_download; snapshot_download(os.environ['MODEL'])"; then
+                      DL_OK=1; break
+                    fi
+                    echo "snapshot_download failed (attempt $i/30); retrying in 60s"
+                    sleep 60
+                  done
+                  [ -n "$DL_OK" ] || { echo "RESULT: FAIL (model snapshot download)"; exit 1; }
+                  export HF_HUB_OFFLINE=1
+
+                  # Pod env does not survive vllm's spawn(); re-export.
+                  export RAIDEN_DISABLE_SINGLETON_WORKER=1
+
+                  KV_BYTES=$((KV_OFFLOADING_SIZE * 1024 * 1024 * 1024))
+                  KV_CFG=$(cat <<EOF
+                  {"kv_connector":"TPURaidenOffloadingConnector","kv_role":"kv_both","kv_connector_module_path":"vllm_torchtpu.offload.raiden_connector","kv_connector_extra_config":{"cpu_bytes_to_use":${KV_BYTES},"raiden_controller_port":${RAIDEN_CONTROLLER_PORT}}}
+                  EOF
+                  )
+
+                  # Small HBM pool + small max-num-seqs: the churn passes must
+                  # overflow HBM so replays are served by the store, and the
+                  # serial driver never needs more than a few sequences.
+                  echo "===== Starting Qwen3.5 server (V2 store, reset gate) ====="
+                  vllm serve "$MODEL" \
+                      --tensor_parallel_size=4 \
+                      --enable-expert-parallel \
+                      --max-model-len=8192 \
+                      --max-num-batched-tokens=4096 \
+                      --max-num-seqs=4 \
+                      --num-gpu-blocks-override="$NUM_GPU_BLOCKS_OVERRIDE" \
+                      --enable-prefix-caching \
+                      --mamba-cache-mode=align \
+                      --no-async-scheduling \
+                      --language-model-only \
+                      --gpu-memory-utilization="$GPU_MEM_UTIL" \
+                      --kv-transfer-config "$KV_CFG" \
+                      --port="$PORT" \
+                      > "$CDK_OUTPUT_DIR/server.log" 2>&1 &
+                  SERVER_PID=$!
+
+                  echo "Waiting for health (up to 120 min)..."
+                  waited=0
+                  until curl -sf "http://127.0.0.1:${PORT}/health" >/dev/null 2>&1; do
+                    if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+                      echo "RESULT: FAIL (server exited during startup)"
+                      tail -50 "$CDK_OUTPUT_DIR/server.log" || true
+                      exit 1
+                    fi
+                    if [ "$waited" -ge $((120 * 60)) ]; then
+                      echo "RESULT: FAIL (server not healthy in 120 min)"; exit 1
+                    fi
+                    sleep 5; waited=$((waited + 5))
+                  done
+                  echo "server healthy (${waited}s)"
+
+                  python3 - 2>&1 <<'PYEOF' | tee "$CDK_OUTPUT_DIR/reset_gate.log"
+                  import json, os, sys, time, urllib.request
+
+                  PORT = os.environ["PORT"]
+                  MODEL = os.environ["MODEL"]
+                  N = int(os.environ.get("NUM_PROMPTS", "8"))
+                  CHURN = int(os.environ.get("NUM_CHURN", "16"))
+                  WORDS = int(os.environ.get("PROMPT_WORDS", "1200"))
+                  OUT = int(os.environ.get("OUTPUT_LEN", "64"))
+                  BASE = f"http://127.0.0.1:{PORT}"
+
+                  def prompt(tag, i):
+                      head = f"[{tag}-{i:04d}] "
+                      body = " ".join(f"w{tag}{i}x{j}" for j in range(WORDS))
+                      return head + body + "\nSummarize the above in one line:"
+
+                  def complete(text):
+                      req = urllib.request.Request(
+                          f"{BASE}/v1/completions",
+                          data=json.dumps({
+                              "model": MODEL, "prompt": text,
+                              "max_tokens": OUT, "temperature": 0.0,
+                              "seed": 42, "ignore_eos": True,
+                          }).encode(),
+                          headers={"Content-Type": "application/json"})
+                      with urllib.request.urlopen(req, timeout=1800) as r:
+                          return json.loads(r.read())["choices"][0]["text"]
+
+                  def ext_hits():
+                      with urllib.request.urlopen(f"{BASE}/metrics",
+                                                  timeout=60) as r:
+                          text = r.read().decode()
+                      total = 0.0
+                      for line in text.splitlines():
+                          if line.startswith(
+                                  "vllm:external_prefix_cache_hits_total"):
+                              total += float(line.rsplit(" ", 1)[1])
+                      return total
+
+                  def replay(tag, docs):
+                      before = ext_hits()
+                      outs = [complete(p) for p in docs]
+                      return outs, ext_hits() - before
+
+                  failures = []
+                  docs = [prompt("doc", i) for i in range(N)]
+
+                  print(f"=== pass A: warm {N} docs ===")
+                  first = [complete(p) for p in docs]
+                  time.sleep(10)  # let stores reach terminal
+
+                  print(f"=== churn: {CHURN} fillers to evict HBM ===")
+                  for i in range(CHURN):
+                      complete(prompt("churnA", i))
+
+                  print("=== pass B: replay (must be served by the store) ===")
+                  outs_b, delta_b = replay("B", docs)
+                  print(f"pass B: ext_hit_delta={delta_b}")
+                  if outs_b != first:
+                      failures.append("pass B outputs diverged")
+                  if delta_b <= 0:
+                      failures.append(
+                          "pass B saw no external prefix hits — the store "
+                          "never served; raise NUM_CHURN or lower "
+                          "NUM_GPU_BLOCKS_OVERRIDE")
+
+                  print("=== reset_prefix_cache (store.clear) ===")
+                  time.sleep(5)  # idle: in-flight jobs drain
+                  req = urllib.request.Request(f"{BASE}/reset_prefix_cache",
+                                               method="POST", data=b"")
+                  with urllib.request.urlopen(req, timeout=300) as r:
+                      print(f"reset status: {r.status}")
+
+                  print("=== pass C: replay after reset (must recompute) ===")
+                  outs_c, delta_c = replay("C", docs)
+                  print(f"pass C: ext_hit_delta={delta_c}")
+                  if outs_c != first:
+                      failures.append("pass C outputs diverged after reset")
+                  if delta_c != 0:
+                      failures.append(
+                          f"pass C got {delta_c} external hits from a wiped "
+                          "store — clear() left entries behind")
+                  time.sleep(10)  # pass C's re-stores reach terminal
+
+                  print(f"=== churn2 + pass D: store works after reset ===")
+                  for i in range(CHURN):
+                      complete(prompt("churnB", i))
+                  outs_d, delta_d = replay("D", docs)
+                  print(f"pass D: ext_hit_delta={delta_d}")
+                  if outs_d != first:
+                      failures.append("pass D outputs diverged")
+                  if delta_d <= 0:
+                      failures.append(
+                          "pass D saw no external hits — the store stopped "
+                          "admitting after the reset")
+
+                  if failures:
+                      print("RESULT: FAIL (" + "; ".join(failures) + ")")
+                      sys.exit(1)
+                  print(f"RESULT: PASS (B/C/D deltas: {delta_b}/{delta_c}/"
+                        f"{delta_d}; all outputs byte-identical)")
+                  PYEOF
+                  status=${PIPESTATUS[0]}
+
+                  kill -9 "$SERVER_PID" 2>/dev/null || true
+                  exit "$status"
+                env:
+                  - name: MODEL
+                    value: "Qwen/Qwen3.5-35B-A3B-FP8"
+                  - name: PORT
+                    value: "8000"
+                  - name: GPU_MEM_UTIL
+                    value: "0.60"
+                  - name: KV_OFFLOADING_SIZE
+                    value: "100"
+                  - name: RAIDEN_CONTROLLER_PORT
+                    value: "47800"
+                  # Deliberately tiny HBM pool (64 x 1280-token blocks): the
+                  # 16-doc churn (~5 blocks each) overflows it, so replays
+                  # must come back through the store. Sized for the serial
+                  # driver (max-num-seqs 4 x 7 blocks << 64).
+                  - name: NUM_GPU_BLOCKS_OVERRIDE
+                    value: "64"
+                  - name: NUM_PROMPTS
+                    value: "8"
+                  - name: NUM_CHURN
+                    value: "16"
+                  # Synthetic w{tag}{i}x{j} words tokenize to ~3-5 tokens each;
+                  # keep the prompt well under --max-model-len=8192 with
+                  # OUTPUT_LEN.
+                  - name: PROMPT_WORDS
+                    value: "1200"
+                  - name: OUTPUT_LEN
+                    value: "64"
+                  - name: TPU_VLLM_ENABLE_UNIFIED_BLOCK_POOL
+                    value: "1"
+                  - name: RAGGED_GATED_DELTA_RULE_IMPL
+                    value: "chunked_jax_pd"
+                  - name: TPU_KV_CACHE_HEADROOM_MIB
+                    value: "10240"
+                  - name: TPU_TOPOLOGY
+                    value: "2x2x1"
+                  - name: TPU_CHIPS_PER_HOST_BOUNDS
+                    value: "2,2,1"
+                  - name: TPU_HOST_BOUNDS
+                    value: "1,1,1"
+                  - name: TPU_LIBRARY_PATH
+                    value: ""
+                  - name: VLLM_LOGGING_LEVEL
+                    value: "INFO"
+                  - name: MEGASCALE_NUM_SLICES
+                    value: ""
+                  - name: MEGASCALE_SLICE_ID
+                    value: ""
+                  - name: TPU_PROCESS_ADDRESSES
+                    value: ""
+                  - name: TPU_WORKER_HOSTNAMES
+                    value: ""
+                  - name: TPU_PROCESS_PORT
+                    value: ""
+                  - name: MEGASCALE_COORDINATOR_ADDRESS
+                    value: ""
+                  - name: MEGASCALE_PORT
+                    value: ""
+                  - name: HF_HUB_DISABLE_XET
+                    value: "1"
+                  - name: LIBTPU_INIT_ARGS
+                    value: "--xla_tpu_use_enhanced_launch_barrier=false"
+                  - name: RAIDEN_DISABLE_SINGLETON_WORKER
+                    value: "1"
+                  - name: TPU_PREMAPPED_BUFFER_SIZE
+                    value: "8589934592"
+                volumeMounts:
+                  - name: hf-token-volume
+                    mountPath: /root/.cache/huggingface/token
+                    subPath: token
+                    readOnly: true
+                  - name: huggingface-storage
+                    mountPath: /root/.cache/huggingface/
+                  - name: dshm
+                    mountPath: /dev/shm
+                  - name: torchtpu-vllm-nfs
+                    mountPath: /root/torchtpu-vllm
+                  - name: wheels-nfs
+                    mountPath: /root/wheels
+                    readOnly: true
+                securityContext:
+                  privileged: true
+                  capabilities:
+                    add:
+                    - IPC_LOCK
+                resources:
+                  limits:
+                    google.com/tpu: 4
+                    memory: "900Gi"
+                    cpu: "16"
+                  requests:
+                    google.com/tpu: 4
+                    memory: "900Gi"
+                    cpu: "16"
+                ports:
+                  - containerPort: 8000
+
+              volumes:
+              - name: dshm
+                emptyDir:
+                  medium: Memory
+                  sizeLimit: "64Gi"
+              - name: hf-token-volume
+                secret:
+                  secretName: vllm-hf-token
+                  items:
+                  - key: HF_TOKEN
+                    path: token
+              - name: huggingface-storage
+                ephemeral:
+                  volumeClaimTemplate:
+                    spec:
+                      storageClassName: "premium-rwo"
+                      accessModes: [ "ReadWriteOnce" ]
+                      resources:
+                        requests:
+                          storage: 256Gi
+              - name: torchtpu-vllm-nfs
+                nfs:
+                  server: 10.225.237.178
+                  # Pins the job to benliangw/raiden_controller.
+                  path: /workspace/vllm-torchtpu/raiden_controller
+              - name: wheels-nfs
+                nfs:
+                  server: 10.225.237.178
+                  path: /workspace/wheels
