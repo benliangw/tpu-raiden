@@ -1,0 +1,120 @@
+===== Syncing dependencies to pyproject.toml =====
+Using Python 3.12.13 environment at: /usr/local
+Resolved 216 packages in 852ms
+Downloading nvidia-cudnn-frontend (3.5MiB)
+Downloading torchcodec (2.9MiB)
+Downloading pynvvideocodec (41.2MiB)
+Downloading nvidia-cuda-nvdisasm (4.6MiB)
+Downloading nvidia-cutlass-dsl-libs-base (2.7MiB)
+Downloading apache-tvm-ffi (2.5MiB)
+Downloading jaxlib (81.5MiB)
+Downloading flashinfer-python (13.9MiB)
+Downloading nvidia-cutlass-dsl-libs-cu13 (83.9MiB)
+Downloading jax (3.1MiB)
+Downloading libtpu (205.5MiB)
+Downloading vllm (289.6MiB)
+Downloading nvidia-cutlass-dsl-libs-cu12 (84.3MiB)
+ Downloaded nvidia-cutlass-dsl-libs-base
+ Downloaded apache-tvm-ffi
+ Downloaded torchcodec
+ Downloaded nvidia-cudnn-frontend
+ Downloaded nvidia-cuda-nvdisasm
+ Downloaded jax
+ Downloaded pynvvideocodec
+ Downloaded nvidia-cutlass-dsl-libs-cu12
+ Downloaded nvidia-cutlass-dsl-libs-cu13
+ Downloaded jaxlib
+ Downloaded flashinfer-python
+ Downloaded libtpu
+ Downloaded vllm
+Prepared 18 packages in 6.54s
+Uninstalled 12 packages in 1.97s
+Installed 18 packages in 116ms
+ - apache-tvm-ffi==0.1.9
+ + apache-tvm-ffi==0.1.10
+ - flashinfer-python==0.6.11.post2
+ + flashinfer-python==0.6.14
+ - humming-kernels==0.1.2
+ + humming-kernels==0.1.10
+ - jax==0.10.0
+ + jax==0.10.2
+ - jaxlib==0.10.0
+ + jaxlib==0.10.2
+ - libtpu==0.0.40
+ + libtpu==0.0.43
+ + nvidia-cuda-nvdisasm==13.3.73
+ - nvidia-cudnn-frontend==1.18.0
+ + nvidia-cudnn-frontend==1.26.0
+ - nvidia-cutlass-dsl==4.5.2
+ + nvidia-cutlass-dsl==4.6.0
+ - nvidia-cutlass-dsl-libs-base==4.5.2
+ + nvidia-cutlass-dsl-libs-base==4.6.0
+ + nvidia-cutlass-dsl-libs-core==4.6.0
+ + nvidia-cutlass-dsl-libs-cu12==4.6.0
+ - nvidia-cutlass-dsl-libs-cu13==4.5.2
+ + nvidia-cutlass-dsl-libs-cu13==4.6.0
+ + nvtx==0.2.15
+ + pynvvideocodec==2.0.4
+ - tokenspeed-mla==0.1.2
+ + tokenspeed-mla==0.1.8
+ + torchcodec==0.15.0
+ - vllm==0.23.1rc1.dev927+gc0e8e1f12.d20260708.tpu (from file:///root/cloud-devkit/vllm)
+ + vllm==0.26.0
+Using image torch-tpu (pyproject pin stripped; ABI-matched to the raiden wheel)
+Installing raiden wheel: /root/wheels/tpu_raiden_torch-0.0.1.dev20260803004933-1_raiden_controller_5ad8d47-cp312-cp312-manylinux_2_31_x86_64.whl
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 4ms
+Prepared 1 package in 236ms
+Installed 1 package in 2ms
+ + tpu-raiden-torch==0.0.1.dev20260803004933 (from file:///root/wheels/tpu_raiden_torch-0.0.1.dev20260803004933-1_raiden_controller_5ad8d47-cp312-cp312-manylinux_2_31_x86_64.whl)
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1785781686.166825      89 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1785781686.173100      89 tpu_profiler_plugin.cc:707] PyTorch PrivateUse1ProfilerRegistry not found. Native TPU profiling will be disabled (this is expected on PyTorch < 2.12).
+I0000 00:00:1785781689.534317      89 device_rt.cc:124] PjRt runtime initialization deferred for tpu
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+INFO 08-03 18:28:11 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-03 18:28:11 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-03 18:28:11 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 08-03 18:28:11 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-03 18:28:11 [tpu_info.py:26] 
+INFO 08-03 18:28:11 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-03 18:28:11 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 08-03 18:28:11 [tpu_platform.py:896] Pin memory is not supported on TPU.
+INFO 08-03 18:28:19 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-03 18:28:19 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+V2 wheel-#2 preflight OK
+===== Pre-downloading Qwen/Qwen3.5-35B-A3B-FP8 snapshot =====
+Fetching 28 files:   0%|          | 0/28 [00:00<?, ?it/s]Fetching 28 files:   7%|▋         | 2/28 [00:00<00:01, 17.56it/s]Fetching 28 files:   7%|▋         | 2/28 [00:19<00:01, 17.56it/s]Fetching 28 files:  32%|███▏      | 9/28 [01:12<02:43,  8.62s/it]Fetching 28 files:  36%|███▌      | 10/28 [01:13<02:16,  7.57s/it]Fetching 28 files:  54%|█████▎    | 15/28 [01:23<01:00,  4.67s/it]Fetching 28 files:  61%|██████    | 17/28 [01:55<01:19,  7.27s/it]Fetching 28 files:  75%|███████▌  | 21/28 [02:36<00:59,  8.43s/it]Fetching 28 files: 100%|██████████| 28/28 [02:36<00:00,  5.59s/it]
+===== Starting Qwen3.5 server (V2 store, reset gate) =====
+Waiting for health (up to 120 min)...
+server healthy (840s)
+=== pass A: warm 8 docs ===
+=== churn: 16 fillers to evict HBM ===
+=== pass B: replay (must be served by the store) ===
+pass B: ext_hit_delta=57344.0
+pass B: 8/8 byte-identical, early_divergences=[]
+=== reset_prefix_cache (store.clear) ===
+Traceback (most recent call last):
+  File "<stdin>", line 113, in <module>
+  File "/usr/local/lib/python3.12/urllib/request.py", line 215, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/urllib/request.py", line 521, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/urllib/request.py", line 630, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/urllib/request.py", line 559, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/urllib/request.py", line 492, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/urllib/request.py", line 639, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 404: Not Found
+
