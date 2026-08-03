@@ -1,0 +1,49 @@
+===== Syncing dependencies to pyproject.toml =====
+Using Python 3.12.13 environment at: /usr/local
+Resolved 102 packages in 533ms
+Downloading libtpu (205.5MiB)
+Downloading jaxlib (81.5MiB)
+Downloading jax (3.1MiB)
+ Downloaded jax
+ Downloaded jaxlib
+ Downloaded libtpu
+Prepared 3 packages in 2.44s
+Uninstalled 3 packages in 290ms
+Installed 3 packages in 19ms
+ - jax==0.10.0
+ + jax==0.10.2
+ - jaxlib==0.10.0
+ + jaxlib==0.10.2
+ - libtpu==0.0.40
+ + libtpu==0.0.43
+Using image torch-tpu (pyproject pin stripped; ABI-matched to the raiden wheel)
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 4ms
+Prepared 1 package in 242ms
+Installed 1 package in 2ms
+ + tpu-raiden-torch==0.0.1.dev20260802195059 (from file:///root/wheels/tpu_raiden_torch-0.0.1.dev20260802195059-1_raiden_controller_1224ae8-cp312-cp312-manylinux_2_31_x86_64.whl)
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1785731409.709754      88 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1785731409.716314      88 tpu_profiler_plugin.cc:707] PyTorch PrivateUse1ProfilerRegistry not found. Native TPU profiling will be disabled (this is expected on PyTorch < 2.12).
+I0000 00:00:1785731413.195792      88 device_rt.cc:124] PjRt runtime initialization deferred for tpu
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+INFO 08-03 04:30:14 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-03 04:30:14 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-03 04:30:14 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 08-03 04:30:15 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-03 04:30:15 [tpu_info.py:26] 
+INFO 08-03 04:30:15 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-03 04:30:15 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 08-03 04:30:15 [tpu_platform.py:896] Pin memory is not supported on TPU.
+INFO 08-03 04:30:24 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-03 04:30:24 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "/root/torchtpu-vllm/src/vllm_torchtpu/offload/raiden_connector.py", line 61, in <module>
+    from vllm.distributed.kv_transfer.kv_connector.v1.offloading.config import \
+ModuleNotFoundError: No module named 'vllm.distributed.kv_transfer.kv_connector.v1.offloading.config'
+RESULT: FAIL (V2 preflight)
+
