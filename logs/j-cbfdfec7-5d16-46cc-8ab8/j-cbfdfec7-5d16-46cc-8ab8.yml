@@ -1,0 +1,645 @@
+# OffloadingControllerV2 (raiden KVCacheStore) phase-2 HYBRID PARITY recipe.
+#
+# Same shape as qwen35_offloading.yml (V1-raiden leg of the A/B) with only the
+# server's offload stack swapped to the V2 store path, so bench/eval numbers
+# are directly comparable:
+#   - connector: TPURaidenOffloadingConnector (kv_connector_module_path), the
+#     controller-driven KVCacheStore stack from vllm-torchtpu
+#     benliangw/raiden_controller. Requires the wheel-#1 tpu_raiden build
+#     (num_registered_workers + ctor/bind raise), pinned below.
+#   - hybrid gate: Qwen3.5's unified block pool (mamba + full attention in one
+#     pool at scheduler-block granularity) exercises the grouped key mapping;
+#     TPU_VLLM_ENABLE_UNIFIED_BLOCK_POOL=1 is REQUIRED — the V2 worker
+#     registers exactly one unified device tensor per rank with raiden.
+#   - V1-only knobs (VLLM_TPU_OFFLOAD_RAIDEN, TPU_KV_SHM_POOL_GB,
+#     KV_H2D_POOL_MAX_BLOCKS, TPU_KV_PIN_SHM) are dropped: V2 has no
+#     worker-side torch DMA path or H2D staging pool.
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: vllm-qwen35-a3b-offload-v2-bench
+spec:
+  successPolicy:
+    operator: All
+    targetReplicatedJobs:
+      - bench
+      - eval
+  ttlSecondsAfterFinished: 600
+  replicatedJobs:
+    - name: vllm-server
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            metadata:
+              annotations:
+                gke-gcsfuse/volumes: "true"
+            spec:
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: 2x2x1
+                cloud.google.com/gke-tpu-accelerator: tpu7x
+              initContainers:
+                - name: tpu-node-setup
+                  image: busybox
+                  securityContext:
+                    privileged: true
+                  command: ["/bin/sh", "-c"]
+                  args:
+                    - |
+                      sysctl -w vm.max_map_count=8388608
+                      if [ -f /sys/module/vfio_iommu_type1/parameters/dma_entry_limit ]; then
+                        echo 2000000 > /sys/module/vfio_iommu_type1/parameters/dma_entry_limit
+                        echo "Successfully increased dma_entry_limit"
+                      fi
+              containers:
+              - name: vllm-server
+                image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:latest
+                imagePullPolicy: Always
+                command: ["/bin/bash", "-c"]
+                args:
+                - |
+                  set -eo pipefail
+                  : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                  export CDK_OUTPUT_DIR
+                  mkdir -p "$CDK_OUTPUT_DIR"
+                  export PYTHONUNBUFFERED=1
+
+                  echo "===== Syncing dependencies to pyproject.toml ====="
+                  mkdir -p /tmp/depsync
+                  sed -E '/"(torch-tpu|vllm)==/d' /root/torchtpu-vllm/pyproject.toml > /tmp/depsync/pyproject.toml
+                  uv pip install --system -r /tmp/depsync/pyproject.toml --index-url https://pypi.org/simple
+
+                  TT_VER=$(sed -nE 's/^[[:space:]]*"torch-tpu==([^"]+)".*/\1/p' /root/torchtpu-vllm/pyproject.toml | head -1)
+                  if [ -z "$TT_VER" ]; then
+                    echo "WARN: no torch-tpu pin in pyproject.toml; keeping the image's torch_tpu"
+                  else
+                    TT_WHL=$(ls /root/wheels/torch_tpu-${TT_VER}-*.whl 2>/dev/null | head -1 || true)
+                    if [ -n "$TT_WHL" ]; then
+                      uv pip install --system --no-deps "$TT_WHL"
+                    else
+                      TOKEN=$(curl -sf -H "Metadata-Flavor: Google"                         "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token"                         | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])')
+                      uv pip install --system --no-deps "torch-tpu==${TT_VER}"                         --index-url "https://oauth2accesstoken:${TOKEN}@us-python.pkg.dev/ml-oss-artifacts-transient/torch-tpu-virtual-registry/simple/"
+                    fi
+                  fi
+
+                  # Wheel #1: built from tpu-raiden benliangw/raiden_controller
+                  # @ 4809f6a (registration/bind raise + num_registered_workers
+                  # + candidate re-admission leak fix), against the matching
+                  # TORCH_TPU_SRC for this image's torch-tpu pin.
+                  RAIDEN_WHL=/root/wheels/tpu_raiden_torch-0.0.1.dev20260802184028-1_raiden_controller_4809f6a-cp312-cp312-manylinux_2_31_x86_64.whl
+                  [ -f "$RAIDEN_WHL" ] || { echo "RESULT: FAIL (wheel #1 not in /root/wheels)"; exit 1; }
+                  uv pip install --system --no-deps "$RAIDEN_WHL"
+
+                  export PYTHONPATH=/root/torchtpu-vllm/src:/root/torchtpu-vllm:${PYTHONPATH:-}
+
+                  python3 -c 'from tpu_raiden.api.torch.kv_cache_store import KVCacheStore as S; assert hasattr(S, "num_registered_workers"), "raiden wheel predates wheel #1 (no num_registered_workers)"; import vllm_torchtpu.offload.raiden_connector as rc; assert hasattr(rc, "TPURaidenOffloadingConnector"); print("V2 preflight OK:", rc.__file__)'                     || { echo "RESULT: FAIL (V2 preflight)"; exit 1; }
+
+                  echo "===== Pre-downloading $MODEL snapshot ====="
+                  DL_OK=""
+                  for i in $(seq 1 30); do
+                    if python3 -c "import os; from huggingface_hub import snapshot_download; snapshot_download(os.environ['MODEL'])"; then
+                      DL_OK=1; break
+                    fi
+                    echo "snapshot_download failed (attempt $i/30) — huggingface.co may be degraded; retrying in 60s"
+                    sleep 60
+                  done
+                  [ -n "$DL_OK" ] || { echo "RESULT: FAIL (model snapshot download)"; exit 1; }
+                  export HF_HUB_OFFLINE=1
+
+                  # Pod env does not survive vllm's spawn(); re-export.
+                  export RAIDEN_DISABLE_SINGLETON_WORKER=1
+
+                  OFFLOAD_ARGS=()
+                  if [ "$OFFLOAD_MODE" = "on" ]; then
+                    # cpu_bytes_to_use, NOT --kv-offloading-size: the latter
+                    # makes VllmConfig._post_init_kv_transfer_config overwrite
+                    # kv_connector with "OffloadingConnector".
+                    KV_BYTES=$((KV_OFFLOADING_SIZE * 1024 * 1024 * 1024))
+                    KV_CFG=$(cat <<EOF
+                  {"kv_connector":"TPURaidenOffloadingConnector","kv_role":"kv_both","kv_connector_module_path":"vllm_torchtpu.offload.raiden_connector","kv_connector_extra_config":{"cpu_bytes_to_use":${KV_BYTES},"raiden_controller_port":${RAIDEN_CONTROLLER_PORT}}}
+                  EOF
+                  )
+                    OFFLOAD_ARGS=(--kv-transfer-config "$KV_CFG")
+                    echo "Starting vLLM server (offload=V2-store, GPU_MEM_UTIL=$GPU_MEM_UTIL, KV=$KV_OFFLOADING_SIZE GiB, controller port=$RAIDEN_CONTROLLER_PORT)..."
+                  else
+                    echo "Starting vLLM server (offload=OFF, GPU_MEM_UTIL=$GPU_MEM_UTIL)..."
+                  fi
+
+                  ( while true; do
+                      echo "$(date +%H:%M:%S) $(grep -E 'MemTotal|MemAvailable' /proc/meminfo | tr -s ' ' | tr '\n' ' ')"
+                      sleep 10
+                    done > "$CDK_OUTPUT_DIR/mem.log" 2>&1 & )
+
+                  echo "===== Starting Qwen3.5 server with KV offloading ====="
+                  exec vllm serve                     "$MODEL"                     --tensor_parallel_size=4                     --enable-expert-parallel                     --max-model-len=8192                     --max-num-batched-tokens=4096                     --max-num-seqs=16                     --num-gpu-blocks-override="$NUM_GPU_BLOCKS_OVERRIDE"                     --enable-prefix-caching                     --mamba-cache-mode=align                     --no-async-scheduling                     --language-model-only                     --gpu-memory-utilization="$GPU_MEM_UTIL"                     "${OFFLOAD_ARGS[@]}"                     --port="$PORT"                     2>&1 | tee "$CDK_OUTPUT_DIR/server.log"
+                env:
+                  - name: MODEL
+                    value: "Qwen/Qwen3.5-35B-A3B-FP8"
+                  - name: PORT
+                    value: "8000"
+                  # For baseline test, change OFFLOAD_MODE to "off"
+                  - name: OFFLOAD_MODE
+                    value: "on"
+                  - name: GPU_MEM_UTIL
+                    value: "0.60"
+                  - name: KV_OFFLOADING_SIZE
+                    value: "200"
+                  # In-process raiden controller port for the V2 offload
+                  # store. Single-plane job: only this one raiden control
+                  # plane exists in the pod.
+                  - name: RAIDEN_CONTROLLER_PORT
+                    value: "47800"
+                  - name: NUM_GPU_BLOCKS_OVERRIDE
+                    value: "512"
+                  # REQUIRED for V2 hybrid: the worker registers one unified
+                  # device pool per rank with raiden; the platform rejects
+                  # hybrid offloading without it.
+                  - name: TPU_VLLM_ENABLE_UNIFIED_BLOCK_POOL
+                    value: "1"
+                  - name: RAGGED_GATED_DELTA_RULE_IMPL
+                    value: "chunked_jax_pd"
+                  - name: TPU_KV_CACHE_HEADROOM_MIB
+                    value: "10240"
+                  - name: TPU_TOPOLOGY
+                    value: "2x2x1"
+                  - name: TPU_CHIPS_PER_HOST_BOUNDS
+                    value: "2,2,1"
+                  - name: TPU_HOST_BOUNDS
+                    value: "1,1,1"
+                  - name: TPU_LIBRARY_PATH
+                    value: ""
+                  - name: VLLM_LOGGING_LEVEL
+                    value: "INFO"
+                  - name: MEGASCALE_NUM_SLICES
+                    value: ""
+                  - name: MEGASCALE_SLICE_ID
+                    value: ""
+                  - name: TPU_PROCESS_ADDRESSES
+                    value: ""
+                  - name: TPU_WORKER_HOSTNAMES
+                    value: ""
+                  - name: TPU_PROCESS_PORT
+                    value: ""
+                  - name: MEGASCALE_COORDINATOR_ADDRESS
+                    value: ""
+                  - name: MEGASCALE_PORT
+                    value: ""
+                  - name: HF_HUB_DISABLE_XET
+                    value: "1"
+                  - name: LIBTPU_INIT_ARGS
+                    value: "--xla_tpu_use_enhanced_launch_barrier=false"
+                  - name: RAIDEN_DISABLE_SINGLETON_WORKER
+                    value: "1"
+                  - name: TPU_PREMAPPED_BUFFER_SIZE
+                    value: "8589934592"
+                volumeMounts:
+                  - name: hf-token-volume
+                    mountPath: /root/.cache/huggingface/token
+                    subPath: token
+                    readOnly: true
+                  - name: huggingface-storage
+                    mountPath: /root/.cache/huggingface/
+                  - name: dshm
+                    mountPath: /dev/shm
+                  - name: torchtpu-vllm-nfs
+                    mountPath: /root/torchtpu-vllm
+                  - name: vllm-nfs
+                    mountPath: /root/cloud-devkit/vllm
+                  - name: wheels-nfs
+                    mountPath: /root/wheels
+                    readOnly: true
+                securityContext:
+                  privileged: true
+                  capabilities:
+                    add:
+                    - IPC_LOCK
+                resources:
+                  limits:
+                    google.com/tpu: 4
+                    memory: "900Gi"
+                    cpu: "16"
+                  requests:
+                    google.com/tpu: 4
+                    memory: "900Gi"
+                    cpu: "16"
+                ports:
+                  - containerPort: 8000
+
+              volumes:
+              - name: dshm
+                emptyDir:
+                  medium: Memory
+              - name: hf-token-volume
+                secret:
+                  secretName: vllm-hf-token
+                  items:
+                  - key: HF_TOKEN
+                    path: token
+              - name: huggingface-storage
+                ephemeral:
+                  volumeClaimTemplate:
+                    spec:
+                      storageClassName: "premium-rwo"
+                      accessModes: [ "ReadWriteOnce" ]
+                      resources:
+                        requests:
+                          storage: 256Gi
+              - name: torchtpu-vllm-nfs
+                nfs:
+                  server: 10.225.237.178
+                  # Branch worktree, not the repo root: pins the job to
+                  # benliangw/raiden_controller (the V2 store stack).
+                  path: /workspace/vllm-torchtpu/raiden_controller
+              - name: vllm-nfs
+                nfs:
+                  server: 10.225.237.178
+                  path: /workspace/vllm
+              - name: wheels-nfs
+                nfs:
+                  server: 10.225.237.178
+                  path: /workspace/wheels
+
+    - name: bench
+      replicas: 1
+      template:
+        spec:
+          ttlSecondsAfterFinished: 900
+          backoffLimit: 0
+          template:
+            spec:
+              restartPolicy: Never
+
+              volumes:
+                - name: hf-token-volume
+                  secret:
+                    secretName: vllm-hf-token
+                    items:
+                      - key: HF_TOKEN
+                        path: token
+
+              containers:
+                - name: vllm-bench
+                  image: vllm/vllm-tpu:nightly
+                  imagePullPolicy: Always
+                  env:
+                    - name: JS_NAME
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                    - name: MODEL
+                      value: "Qwen/Qwen3.5-35B-A3B-FP8"
+                    - name: PORT
+                      value: "8000"
+                    - name: FEWSHOT
+                      value: "25"
+                    - name: SCORED_LIMIT
+                      value: "150"
+                    - name: BENCH_CONCURRENCY
+                      value: "50"
+
+                  volumeMounts:
+                    - name: hf-token-volume
+                      mountPath: /root/.cache/huggingface/token
+                      subPath: token
+                      readOnly: true
+
+                  command: [ "/bin/bash", "-c" ]
+                  args:
+                    - |
+                      set -eo pipefail
+                      : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                      export CDK_OUTPUT_DIR
+                      mkdir -p "$CDK_OUTPUT_DIR"
+                      export PYTHONUNBUFFERED=1
+
+                      VLLM_SERVER_DNS="${JS_NAME}-vllm-server-0-0.${JS_NAME}"
+                      echo "Waiting for vLLM at http://${VLLM_SERVER_DNS}:${PORT}/health (up to 90 min)..."
+                      max_wait=$((90 * 60))
+                      waited=0
+                      while ! curl -sf "http://${VLLM_SERVER_DNS}:${PORT}/health" >/dev/null 2>&1; do
+                        if [ "$waited" -ge "$max_wait" ]; then
+                          echo "ERROR: vllm-server not ready within 90 minutes"
+                          exit 1
+                        fi
+                        if [ "$waited" -gt 0 ] && [ $((waited % 60)) -eq 0 ]; then
+                          echo "  ...still waiting (${waited}s elapsed)"
+                        fi
+                        sleep 1
+                        waited=$((waited + 1))
+                      done
+                      echo "vllm-server ready (${waited}s)"
+
+                      python3 -c "import lm_eval" 2>/dev/null || \
+                        pip install --quiet "lm_eval[api]"
+
+                      cat << 'EOF' | sed 's/^[[:space:]]\{22\}//' > /tmp/bench_two_pass.py
+                      import json
+                      import os
+                      import re
+                      import subprocess
+                      import time
+                      import urllib.request
+
+                      PORT = os.environ.get("PORT", "8000")
+                      JS = os.environ["JS_NAME"]
+                      BASE = f"http://{JS}-vllm-server-0-0.{JS}:{PORT}"
+                      OUT = os.environ["CDK_OUTPUT_DIR"]
+                      LIMIT = os.environ.get("SCORED_LIMIT", "300")
+                      CONC = os.environ.get("BENCH_CONCURRENCY", "50")
+
+                      def metrics():
+                          with urllib.request.urlopen(f"{BASE}/metrics", timeout=30) as r:
+                              return r.read().decode()
+
+                      def dump(name, text):
+                          with open(f"{OUT}/metrics_{name}.txt", "w") as f:
+                              f.write(text)
+
+                      def parse(text):
+                          m = {}
+                          for line in text.splitlines():
+                              if line.startswith("#"):
+                                  continue
+                              mo = re.match(r"vllm:([a-z_0-9]+)\{.*\} ([0-9.e+-]+)$", line)
+                              if mo:
+                                  m[mo.group(1)] = m.get(mo.group(1), 0.0) + float(mo.group(2))
+                          return m
+
+                      def lm_eval(tag, limit):
+                          cmd = [
+                              "lm_eval", "--model", "local-completions", "--model_args",
+                              f"base_url={BASE}/v1/completions,model={os.environ['MODEL']},"
+                              f"max_retries=10,max_length=8192,num_concurrent={CONC}",
+                              "--tasks", "gsm8k",
+                              "--num_fewshot", os.environ.get("FEWSHOT", "5"),
+                              "--limit", str(limit),
+                              "--seed", "1234,1234,1234,1234",
+                              "--output_path", f"{OUT}/lm_eval_{tag}",
+                          ]
+                          t0 = time.time()
+                          subprocess.run(cmd, check=True)
+                          return time.time() - t0
+
+                      K = dict(ttft_s="time_to_first_token_seconds_sum",
+                               ttft_n="time_to_first_token_seconds_count",
+                               e2e_s="e2e_request_latency_seconds_sum",
+                               e2e_n="e2e_request_latency_seconds_count",
+                               pre_s="request_prefill_time_seconds_sum",
+                               pre_n="request_prefill_time_seconds_count",
+                               ptok="prompt_tokens_total",
+                               gtok="generation_tokens_total",
+                               hit="external_prefix_cache_hits_total",
+                               q="external_prefix_cache_queries_total")
+
+                      def report(tag, wall, before, after):
+                          a, b = parse(after), parse(before)
+                          d = {k: a.get(v, 0) - b.get(v, 0) for k, v in K.items()}
+                          n = d["ttft_n"] or 1
+                          ne = d["e2e_n"] or 1
+                          npre = d["pre_n"] or 1
+                          q = d["q"] or 1
+                          print(
+                              f"[bench:{tag}] wall={wall:.1f}s reqs={int(ne)} "
+                              f"ttft_avg={d['ttft_s']/n:.2f}s prefill_avg={d['pre_s']/npre:.3f}s "
+                              f"e2e_avg={d['e2e_s']/ne:.1f}s "
+                              f"prompt_tok={int(d['ptok'])} gen_tok={int(d['gtok'])} "
+                              f"gen_tok_per_s={d['gtok']/wall:.1f} "
+                              f"total_tok_per_s={(d['ptok']+d['gtok'])/wall:.1f} "
+                              f"ext_hit_pct={100*d['hit']/q:.1f}",
+                              flush=True)
+                          return dict(tag=tag, wall=wall, **d)
+
+                      results = []
+                      snap = metrics()
+                      dump("startup", snap)
+
+                      print("[*] warmup (untimed, limit 16)...", flush=True)
+                      lm_eval("warmup", 16)
+                      snap = metrics()
+                      dump("post_warmup", snap)
+
+                      for tag in ("fill", "measure1", "measure2"):
+                          print(f"[*] {tag}: limit={LIMIT} concurrency={CONC}", flush=True)
+                          before = snap
+                          wall = lm_eval(tag, LIMIT)
+                          snap = metrics()
+                          dump(f"post_{tag}", snap)
+                          results.append(report(tag, wall, before, snap))
+
+                      with open(f"{OUT}/bench.json", "w") as f:
+                          json.dump(results, f, indent=2)
+                      print("BENCH COMPLETE", flush=True)
+                      EOF
+
+                      python3 /tmp/bench_two_pass.py 2>&1 | tee "$CDK_OUTPUT_DIR/eval.log"
+
+                      python3 - "$CDK_OUTPUT_DIR/bench.json" <<'PY'
+                      import json
+                      import sys
+
+                      with open(sys.argv[1]) as f:
+                          results = json.load(f)
+
+                      tags = [r["tag"] for r in results]
+                      if tags != ["fill", "measure1", "measure2"]:
+                          raise SystemExit(f"unexpected passes: {tags}")
+                      for r in results:
+                          if int(r["e2e_n"]) <= 0:
+                              raise SystemExit(f"pass {r['tag']}: no completed requests")
+                          print(f"pass {r['tag']}: reqs={int(r['e2e_n'])} ok")
+                      PY
+
+                  resources:
+                    limits:
+                      memory: "8Gi"
+                      cpu: "2"
+                    requests:
+                      memory: "4Gi"
+                      cpu: "1"
+
+    - name: eval
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            metadata:
+              annotations:
+                gke-gcsfuse/volumes: "true"
+            spec:
+              volumes:
+                - name: hf-token-volume
+                  secret:
+                    secretName: vllm-hf-token
+                    items:
+                      - key: HF_TOKEN
+                        path: token
+              containers:
+              - name: vllm-eval
+                image: vllm/vllm-tpu:nightly
+                imagePullPolicy: Always
+                env:
+                - name: JS_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                - name: MODEL
+                  value: "Qwen/Qwen3.5-35B-A3B-FP8"
+                - name: PORT
+                  value: "8000"
+                - name: FG_LIMIT
+                  value: "0"
+                - name: FG_RUNS
+                  value: "3"
+                - name: BG_PROCS
+                  value: "8"
+                - name: BG_FEWSHOT
+                  value: "25"
+                - name: HF_HUB_DISABLE_XET
+                  value: "1"
+                volumeMounts:
+                  - name: hf-token-volume
+                    mountPath: /root/.cache/huggingface/token
+                    subPath: token
+                    readOnly: true
+                command: ["/bin/bash", "-c"]
+                args:
+                - |
+                  set -eo pipefail
+                  : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                  export CDK_OUTPUT_DIR
+                  mkdir -p "$CDK_OUTPUT_DIR"
+                  export PYTHONUNBUFFERED=1
+
+                  VLLM_SERVER_DNS="${JS_NAME}-vllm-server-0-0.${JS_NAME}"
+                  BENCH_DNS="${JS_NAME}-bench-0-0.${JS_NAME}"
+
+                  echo "Waiting for vLLM at http://${VLLM_SERVER_DNS}:${PORT}/health (up to 90 min)..."
+                  max_wait=$((90 * 60))
+                  waited=0
+                  while ! curl -sf "http://${VLLM_SERVER_DNS}:${PORT}/health" >/dev/null 2>&1; do
+                    if [ "$waited" -ge "$max_wait" ]; then
+                      echo "ERROR: vllm-server not ready within 90 minutes"
+                      exit 1
+                    fi
+                    sleep 5
+                    waited=$((waited + 5))
+                  done
+                  echo "vllm-server ready (${waited}s)"
+
+                  waited=0
+                  until getent hosts "$BENCH_DNS" >/dev/null 2>&1; do
+                    if [ "$waited" -ge 600 ]; then
+                      echo "WARN: bench pod DNS never appeared in 10 min; assuming bench already finished"
+                      break
+                    fi
+                    sleep 5
+                    waited=$((waited + 5))
+                  done
+                  echo "Waiting for bench to finish (bench pod DNS record to disappear)..."
+                  while getent hosts "$BENCH_DNS" >/dev/null 2>&1; do sleep 30; done
+                  echo "bench finished; starting eval"
+
+                  echo "Waiting for engine readiness..."
+                  until curl -sf -X POST http://$VLLM_SERVER_DNS:${PORT}/v1/completions -H "Content-Type: application/json" -d "{\"model\": \"$MODEL\", \"prompt\": \"Hello\", \"max_tokens\": 5}" > /dev/null; do
+                    echo "Engine compiling XLA/FX graphs, waiting 10s..."
+                    sleep 10
+                  done
+
+                  echo "Installing lm-eval with API support..."
+                  pip install lm-eval[api]
+
+                  cat << 'EOF' > /tmp/stressor.py
+                  import os, shutil, signal, subprocess, sys, time
+
+                  JS_NAME = os.environ["JS_NAME"]
+                  MODEL = os.environ.get("MODEL", "Qwen/Qwen3.5-35B-A3B-FP8")
+                  PORT = os.environ.get("PORT", "8000")
+                  OUT_DIR = os.environ.get("CDK_OUTPUT_DIR", "/tmp/cdk-outputs")
+
+                  SERVER_DNS = f"{JS_NAME}-vllm-server-0-0.{JS_NAME}"
+                  BASE_URL = f"http://{SERVER_DNS}:{PORT}/v1/completions"
+
+                  NUM_PROCS = int(os.environ.get("BG_PROCS", "8"))
+                  BG_FEWSHOT = int(os.environ.get("BG_FEWSHOT", "25"))
+                  FG_LIMIT = int(os.environ.get("FG_LIMIT", "0"))   # 0 = full GSM8K
+                  FG_RUNS = int(os.environ.get("FG_RUNS", "3"))
+
+                  URL_ARGS = f"base_url={BASE_URL},model={MODEL},max_retries=10,max_length=8192,num_concurrent=50"
+
+                  LOG_PATH = "/tmp/background_stressors.log"
+                  print(f"[*] Spawning {NUM_PROCS} lm_eval background stressors...")
+                  print(f"[*] Background logs streaming to: {LOG_PATH}")
+                  bg_log_file = open(LOG_PATH, "w", encoding="utf-8")
+                  procs = []
+
+                  for _ in range(NUM_PROCS):
+                      cmd = (
+                          "while true; do "
+                          f"lm_eval run --model local-completions --model_args {URL_ARGS} "
+                          f"--tasks gsm8k --num_fewshot {BG_FEWSHOT} --limit 50 --seed 1234,1234,1234,1234; "
+                          "if [ $? -ne 0 ]; then exit 1; fi; "
+                          "done"
+                      )
+                      p = subprocess.Popen(cmd, shell=True, preexec_fn=os.setsid, stdout=bg_log_file, stderr=subprocess.STDOUT)
+                      procs.append(p)
+                      time.sleep(0.5)
+
+                  fg_failures = 0
+                  try:
+                      print("[*] Warming up for 60s to lock shared prefixes and force DRAM swapping...")
+                      time.sleep(60)
+
+                      dead = sum(1 for p in procs if p.poll() is not None)
+                      if dead:
+                          print(f"[!] WARNING: {dead}/{NUM_PROCS} background "
+                                "stressors exited early; KV pressure is "
+                                "reduced (see background_stressors.log)")
+
+                      print("\n--- Launching Official lm_eval Foreground Evaluation ---")
+                      for r in range(FG_RUNS):
+                          print(f"\n[*] Foreground Run {r+1} of {FG_RUNS}")
+                          fg_cmd = [
+                              "lm_eval", "run", "--model", "local-completions",
+                              "--model_args", URL_ARGS,
+                              "--tasks", "gsm8k",
+                              "--num_fewshot", "5",
+                              "--output_path", os.path.join(OUT_DIR, f"lm_eval_fg_run{r+1}"),
+                          ]
+                          if FG_LIMIT > 0:
+                              fg_cmd += ["--limit", str(FG_LIMIT), "--seed", "1234,1234,1234,1234"]
+                          if subprocess.run(fg_cmd).returncode != 0:
+                              fg_failures += 1
+
+                  finally:
+                      print("\n[*] Scored runs complete. Tearing down background stressors...")
+                      for p in procs:
+                          try:
+                              if p.poll() is None:
+                                  os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+                          except ProcessLookupError:
+                              pass
+                      bg_log_file.close()
+                      try:
+                          shutil.copyfile(LOG_PATH, os.path.join(OUT_DIR, "background_stressors.log"))
+                      except OSError:
+                          pass
+                      print("[*] Benchmark finished.")
+
+                  if fg_failures:
+                      sys.exit(f"{fg_failures} foreground lm_eval run(s) failed")
+                  EOF
+
+                  python3 /tmp/stressor.py 2>&1 | tee "$CDK_OUTPUT_DIR/gsm8k_eval.log"
+                resources:
+                  limits:
+                    memory: "64Gi"
+                    cpu: "16"
+                  requests:
+                    memory: "32Gi"
+                    cpu: "8"
