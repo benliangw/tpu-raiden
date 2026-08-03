@@ -129,6 +129,36 @@ TEST_F(GlobalRegistryTest, BasicRegisterAndLookup) {
   EXPECT_EQ(meta.block_id(), block);
 }
 
+TEST_F(GlobalRegistryTest, BinaryHashRegisterAndLookup) {
+  // Production hashes are raw digest bytes (namespace + sha256 prefix +
+  // index), not UTF-8 text. proto3 `string` fields UTF-8-verify on the
+  // wire, so the hash fields must stay `bytes` — this round-trip is the
+  // regression test for that (j-228ec380: byte-identical keys registered
+  // and looked up through the real serving stack never matched while every
+  // test here used ASCII hashes).
+  std::string hash("\x93\xff\x00\xa1\xfe\x80zz\x01\xc3\xbf\xed", 12);
+  RaidenId host = {"job1", "replica1", "data1", 0};
+
+  auto status = client_->Register({{hash, host, 7}});
+  EXPECT_TRUE(status.ok()) << status.ToString();
+
+  auto lookup_res = client_->Lookup({hash});
+  ASSERT_TRUE(lookup_res.ok()) << lookup_res.status().ToString();
+  ASSERT_EQ(lookup_res->size(), 1);
+  EXPECT_EQ((*lookup_res)[0].raiden_id().job_name(), host.job_name);
+  EXPECT_EQ((*lookup_res)[0].block_id(), 7);
+
+  auto owned = PullOwned(host);
+  ASSERT_EQ(owned.size(), 1);
+  EXPECT_EQ(owned[0].prefix_hash(), hash);
+
+  auto unreg = client_->Unregister({hash}, host);
+  EXPECT_TRUE(unreg.ok()) << unreg.ToString();
+  auto after = client_->Lookup({hash});
+  ASSERT_TRUE(after.ok());
+  EXPECT_TRUE(after->empty());
+}
+
 TEST_F(GlobalRegistryTest, MultiRegistrationAndRoundRobinLookup) {
   std::string hash = "hash1";
   RaidenId host1 = {"job1", "replica1", "data1", 0};

@@ -76,7 +76,9 @@ message KVBlockMetadata {
 }
 
 message RegisterEntry {
-  string prefix_hash = 1;
+  // Raw hash bytes (not UTF-8): proto3 string fields are UTF-8-verified on
+  // the wire, which real (binary) block hashes fail.
+  bytes prefix_hash = 1;
   KVBlockMetadata metadata = 2;
   // Time-to-live for this registration in seconds. If positive, the entry will
   // automatically expire and be eligible for background cleanup after this
@@ -112,7 +114,7 @@ message LookupRequest {
   // typically computed cumulatively based on the previous prefix hash, forming
   // a dependency chain. The lookup executes sequentially and terminates at the
   // first miss.
-  repeated string prefix_hashes = 1;
+  repeated bytes prefix_hashes = 1;
 }
 
 message LookupResponse {
@@ -131,7 +133,7 @@ message LookupResponse {
 }
 
 message UnregisterRequest {
-  repeated string prefix_hashes = 1;
+  repeated bytes prefix_hashes = 1;
   tpu_raiden.rpc.RaidenIdProto raiden_id = 2;
 }
 
@@ -147,7 +149,7 @@ message PullOwnedRequest {
 
 // A single active registration owned by the requested RaidenId.
 message PullOwnedEntry {
-  string prefix_hash = 1;
+  bytes prefix_hash = 1;
   // Identifier for the cache block on the owner's host. See
   // KVBlockMetadata.block_id.
   int32 block_id = 2;
