@@ -961,14 +961,15 @@ TEST(KVCacheStoreTest, MetadataKeepsEvictionCandidates) {
                           ::testing::FieldsAre(1, "host_2", 1),
                           ::testing::FieldsAre(2, "host_3", 2)));
 
-  // Re-inserting host_1 under a new host block reactivates the candidate and
-  // overwrites its binding in place: block 0's entry is cleared and block 3's
-  // is set with the newest seq.
+  // Re-inserting host_1 under a new host block erases the stale candidate
+  // and admits the key fresh, displacing host_2 at capacity: block 0's entry
+  // is cleared and block 3's is set with the newest seq. host_2's entry
+  // survives -- a candidate keeps its host block.
   ASSERT_TRUE(
       store.Insert({"host_1"}, {RaidenBlockID(rid, 3, BlockStatus::HOST)}, true)
           .first);
   EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
-              ::testing::IsEmpty());
+              ElementsAre("host_2"));
   EXPECT_THAT(metadata_or->ValidEntries(),
               ElementsAre(::testing::FieldsAre(1, "host_2", 1),
                           ::testing::FieldsAre(2, "host_3", 2),
@@ -1181,9 +1182,10 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadSuccess) {
 
 // Candidate re-admission is the normal capacity-pressure path: save a block
 // to host, let a later insert displace it to the eviction-candidate list,
-// then re-store the same prefix. The re-admitting Put() replaces the
-// candidate's value in place, so its host block must be returned to the
-// allocator at that point -- before the fix it leaked permanently.
+// then re-store the same prefix. Re-admission erases the stale candidate --
+// returning its host block to the allocator right there -- and re-inserts
+// the key fresh, so capacity is enforced and a displaced entry is surfaced
+// like on any other insert.
 TEST_F(KVCacheStoreEmbeddedControllerTest,
        CandidateReadmissionReclaimsHostBlock) {
   ::tpu_raiden::controller::MockTransferManager mock_mgr;
@@ -1239,16 +1241,24 @@ TEST_F(KVCacheStoreEmbeddedControllerTest,
             base_locked + 1);
 
   // 3. Re-admit hash_a with a fresh HBM slice (re-store of the same prefix).
-  // The rescue replaces the candidate's value; its stale host block must
-  // return to the allocator.
-  ASSERT_TRUE(store.InsertAndLock(
-      {"hash_a"}, {RaidenBlockID(rid, -1, 2, BlockStatus::HBM)}, false));
+  // The stale candidate is erased -- its host block returns to the
+  // allocator -- and the fresh insert displaces hash_b at capacity 1.
+  InsertAndLockResult readmit = store.InsertAndLockDetailed(
+      {"hash_a"}, {RaidenBlockID(rid, -1, 2, BlockStatus::HBM)}, false);
+  ASSERT_TRUE(readmit.success);
+  ASSERT_EQ(readmit.displaced.size(), 1);
+  EXPECT_EQ(readmit.displaced[0].first, "hash_b");
   EXPECT_EQ(raiden_controller->block_manager()->num_locked_blocks(),
             base_locked);
   EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
-              ::testing::IsEmpty());
+              ::testing::ElementsAre("hash_b"));
+  // Active entries (total minus candidates) stay within capacity.
+  EXPECT_EQ(store.backend()->GetSize() -
+                KVCacheStoreTest::GetEvictCandidateKeys(store).size(),
+            store.capacity());
 
-  // 4. Roll back the admission: the fresh HBM entry is deleted, and nothing
+  // 4. Roll back the admission: the fresh HBM entry is deleted, the
+  // displaced hash_b is restored from the candidate list, and nothing
   // double-frees the already-reclaimed host block.
   EXPECT_EQ(store.ReleaseAndDelete({"hash_a"}), 1);
   EXPECT_EQ(raiden_controller->block_manager()->num_locked_blocks(),
@@ -1261,9 +1271,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest,
   EXPECT_EQ(lookup_b->size(), 1);
 }
 
-// Same leak through the plain Insert() path: re-inserting a hash that sits in
-// the candidate list rescues the entry with the new value and must reclaim
-// the stale host block.
+// Same reclamation through the plain Insert() path: re-inserting a hash that
+// sits in the candidate list erases the stale candidate, reclaims its host
+// block, and re-admits the key under normal capacity enforcement.
 TEST_F(KVCacheStoreEmbeddedControllerTest,
        CandidateReadmissionViaInsertReclaimsHostBlock) {
   ::tpu_raiden::controller::MockTransferManager mock_mgr;
@@ -1301,14 +1311,175 @@ TEST_F(KVCacheStoreEmbeddedControllerTest,
   EXPECT_EQ(raiden_controller->block_manager()->num_locked_blocks(),
             base_locked + 1);
 
-  // Re-insert hash_a with a device-only slice: the candidate's host block
-  // must be reclaimed as its value is replaced.
-  store.Insert({"hash_a"}, {RaidenBlockID(rid, -1, 3, BlockStatus::HBM)},
-               false);
+  // Re-insert hash_a with a device-only slice: the stale candidate's host
+  // block is reclaimed, and the fresh insert displaces hash_b at capacity 1.
+  auto [reinserted, displaced] = store.Insert(
+      {"hash_a"}, {RaidenBlockID(rid, -1, 3, BlockStatus::HBM)}, false);
+  EXPECT_TRUE(reinserted);
+  ASSERT_EQ(displaced.size(), 1);
+  EXPECT_EQ(displaced[0].first, "hash_b");
   EXPECT_EQ(raiden_controller->block_manager()->num_locked_blocks(),
             base_locked);
   EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
+              ::testing::ElementsAre("hash_b"));
+  // Active entries (total minus candidates) stay within capacity.
+  EXPECT_EQ(store.backend()->GetSize() -
+                KVCacheStoreTest::GetEvictCandidateKeys(store).size(),
+            store.capacity());
+}
+
+// After Clear() every physical block is allocated-but-unlocked (deallocation
+// unlocks, it never clears is_allocated), the LRU is empty, and nothing is
+// evictable -- yet every block is reusable. Saves must keep working: the
+// allocation pre-gate has to count allocated-but-unlocked blocks as
+// available, not just never-allocated ones.
+TEST_F(KVCacheStoreEmbeddedControllerTest,
+       SaveSucceedsAfterClearOnExhaustedPool) {
+  ::tpu_raiden::controller::MockTransferManager mock_mgr;
+  test_server_->service->SetTransferManager(
+      ::tpu_raiden::KVManagerHolder(&mock_mgr));
+
+  // 2 physical blocks total; LRU capacity is larger so only the block pool
+  // is exhausted.
+  auto controller =
+      std::make_unique<::tpu_raiden::controller::RaidenController>(
+          unit_, 2, 1, 512, orchestrator_address_, "");
+  RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
+
+  RaidenId rid{"test_job", "0", "test_cache", 0};
+  KVCacheStore store(4, std::move(controller), "", rid);
+  auto* raiden_controller = KVCacheStoreTest::GetController(store);
+  ASSERT_NE(raiden_controller, nullptr);
+
+  // Exhaust the pool: save two blocks, locking both physical ids.
+  std::vector<std::string> hashes = {"hash_a", "hash_b"};
+  std::vector<RaidenBlockID> slices = {
+      RaidenBlockID(rid, -1, 0, BlockStatus::HBM),
+      RaidenBlockID(rid, -1, 1, BlockStatus::HBM)};
+  ASSERT_TRUE(store.Insert(hashes, slices, false).first);
+  ASSERT_TRUE(store.Pin(hashes));
+  ASSERT_TRUE(store.Save(hashes).ok());
+  bool done = false;
+  while (!done) {
+    auto [save_done, save_failed, save_pending] = store.PollSaveStatus();
+    ASSERT_TRUE(save_failed.empty()) << "Async Save failed during polling";
+    done = !save_done.empty();
+    if (!done) {
+      absl::SleepFor(absl::Milliseconds(10));
+    }
+  }
+  store.Release(hashes);
+  EXPECT_EQ(raiden_controller->block_manager()->num_free_blocks(), 0);
+  EXPECT_EQ(raiden_controller->block_manager()->num_available_blocks(), 0);
+
+  auto cleared = store.Clear();
+  ASSERT_TRUE(cleared.ok());
+  EXPECT_EQ(*cleared, 2);
+  // The pool looks exhausted to num_free_blocks() forever, but every block
+  // is unlocked and reusable.
+  EXPECT_EQ(raiden_controller->block_manager()->num_free_blocks(), 0);
+  EXPECT_EQ(raiden_controller->block_manager()->num_locked_blocks(), 0);
+  EXPECT_EQ(raiden_controller->block_manager()->num_available_blocks(), 2);
+
+  // A fresh save must reuse the unlocked blocks.
+  ASSERT_TRUE(
+      store.Insert({"hash_c"}, {RaidenBlockID(rid, -1, 0, BlockStatus::HBM)},
+                   false)
+          .first);
+  ASSERT_TRUE(store.Pin({"hash_c"}));
+  ASSERT_TRUE(store.Save({"hash_c"}).ok());
+  done = false;
+  while (!done) {
+    auto [save_done, save_failed, save_pending] = store.PollSaveStatus();
+    ASSERT_TRUE(save_failed.empty()) << "Async Save failed during polling";
+    done = !save_done.empty();
+    if (!done) {
+      absl::SleepFor(absl::Milliseconds(10));
+    }
+  }
+  auto lookup_res = store.Lookup({"hash_c"});
+  ASSERT_TRUE(lookup_res.ok());
+  ASSERT_EQ(lookup_res->size(), 1);
+  EXPECT_EQ((*lookup_res)[0].second.status, BlockStatus::HOST_AND_HBM);
+  store.Release({"hash_c"});
+}
+
+// Same exhausted-pool reuse when the block was unlocked by stale-candidate
+// reclamation instead of Clear(): with no free blocks and no evictable keys
+// left, a save must still go through on the reclaimed block.
+TEST_F(KVCacheStoreEmbeddedControllerTest,
+       SaveSucceedsAfterCandidateReclamationOnExhaustedPool) {
+  ::tpu_raiden::controller::MockTransferManager mock_mgr;
+  test_server_->service->SetTransferManager(
+      ::tpu_raiden::KVManagerHolder(&mock_mgr));
+
+  // A single physical block and a capacity-1 LRU.
+  auto controller =
+      std::make_unique<::tpu_raiden::controller::RaidenController>(
+          unit_, 1, 1, 512, orchestrator_address_, "");
+  RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
+
+  RaidenId rid{"test_job", "0", "test_cache", 0};
+  KVCacheStore store(1, std::move(controller), "", rid);
+  auto* raiden_controller = KVCacheStoreTest::GetController(store);
+  ASSERT_NE(raiden_controller, nullptr);
+
+  // Save hash_a, locking the only physical block.
+  ASSERT_TRUE(
+      store.Insert({"hash_a"}, {RaidenBlockID(rid, -1, 0, BlockStatus::HBM)},
+                   false)
+          .first);
+  ASSERT_TRUE(store.Pin({"hash_a"}));
+  ASSERT_TRUE(store.Save({"hash_a"}).ok());
+  bool done = false;
+  while (!done) {
+    auto [save_done, save_failed, save_pending] = store.PollSaveStatus();
+    ASSERT_TRUE(save_failed.empty()) << "Async Save failed during polling";
+    done = !save_done.empty();
+    if (!done) {
+      absl::SleepFor(absl::Milliseconds(10));
+    }
+  }
+  store.Release({"hash_a"});
+  EXPECT_EQ(raiden_controller->block_manager()->num_available_blocks(), 0);
+
+  // Displace hash_a to the candidate list, then re-admit it: reclamation
+  // unlocks its host block and displaces hash_b in turn.
+  ASSERT_TRUE(
+      store.Insert({"hash_b"}, {RaidenBlockID(rid, -1, 1, BlockStatus::HBM)},
+                   false)
+          .first);
+  InsertAndLockResult readmit = store.InsertAndLockDetailed(
+      {"hash_a"}, {RaidenBlockID(rid, -1, 2, BlockStatus::HBM)}, false);
+  ASSERT_TRUE(readmit.success);
+  ASSERT_EQ(readmit.displaced.size(), 1);
+  EXPECT_EQ(readmit.displaced[0].first, "hash_b");
+  EXPECT_EQ(raiden_controller->block_manager()->num_available_blocks(), 1);
+
+  // Drop the displaced candidate so nothing is evictable: availability now
+  // rests solely on the reclaimed (allocated-but-unlocked) block.
+  store.Delete({"hash_b"}, {});
+  EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
               ::testing::IsEmpty());
+  EXPECT_EQ(raiden_controller->block_manager()->num_free_blocks(), 0);
+
+  // Re-saving hash_a must reuse that block.
+  ASSERT_TRUE(store.Save({"hash_a"}).ok());
+  done = false;
+  while (!done) {
+    auto [save_done, save_failed, save_pending] = store.PollSaveStatus();
+    ASSERT_TRUE(save_failed.empty()) << "Async Save failed during polling";
+    done = !save_done.empty();
+    if (!done) {
+      absl::SleepFor(absl::Milliseconds(10));
+    }
+  }
+  auto lookup_res = store.Lookup({"hash_a"});
+  ASSERT_TRUE(lookup_res.ok());
+  ASSERT_EQ(lookup_res->size(), 1);
+  EXPECT_EQ((*lookup_res)[0].second.status, BlockStatus::HOST_AND_HBM);
+  EXPECT_EQ((*lookup_res)[0].second.host_block_id, 0);
+  store.Release({"hash_a"});
 }
 
 TEST(KVCacheStoreTest, InsertAndLockDetailedClassifiesBatch) {
@@ -1429,6 +1600,90 @@ TEST(KVCacheStoreTest, ClearRejectsWhileTransfersInFlight) {
   auto cleared = store.Clear();
   ASSERT_TRUE(cleared.ok());
   EXPECT_EQ(*cleared, 0);
+}
+
+// Clear across tiers is preflight-then-commit: when any tier would reject,
+// no tier is cleared. A pinned entry in the second tier must leave the
+// first tier's contents intact.
+TEST(KVCacheStoreTest, ClearMultiTierRejectedTierLeavesEarlierTiersIntact) {
+  RaidenId rid{"test_job", "0", "test_cache", 0};
+  auto tier0 = std::make_shared<HostOffloadBackend>(2);
+  auto tier1 = std::make_shared<HostOffloadBackend>(2);
+  KVCacheStore store({tier0, tier1}, rid);
+
+  ASSERT_TRUE(store
+                  .Insert({"hash_a", "hash_b"},
+                          {RaidenBlockID(rid, 0, BlockStatus::HOST),
+                           RaidenBlockID(rid, 1, BlockStatus::HOST)},
+                          true)
+                  .first);
+  std::vector<std::string> pinned = {"hash_a"};
+  ASSERT_TRUE(tier1->Pin(pinned));
+
+  auto rejected = store.Clear();
+  EXPECT_TRUE(absl::IsFailedPrecondition(rejected.status()));
+  EXPECT_EQ(tier0->GetSize(), 2);
+  EXPECT_EQ(tier1->GetSize(), 2);
+
+  // Once the pin is dropped the clear goes through, and the returned count
+  // sums the tiers.
+  tier1->Release(pinned);
+  auto cleared = store.Clear();
+  ASSERT_TRUE(cleared.ok());
+  EXPECT_EQ(*cleared, 4);
+  EXPECT_EQ(tier0->GetSize(), 0);
+  EXPECT_EQ(tier1->GetSize(), 0);
+}
+
+// Minimal secondary tier that keeps the base-class Unimplemented
+// Clear/PreflightClear, so a multi-tier clear must reject up front.
+class NoClearBackend : public KVCacheStoreBackend {
+ public:
+  std::string name() const override { return "NoClearBackend"; }
+  absl::StatusOr<BlockSliceList> Lookup(
+      absl::Span<const std::string> block_hashes,
+      const LookupOptions& options = {}) override {
+    return BlockSliceList{};
+  }
+  std::pair<bool, BlockSliceList> Insert(
+      absl::Span<const std::string> block_hashes,
+      absl::Span<const RaidenBlockID> slices, bool on_host) override {
+    return std::make_pair(true, BlockSliceList{});
+  }
+  bool InsertAndLock(absl::Span<const std::string> block_hashes,
+                     absl::Span<const RaidenBlockID> slices,
+                     bool on_host) override {
+    return true;
+  }
+  size_t ReleaseAndDelete(absl::Span<const std::string> block_hashes) override {
+    return 0;
+  }
+  void Delete(absl::Span<const std::string> block_hashes,
+              absl::Span<const RaidenBlockID> slices) override {}
+  bool Pin(absl::Span<const std::string> block_hashes) override { return true; }
+  void Release(absl::Span<const std::string> block_hashes) override {}
+  int GetPinCount(const std::string& hash) const override { return 0; }
+  size_t GetCapacity() const override { return 0; }
+  size_t GetSize() const override { return 0; }
+  size_t GetAvailableSpace() const override { return 0; }
+};
+
+TEST(KVCacheStoreTest, ClearMultiTierUnimplementedTierRejectsUpFront) {
+  RaidenId rid{"test_job", "0", "test_cache", 0};
+  auto tier0 = std::make_shared<HostOffloadBackend>(2);
+  auto tier1 = std::make_shared<NoClearBackend>();
+  KVCacheStore store({tier0, tier1}, rid);
+
+  ASSERT_TRUE(
+      store.Insert({"hash_a"}, {RaidenBlockID(rid, 0, BlockStatus::HOST)}, true)
+          .first);
+
+  auto rejected = store.Clear();
+  EXPECT_TRUE(absl::IsUnimplemented(rejected.status()));
+  EXPECT_EQ(tier0->GetSize(), 1);
+  auto lookup_res = store.Lookup({"hash_a"});
+  ASSERT_TRUE(lookup_res.ok());
+  EXPECT_EQ(lookup_res->size(), 1);
 }
 
 // [R5a] The save-commit path must handle a hash that vanished mid-save (pin

@@ -210,5 +210,13 @@ int LogicalBlockManager::num_locked_blocks() const {
   return count;
 }
 
+int LogicalBlockManager::num_available_blocks() const {
+  int count = 0;
+  for (const auto& block : blocks_) {
+    if (!block.is_allocated || !block.is_locked) ++count;
+  }
+  return count;
+}
+
 }  // namespace kv_cache
 }  // namespace tpu_raiden

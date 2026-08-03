@@ -16,6 +16,7 @@
 
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -89,14 +90,37 @@ TEST_F(KVCacheManagerTorchTest, GrpcServerOptionalAndOffByDefault) {
                                   /*parallelism=*/1, /*raiden_worker_port=*/0,
                                   /*raiden_controller_address=*/std::nullopt);
   EXPECT_EQ(mgr_explicit_off.GetRaidenWorkerPort(), 0);
+}
 
-  KVCacheManager mgr_started(/*num_layers=*/1, /*num_shards=*/1,
-                             /*slice_byte_size=*/1024, /*node_id=*/0,
-                             /*local_port=*/std::nullopt,
-                             /*host_blocks_to_allocate=*/8,
-                             /*parallelism=*/1, /*raiden_worker_port=*/0,
-                             /*raiden_controller_address=*/"localhost:12345");
-  EXPECT_GT(mgr_started.GetRaidenWorkerPort(), 0);
+TEST_F(KVCacheManagerTorchTest, RegistrationFailureThrowsAndDetachesSingleton) {
+  // No controller listens on this address, so worker registration fails and
+  // construction throws (a silently unregistered worker would miss the
+  // TransferBuffers fanout and corrupt saves).
+  EXPECT_THROW(
+      KVCacheManager(/*num_layers=*/1, /*num_shards=*/1,
+                     /*slice_byte_size=*/1024, /*node_id=*/0,
+                     /*local_port=*/std::nullopt,
+                     /*host_blocks_to_allocate=*/8,
+                     /*parallelism=*/1, /*raiden_worker_port=*/0,
+                     /*raiden_controller_address=*/"localhost:12345"),
+      std::runtime_error);
+
+  // The process-wide singleton server outlives the failed construction; it
+  // must have been detached from the dead manager and remain usable by a
+  // later manager.
+  auto test_server = core::controller::CreateTestControllerServer();
+  ASSERT_NE(test_server, nullptr);
+  KVCacheManager mgr(/*num_layers=*/1, /*num_shards=*/1,
+                     /*slice_byte_size=*/1024, /*node_id=*/0,
+                     /*local_port=*/std::nullopt,
+                     /*host_blocks_to_allocate=*/8,
+                     /*parallelism=*/1, /*raiden_worker_port=*/0,
+                     test_server->server_address, "torch_worker_retry");
+  EXPECT_GT(mgr.GetRaidenWorkerPort(), 0);
+  auto workers =
+      test_server->service->worker_registry()->GetRegisteredWorkers();
+  ASSERT_EQ(workers.size(), 1);
+  EXPECT_EQ(workers[0].worker_id, "torch_worker_retry");
 }
 
 TEST_F(KVCacheManagerTorchTest, WorkerSelfRegistrationWithControllerSuccess) {

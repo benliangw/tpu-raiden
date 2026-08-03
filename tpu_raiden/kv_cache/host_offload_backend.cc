@@ -442,6 +442,23 @@ size_t HostOffloadBackend::ReleaseAndDelete(
   return deleted_blocks;
 }
 
+absl::Status HostOffloadBackend::CheckNothingPinned() const {
+  for (const auto& [key, it] : lru_cache_.map()) {
+    if (it->pin_count > 0) {
+      return absl::FailedPreconditionError(absl::StrCat(
+          "Clear rejected: block hash is still pinned (drain in-flight "
+          "admissions first): ",
+          absl::BytesToHexString(key)));
+    }
+  }
+  return absl::OkStatus();
+}
+
+absl::Status HostOffloadBackend::PreflightClear() const {
+  absl::MutexLock lock(mutex_);
+  return CheckNothingPinned();
+}
+
 absl::StatusOr<size_t> HostOffloadBackend::Clear() {
   std::shared_ptr<global_registry::GlobalRegistryClient> client;
   RaidenId local_id;
@@ -450,16 +467,9 @@ absl::StatusOr<size_t> HostOffloadBackend::Clear() {
 
   {
     absl::MutexLock lock(mutex_);
-    // Reject-without-mutating when anything is pinned: a pin marks a
-    // caller-held reference (an in-flight admission), and clearing under it
-    // would silently invalidate that caller's state. Callers drain first.
-    for (const auto& [key, it] : lru_cache_.map()) {
-      if (it->pin_count > 0) {
-        return absl::FailedPreconditionError(absl::StrCat(
-            "Clear rejected: block hash is still pinned (drain in-flight "
-            "admissions first): ",
-            absl::BytesToHexString(key)));
-      }
+    absl::Status pinned_status = CheckNothingPinned();
+    if (!pinned_status.ok()) {
+      return pinned_status;
     }
 
     std::vector<int> host_ids_to_deallocate;
@@ -920,8 +930,8 @@ void HostOffloadBackend::ReclaimStaleCandidate(const std::string& hash) {
   ClearMetadataEntry(*stale);
   // HOST / HOST_AND_HBM means host_block_id is a block of the LOCAL
   // allocator (REMOTE entries carry the peer's coordinate instead). The
-  // fresh insert replaces the value in place, so this is the last point the
-  // old block id is visible -- return it to the allocator here.
+  // entry is erased below, so this is the last point the old block id is
+  // visible -- return it to the allocator here.
   if (raiden_controller_ != nullptr && stale->host_block_id >= 0 &&
       (stale->status == BlockStatus::HOST ||
        stale->status == BlockStatus::HOST_AND_HBM)) {
@@ -933,6 +943,10 @@ void HostOffloadBackend::ReclaimStaleCandidate(const std::string& hash) {
                    << " of replaced eviction candidate: " << status.message();
     }
   }
+  // Erase the candidate so the caller's Put() takes the new-key path, which
+  // enforces capacity and surfaces a displaced entry; overwriting the
+  // candidate in place would re-admit the key without either.
+  lru_cache_.Erase(hash);
 }
 
 std::vector<std::string> HostOffloadBackend::GetSortedHashes(

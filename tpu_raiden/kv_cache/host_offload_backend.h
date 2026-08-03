@@ -89,6 +89,8 @@ class HostOffloadBackend : public KVCacheStoreBackend {
 
   absl::StatusOr<size_t> Clear() override;
 
+  absl::Status PreflightClear() const override;
+
   void Delete(absl::Span<const std::string> block_hashes,
               absl::Span<const RaidenBlockID> slices) override;
 
@@ -137,11 +139,18 @@ class HostOffloadBackend : public KVCacheStoreBackend {
   void ClearMetadataEntry(const RaidenBlockID& block)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
+  // Rejects when any entry is pinned: a pin marks a caller-held reference
+  // (an in-flight admission), and clearing under it would silently
+  // invalidate that caller's state. Callers drain first. Shared acceptance
+  // check of Clear() and PreflightClear().
+  absl::Status CheckNothingPinned() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
   // Reclaims the state of a stale eviction candidate that is about to be
-  // replaced by a fresh insert of the same hash: clears its metadata entry
-  // and returns its host block (if it owned one) to the controller's block
-  // allocator. Without this, Put() on a candidate hash overwrites the value
-  // in place and the old host block leaks permanently.
+  // replaced by a fresh insert of the same hash: clears its metadata entry,
+  // returns its host block (if it owned one) to the controller's block
+  // allocator, and erases it from the LRU cache so the re-inserting Put()
+  // takes the new-key path -- enforcing capacity and surfacing a displaced
+  // entry like any other insert.
   void ReclaimStaleCandidate(const std::string& hash)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 

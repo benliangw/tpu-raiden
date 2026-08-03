@@ -380,6 +380,17 @@ void KVCacheManager::StartGrpcServer(
       // the remaining workers and still report success -- silent data
       // corruption on a later load. Fail construction instead so the caller
       // sees the broken registration immediately.
+      //
+      // The destructor never runs when a constructor throws, so detach
+      // torch_manager_ from the process-wide singleton server here -- it
+      // outlives this object and would otherwise keep serving RPCs against
+      // freed memory. The private-server path needs no detach:
+      // private_grpc_server_ is declared after torch_manager_, so member
+      // destruction shuts it down while torch_manager_ is still alive.
+      if (!use_private_server) {
+        controller::WorkerServiceServer::GetInstance().SetTransferManager(
+            nullptr);
+      }
       throw std::runtime_error(absl::StrCat(
           "Failed to register worker ", w_id, " (worker_endpoint=",
           worker_endpoint, ") with controller at ", *raiden_controller_address,

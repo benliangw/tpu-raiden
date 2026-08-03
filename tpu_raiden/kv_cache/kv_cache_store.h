@@ -342,9 +342,10 @@ class KVCacheStore {
   // unpolled done/failed transfer results.
   //
   // Fails without mutating anything when transfers are in flight (drain the
-  // save/load/remote-read polls first) or when any entry is still pinned (an
-  // in-flight admission holds it). Returns the number of entries removed
-  // from the primary backend.
+  // save/load/remote-read polls first), when any entry is still pinned (an
+  // in-flight admission holds it), or when any backend does not support
+  // Clear -- every backend is preflighted before any is cleared. Returns
+  // the total number of entries removed across all backends.
   absl::StatusOr<size_t> Clear();
 
   // Rebuilds this store's LRU cache after an engine restart from the

@@ -214,6 +214,17 @@ class KVCacheStoreBackend {
         "Clear is not implemented by this backend");
   }
 
+  // Returns OK iff Clear() would currently succeed, without mutating any
+  // state. Multi-tier stores preflight every backend before clearing any,
+  // so one tier's rejection cannot leave earlier tiers already wiped. Must
+  // stay consistent with Clear()'s acceptance criteria -- in particular a
+  // backend without Clear() reports Unimplemented here too, rejecting a
+  // multi-tier clear up front.
+  virtual absl::Status PreflightClear() const {
+    return absl::UnimplementedError(
+        "Clear is not implemented by this backend");
+  }
+
   // The peer-facing KVCacheStoreService server this backend hosts, if any.
   // Returning non-null tells the owning KVCacheStore to publish THIS server
   // rather than start a second one, so a node always serves peers from exactly

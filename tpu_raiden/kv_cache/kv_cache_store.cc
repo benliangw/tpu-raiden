@@ -1084,16 +1084,28 @@ absl::StatusOr<size_t> KVCacheStore::Clear() {
   // Backend Clear() rejects atomically if anything is pinned, and otherwise
   // wipes entries + candidates, returns host blocks to the allocator, wipes
   // the recovery metadata, and unregisters from the global registry.
+  //
+  // Preflight every tier before clearing any: a later tier's rejection
+  // (pinned entry, unimplemented Clear) must not leave earlier tiers already
+  // wiped. Admissions do not hold mutex_, so a pin can still appear between
+  // the preflight and the clear -- the per-backend Clear() stays the
+  // authoritative atomic check; the preflight covers the deterministic
+  // rejections and narrows the racy window.
+  for (const auto& backend : backends_) {
+    if (!backend) continue;
+    absl::Status preflight = backend->PreflightClear();
+    if (!preflight.ok()) {
+      return preflight;
+    }
+  }
   size_t cleared = 0;
-  for (size_t i = 0; i < backends_.size(); ++i) {
-    if (!backends_[i]) continue;
-    auto cleared_or = backends_[i]->Clear();
+  for (auto& backend : backends_) {
+    if (!backend) continue;
+    auto cleared_or = backend->Clear();
     if (!cleared_or.ok()) {
       return cleared_or.status();
     }
-    if (i == 0) {
-      cleared = cleared_or.value();
-    }
+    cleared += cleared_or.value();
   }
 
   // Drop unpolled results of past transfers: they reference entries that no
@@ -1141,15 +1153,19 @@ absl::StatusOr<std::vector<int>> KVCacheStore::AllocateBlockIds(int needed) {
   std::vector<std::string> hashes_to_deallocate;
   {
     absl::MutexLock l(&mutex_);
-    int free_count = raiden_controller_->block_manager()->num_free_blocks();
-    int to_free = needed - free_count;
+    // DeallocateBlockIds unlocks blocks rather than freeing them, so
+    // num_free_blocks() only ever shrinks; gate on what Allocate() can
+    // actually hand out -- free blocks plus allocated-but-unlocked ones.
+    int available_count =
+        raiden_controller_->block_manager()->num_available_blocks();
+    int to_free = needed - available_count;
     if (to_free > 0) {
       hashes_to_deallocate = backend()->GetEvictableKeys(to_free);
       if (hashes_to_deallocate.size() < static_cast<size_t>(to_free)) {
         return absl::ResourceExhaustedError(
-            absl::StrCat("Insufficient free blocks and not enough evictable "
-                         "blocks. Needed: ",
-                         needed, ", Free: ", free_count,
+            absl::StrCat("Insufficient available blocks and not enough "
+                         "evictable blocks. Needed: ",
+                         needed, ", Available: ", available_count,
                          ", Evictable: ", hashes_to_deallocate.size()));
       }
     }
