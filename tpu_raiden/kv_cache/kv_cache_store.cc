@@ -1099,13 +1099,17 @@ absl::StatusOr<size_t> KVCacheStore::Clear() {
     }
   }
   size_t cleared = 0;
-  for (auto& backend : backends_) {
-    if (!backend) continue;
-    auto cleared_or = backend->Clear();
+  for (size_t i = 0; i < backends_.size(); ++i) {
+    if (!backends_[i]) continue;
+    auto cleared_or = backends_[i]->Clear();
     if (!cleared_or.ok()) {
       return cleared_or.status();
     }
-    cleared += cleared_or.value();
+    // Report the primary tier's logical entry count: mirrored tiers hold
+    // copies of the same hashes, so summing would double-count them.
+    if (i == 0) {
+      cleared = cleared_or.value();
+    }
   }
 
   // Drop unpolled results of past transfers: they reference entries that no

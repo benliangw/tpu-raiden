@@ -341,11 +341,15 @@ class KVCacheStore {
   // registry, and dropping pending candidate-restoration records and any
   // unpolled done/failed transfer results.
   //
-  // Fails without mutating anything when transfers are in flight (drain the
-  // save/load/remote-read polls first), when any entry is still pinned (an
-  // in-flight admission holds it), or when any backend does not support
-  // Clear -- every backend is preflighted before any is cleared. Returns
-  // the total number of entries removed across all backends.
+  // Fails when transfers are in flight (drain the save/load/remote-read
+  // polls first), when any entry is still pinned (an in-flight admission
+  // holds it), or when any backend does not support Clear. With a single
+  // backend a failure mutates nothing. With multiple tiers every backend is
+  // preflighted before any is cleared, which rejects the deterministic
+  // failures up front -- but a pin taken concurrently with the clear can
+  // still fail a later tier after earlier tiers were wiped; callers must
+  // quiesce admissions first. Returns the number of entries removed from
+  // the primary backend.
   absl::StatusOr<size_t> Clear();
 
   // Rebuilds this store's LRU cache after an engine restart from the

@@ -1625,12 +1625,12 @@ TEST(KVCacheStoreTest, ClearMultiTierRejectedTierLeavesEarlierTiersIntact) {
   EXPECT_EQ(tier0->GetSize(), 2);
   EXPECT_EQ(tier1->GetSize(), 2);
 
-  // Once the pin is dropped the clear goes through, and the returned count
-  // sums the tiers.
+  // Once the pin is dropped the clear goes through; the returned count is
+  // the primary tier's logical entries (mirrored tiers are not summed).
   tier1->Release(pinned);
   auto cleared = store.Clear();
   ASSERT_TRUE(cleared.ok());
-  EXPECT_EQ(*cleared, 4);
+  EXPECT_EQ(*cleared, 2);
   EXPECT_EQ(tier0->GetSize(), 0);
   EXPECT_EQ(tier1->GetSize(), 0);
 }
