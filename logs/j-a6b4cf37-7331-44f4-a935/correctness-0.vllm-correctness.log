@@ -1,0 +1,34 @@
+Waiting for prefill up (http://j-a6b4cf37-7331-44f4-a935-prefill-0-0.j-a6b4cf37-7331-44f4-a935:8000/health, up to 5400s)
+prefill is up (1055s)
+Waiting for decode up (http://j-a6b4cf37-7331-44f4-a935-decode-0-0.j-a6b4cf37-7331-44f4-a935:7200/health, up to 5400s)
+decode is up (0s)
+Waiting for proxy up (http://j-a6b4cf37-7331-44f4-a935-prefill-0-0.j-a6b4cf37-7331-44f4-a935:10000/healthcheck, up to 600s)
+proxy is up (0s)
+Waiting for engine readiness (first compile, up to 60 min)...
+Engines are ready.
+===== Smoke test: prefill->Raiden KV transfer->decode =====
+--- request: Good morning. What are the capitals of the US, China and Armenia?
+{"id":"cmpl-5dae9cdc-7123-454a-af80-372b247c7581","object":"text_completion","created":1785868157,"model":"Qwen3.5-35B-A3B-FP8","choices":[{"index":0,"text":"\n\nHere are the capitals of the countries you mentioned:\n\n*   **United States:** Washington, D.C.\n*   **China:** Beijing\n*   **Armenia:** Yerevan\n\n*(Note: I assumed \"US\" referred to the United States and \"Good morning\" was a greeting rather","logprobs":null,"finish_reason":"length","stop_reason":null,"token_ids":[271,8160,513,279,89798,314,279,5656,488,9444,25,271,9,256,2972,21675,4042,64700,6312,11,414,707,13,198,9,256,2972,21591,64700,25701,198,9,256,2972,6737,5498,667,64700,783,475,15190,271,6391,8839,25,353,18533,328,1966,1,13464,310,279,3516,4042,321,328,14773,6353,1,557,264,40719,4598],"prompt_logprobs":null,"prompt_token_ids":[14773,6353,13,3437,513,279,89798,314,279,2201,11,5440,321,69101,30],"routed_experts":null}],"service_tier":null,"system_fingerprint":"vllm-0.26.0-dp8-ep-8cf8c9d7","usage":{"prompt_tokens":15,"total_tokens":79,"completion_tokens":64,"prompt_tokens_details":{"cached_tokens":14,"created_cache_tokens":null,"multimodal_tokens":null}},"kv_transfer_params":null,"ec_transfer_params":null,"metrics":null}
+--- known-answer probes: three-way equivalence (cold/warm/proxy)
+len4096-cold: token=85 token_ids=[85, 85, 85, 85, 85, 85, 85, 85] text='vvvvvvvv'
+len4096-warm: token=85 token_ids=[85, 85, 85, 85, 85, 85, 85, 85] text='vvvvvvvv'
+len4096-proxy: token=85 token_ids=[85, 85, 85, 85, 85, 85, 85, 85] text='vvvvvvvv'
+len4096: apc=PASS transfer=PASS len=4096 cold=[85, 85, 85, 85, 85, 85, 85, 85] warm=[85, 85, 85, 85, 85, 85, 85, 85] proxy=[85, 85, 85, 85, 85, 85, 85, 85]
+len16384-cold: token=86 token_ids=[86, 86, 86, 86, 86, 86, 86, 86] text='wwwwwwww'
+len16384-warm: token=86 token_ids=[86, 86, 86, 86, 86, 86, 86, 86] text='wwwwwwww'
+len16384-proxy: token=86 token_ids=[86, 86, 86, 86, 86, 86, 86, 86] text='wwwwwwww'
+len16384: apc=PASS transfer=PASS len=16384 cold=[86, 86, 86, 86, 86, 86, 86, 86] warm=[86, 86, 86, 86, 86, 86, 86, 86] proxy=[86, 86, 86, 86, 86, 86, 86, 86]
+len20480-cold: token=93 token_ids=[93, 93, 93, 93, 93, 93, 93, 93] text='~~~~~~~~'
+len20480-warm: token=93 token_ids=[93, 93, 93, 93, 93, 93, 93, 93] text='~~~~~~~~'
+len20480-proxy: token=93 token_ids=[93, 93, 93, 93, 93, 93, 93, 93] text='~~~~~~~~'
+len20480: apc=PASS transfer=PASS len=20480 cold=[93, 93, 93, 93, 93, 93, 93, 93] warm=[93, 93, 93, 93, 93, 93, 93, 93] proxy=[93, 93, 93, 93, 93, 93, 93, 93]
+len32768-cold: token=89 token_ids=[89, 89, 89, 89, 89, 89, 89, 89] text='zzzzzzzz'
+len32768-warm: token=89 token_ids=[89, 89, 89, 89, 89, 89, 89, 89] text='zzzzzzzz'
+len32768-proxy: token=89 token_ids=[89, 89, 89, 89, 89, 89, 89, 89] text='zzzzzzzz'
+len32768: apc=PASS transfer=PASS len=32768 cold=[89, 89, 89, 89, 89, 89, 89, 89] warm=[89, 89, 89, 89, 89, 89, 89, 89] proxy=[89, 89, 89, 89, 89, 89, 89, 89]
+known-answer summary: {"len4096-apc-transparency": true, "len4096-transfer-equivalence": true, "len16384-apc-transparency": true, "len16384-transfer-equivalence": true, "len20480-apc-transparency": true, "len20480-transfer-equivalence": true, "len32768-apc-transparency": true, "len32768-transfer-equivalence": true}
+===== Eviction equivalence (deterministic doc churn) =====
+[equivalence] post-eviction KA PASS cold=[89, 89, 89, 89, 89, 89, 89, 89] revisit=[89, 89, 89, 89, 89, 89, 89, 89]
+EQUIVALENCE COMPLETE (errors=0)
+RESULT: PASS
+

@@ -1,0 +1,53 @@
+Waiting for vLLM at http://j-71913468-0e9c-49fe-8e56-server-a-0-0.j-71913468-0e9c-49fe-8e56:8000/health (up to 180 min)...
+  ...still waiting for j-71913468-0e9c-49fe-8e56-server-a-0-0.j-71913468-0e9c-49fe-8e56 (60s elapsed)
+  ...still waiting for j-71913468-0e9c-49fe-8e56-server-a-0-0.j-71913468-0e9c-49fe-8e56 (120s elapsed)
+  ...still waiting for j-71913468-0e9c-49fe-8e56-server-a-0-0.j-71913468-0e9c-49fe-8e56 (180s elapsed)
+  ...still waiting for j-71913468-0e9c-49fe-8e56-server-a-0-0.j-71913468-0e9c-49fe-8e56 (240s elapsed)
+  ...still waiting for j-71913468-0e9c-49fe-8e56-server-a-0-0.j-71913468-0e9c-49fe-8e56 (300s elapsed)
+  ...still waiting for j-71913468-0e9c-49fe-8e56-server-a-0-0.j-71913468-0e9c-49fe-8e56 (360s elapsed)
+  ...still waiting for j-71913468-0e9c-49fe-8e56-server-a-0-0.j-71913468-0e9c-49fe-8e56 (420s elapsed)
+  ...still waiting for j-71913468-0e9c-49fe-8e56-server-a-0-0.j-71913468-0e9c-49fe-8e56 (480s elapsed)
+  ...still waiting for j-71913468-0e9c-49fe-8e56-server-a-0-0.j-71913468-0e9c-49fe-8e56 (540s elapsed)
+  ...still waiting for j-71913468-0e9c-49fe-8e56-server-a-0-0.j-71913468-0e9c-49fe-8e56 (600s elapsed)
+  ...still waiting for j-71913468-0e9c-49fe-8e56-server-a-0-0.j-71913468-0e9c-49fe-8e56 (660s elapsed)
+  ...still waiting for j-71913468-0e9c-49fe-8e56-server-a-0-0.j-71913468-0e9c-49fe-8e56 (720s elapsed)
+j-71913468-0e9c-49fe-8e56-server-a-0-0.j-71913468-0e9c-49fe-8e56 ready (743s)
+Waiting for vLLM at http://j-71913468-0e9c-49fe-8e56-server-b-0-0.j-71913468-0e9c-49fe-8e56:8000/health (up to 180 min)...
+j-71913468-0e9c-49fe-8e56-server-b-0-0.j-71913468-0e9c-49fe-8e56 ready (4s)
+=== pass 1: warming replica A with 8 prompts, 5000 words each ===
+  doc-0000:   2.68s cached_tokens=0
+  doc-0001:   2.20s cached_tokens=0
+  doc-0002:   2.20s cached_tokens=0
+  doc-0003:   2.20s cached_tokens=0
+  doc-0004:   2.20s cached_tokens=0
+  doc-0005:   2.19s cached_tokens=0
+  doc-0006:   2.19s cached_tokens=0
+  doc-0007:   2.19s cached_tokens=0
+=== waiting 15s for saves to commit and publish to the registry ===
+=== pass 2: replaying the same 8 prompts on replica B (must arrive via read_remote) ===
+  doc-0000:   2.65s cached_tokens=0
+  doc-0001:   2.33s cached_tokens=33792
+  doc-0002:   2.25s cached_tokens=33792
+  doc-0003:   2.27s cached_tokens=33792
+  doc-0004:   2.24s cached_tokens=33792
+  doc-0005:   2.20s cached_tokens=33792
+  doc-0006:   2.21s cached_tokens=33792
+  doc-0007:   2.23s cached_tokens=33792
+=== pass 3: 8 fresh prompts on replica B (cold-TTFT baseline) ===
+  cold-0000:   2.19s cached_tokens=0
+  cold-0001:   2.17s cached_tokens=0
+  cold-0002:   2.16s cached_tokens=0
+  cold-0003:   2.16s cached_tokens=0
+  cold-0004:   2.17s cached_tokens=0
+  cold-0005:   2.16s cached_tokens=0
+  cold-0006:   2.17s cached_tokens=0
+  cold-0007:   2.16s cached_tokens=0
+MISMATCH doc-0004 lcp_chars=107
+  replica A: ' The user is asking for a list of all possible combinations of four-digit numbers where the first digit is 4, the second digit is 8, and the third and fourth digits can be any digit from 0 to 9. The t'
+  replica B: " The user is asking for a list of all possible combinations of four-digit numbers where the first digit is 'w' followed by three digits, with the second digit being '4' and the third digit ranging fro"
+pass 2: 7/8 byte-identical, early_divergences=[]
+mean latency on B: remote-hit=2.30s cold=2.17s (speedup 0.94x)
+WARNING: remote-hit latency is not below the cold baseline — the sharing plane is not paying off. Correctness still gates; investigate before trusting the perf story.
+NO-HIT doc-0000: cached_tokens=0
+RESULT: FAIL (1/8 replayed prompts reported no cached prompt tokens — the replay did not arrive via read_remote: [0]. Check replica B's server.log for read_remote activity and the registry pod's logs.)
+
