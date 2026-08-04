@@ -1,0 +1,108 @@
+===== Syncing dependencies to pyproject.toml =====
+Using Python 3.12.13 environment at: /usr/local
+Resolved 216 packages in 900ms
+Downloading nvidia-cudnn-frontend (3.5MiB)
+Downloading pynvvideocodec (41.2MiB)
+Downloading apache-tvm-ffi (2.5MiB)
+Downloading nvidia-cutlass-dsl-libs-base (2.7MiB)
+Downloading nvidia-cutlass-dsl-libs-cu13 (83.9MiB)
+Downloading nvidia-cuda-nvdisasm (4.6MiB)
+Downloading nvidia-cutlass-dsl-libs-cu12 (84.3MiB)
+Downloading torchcodec (2.9MiB)
+Downloading libtpu (205.5MiB)
+Downloading vllm (289.6MiB)
+Downloading flashinfer-python (13.9MiB)
+Downloading jaxlib (81.5MiB)
+Downloading jax (3.1MiB)
+ Downloaded nvidia-cutlass-dsl-libs-base
+ Downloaded apache-tvm-ffi
+ Downloaded torchcodec
+ Downloaded nvidia-cudnn-frontend
+ Downloaded nvidia-cuda-nvdisasm
+ Downloaded jax
+ Downloaded pynvvideocodec
+ Downloaded nvidia-cutlass-dsl-libs-cu13
+ Downloaded nvidia-cutlass-dsl-libs-cu12
+ Downloaded jaxlib
+ Downloaded libtpu
+ Downloaded flashinfer-python
+ Downloaded vllm
+Prepared 18 packages in 6.66s
+Uninstalled 12 packages in 1.94s
+Installed 18 packages in 251ms
+ - apache-tvm-ffi==0.1.9
+ + apache-tvm-ffi==0.1.10
+ - flashinfer-python==0.6.11.post2
+ + flashinfer-python==0.6.14
+ - humming-kernels==0.1.2
+ + humming-kernels==0.1.10
+ - jax==0.10.0
+ + jax==0.10.2
+ - jaxlib==0.10.0
+ + jaxlib==0.10.2
+ - libtpu==0.0.40
+ + libtpu==0.0.43
+ + nvidia-cuda-nvdisasm==13.3.73
+ - nvidia-cudnn-frontend==1.18.0
+ + nvidia-cudnn-frontend==1.26.0
+ - nvidia-cutlass-dsl==4.5.2
+ + nvidia-cutlass-dsl==4.6.0
+ - nvidia-cutlass-dsl-libs-base==4.5.2
+ + nvidia-cutlass-dsl-libs-base==4.6.0
+ + nvidia-cutlass-dsl-libs-core==4.6.0
+ + nvidia-cutlass-dsl-libs-cu12==4.6.0
+ - nvidia-cutlass-dsl-libs-cu13==4.5.2
+ + nvidia-cutlass-dsl-libs-cu13==4.6.0
+ + nvtx==0.2.15
+ + pynvvideocodec==2.0.4
+ - tokenspeed-mla==0.1.2
+ + tokenspeed-mla==0.1.8
+ + torchcodec==0.15.0
+ - vllm==0.23.1rc1.dev927+gc0e8e1f12.d20260708.tpu (from file:///root/cloud-devkit/vllm)
+ + vllm==0.26.0
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 6ms
+Prepared 1 package in 332ms
+Installed 1 package in 3ms
+ + tpu-raiden-torch==0.0.1.dev20260804004324 (from file:///root/wheels/tpu_raiden_torch-0.0.1.dev20260804004324-1_raiden_controller_57d0834-cp312-cp312-manylinux_2_31_x86_64.whl)
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1785838833.594306     457 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1785838833.601268     457 tpu_profiler_plugin.cc:707] PyTorch PrivateUse1ProfilerRegistry not found. Native TPU profiling will be disabled (this is expected on PyTorch < 2.12).
+I0000 00:00:1785838836.572918     457 device_rt.cc:124] PjRt runtime initialization deferred for tpu
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Device type: tpu, Device index: default
+Registered Python module for 'tpu'.
+Initializing TPU distributed runtime
+INFO 08-04 10:20:38 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-04 10:20:38 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-04 10:20:38 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 08-04 10:20:38 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-04 10:20:38 [tpu_info.py:26] 
+INFO 08-04 10:20:38 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-04 10:20:38 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-04 10:20:38 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-04 10:20:38 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 08-04 10:20:38 [tpu.py:17] tpu_inference not found, please install tpu_inference to run vllm on TPU
+INFO 08-04 10:20:38 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-04 10:20:38 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-04 10:20:38 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 08-04 10:20:38 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-04 10:20:38 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-04 10:20:38 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "/root/torchtpu-vllm/src/vllm_torchtpu/offload/raiden_connector.py", line 61, in <module>
+    from vllm.config import VllmConfig
+  File "/usr/local/lib/python3.12/site-packages/vllm/__init__.py", line 14, in <module>
+    import vllm.env_override  # noqa: F401
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/vllm/env_override.py", line 90, in <module>
+    from vllm.utils.torch_utils import is_torch_equal, is_torch_equal_or_newer
+  File "/usr/local/lib/python3.12/site-packages/vllm/utils/torch_utils.py", line 72, in <module>
+    PIN_MEMORY = is_pin_memory_available()
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/vllm/utils/platform_utils.py", line 45, in is_pin_memory_available
+    from vllm.platforms import current_platform
+ImportError: cannot import name 'current_platform' from 'vllm.platforms' (/usr/local/lib/python3.12/site-packages/vllm/platforms/__init__.py). Did you mean: '_current_platform'?
+RESULT: FAIL (V2 preflight)
+
