@@ -42,9 +42,8 @@ namespace {
 thread_local const xla::PjRtDevice* g_current_device = nullptr;
 
 // PJRT_Client_DmaMap aborts inside libtpu on multi-process TPUv7 pods
-// (tpu::System::DmaMap raw_hash_map::at out-of-range -> SIGABRT, not a
-// returned error), so DMA mapping must be skipped there; staged DMA through
-// unmapped memory still works, just slower (~106 vs ~175 GB/s H2D).
+// (tpu::System::DmaMap raw_hash_map::at out-of-range), so DMA mapping must be
+// skipped there.
 bool ShouldSkipDmaMap(xla::PjRtClient* client) {
   bool is_tpuv7 = false;
   if (client != nullptr) {
