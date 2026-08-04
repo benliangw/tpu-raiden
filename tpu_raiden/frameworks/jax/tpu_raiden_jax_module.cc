@@ -332,6 +332,16 @@ NB_MODULE(_tpu_raiden_jax, m) {
             }
           },
           nb::call_guard<nb::gil_scoped_release>())
+      .def(
+          "bind_weights",
+          [](WeightSynchronizer& self, nb::list jax_arrays) {
+            absl::Status status = self.BindWeights(jax_arrays);
+            if (!status.ok()) {
+              throw std::runtime_error("Bind weights failed: " +
+                                       std::string(status.message()));
+            }
+          },
+          nb::arg("jax_arrays"))
 
       .def(
           "get_host_buffer",
@@ -399,9 +409,12 @@ NB_MODULE(_tpu_raiden_jax, m) {
                     int64_t, std::string, std::string, int>(),
            nb::arg("capacity"), nb::arg("global_registry_address") = "",
            nb::arg("raiden_id") = tpu_raiden::kv_cache::RaidenId(),
-           nb::arg("num_shards") = 0, nb::arg("shard_size_bytes") = 0,
+           // No defaults: every KVCacheStore has a controller and a
+           // publishable address, so 0/"" are not
+           // valid values a caller can fall into by omission.
+           nb::arg("num_shards"), nb::arg("shard_size_bytes") = 0,
            nb::arg("raiden_orchestrator_address") = "",
-           nb::arg("store_server_ip") = "",
+           nb::arg("store_server_ip"),
            nb::arg("raiden_controller_port") = 0)
       .def_prop_ro(
           "raiden_id",

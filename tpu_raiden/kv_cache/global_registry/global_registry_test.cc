@@ -130,12 +130,6 @@ TEST_F(GlobalRegistryTest, BasicRegisterAndLookup) {
 }
 
 TEST_F(GlobalRegistryTest, BinaryHashRegisterAndLookup) {
-  // Production hashes are raw digest bytes (namespace + sha256 prefix +
-  // index), not UTF-8 text. proto3 `string` fields UTF-8-verify on the
-  // wire, so the hash fields must stay `bytes` — this round-trip is the
-  // regression test for that (j-228ec380: byte-identical keys registered
-  // and looked up through the real serving stack never matched while every
-  // test here used ASCII hashes).
   std::string hash("\x93\xff\x00\xa1\xfe\x80zz\x01\xc3\xbf\xed", 12);
   RaidenId host = {"job1", "replica1", "data1", 0};
 
@@ -157,6 +151,21 @@ TEST_F(GlobalRegistryTest, BinaryHashRegisterAndLookup) {
   auto after = client_->Lookup({hash});
   ASSERT_TRUE(after.ok());
   EXPECT_TRUE(after->empty());
+}
+
+TEST_F(GlobalRegistryTest, BinaryHashUnregisterMismatchReportsHexError) {
+  std::string hash("\xde\xad\xbe\xef\xff\x00\xc3\x28", 8);
+  RaidenId owner = {"job1", "replica1", "data1", 0};
+  RaidenId other = {"job2", "replica2", "data2", 1};
+
+  ASSERT_TRUE(client_->Register({{hash, owner, 3}}).ok());
+
+  absl::Status unreg = client_->Unregister({hash}, other);
+  EXPECT_EQ(unreg.code(), absl::StatusCode::kFailedPrecondition)
+      << unreg.ToString();
+  EXPECT_NE(std::string(unreg.message()).find("deadbeefff00c328"),
+            std::string::npos)
+      << unreg.message();
 }
 
 TEST_F(GlobalRegistryTest, MultiRegistrationAndRoundRobinLookup) {

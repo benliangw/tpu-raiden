@@ -109,11 +109,13 @@ class KVCacheStoreServiceTest : public ::testing::Test {
         },
         [&](absl::Span<const std::string> /*h*/) {});
 
-    // Create dst KVCacheStore
+    // Create dst KVCacheStore. No global registry: the orchestrator address
+    // used to be (mis)passed in the registry slot.
     store_ = std::make_unique<KVCacheStore>(
-        /*capacity=*/100, orchestrator_address, dst_raiden_id, /*num_shards=*/1,
+        /*capacity=*/100, /*global_registry_address=*/"", dst_raiden_id,
+        /*num_shards=*/1,
         /*shard_size_bytes=*/1024, orchestrator_address,
-        /*store_server_ip=*/"");
+        /*store_server_ip=*/"127.0.0.1");
 
     ::tpu_raiden::core::controller::RaidenControllerClient
         dst_controller_client(store_->raiden_controller_address());
@@ -383,6 +385,105 @@ TEST_F(KVCacheStoreServiceTest, SameNodeFetchNeedsNoEndpoints) {
   std::vector<int32_t> host_ids = {201};
   auto res = client_->Fetch(hashes, /*device_block_ids=*/{}, host_ids).Await();
   EXPECT_TRUE(res.ok()) << res.status();
+}
+
+// Two workers on this node, each with its own transfer manager, and two client
+// groups. Each worker must be handed ONLY the group carrying its own node_id.
+// raiden_controller_test proves the pairing inside TransferBuffers; this
+// proves the Fetch path feeds it correctly, which is what changed.
+TEST_F(KVCacheStoreServiceTest, FetchWithMultiWorkerEndpointsRoutesPerWorker) {
+  auto worker_a = ::tpu_raiden::controller::CreateTestWorkerServer();
+  auto mock_a = std::make_unique<
+      ::tpu_raiden::controller::ShardAwareMockTransferManager>();
+  worker_a->service->SetTransferManager(
+      ::tpu_raiden::KVManagerHolder(mock_a.get()));
+
+  auto worker_b = ::tpu_raiden::controller::CreateTestWorkerServer();
+  auto mock_b = std::make_unique<
+      ::tpu_raiden::controller::ShardAwareMockTransferManager>();
+  worker_b->service->SetTransferManager(
+      ::tpu_raiden::KVManagerHolder(mock_b.get()));
+
+  // A fresh store so only these two workers are registered, with distinct
+  // NON-ZERO node_ids: node_id 0 is exempt from the registry's uniqueness
+  // check, and peer_node_id_to_endpoints keeps the first group per node_id, so
+  // workers left at the default would collapse into one and every worker would
+  // be routed to it.
+  RaidenId multi_id{"multi_job", "0", "multi_data", 0};
+  KVCacheStore store(/*capacity=*/16, /*global_registry_address=*/"", multi_id,
+                     /*num_shards=*/1, /*shard_size_bytes=*/1024,
+                     /*raiden_orchestrator_address=*/"",
+                     /*store_server_ip=*/"127.0.0.1");
+  ::tpu_raiden::core::controller::RaidenControllerClient ctrl_client(
+      store.raiden_controller_address());
+  ASSERT_OK(ctrl_client.RegisterWorker("w_a", worker_a->server_address,
+                                       {{worker_a->server_address, {}}},
+                                       /*node_id=*/10));
+  ASSERT_OK(ctrl_client.RegisterWorker("w_b", worker_b->server_address,
+                                       {{worker_b->server_address, {}}},
+                                       /*node_id=*/20));
+
+  std::vector<std::string> hashes = {"multi_hash"};
+  std::vector<RaidenBlockID> slices = {
+      RaidenBlockID(multi_id, 7, BlockStatus::HOST)};
+  ASSERT_TRUE(store.InsertAndLock(hashes, slices, /*on_host=*/true));
+
+  KVCacheStoreServiceImpl service(store.backend().get(),
+                                  store.raiden_controller());
+  ::grpc::ServerBuilder builder;
+  int port = 0;
+  builder.AddListeningPort("localhost:0", ::grpc::InsecureServerCredentials(),
+                           &port);
+  builder.RegisterService(&service);
+  auto server = builder.BuildAndStart();
+  KVCacheStoreClient client(
+      ::grpc::CreateChannel("localhost:" + std::to_string(port),
+                            ::grpc::InsecureChannelCredentials()));
+
+  rpc::RaidenIdProto client_id;
+  client_id.set_job_name("client_job");
+  client_id.set_job_replica_id("0");
+
+  std::vector<::tpu_raiden::proto::RaidenWorkerEndpointsProto> groups = {
+      MakeGroup(/*node_id=*/10, "client_w_a", "10.0.0.10:45001"),
+      MakeGroup(/*node_id=*/20, "client_w_b", "10.0.0.20:45002")};
+
+  auto res = client.Fetch(hashes, /*device_block_ids=*/{},
+                          /*host_block_ids=*/{301}, client_id, groups)
+                 .Await();
+  ASSERT_OK(res.status());
+
+  // Each worker saw its own peer -- not the other's, and not both.
+  ASSERT_EQ(mock_a->last_write_descriptors.size(), 1);
+  EXPECT_EQ(mock_a->last_write_descriptors[0].endpoint, "10.0.0.10:45001");
+  ASSERT_EQ(mock_b->last_write_descriptors.size(), 1);
+  EXPECT_EQ(mock_b->last_write_descriptors[0].endpoint, "10.0.0.20:45002");
+
+  server->Shutdown();
+}
+
+// Groups matching no local worker fail rather than being broadcast.
+//
+// NOTE: the rejection is clean here only because the single group is
+// unmatched. TransferBuffers validates worker N+1 after dispatching worker N,
+// so with several workers the error can arrive with an earlier write already
+// in flight.
+TEST_F(KVCacheStoreServiceTest, FetchWithUnmatchedNodeIdFails) {
+  rpc::RaidenIdProto client_id;
+  client_id.set_job_name("client_job");
+  client_id.set_job_replica_id("0");
+
+  // The fixture's worker is registered with the default node_id 0.
+  std::vector<::tpu_raiden::proto::RaidenWorkerEndpointsProto> groups = {
+      MakeGroup(/*node_id=*/99, "client_worker_x", "10.0.0.99:46001")};
+
+  auto res = client_
+                 ->Fetch({"block_hash_1"}, /*device_block_ids=*/{},
+                         /*host_block_ids=*/{202}, client_id, groups)
+                 .Await();
+
+  EXPECT_THAT(res.status(), StatusIs(absl::StatusCode::kInternal,
+                                     ::testing::HasSubstr("node_id")));
 }
 
 }  // namespace
