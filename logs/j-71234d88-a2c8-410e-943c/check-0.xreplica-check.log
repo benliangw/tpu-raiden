@@ -1,0 +1,65 @@
+Waiting for vLLM at http://j-71234d88-a2c8-410e-943c-server-a-0-0.j-71234d88-a2c8-410e-943c:8000/health (up to 180 min)...
+  ...still waiting for j-71234d88-a2c8-410e-943c-server-a-0-0.j-71234d88-a2c8-410e-943c (60s elapsed)
+  ...still waiting for j-71234d88-a2c8-410e-943c-server-a-0-0.j-71234d88-a2c8-410e-943c (120s elapsed)
+  ...still waiting for j-71234d88-a2c8-410e-943c-server-a-0-0.j-71234d88-a2c8-410e-943c (180s elapsed)
+  ...still waiting for j-71234d88-a2c8-410e-943c-server-a-0-0.j-71234d88-a2c8-410e-943c (240s elapsed)
+  ...still waiting for j-71234d88-a2c8-410e-943c-server-a-0-0.j-71234d88-a2c8-410e-943c (300s elapsed)
+  ...still waiting for j-71234d88-a2c8-410e-943c-server-a-0-0.j-71234d88-a2c8-410e-943c (360s elapsed)
+  ...still waiting for j-71234d88-a2c8-410e-943c-server-a-0-0.j-71234d88-a2c8-410e-943c (420s elapsed)
+  ...still waiting for j-71234d88-a2c8-410e-943c-server-a-0-0.j-71234d88-a2c8-410e-943c (480s elapsed)
+  ...still waiting for j-71234d88-a2c8-410e-943c-server-a-0-0.j-71234d88-a2c8-410e-943c (540s elapsed)
+  ...still waiting for j-71234d88-a2c8-410e-943c-server-a-0-0.j-71234d88-a2c8-410e-943c (600s elapsed)
+  ...still waiting for j-71234d88-a2c8-410e-943c-server-a-0-0.j-71234d88-a2c8-410e-943c (660s elapsed)
+  ...still waiting for j-71234d88-a2c8-410e-943c-server-a-0-0.j-71234d88-a2c8-410e-943c (720s elapsed)
+j-71234d88-a2c8-410e-943c-server-a-0-0.j-71234d88-a2c8-410e-943c ready (755s)
+Waiting for vLLM at http://j-71234d88-a2c8-410e-943c-server-b-0-0.j-71234d88-a2c8-410e-943c:8000/health (up to 180 min)...
+  ...still waiting for j-71234d88-a2c8-410e-943c-server-b-0-0.j-71234d88-a2c8-410e-943c (60s elapsed)
+  ...still waiting for j-71234d88-a2c8-410e-943c-server-b-0-0.j-71234d88-a2c8-410e-943c (120s elapsed)
+  ...still waiting for j-71234d88-a2c8-410e-943c-server-b-0-0.j-71234d88-a2c8-410e-943c (180s elapsed)
+  ...still waiting for j-71234d88-a2c8-410e-943c-server-b-0-0.j-71234d88-a2c8-410e-943c (240s elapsed)
+  ...still waiting for j-71234d88-a2c8-410e-943c-server-b-0-0.j-71234d88-a2c8-410e-943c (300s elapsed)
+  ...still waiting for j-71234d88-a2c8-410e-943c-server-b-0-0.j-71234d88-a2c8-410e-943c (360s elapsed)
+  ...still waiting for j-71234d88-a2c8-410e-943c-server-b-0-0.j-71234d88-a2c8-410e-943c (420s elapsed)
+  ...still waiting for j-71234d88-a2c8-410e-943c-server-b-0-0.j-71234d88-a2c8-410e-943c (480s elapsed)
+  ...still waiting for j-71234d88-a2c8-410e-943c-server-b-0-0.j-71234d88-a2c8-410e-943c (540s elapsed)
+j-71234d88-a2c8-410e-943c-server-b-0-0.j-71234d88-a2c8-410e-943c ready (550s)
+=== gate warm-up: one tiny request per replica ===
+=== pass 1: warming replica A with 8 prompts, 5000 words each ===
+  doc-0000:   2.25s cached_tokens=0
+  doc-0001:   2.18s cached_tokens=0
+  doc-0002:   2.18s cached_tokens=0
+  doc-0003:   2.18s cached_tokens=0
+  doc-0004:   2.19s cached_tokens=0
+  doc-0005:   2.18s cached_tokens=0
+  doc-0006:   2.18s cached_tokens=0
+  doc-0007:   2.18s cached_tokens=0
+=== waiting 15s for saves to commit and publish to the registry ===
+=== pass 2: replaying the same 8 prompts on replica B (must arrive via read_remote) ===
+  doc-0000:   2.36s cached_tokens=33792
+  doc-0001:   2.21s cached_tokens=33792
+  doc-0002:   2.23s cached_tokens=33792
+  doc-0003:   2.24s cached_tokens=33792
+  doc-0004:   2.18s cached_tokens=33792
+  doc-0005:   2.25s cached_tokens=33792
+  doc-0006:   2.26s cached_tokens=33792
+  doc-0007:   2.32s cached_tokens=33792
+=== pass 3: 8 fresh prompts on replica B (cold-TTFT baseline) ===
+  cold-0000:   2.26s cached_tokens=0
+  cold-0001:   2.18s cached_tokens=0
+  cold-0002:   2.17s cached_tokens=0
+  cold-0003:   2.17s cached_tokens=0
+  cold-0004:   2.16s cached_tokens=0
+  cold-0005:   2.16s cached_tokens=0
+  cold-0006:   2.17s cached_tokens=0
+  cold-0007:   2.17s cached_tokens=0
+MISMATCH doc-0000 lcp_chars=82
+  replica A: ' The user is asking for a list of all the possible combinations of the letters w0x followed by four digits, where the first digit is 4 and the last three digits range from 800 to 999. The list include'
+  replica B: ' The user is asking for a list of all the possible combinations of the letters w0x4800 to w0x4999, which is a range of 2000 different values. The user is likely looking for a way to generate all possi'
+MISMATCH doc-0004 lcp_chars=107
+  replica A: ' The user is asking for a list of all possible combinations of four-digit numbers where the first digit is 4, the second digit is 8, and the third and fourth digits can be any digit from 0 to 9. The t'
+  replica B: " The user is asking for a list of all possible combinations of four-digit numbers where the first digit is 'w' followed by three digits, with the second digit being '4' and the third digit ranging fro"
+pass 2: 6/8 byte-identical, early_divergences=[]
+mean latency on B: remote-hit=2.26s cold=2.18s (speedup 0.97x)
+WARNING: remote-hit latency is not below the cold baseline — the sharing plane is not paying off. Correctness still gates; investigate before trusting the perf story.
+RESULT: PASS (6/8 byte-identical, 0 early divergences, cached-token evidence on all replays; remote-hit 0.97x faster than cold)
+
