@@ -14,7 +14,6 @@
 
 """Raiden KV Cache Store API for PyTorch."""
 
-import dataclasses
 import enum
 from typing import Any
 
@@ -151,24 +150,6 @@ class RaidenBlockID:
     )
 
 
-@dataclasses.dataclass
-class InsertAndLockResult:
-  """Per-hash classification of an insert_and_lock batch.
-
-  On success the three lists partition the batch's fate: `existing` hashes
-  were already present and only got pinned (their slices untouched),
-  `inserted` hashes were newly inserted and pinned, and `displaced` holds
-  the entries pushed to the eviction-candidate list to make room (restored
-  if the batch is later reverted via release_and_delete). On failure the
-  operation was fully rolled back and the lists are empty.
-  """
-
-  success: bool
-  existing: list[bytes]
-  inserted: list[bytes]
-  displaced: list[tuple[bytes, "RaidenBlockID"]]
-
-
 class KVCacheStore:
   """Wrapper around compiled C++ KVCacheStore."""
 
@@ -213,20 +194,6 @@ class KVCacheStore:
   def raiden_id(self) -> RaidenId:
     """Returns the RaidenId associated with this store."""
     return RaidenId(impl=self._impl.raiden_id)
-
-  @property
-  def raiden_controller_address(self) -> str:
-    """Address of this store's in-process RaidenController."""
-    return self._impl.raiden_controller_address
-
-  @property
-  def store_server_address(self) -> str:
-    """Address peers use to reach this store's KVCacheStoreService.
-
-    Empty when store_server_ip was not set (nothing is published, so peers
-    cannot discover this store).
-    """
-    return self._impl.store_server_address
 
   def lookup(
       self,
@@ -308,61 +275,6 @@ class KVCacheStore:
       raw_slices.append(s._impl)  # pylint: disable=protected-access
     return self._impl.insert_and_lock(block_hashes, raw_slices, on_host)
 
-  def insert_and_lock_detailed(
-      self,
-      block_hashes: list[bytes],
-      slices: list[RaidenBlockID],
-      on_host: bool,
-  ) -> InsertAndLockResult:
-    """insert_and_lock plus a per-hash classification of the batch.
-
-    Args:
-      block_hashes: Incoming block hashes to insert and lock.
-      slices: List of RaidenBlockID, one for each block hash.
-      on_host: Whether the slices are located in host memory.
-
-    Returns:
-      InsertAndLockResult: on success, `existing` were pinned in place
-      (slices untouched), `inserted` were newly inserted+pinned, and
-      `displaced` lists the entries pushed to the eviction-candidate list.
-      On failure the operation was fully rolled back and the lists are
-      empty.
-    """
-    raw_slices = []
-    for s in slices:
-      if isinstance(s, RaidenId):
-        s = RaidenBlockID(raiden_id=s)
-      raw_slices.append(s._impl)  # pylint: disable=protected-access
-    success, existing, inserted, raw_displaced = (
-        self._impl.insert_and_lock_detailed(block_hashes, raw_slices, on_host)
-    )
-    displaced = [
-        (hash_val, RaidenBlockID(impl=raw_slice))
-        for hash_val, raw_slice in raw_displaced
-    ]
-    return InsertAndLockResult(
-        success=success,
-        existing=existing,
-        inserted=inserted,
-        displaced=displaced,
-    )
-
-  def clear(self) -> int:
-    """Removes EVERY entry from the store.
-
-    Clears active entries and eviction candidates, returns all host blocks
-    to the allocator, wipes the crash-recovery metadata table, and
-    unregisters host-resident hashes from the global registry.
-
-    Raises (RuntimeError) without mutating anything when transfers are in
-    flight or any entry is still pinned — drain the polls and release all
-    admissions first.
-
-    Returns:
-      int: number of entries removed.
-    """
-    return self._impl.clear()
-
   def release_and_delete(
       self,
       block_hashes: list[bytes],
@@ -394,15 +306,6 @@ class KVCacheStore:
 
   def capacity(self) -> int:
     return self._impl.capacity()
-
-  def num_registered_workers(self) -> int:
-    """Number of workers currently registered with this store's controller.
-
-    Save/Load fan out to exactly the registered workers, and a partial worker
-    set still reports success -- callers must gate transfers until every
-    expected worker (e.g. one per TP rank) has registered.
-    """
-    return self._impl.num_registered_workers()
 
   def pin(self, block_hashes: list[bytes]) -> bool:
     """Pins cached block hashes in memory, protecting them against LRU eviction while in active use."""
