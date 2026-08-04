@@ -121,7 +121,8 @@ TorchKVCacheManager::TorchKVCacheManager(
                   ? 0
                   : unpacked.buffers[0][0]
                         .buffer->GetOnDeviceSizeInBytes()
-                        .value_or(0)),
+                        .value_or(0),
+              absl::StrCat("_node", node_id)),
 
           node_id, local_control_port, max_blocks, num_slots, timeout_s),
       kv_caches_(std::move(kv_caches)),
