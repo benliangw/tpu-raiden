@@ -20,7 +20,6 @@
 #include <functional>
 #include <memory>
 #include <string>
-#include <vector>
 
 #include "absl/base/nullability.h"
 #include "absl/status/statusor.h"
@@ -127,24 +126,13 @@ class SharedMemoryHostMemoryAllocator : public HostMemoryAllocator {
                                   absl::string_view shm_key,
                                   const SharedMemoryHeader& expected_schema);
 
-  // One shm segment per Allocate() call, named
-  // <key>[_server][_dev_<d>]_seg_<n> with n the allocation ordinal. Crash
-  // recovery re-attaches by replaying the same allocation sequence, so the
-  // caller's allocation order and sizes must be deterministic across
-  // restarts (they are: host mirrors are allocated in layer/shard order
-  // with fixed sizes).
-  struct Segment {
-    int fd = -1;
-    void* ptr = nullptr;
-    size_t size = 0;
-    std::string name;
-    bool dma_mapped = false;
-  };
-
   xla::PjRtClient* client_ = nullptr;
   std::string shm_key_;
   SharedMemoryHeader expected_schema_;
-  std::vector<Segment> segments_;
+  int shm_fd_ = -1;
+  void* mapped_ptr_ = nullptr;
+  size_t mapped_size_ = 0;
+  bool dma_mapped_ = false;
 };
 
 }  // namespace tpu_raiden

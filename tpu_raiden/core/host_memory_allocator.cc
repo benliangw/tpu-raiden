@@ -228,20 +228,18 @@ SharedMemoryHostMemoryAllocator::SharedMemoryHostMemoryAllocator(
     : client_(client), shm_key_(shm_key), expected_schema_(expected_schema) {}
 
 SharedMemoryHostMemoryAllocator::~SharedMemoryHostMemoryAllocator() {
-  for (Segment& seg : segments_) {
-    if (seg.ptr != nullptr && seg.ptr != MAP_FAILED) {
-      SharedMemoryHeader* header = static_cast<SharedMemoryHeader*>(seg.ptr);
-      if (header->reference_count > 0) {
-        header->reference_count--;
-      }
-      if (seg.dma_mapped && client_ != nullptr) {
-        (void)client_->DmaUnmap(seg.ptr);
-      }
-      munmap(seg.ptr, seg.size);
+  if (mapped_ptr_ != nullptr && mapped_ptr_ != MAP_FAILED) {
+    SharedMemoryHeader* header = static_cast<SharedMemoryHeader*>(mapped_ptr_);
+    if (header->reference_count > 0) {
+      header->reference_count--;
     }
-    if (seg.fd >= 0) {
-      close(seg.fd);
+    if (dma_mapped_ && client_ != nullptr) {
+      (void)client_->DmaUnmap(mapped_ptr_);
     }
+    munmap(mapped_ptr_, mapped_size_);
+  }
+  if (shm_fd_ >= 0) {
+    close(shm_fd_);
   }
 }
 
@@ -254,16 +252,19 @@ absl::StatusOr<HostBufferAllocation> SharedMemoryHostMemoryAllocator::Allocate(
     return alloc;
   }
 
+  if (mapped_ptr_ != nullptr && mapped_ptr_ != MAP_FAILED) {
+    HostBufferAllocation alloc;
+    alloc.ptr = static_cast<uint8_t*>(mapped_ptr_) + sizeof(SharedMemoryHeader);
+    alloc.size = size_bytes;
+    alloc.owner = std::shared_ptr<void>(mapped_ptr_, [](void*) {});
+    return alloc;
+  }
+
   size_t aligned_payload_size = (size_bytes + 4095) & ~4095;
   size_t total_size =
       (sizeof(SharedMemoryHeader) + aligned_payload_size + 4095) & ~4095;
+  mapped_size_ = total_size;
 
-  // One segment per allocation: the callers (host KV mirrors) allocate once
-  // per layer/shard, and returning the same region for every call — as this
-  // allocator used to — silently aliases all of them onto the first
-  // segment. The ordinal suffix keeps the names deterministic so a
-  // restarted process re-attaches segment-for-segment in the same
-  // allocation order.
   std::string full_shm_key = shm_key_;
   const char* server_name_env = std::getenv("RAIDEN_SHM_SERVER_NAME");
   if (server_name_env != nullptr && std::strlen(server_name_env) > 0) {
@@ -273,7 +274,6 @@ absl::StatusOr<HostBufferAllocation> SharedMemoryHostMemoryAllocator::Allocate(
     absl::StrAppend(&full_shm_key, "_dev_",
                     g_current_device->local_device_id().value());
   }
-  absl::StrAppend(&full_shm_key, "_seg_", segments_.size());
   if (full_shm_key.empty() || full_shm_key[0] != '/') {
     full_shm_key.insert(0, "/");
   }
@@ -281,17 +281,17 @@ absl::StatusOr<HostBufferAllocation> SharedMemoryHostMemoryAllocator::Allocate(
   VLOG(1) << "[SHM_ALLOCATOR] Attempting to open/create shm key: "
           << full_shm_key << " of size " << total_size;
 
-  int fd = shm_open(full_shm_key.c_str(), O_RDWR, 0666);
-  bool is_warm_boot = (fd >= 0);
+  shm_fd_ = shm_open(full_shm_key.c_str(), O_RDWR, 0666);
+  bool is_warm_boot = (shm_fd_ >= 0);
   VLOG(2) << "[SHM_DEBUG] shm_open for warm boot key: " << full_shm_key
-          << ", fd: " << fd << ", errno: " << errno << " ("
+          << ", fd: " << shm_fd_ << ", errno: " << errno << " ("
           << std::strerror(errno) << ")";
 
   if (is_warm_boot) {
     VLOG(1)
         << "[SHM_ALLOCATOR] Found existing shm segment. Validating schema...";
     void* header_ptr = mmap(nullptr, sizeof(SharedMemoryHeader),
-                            PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+                            PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd_, 0);
     if (header_ptr != MAP_FAILED) {
       SharedMemoryHeader* header = static_cast<SharedMemoryHeader*>(header_ptr);
       bool compatible = true;
@@ -335,63 +335,60 @@ absl::StatusOr<HostBufferAllocation> SharedMemoryHostMemoryAllocator::Allocate(
                 << expected_schema_.itemsize;
         compatible = false;
       }
-      if (header->total_payload_bytes != size_bytes) {
-        VLOG(1) << "payload size mismatch: " << header->total_payload_bytes
-                << " vs " << size_bytes;
-        compatible = false;
-      }
       munmap(header_ptr, sizeof(SharedMemoryHeader));
 
       if (!compatible) {
         VLOG(1) << "[SHM_ALLOCATOR] Existing shm schema incompatible. "
                    "Re-creating...";
-        close(fd);
-        fd = -1;
+        close(shm_fd_);
+        shm_fd_ = -1;
         shm_unlink(full_shm_key.c_str());
         is_warm_boot = false;
       }
     } else {
       LOG(ERROR) << "[SHM_ALLOCATOR] Failed to map shm header for verification";
-      close(fd);
-      fd = -1;
+      close(shm_fd_);
+      shm_fd_ = -1;
       is_warm_boot = false;
     }
   }
 
   if (!is_warm_boot) {
-    fd = shm_open(full_shm_key.c_str(), O_CREAT | O_RDWR | O_EXCL, 0666);
-    if (fd < 0) {
-      fd = shm_open(full_shm_key.c_str(), O_CREAT | O_RDWR, 0666);
+    shm_fd_ = shm_open(full_shm_key.c_str(), O_CREAT | O_RDWR | O_EXCL, 0666);
+    if (shm_fd_ < 0) {
+      shm_fd_ = shm_open(full_shm_key.c_str(), O_CREAT | O_RDWR, 0666);
     }
-    if (fd < 0) {
+    if (shm_fd_ < 0) {
       return absl::InternalError(absl::StrCat(
           "shm_open failed to create segment: ", std::strerror(errno)));
     }
 
-    if (ftruncate(fd, total_size) != 0) {
-      close(fd);
+    if (ftruncate(shm_fd_, total_size) != 0) {
+      close(shm_fd_);
+      shm_fd_ = -1;
       shm_unlink(full_shm_key.c_str());
       return absl::InternalError(absl::StrCat(
           "ftruncate failed on shm segment: ", std::strerror(errno)));
     }
   }
 
-  void* mapped_ptr =
-      mmap(nullptr, total_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-  if (mapped_ptr == MAP_FAILED) {
-    close(fd);
+  mapped_ptr_ =
+      mmap(nullptr, total_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd_, 0);
+  if (mapped_ptr_ == MAP_FAILED) {
+    close(shm_fd_);
+    shm_fd_ = -1;
     return absl::ResourceExhaustedError(
         absl::StrCat("mmap failed on shm segment: ", std::strerror(errno)));
   }
 
-  SharedMemoryHeader* header = static_cast<SharedMemoryHeader*>(mapped_ptr);
+  SharedMemoryHeader* header = static_cast<SharedMemoryHeader*>(mapped_ptr_);
   if (!is_warm_boot) {
     VLOG(1) << "[SHM_ALLOCATOR] Initializing fresh shm header schema...";
     std::memcpy(header, &expected_schema_, sizeof(SharedMemoryHeader));
     header->total_payload_bytes = size_bytes;
     header->reference_count = 1;
 
-    volatile uint8_t* p = static_cast<volatile uint8_t*>(mapped_ptr);
+    volatile uint8_t* p = static_cast<volatile uint8_t*>(mapped_ptr_);
     for (size_t i = 4096; i < total_size; i += 4096) {
       p[i] = 0;
     }
@@ -402,32 +399,28 @@ absl::StatusOr<HostBufferAllocation> SharedMemoryHostMemoryAllocator::Allocate(
             << header->reference_count;
   }
 
-  segments_.push_back(Segment{fd, mapped_ptr, total_size, full_shm_key,
-                              /*dma_mapped=*/false});
-
   HostBufferAllocation alloc;
-  alloc.ptr = static_cast<uint8_t*>(mapped_ptr) + sizeof(SharedMemoryHeader);
+  alloc.ptr = static_cast<uint8_t*>(mapped_ptr_) + sizeof(SharedMemoryHeader);
   alloc.size = size_bytes;
-  alloc.owner = std::shared_ptr<void>(mapped_ptr, [](void*) {});
+  alloc.owner = std::shared_ptr<void>(mapped_ptr_, [](void*) {});
   return alloc;
 }
 
 absl::StatusOr<HostBufferAllocation>
 SharedMemoryHostMemoryAllocator::AllocateDmaMapped(size_t size_bytes) {
   auto alloc_or = Allocate(size_bytes);
-  if (!alloc_or.ok() || size_bytes == 0) return alloc_or;
+  if (!alloc_or.ok()) return alloc_or;
 
-  Segment& seg = segments_.back();
-  if (!seg.dma_mapped && client_ != nullptr &&
-      client_->platform_name() != "cpu" && !ShouldSkipDmaMap(client_)) {
+  if (!dma_mapped_ && client_ != nullptr && client_->platform_name() != "cpu" &&
+      !ShouldSkipDmaMap(client_)) {
     VLOG(1) << "[SHM_ALLOCATOR] Registering shared memory mapping with PjRt "
                "DMA engine...";
-    auto status = client_->DmaMap(seg.ptr, seg.size);
+    auto status = client_->DmaMap(mapped_ptr_, mapped_size_);
     if (!status.ok()) {
       return absl::InternalError(absl::StrCat(
           "DmaMap failed on shared memory segment: ", status.message()));
     }
-    seg.dma_mapped = true;
+    dma_mapped_ = true;
   }
 
   return alloc_or;

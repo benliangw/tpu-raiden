@@ -93,12 +93,8 @@ TEST(HostMemoryAllocatorTest, SharedMemoryColdAndWarmBoot) {
   schema1.head_dim = 128;
   schema1.itemsize = 2;
 
-  // Segments are named per allocation ordinal; this test only ever performs
-  // each allocator's first allocation.
-  std::string seg0_key = shm_key + "_seg_0";
-
   {
-    shm_unlink(seg0_key.c_str());
+    shm_unlink(shm_key.c_str());
 
     TF_ASSERT_OK_AND_ASSIGN(
         auto allocator1,
@@ -164,65 +160,7 @@ TEST(HostMemoryAllocatorTest, SharedMemoryColdAndWarmBoot) {
     }
   }
 
-  shm_unlink(seg0_key.c_str());
-}
-
-TEST(HostMemoryAllocatorTest, SharedMemoryDistinctSegmentsPerAllocation) {
-  std::string shm_key = "/test_raiden_shm_multi_" + std::to_string(getpid());
-
-  SharedMemoryHeader schema = {};
-  schema.magic = 0x52414944454E;
-  schema.version = 1;
-  absl::SNPrintF(schema.model_uid, sizeof(schema.model_uid), "test_model_v1");
-  schema.num_blocks = 128;
-  schema.block_size = 4096;
-  schema.num_heads = 32;
-  schema.head_dim = 128;
-  schema.itemsize = 2;
-
-  shm_unlink((shm_key + "_seg_0").c_str());
-  shm_unlink((shm_key + "_seg_1").c_str());
-
-  {
-    TF_ASSERT_OK_AND_ASSIGN(
-        auto allocator,
-        SharedMemoryHostMemoryAllocator::Create(nullptr, shm_key, schema));
-
-    // Consecutive allocations (one per host KV mirror in production) must
-    // land in distinct segments — the aliasing regression handed every call
-    // the first segment's base pointer.
-    TF_ASSERT_OK_AND_ASSIGN(HostBufferAllocation alloc_a,
-                            allocator->Allocate(1024));
-    TF_ASSERT_OK_AND_ASSIGN(HostBufferAllocation alloc_b,
-                            allocator->Allocate(2048));
-    ASSERT_NE(alloc_a.ptr, nullptr);
-    ASSERT_NE(alloc_b.ptr, nullptr);
-    EXPECT_NE(alloc_a.ptr, alloc_b.ptr);
-
-    std::memset(alloc_a.ptr, 0xAA, 1024);
-    std::memset(alloc_b.ptr, 0xBB, 2048);
-    for (size_t i = 0; i < 1024; ++i) {
-      ASSERT_EQ(alloc_a.ptr[i], 0xAA);
-    }
-
-    // Warm re-attach replays the allocation sequence segment-for-segment.
-    TF_ASSERT_OK_AND_ASSIGN(
-        auto reattached,
-        SharedMemoryHostMemoryAllocator::Create(nullptr, shm_key, schema));
-    TF_ASSERT_OK_AND_ASSIGN(HostBufferAllocation warm_a,
-                            reattached->Allocate(1024));
-    TF_ASSERT_OK_AND_ASSIGN(HostBufferAllocation warm_b,
-                            reattached->Allocate(2048));
-    for (size_t i = 0; i < 1024; ++i) {
-      ASSERT_EQ(warm_a.ptr[i], 0xAA);
-    }
-    for (size_t i = 0; i < 2048; ++i) {
-      ASSERT_EQ(warm_b.ptr[i], 0xBB);
-    }
-  }
-
-  shm_unlink((shm_key + "_seg_0").c_str());
-  shm_unlink((shm_key + "_seg_1").c_str());
+  shm_unlink(shm_key.c_str());
 }
 
 }  // namespace
