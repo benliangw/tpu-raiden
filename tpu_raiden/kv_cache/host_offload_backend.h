@@ -237,8 +237,12 @@ class HostOffloadBackend : public KVCacheStoreBackend {
   RaidenId raiden_id_ ABSL_GUARDED_BY(mutex_);
   controller::RaidenController* raiden_controller_ ABSL_GUARDED_BY(mutex_) =
       nullptr;
-  absl::flat_hash_map<std::vector<std::string>, size_t> pending_eviction_counts_
-      ABSL_GUARDED_BY(mutex_);
+  // Displaced-entry hashes of each pending admission, keyed by the sorted
+  // admitted batch. Rollback restores exactly these candidates -- a global
+  // "restore the last N candidates" would restore another concurrent
+  // admission's victims when jobs complete out of admission order.
+  absl::flat_hash_map<std::vector<std::string>, std::vector<std::string>>
+      pending_evictions_ ABSL_GUARDED_BY(mutex_);
 
   std::shared_ptr<global_registry::GlobalRegistryClient> registry_client_
       ABSL_GUARDED_BY(mutex_);

@@ -400,7 +400,13 @@ InsertAndLockResult HostOffloadBackend::InsertAndLockDetailed(
   }
 
   if (eviction_count > 0) {
-    pending_eviction_counts_[GetSortedHashes(block_hashes)] = eviction_count;
+    std::vector<std::string> displaced_hashes;
+    displaced_hashes.reserve(result.displaced.size());
+    for (const auto& [hash, slice] : result.displaced) {
+      displaced_hashes.push_back(hash);
+    }
+    pending_evictions_[GetSortedHashes(block_hashes)] =
+        std::move(displaced_hashes);
   }
   result.success = true;
   result.existing.reserve(existing_indices.size());
@@ -433,16 +439,19 @@ size_t HostOffloadBackend::ReleaseAndDelete(
     }
   }
 
-  size_t restoration_count = 0;
-  auto it = pending_eviction_counts_.find(GetSortedHashes(block_hashes));
-  if (it != pending_eviction_counts_.end()) {
-    restoration_count = it->second;
-    pending_eviction_counts_.erase(it);
-  }
-
-  size_t to_restore = std::min(deleted_blocks, restoration_count);
-  for (size_t i = 0; i < to_restore; ++i) {
-    lru_cache_.RestoreLastCandidate();
+  // Restore exactly this admission's displaced candidates (reverse
+  // displacement order, so the pre-admission LRU order is approximated).
+  // A concurrent admission may have appended its own victims to the
+  // candidate list since, so a positional "restore the last N" would
+  // resurrect the wrong entries. A candidate that was reclaimed by a
+  // same-hash re-admission in the meantime is gone and stays gone.
+  auto it = pending_evictions_.find(GetSortedHashes(block_hashes));
+  if (it != pending_evictions_.end()) {
+    for (auto hash_it = it->second.rbegin(); hash_it != it->second.rend();
+         ++hash_it) {
+      lru_cache_.RestoreCandidate(*hash_it);
+    }
+    pending_evictions_.erase(it);
   }
 
   return deleted_blocks;
@@ -498,7 +507,7 @@ void HostOffloadBackend::Release(absl::Span<const std::string> block_hashes) {
   for (auto it = block_hashes.rbegin(); it != block_hashes.rend(); ++it) {
     lru_cache_.Unpin(*it);
   }
-  pending_eviction_counts_.erase(GetSortedHashes(block_hashes));
+  pending_evictions_.erase(GetSortedHashes(block_hashes));
 }
 
 int HostOffloadBackend::GetPinCount(const std::string& hash) const {
