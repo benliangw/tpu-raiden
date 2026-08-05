@@ -1,0 +1,55 @@
+Waiting for vLLM at http://j-e0d31fdd-1723-417e-a1e3-server-a-0-0.j-e0d31fdd-1723-417e-a1e3:8000/health (up to 180 min)...
+  ...still waiting for j-e0d31fdd-1723-417e-a1e3-server-a-0-0.j-e0d31fdd-1723-417e-a1e3 (60s elapsed)
+  ...still waiting for j-e0d31fdd-1723-417e-a1e3-server-a-0-0.j-e0d31fdd-1723-417e-a1e3 (120s elapsed)
+  ...still waiting for j-e0d31fdd-1723-417e-a1e3-server-a-0-0.j-e0d31fdd-1723-417e-a1e3 (180s elapsed)
+  ...still waiting for j-e0d31fdd-1723-417e-a1e3-server-a-0-0.j-e0d31fdd-1723-417e-a1e3 (240s elapsed)
+  ...still waiting for j-e0d31fdd-1723-417e-a1e3-server-a-0-0.j-e0d31fdd-1723-417e-a1e3 (300s elapsed)
+  ...still waiting for j-e0d31fdd-1723-417e-a1e3-server-a-0-0.j-e0d31fdd-1723-417e-a1e3 (360s elapsed)
+  ...still waiting for j-e0d31fdd-1723-417e-a1e3-server-a-0-0.j-e0d31fdd-1723-417e-a1e3 (420s elapsed)
+  ...still waiting for j-e0d31fdd-1723-417e-a1e3-server-a-0-0.j-e0d31fdd-1723-417e-a1e3 (480s elapsed)
+  ...still waiting for j-e0d31fdd-1723-417e-a1e3-server-a-0-0.j-e0d31fdd-1723-417e-a1e3 (540s elapsed)
+  ...still waiting for j-e0d31fdd-1723-417e-a1e3-server-a-0-0.j-e0d31fdd-1723-417e-a1e3 (600s elapsed)
+  ...still waiting for j-e0d31fdd-1723-417e-a1e3-server-a-0-0.j-e0d31fdd-1723-417e-a1e3 (660s elapsed)
+  ...still waiting for j-e0d31fdd-1723-417e-a1e3-server-a-0-0.j-e0d31fdd-1723-417e-a1e3 (720s elapsed)
+  ...still waiting for j-e0d31fdd-1723-417e-a1e3-server-a-0-0.j-e0d31fdd-1723-417e-a1e3 (780s elapsed)
+  ...still waiting for j-e0d31fdd-1723-417e-a1e3-server-a-0-0.j-e0d31fdd-1723-417e-a1e3 (840s elapsed)
+  ...still waiting for j-e0d31fdd-1723-417e-a1e3-server-a-0-0.j-e0d31fdd-1723-417e-a1e3 (900s elapsed)
+  ...still waiting for j-e0d31fdd-1723-417e-a1e3-server-a-0-0.j-e0d31fdd-1723-417e-a1e3 (960s elapsed)
+  ...still waiting for j-e0d31fdd-1723-417e-a1e3-server-a-0-0.j-e0d31fdd-1723-417e-a1e3 (1020s elapsed)
+j-e0d31fdd-1723-417e-a1e3-server-a-0-0.j-e0d31fdd-1723-417e-a1e3 ready (1053s)
+Waiting for vLLM at http://j-e0d31fdd-1723-417e-a1e3-server-b-0-0.j-e0d31fdd-1723-417e-a1e3:8000/health (up to 180 min)...
+  ...still waiting for j-e0d31fdd-1723-417e-a1e3-server-b-0-0.j-e0d31fdd-1723-417e-a1e3 (60s elapsed)
+j-e0d31fdd-1723-417e-a1e3-server-b-0-0.j-e0d31fdd-1723-417e-a1e3 ready (64s)
+=== gate warm-up: one tiny request per replica ===
+=== pass 1: warming replica A with 8 prompts, 1200 words each ===
+  doc-0000:   1.07s cached_tokens=0
+  doc-0001:   0.71s cached_tokens=0
+  doc-0002:   0.71s cached_tokens=0
+  doc-0003:   0.71s cached_tokens=0
+  doc-0004:   0.72s cached_tokens=0
+  doc-0005:   0.74s cached_tokens=0
+  doc-0006:   0.72s cached_tokens=0
+  doc-0007:   0.72s cached_tokens=0
+=== waiting 15s for saves to commit and publish to the registry ===
+=== pass 2: replaying the same 8 prompts on replica B (must arrive via read_remote) ===
+  doc-0000:   0.98s cached_tokens=7168
+  doc-0001:   0.68s cached_tokens=7168
+  doc-0002:   0.67s cached_tokens=7168
+  doc-0003:   0.68s cached_tokens=7168
+  doc-0004:   0.68s cached_tokens=7168
+  doc-0005:   0.67s cached_tokens=7168
+  doc-0006:   0.66s cached_tokens=7168
+  doc-0007:   0.67s cached_tokens=7168
+=== pass 3: 8 fresh prompts on replica B (cold-TTFT baseline) ===
+  cold-0000:   0.77s cached_tokens=0
+  cold-0001:   0.73s cached_tokens=0
+  cold-0002:   0.72s cached_tokens=0
+  cold-0003:   0.73s cached_tokens=0
+  cold-0004:   0.72s cached_tokens=0
+  cold-0005:   0.73s cached_tokens=0
+  cold-0006:   0.73s cached_tokens=0
+  cold-0007:   0.73s cached_tokens=0
+pass 2: 8/8 byte-identical, early_divergences=[]
+mean latency on B: remote-hit=0.71s cold=0.73s (speedup 1.03x)
+RESULT: PASS (8/8 byte-identical, 0 early divergences, cached-token evidence on all replays; remote-hit 1.03x faster than cold)
+
