@@ -22,15 +22,22 @@
 #include <thread>  // NOLINT
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/log/check.h"
 #include "absl/synchronization/notification.h"
+#include "absl/types/span.h"
 #include "tpu_raiden/transport/peregrine/src/internal/base/endpoint.h"
 #include "tpu_raiden/transport/peregrine/src/internal/base/types.h"
 #include "tpu_raiden/transport/peregrine/src/internal/util/test_util.h"
+#include "tpu_raiden/transport/peregrine/src/util/util.h"
 
 namespace peregrine::internal::testing {
 namespace {
+
+using ::testing::Eq;
+using ::testing::Ne;
+using ::testing::Pointwise;
 
 template <int kFamily>
 class TcpSocketTest : public ::testing::Test {
@@ -63,7 +70,7 @@ TEST_F(TcpIPv4SocketTest, SmallMessage) {
   const std::vector<Byte> message = {'h', 'e', 'l', 'l', 'o'};
   const size_t kMsgSize = message.size();
   std::vector<Byte> recv_buf(kMsgSize, 0);
-  ASSERT_NE(recv_buf, message);
+  ASSERT_THAT(recv_buf, Pointwise(Ne(), message));
 
   // First, create a server thread.
   absl::Notification server_ready;
@@ -78,7 +85,6 @@ TEST_F(TcpIPv4SocketTest, SmallMessage) {
     DCHECK(new_socket->IsBlocking());
     DCHECK(new_socket->IsConnected());
     CHECK_EQ(new_socket->Recv(recv_buf.data(), kMsgSize), kMsgSize);
-    CHECK_OK(TcpSocket::Recv(new_socket->fd(), recv_buf.data(), kMsgSize));
   });
 
   // Second, create a client thread.
@@ -88,7 +94,6 @@ TEST_F(TcpIPv4SocketTest, SmallMessage) {
     DCHECK(connector_->IsBlocking());
     DCHECK(connector_->IsConnected());
     CHECK_EQ(connector_->Send(message.data(), kMsgSize), kMsgSize);
-    CHECK_OK(TcpSocket::Send(connector_->fd(), message.data(), kMsgSize));
   });
 
   // Wait for both threads to finish.
@@ -96,15 +101,16 @@ TEST_F(TcpIPv4SocketTest, SmallMessage) {
   server.join();
 
   // Check that the server got the client's message.
-  EXPECT_EQ(recv_buf, message);
+  EXPECT_THAT(recv_buf, Pointwise(Eq(), message));
 }
 
 TEST_F(TcpIPv6SocketTest, BigData) {
   // Create a big chunk of data and a recv buffer.
   constexpr size_t kDataSize = 16UL << 20;
-  std::vector<Byte> send_buf(kDataSize, 0x01);
-  std::vector<Byte> recv_buf(kDataSize, 0x02);
-  ASSERT_NE(recv_buf, send_buf);
+  std::vector<Byte> send_buf(kDataSize);
+  std::vector<Byte> recv_buf(kDataSize, 0x00);
+  util::RandomNonZero(absl::MakeSpan(send_buf));
+  ASSERT_THAT(recv_buf, Pointwise(Ne(), send_buf));
 
   // First, create a server thread.
   absl::Notification server_ready;
@@ -118,14 +124,14 @@ TEST_F(TcpIPv6SocketTest, BigData) {
     auto new_socket = TcpSocket::Create(new_fd, AF_INET6);
     DCHECK(new_socket->IsBlocking());
     DCHECK(new_socket->IsConnected());
-    CHECK_EQ(new_socket->Recv(recv_buf.data(), kDataSize), kDataSize);
-    CHECK_OK(TcpSocket::Recv(new_socket->fd(), recv_buf.data(), kDataSize));
-    const size_t kPartial = kDataSize / 2;
-    std::vector<IoVec> iovecs = {
-        {IoVec(recv_buf.data(), kPartial)},
-        {IoVec(recv_buf.data() + kPartial, kDataSize - kPartial)},
+    constexpr int kRN = 2;
+    constexpr size_t kPartial = kDataSize / kRN;
+    const struct iovec recv_iov[kRN] = {
+        {.iov_base = (void*)recv_buf.data(), .iov_len = kPartial},
+        {.iov_base = (void*)(recv_buf.data() + kPartial),
+         .iov_len = kDataSize - kPartial},
     };
-    CHECK_OK(TcpSocket::RecvV(new_socket->fd(), iovecs));
+    CHECK_EQ(new_socket->RecvV(recv_iov), kDataSize);
   });
 
   // Second, create a client thread.
@@ -134,15 +140,15 @@ TEST_F(TcpIPv6SocketTest, BigData) {
     CHECK(connector_->Connect(local_));
     DCHECK(connector_->IsBlocking());
     DCHECK(connector_->IsConnected());
-    CHECK_EQ(connector_->Send(send_buf.data(), kDataSize), kDataSize);
-    CHECK_OK(TcpSocket::Send(connector_->fd(), send_buf.data(), kDataSize));
-    const size_t kPartial = kDataSize / 3;
-    std::vector<IoVec> iovecs = {
-        {IoVec(send_buf.data(), kPartial)},
-        {IoVec(send_buf.data() + kPartial, kPartial)},
-        {IoVec(send_buf.data() + kPartial * 2, kDataSize - kPartial * 2)},
+    constexpr int kSN = 3;
+    constexpr size_t kPartial = kDataSize / kSN;
+    const struct iovec send_iov[kSN] = {
+        {.iov_base = (void*)send_buf.data(), .iov_len = kPartial},
+        {.iov_base = (void*)(send_buf.data() + kPartial), .iov_len = kPartial},
+        {.iov_base = (void*)(send_buf.data() + 2 * kPartial),
+         .iov_len = kDataSize - 2 * kPartial},
     };
-    CHECK_OK(TcpSocket::SendV(connector_->fd(), iovecs));
+    CHECK_EQ(connector_->SendV(send_iov), kDataSize);
   });
 
   // Wait for both threads to finish.
@@ -150,7 +156,7 @@ TEST_F(TcpIPv6SocketTest, BigData) {
   server.join();
 
   // Check that the server got the client's data.
-  EXPECT_EQ(recv_buf, send_buf);
+  EXPECT_THAT(recv_buf, Pointwise(Eq(), send_buf));
 }
 
 }  // namespace
