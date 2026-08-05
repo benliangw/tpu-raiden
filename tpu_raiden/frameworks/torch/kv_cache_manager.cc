@@ -380,8 +380,26 @@ void KVCacheManager::StartGrpcServer(
     status = client.RegisterWorker(w_id, worker_endpoint, local_eps,
                                    torch_manager_->node_id());
     if (!status.ok()) {
-      LOG(ERROR) << "Failed to register worker with controller: "
-                 << status.message();
+      // A worker that silently fails to register never receives
+      // TransferBuffers fanout, so a controller-driven save would transfer on
+      // the remaining workers and still report success -- silent data
+      // corruption on a later load. Fail construction instead so the caller
+      // sees the broken registration immediately.
+      //
+      // The destructor never runs when a constructor throws, so detach
+      // torch_manager_ from the process-wide singleton server here -- it
+      // outlives this object and would otherwise keep serving RPCs against
+      // freed memory. The private-server path needs no detach:
+      // private_grpc_server_ is declared after torch_manager_, so member
+      // destruction shuts it down while torch_manager_ is still alive.
+      if (!use_private_server) {
+        controller::WorkerServiceServer::GetInstance().SetTransferManager(
+            nullptr);
+      }
+      throw std::runtime_error(absl::StrCat(
+          "Failed to register worker ", w_id, " (worker_endpoint=",
+          worker_endpoint, ") with controller at ", *raiden_controller_address,
+          ": ", status.ToString()));
     } else {
       LOG(INFO) << "Successfully registered worker " << w_id
                 << " (worker_endpoint=" << worker_endpoint
