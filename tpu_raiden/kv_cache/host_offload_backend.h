@@ -227,6 +227,27 @@ class HostOffloadBackend : public KVCacheStoreBackend {
   void ClearMetadataEntry(const RaidenBlockID& block)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
+  // Reclaims the state of a stale eviction candidate that is about to be
+  // replaced by a fresh insert of the same hash: clears its metadata entry,
+  // returns its host block (if it owned one) to the controller's block
+  // allocator, and erases it from the LRU cache so the re-inserting Put()
+  // takes the new-key path -- enforcing capacity and surfacing a displaced
+  // entry like any other insert. When `reclaimed` is non-null the hash of a
+  // reclaimed entry is appended to it, so the caller can unregister the
+  // destroyed entry's global mapping after releasing the mutex.
+  void ReclaimStaleCandidate(const std::string& hash,
+                             std::vector<std::string>* reclaimed = nullptr)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  // Locked body of InsertAndLockDetailed; the public method scopes the
+  // mutex around it and issues the registry unregister for reclaimed
+  // candidates afterwards.
+  InsertAndLockResult InsertAndLockDetailedLocked(
+      absl::Span<const std::string> block_hashes,
+      absl::Span<const RaidenBlockID> slices,
+      std::vector<std::string>* reclaimed)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
   std::vector<std::string> GetSortedHashes(
       absl::Span<const std::string> hashes) const;
 
