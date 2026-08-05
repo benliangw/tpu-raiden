@@ -78,6 +78,9 @@ class LogicalBlockManager {
   int num_free_blocks() const;
   int num_allocated_blocks() const;
   int num_locked_blocks() const;
+  // Blocks Allocate() can currently hand out: free blocks plus
+  // allocated-but-unlocked blocks (which it reuses via LRU eviction).
+  int num_available_blocks() const;
 
  private:
   struct BlockState {

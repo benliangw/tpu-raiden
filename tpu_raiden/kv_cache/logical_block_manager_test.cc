@@ -70,6 +70,22 @@ TEST(LogicalBlockManagerTest, AllocationWithLocking) {
   EXPECT_TRUE(manager.IsLocked(1));
 }
 
+TEST(LogicalBlockManagerTest, NumAvailableBlocksCountsFreeAndUnlocked) {
+  LogicalBlockManager manager(5);
+  EXPECT_EQ(manager.num_available_blocks(), 5);
+
+  // Locked allocations are unavailable; unlocked ones stay available.
+  ASSERT_TRUE(manager.Allocate(2, /*lock=*/true).ok());
+  ASSERT_TRUE(manager.Allocate(2, /*lock=*/false).ok());
+  EXPECT_EQ(manager.num_available_blocks(), 3);
+
+  // Unlocking returns blocks to availability without freeing them.
+  std::vector<int> to_unlock = {0, 1};
+  ASSERT_TRUE(manager.Unlock(to_unlock).ok());
+  EXPECT_EQ(manager.num_free_blocks(), 1);
+  EXPECT_EQ(manager.num_available_blocks(), 5);
+}
+
 TEST(LogicalBlockManagerTest, LruEvictionOrder) {
   LogicalBlockManager manager(4);
 

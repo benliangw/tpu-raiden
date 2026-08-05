@@ -1208,15 +1208,19 @@ absl::StatusOr<std::vector<int>> KVCacheStore::AllocateBlockIds(int needed) {
   std::vector<std::string> hashes_to_deallocate;
   {
     absl::MutexLock lock(&mutex_);
-    int free_count = raiden_controller_->block_manager()->num_free_blocks();
-    int to_free = needed - free_count;
+    // DeallocateBlockIds unlocks blocks rather than freeing them, so
+    // num_free_blocks() only ever shrinks; gate on what Allocate() can
+    // actually hand out -- free blocks plus allocated-but-unlocked ones.
+    int available_count =
+        raiden_controller_->block_manager()->num_available_blocks();
+    int to_free = needed - available_count;
     if (to_free > 0) {
       hashes_to_deallocate = backend()->GetEvictableKeys(to_free);
       if (hashes_to_deallocate.size() < static_cast<size_t>(to_free)) {
         return absl::ResourceExhaustedError(
-            absl::StrCat("Insufficient free blocks and not enough evictable "
-                         "blocks. Needed: ",
-                         needed, ", Free: ", free_count,
+            absl::StrCat("Insufficient available blocks and not enough "
+                         "evictable blocks. Needed: ",
+                         needed, ", Available: ", available_count,
                          ", Evictable: ", hashes_to_deallocate.size()));
       }
     }
