@@ -621,21 +621,6 @@ NB_MODULE(_tpu_raiden_torch, m) {
           "existing, inserted, displaced). On failure the operation was "
           "fully rolled back and the lists are empty.")
       .def(
-          "clear",
-          [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self) {
-            auto res = self->Clear();
-            if (!res.ok()) {
-              throw std::runtime_error(absl::StrCat(
-                  "KVCacheStore clear failed: ", res.status().message()));
-            }
-            return res.value();
-          },
-          "Removes every entry (active + eviction candidates), returns all "
-          "host blocks to the allocator, wipes the crash-recovery metadata, "
-          "and unregisters from the global registry. Raises when transfers "
-          "are in flight or any entry is still pinned; drain first. Returns "
-          "the number of entries removed.")
-      .def(
           "release_and_delete",
           [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self,
              const std::vector<nb::bytes>& block_hashes) {

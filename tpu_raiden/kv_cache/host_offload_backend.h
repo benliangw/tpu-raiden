@@ -87,10 +87,6 @@ class HostOffloadBackend : public KVCacheStoreBackend {
 
   size_t ReleaseAndDelete(absl::Span<const std::string> block_hashes) override;
 
-  absl::StatusOr<size_t> Clear() override;
-
-  absl::Status PreflightClear() const override;
-
   void Delete(absl::Span<const std::string> block_hashes,
               absl::Span<const RaidenBlockID> slices) override;
 
@@ -150,12 +146,6 @@ class HostOffloadBackend : public KVCacheStoreBackend {
 
   void ClearMetadataEntry(const RaidenBlockID& block)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
-
-  // Rejects when any entry is pinned: a pin marks a caller-held reference
-  // (an in-flight admission), and clearing under it would silently
-  // invalidate that caller's state. Callers drain first. Shared acceptance
-  // check of Clear() and PreflightClear().
-  absl::Status CheckNothingPinned() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   // Reclaims the state of a stale eviction candidate that is about to be
   // replaced by a fresh insert of the same hash: clears its metadata entry,

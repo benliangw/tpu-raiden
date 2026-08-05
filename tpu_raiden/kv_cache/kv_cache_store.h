@@ -339,23 +339,6 @@ class KVCacheStore {
              std::vector<std::string>>
   PollRemoteReadStatus();
 
-  // Removes EVERY entry from the store: active and candidate entries alike,
-  // returning all host blocks to the allocator, wiping the crash-recovery
-  // metadata table, unregistering host-resident hashes from the global
-  // registry, and dropping pending candidate-restoration records and any
-  // unpolled done/failed transfer results.
-  //
-  // Fails when transfers are in flight (drain the save/load/remote-read
-  // polls first), when any entry is still pinned (an in-flight admission
-  // holds it), or when any backend does not support Clear. With a single
-  // backend a failure mutates nothing. With multiple tiers every backend is
-  // preflighted before any is cleared, which rejects the deterministic
-  // failures up front -- but a pin taken concurrently with the clear can
-  // still fail a later tier after earlier tiers were wiped; callers must
-  // quiesce admissions first. Returns the number of entries removed from
-  // the primary backend.
-  absl::StatusOr<size_t> Clear();
-
   // Rebuilds this store's LRU cache after an engine restart from the
   // crash-persistent KVCacheMetadata table in local shared memory, without
   // consulting the global registry.

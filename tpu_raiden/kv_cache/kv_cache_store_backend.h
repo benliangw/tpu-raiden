@@ -201,30 +201,6 @@ class KVCacheStoreBackend {
   // testing/diagnostics).
   virtual std::vector<std::string> GetEvictCandidateKeys() const { return {}; }
 
-  // Removes EVERY entry from this backend — active, pinned-check-passing,
-  // and eviction candidates alike — returning host blocks to the allocator,
-  // wiping the crash-recovery metadata, unregistering from the global
-  // registry, and dropping all pending candidate-restoration records.
-  // Fails without mutating anything if any entry is still pinned: a pin
-  // marks a caller-held reference (an in-flight admission), and clearing
-  // under it would silently invalidate that caller's state. Returns the
-  // number of entries removed.
-  virtual absl::StatusOr<size_t> Clear() {
-    return absl::UnimplementedError(
-        "Clear is not implemented by this backend");
-  }
-
-  // Returns OK iff Clear() would currently succeed, without mutating any
-  // state. Multi-tier stores preflight every backend before clearing any,
-  // so one tier's rejection cannot leave earlier tiers already wiped. Must
-  // stay consistent with Clear()'s acceptance criteria -- in particular a
-  // backend without Clear() reports Unimplemented here too, rejecting a
-  // multi-tier clear up front.
-  virtual absl::Status PreflightClear() const {
-    return absl::UnimplementedError(
-        "Clear is not implemented by this backend");
-  }
-
   // The peer-facing KVCacheStoreService server this backend hosts, if any.
   // Returning non-null tells the owning KVCacheStore to publish THIS server
   // rather than start a second one, so a node always serves peers from exactly

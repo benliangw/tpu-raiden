@@ -1462,85 +1462,12 @@ TEST_F(KVCacheStoreEmbeddedControllerTest,
             store.capacity());
 }
 
-// After Clear() every physical block is allocated-but-unlocked (deallocation
-// unlocks, it never clears is_allocated), the LRU is empty, and nothing is
-// evictable -- yet every block is reusable. Saves must keep working: the
-// allocation pre-gate has to count allocated-but-unlocked blocks as
-// available, not just never-allocated ones.
-TEST_F(KVCacheStoreEmbeddedControllerTest,
-       SaveSucceedsAfterClearOnExhaustedPool) {
-  ::tpu_raiden::controller::MockTransferManager mock_mgr;
-  test_server_->service->SetTransferManager(
-      ::tpu_raiden::KVManagerHolder(&mock_mgr));
-
-  // 2 physical blocks total; LRU capacity is larger so only the block pool
-  // is exhausted.
-  auto controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 2, 1, 512, orchestrator_address_, "");
-  RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
-
-  RaidenId rid{"test_job", "0", "test_cache", 0};
-  KVCacheStore store(4, std::move(controller), "", rid);
-  auto* raiden_controller = KVCacheStoreTest::GetController(store);
-  ASSERT_NE(raiden_controller, nullptr);
-
-  // Exhaust the pool: save two blocks, locking both physical ids.
-  std::vector<std::string> hashes = {"hash_a", "hash_b"};
-  std::vector<RaidenBlockID> slices = {
-      RaidenBlockID(rid, -1, 0, BlockStatus::HBM),
-      RaidenBlockID(rid, -1, 1, BlockStatus::HBM)};
-  ASSERT_TRUE(store.Insert(hashes, slices, false).first);
-  ASSERT_TRUE(store.Pin(hashes));
-  ASSERT_TRUE(store.Save(hashes).ok());
-  bool done = false;
-  while (!done) {
-    auto [save_done, save_failed, save_pending] = store.PollSaveStatus();
-    ASSERT_TRUE(save_failed.empty()) << "Async Save failed during polling";
-    done = !save_done.empty();
-    if (!done) {
-      absl::SleepFor(absl::Milliseconds(10));
-    }
-  }
-  store.Release(hashes);
-  EXPECT_EQ(raiden_controller->block_manager()->num_free_blocks(), 0);
-  EXPECT_EQ(raiden_controller->block_manager()->num_available_blocks(), 0);
-
-  auto cleared = store.Clear();
-  ASSERT_TRUE(cleared.ok());
-  EXPECT_EQ(*cleared, 2);
-  // The pool looks exhausted to num_free_blocks() forever, but every block
-  // is unlocked and reusable.
-  EXPECT_EQ(raiden_controller->block_manager()->num_free_blocks(), 0);
-  EXPECT_EQ(raiden_controller->block_manager()->num_locked_blocks(), 0);
-  EXPECT_EQ(raiden_controller->block_manager()->num_available_blocks(), 2);
-
-  // A fresh save must reuse the unlocked blocks.
-  ASSERT_TRUE(
-      store.Insert({"hash_c"}, {RaidenBlockID(rid, -1, 0, BlockStatus::HBM)},
-                   false)
-          .first);
-  ASSERT_TRUE(store.Pin({"hash_c"}));
-  ASSERT_TRUE(store.Save({"hash_c"}).ok());
-  done = false;
-  while (!done) {
-    auto [save_done, save_failed, save_pending] = store.PollSaveStatus();
-    ASSERT_TRUE(save_failed.empty()) << "Async Save failed during polling";
-    done = !save_done.empty();
-    if (!done) {
-      absl::SleepFor(absl::Milliseconds(10));
-    }
-  }
-  auto lookup_res = store.Lookup({"hash_c"});
-  ASSERT_TRUE(lookup_res.ok());
-  ASSERT_EQ(lookup_res->size(), 1);
-  EXPECT_EQ((*lookup_res)[0].second.status, BlockStatus::HOST_AND_HBM);
-  store.Release({"hash_c"});
-}
-
-// Same exhausted-pool reuse when the block was unlocked by stale-candidate
-// reclamation instead of Clear(): with no free blocks and no evictable keys
-// left, a save must still go through on the reclaimed block.
+// A deallocated physical block is allocated-but-unlocked (deallocation
+// unlocks, it never clears is_allocated), so with an empty LRU and nothing
+// evictable a save must still go through: the allocation pre-gate has to
+// count allocated-but-unlocked blocks as available, not just
+// never-allocated ones. Here the block is unlocked by stale-candidate
+// reclamation.
 TEST_F(KVCacheStoreEmbeddedControllerTest,
        SaveSucceedsAfterCandidateReclamationOnExhaustedPool) {
   ::tpu_raiden::controller::MockTransferManager mock_mgr;
@@ -1670,156 +1597,6 @@ TEST(KVCacheStoreTest, InsertAndLockDetailedClassifiesBatch) {
   EXPECT_EQ(lookup_restored->size(), 1);
 }
 
-TEST(KVCacheStoreTest, ClearRejectsPinnedThenWipesStore) {
-  RaidenId rid{"test_job", "0", "test_cache", 0};
-  KVCacheStore store(2);
-
-  ASSERT_TRUE(store
-                  .Insert({"hash_a", "hash_b"},
-                          {RaidenBlockID(rid, 0, BlockStatus::HOST),
-                           RaidenBlockID(rid, 1, BlockStatus::HOST)},
-                          true)
-                  .first);
-  // Displace hash_a into the candidate list; Clear must wipe candidates too.
-  ASSERT_TRUE(
-      store.Insert({"hash_c"}, {RaidenBlockID(rid, 2, BlockStatus::HOST)}, true)
-          .first);
-  EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
-              ::testing::ElementsAre("hash_a"));
-
-  // A pinned entry (an in-flight admission's reference) rejects the clear
-  // without mutating anything.
-  ASSERT_TRUE(store.Pin({"hash_b"}));
-  auto rejected = store.Clear();
-  EXPECT_TRUE(absl::IsFailedPrecondition(rejected.status()));
-  auto lookup_b = store.Lookup({"hash_b"});
-  ASSERT_TRUE(lookup_b.ok());
-  EXPECT_EQ(lookup_b->size(), 1);
-
-  store.Release({"hash_b"});
-  auto cleared = store.Clear();
-  ASSERT_TRUE(cleared.ok());
-  EXPECT_EQ(*cleared, 3);  // hash_a (candidate), hash_b, hash_c.
-  for (const std::string hash : {"hash_a", "hash_b", "hash_c"}) {
-    auto lookup_res = store.Lookup({hash});
-    ASSERT_TRUE(lookup_res.ok());
-    EXPECT_EQ(lookup_res->size(), 0) << hash;
-  }
-  EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
-              ::testing::IsEmpty());
-
-  // Idempotent on an empty store, and the store remains fully usable.
-  auto cleared_again = store.Clear();
-  ASSERT_TRUE(cleared_again.ok());
-  EXPECT_EQ(*cleared_again, 0);
-  EXPECT_TRUE(
-      store.Insert({"hash_d"}, {RaidenBlockID(rid, 3, BlockStatus::HOST)}, true)
-          .first);
-}
-
-TEST(KVCacheStoreTest, ClearRejectsWhileTransfersInFlight) {
-  KVCacheStore store(2);
-  tsl::Promise<> pending = KVCacheStoreTest::AddPendingSave(store);
-
-  auto rejected = store.Clear();
-  EXPECT_TRUE(absl::IsFailedPrecondition(rejected.status()));
-
-  // Complete the transfer and drain: the clear then goes through.
-  pending.Set(absl::OkStatus());
-  for (int i = 0; i < 1000; ++i) {
-    auto [done, failed, still_pending] = store.PollSaveStatus();
-    if (still_pending.empty()) break;
-    absl::SleepFor(absl::Milliseconds(1));
-  }
-  auto cleared = store.Clear();
-  ASSERT_TRUE(cleared.ok());
-  EXPECT_EQ(*cleared, 0);
-}
-
-// Clear across tiers is preflight-then-commit: when any tier would reject,
-// no tier is cleared. A pinned entry in the second tier must leave the
-// first tier's contents intact.
-TEST(KVCacheStoreTest, ClearMultiTierRejectedTierLeavesEarlierTiersIntact) {
-  RaidenId rid{"test_job", "0", "test_cache", 0};
-  auto tier0 = std::make_shared<HostOffloadBackend>(2);
-  auto tier1 = std::make_shared<HostOffloadBackend>(2);
-  KVCacheStore store({tier0, tier1}, rid);
-
-  ASSERT_TRUE(store
-                  .Insert({"hash_a", "hash_b"},
-                          {RaidenBlockID(rid, 0, BlockStatus::HOST),
-                           RaidenBlockID(rid, 1, BlockStatus::HOST)},
-                          true)
-                  .first);
-  std::vector<std::string> pinned = {"hash_a"};
-  ASSERT_TRUE(tier1->Pin(pinned));
-
-  auto rejected = store.Clear();
-  EXPECT_TRUE(absl::IsFailedPrecondition(rejected.status()));
-  EXPECT_EQ(tier0->GetSize(), 2);
-  EXPECT_EQ(tier1->GetSize(), 2);
-
-  // Once the pin is dropped the clear goes through; the returned count is
-  // the primary tier's logical entries (mirrored tiers are not summed).
-  tier1->Release(pinned);
-  auto cleared = store.Clear();
-  ASSERT_TRUE(cleared.ok());
-  EXPECT_EQ(*cleared, 2);
-  EXPECT_EQ(tier0->GetSize(), 0);
-  EXPECT_EQ(tier1->GetSize(), 0);
-}
-
-// Minimal secondary tier that keeps the base-class Unimplemented
-// Clear/PreflightClear, so a multi-tier clear must reject up front.
-class NoClearBackend : public KVCacheStoreBackend {
- public:
-  std::string name() const override { return "NoClearBackend"; }
-  absl::StatusOr<BlockSliceList> Lookup(
-      absl::Span<const std::string> block_hashes,
-      const LookupOptions& options = {}) override {
-    return BlockSliceList{};
-  }
-  std::pair<bool, BlockSliceList> Insert(
-      absl::Span<const std::string> block_hashes,
-      absl::Span<const RaidenBlockID> slices, bool on_host) override {
-    return std::make_pair(true, BlockSliceList{});
-  }
-  bool InsertAndLock(absl::Span<const std::string> block_hashes,
-                     absl::Span<const RaidenBlockID> slices,
-                     bool on_host) override {
-    return true;
-  }
-  size_t ReleaseAndDelete(absl::Span<const std::string> block_hashes) override {
-    return 0;
-  }
-  void Delete(absl::Span<const std::string> block_hashes,
-              absl::Span<const RaidenBlockID> slices) override {}
-  bool Pin(absl::Span<const std::string> block_hashes) override { return true; }
-  void Release(absl::Span<const std::string> block_hashes) override {}
-  int GetPinCount(const std::string& hash) const override { return 0; }
-  size_t GetCapacity() const override { return 0; }
-  size_t GetSize() const override { return 0; }
-  size_t GetAvailableSpace() const override { return 0; }
-};
-
-TEST(KVCacheStoreTest, ClearMultiTierUnimplementedTierRejectsUpFront) {
-  RaidenId rid{"test_job", "0", "test_cache", 0};
-  auto tier0 = std::make_shared<HostOffloadBackend>(2);
-  auto tier1 = std::make_shared<NoClearBackend>();
-  KVCacheStore store({tier0, tier1}, rid);
-
-  ASSERT_TRUE(
-      store.Insert({"hash_a"}, {RaidenBlockID(rid, 0, BlockStatus::HOST)}, true)
-          .first);
-
-  auto rejected = store.Clear();
-  EXPECT_TRUE(absl::IsUnimplemented(rejected.status()));
-  EXPECT_EQ(tier0->GetSize(), 1);
-  auto lookup_res = store.Lookup({"hash_a"});
-  ASSERT_TRUE(lookup_res.ok());
-  EXPECT_EQ(lookup_res->size(), 1);
-}
-
 // [R5a] The save-commit path must handle a hash that vanished mid-save (pin
 // contract broken, e.g. released and deleted): before the fix, a
 // batch-prefix lookup reported every hash after the first miss as done
@@ -1873,13 +1650,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest,
   EXPECT_EQ(raiden_controller->block_manager()->num_locked_blocks(),
             base_locked + 2);
 
-  // Clear returns the committed blocks too once the pins are dropped.
   store.Release({"hash_a", "hash_b"});
-  auto cleared = store.Clear();
-  ASSERT_TRUE(cleared.ok());
-  EXPECT_EQ(*cleared, 2);
-  EXPECT_EQ(raiden_controller->block_manager()->num_locked_blocks(),
-            base_locked);
 }
 
 TEST_F(KVCacheStoreEmbeddedControllerTest, SaveMultiWorkerSuccess) {
