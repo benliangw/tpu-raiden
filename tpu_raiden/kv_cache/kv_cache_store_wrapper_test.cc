@@ -198,11 +198,9 @@ TEST_F(KVCacheStoreWrapperTest, ControllerBindFailureThrows) {
 
 TEST_F(KVCacheStoreWrapperTest, NumRegisteredWorkers) {
   unsetenv("RAIDEN_SHM_KEY");
-  // No controller (num_shards=0): the accessor reports zero workers.
-  auto no_controller = MakeWrapper(/*capacity=*/4, /*num_shards=*/0);
-  EXPECT_EQ((*no_controller)->num_registered_workers(), 0);
-  // Controller up, nobody registered yet: still zero, and the gate a caller
-  // builds on this accessor stays closed.
+  // Controller up, nobody registered yet: zero, and the gate a caller
+  // builds on this accessor stays closed. (The controller-less
+  // configuration is rejected at construction; see NumShardsZeroThrows.)
   auto with_controller = MakeWrapper(/*capacity=*/4, /*num_shards=*/1);
   EXPECT_EQ((*with_controller)->num_registered_workers(), 0);
 }

@@ -296,6 +296,19 @@ class LRUCache {
     return true;
   }
 
+  // Restores one specific eviction candidate back to the LRU list (at the
+  // LRU position). Returns false if the key is absent or not a candidate.
+  bool RestoreCandidate(const Key& key) {
+    auto it = map_.find(key);
+    if (it == map_.end() ||
+        it->second->location != NodeLocation::kCandidate) {
+      return false;
+    }
+    it->second->location = NodeLocation::kLru;
+    lru_list_.splice(lru_list_.end(), evict_candidate_list_, it->second);
+    return true;
+  }
+
   std::vector<Key> GetEvictCandidateKeys() const {
     std::vector<Key> keys;
     keys.reserve(evict_candidate_list_.size());

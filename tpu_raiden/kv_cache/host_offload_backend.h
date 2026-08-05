@@ -232,8 +232,20 @@ class HostOffloadBackend : public KVCacheStoreBackend {
   // returns its host block (if it owned one) to the controller's block
   // allocator, and erases it from the LRU cache so the re-inserting Put()
   // takes the new-key path -- enforcing capacity and surfacing a displaced
-  // entry like any other insert.
-  void ReclaimStaleCandidate(const std::string& hash)
+  // entry like any other insert. When `reclaimed` is non-null the hash of a
+  // reclaimed entry is appended to it, so the caller can unregister the
+  // destroyed entry's global mapping after releasing the mutex.
+  void ReclaimStaleCandidate(const std::string& hash,
+                             std::vector<std::string>* reclaimed = nullptr)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  // Locked body of InsertAndLockDetailed; the public method scopes the
+  // mutex around it and issues the registry unregister for reclaimed
+  // candidates afterwards.
+  InsertAndLockResult InsertAndLockDetailedLocked(
+      absl::Span<const std::string> block_hashes,
+      absl::Span<const RaidenBlockID> slices,
+      std::vector<std::string>* reclaimed)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   std::vector<std::string> GetSortedHashes(
@@ -246,8 +258,12 @@ class HostOffloadBackend : public KVCacheStoreBackend {
   RaidenId raiden_id_ ABSL_GUARDED_BY(mutex_);
   controller::RaidenController* raiden_controller_ ABSL_GUARDED_BY(mutex_) =
       nullptr;
-  absl::flat_hash_map<std::vector<std::string>, size_t> pending_eviction_counts_
-      ABSL_GUARDED_BY(mutex_);
+  // Displaced-entry hashes of each pending admission, keyed by the sorted
+  // admitted batch. Rollback restores exactly these candidates -- a global
+  // "restore the last N candidates" would restore another concurrent
+  // admission's victims when jobs complete out of admission order.
+  absl::flat_hash_map<std::vector<std::string>, std::vector<std::string>>
+      pending_evictions_ ABSL_GUARDED_BY(mutex_);
 
   std::shared_ptr<global_registry::GlobalRegistryClient> registry_client_
       ABSL_GUARDED_BY(mutex_);

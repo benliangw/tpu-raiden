@@ -117,16 +117,6 @@ class KVCacheStoreTest {
     store.PollSavesInternal(std::move(ready));
   }
 
-  // Registers a pending (never-completed) save so tests can hold the store
-  // in a deterministic in-flight state; completing the returned promise ends
-  // it (the sentinel hash then resolves as failed — it was never inserted).
-  static tsl::Promise<> AddPendingSave(KVCacheStore& store) {
-    auto [promise, future] = tsl::MakePromise<>();
-    absl::MutexLock lock(&store.mutex_);
-    store.active_saves_.push_back(KVCacheStore::SaveState{
-        std::move(future), {"__pending_sentinel__"}, {0}});
-    return std::move(promise);
-  }
 };
 
 namespace {
@@ -1550,7 +1540,8 @@ TEST_F(KVCacheStoreEmbeddedControllerTest,
 
 TEST(KVCacheStoreTest, InsertAndLockDetailedClassifiesBatch) {
   RaidenId rid{"test_job", "0", "test_cache", 0};
-  KVCacheStore store(2);
+  KVCacheStore store(2, "", rid, /*num_shards=*/1, /*shard_size_bytes=*/512,
+                     "", /*store_server_ip=*/"127.0.0.1");
 
   // hash_a pre-exists (unpinned); hash_b is new. The batch must classify
   // them apart, with no displacement at capacity 2.
@@ -1600,6 +1591,54 @@ TEST(KVCacheStoreTest, InsertAndLockDetailedClassifiesBatch) {
   auto lookup_restored = store.Lookup({displacing.displaced[0].first});
   ASSERT_TRUE(lookup_restored.ok());
   EXPECT_EQ(lookup_restored->size(), 1);
+}
+
+// Two overlapping displacing admissions whose jobs fail in reverse order:
+// each rollback must restore ITS OWN displaced entry. A positional "restore
+// the last N candidates" would resurrect the other admission's victim
+// (here: X's rollback would bring back B and leave A displaced).
+TEST(KVCacheStoreTest, RollbackRestoresOwnDisplacedCandidates) {
+  RaidenId rid{"test_job", "0", "test_cache", 0};
+  KVCacheStore store(2, "", rid, /*num_shards=*/1, /*shard_size_bytes=*/512,
+                     "", /*store_server_ip=*/"127.0.0.1");
+
+  // a then b resident and unpinned; a is the LRU entry.
+  ASSERT_TRUE(store
+                  .Insert({"hash_a", "hash_b"},
+                          {RaidenBlockID(rid, 0, BlockStatus::HOST),
+                           RaidenBlockID(rid, 1, BlockStatus::HOST)},
+                          true)
+                  .first);
+
+  // Admission X displaces a; admission Y then displaces b.
+  InsertAndLockResult x = store.InsertAndLockDetailed(
+      {"hash_x"}, {RaidenBlockID(rid, -1, 2, BlockStatus::HBM)}, false);
+  ASSERT_TRUE(x.success);
+  ASSERT_EQ(x.displaced.size(), 1);
+  EXPECT_EQ(x.displaced[0].first, "hash_a");
+  InsertAndLockResult y = store.InsertAndLockDetailed(
+      {"hash_y"}, {RaidenBlockID(rid, -1, 3, BlockStatus::HBM)}, false);
+  ASSERT_TRUE(y.success);
+  ASSERT_EQ(y.displaced.size(), 1);
+  EXPECT_EQ(y.displaced[0].first, "hash_b");
+  EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
+              ::testing::ElementsAre("hash_a", "hash_b"));
+
+  // X fails first: exactly a comes back; b stays Y's pending victim.
+  EXPECT_EQ(store.ReleaseAndDelete({"hash_x"}), 1);
+  EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
+              ::testing::ElementsAre("hash_b"));
+  auto lookup_a = store.Lookup({"hash_a"});
+  ASSERT_TRUE(lookup_a.ok());
+  EXPECT_EQ(lookup_a->size(), 1);
+
+  // Y then fails too: b is restored as well.
+  EXPECT_EQ(store.ReleaseAndDelete({"hash_y"}), 1);
+  EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
+              ::testing::IsEmpty());
+  auto lookup_b = store.Lookup({"hash_b"});
+  ASSERT_TRUE(lookup_b.ok());
+  EXPECT_EQ(lookup_b->size(), 1);
 }
 
 // [R5a] The save-commit path must handle a hash that vanished mid-save (pin

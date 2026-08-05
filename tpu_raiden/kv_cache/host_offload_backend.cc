@@ -318,7 +318,34 @@ bool HostOffloadBackend::InsertAndLock(
 InsertAndLockResult HostOffloadBackend::InsertAndLockDetailed(
     absl::Span<const std::string> block_hashes,
     absl::Span<const RaidenBlockID> slices, bool /*on_host*/) {
-  absl::MutexLock lock(mutex_);
+  InsertAndLockResult result;
+  std::vector<std::string> reclaimed;
+  std::shared_ptr<global_registry::GlobalRegistryClient> client;
+  RaidenId local_id;
+  {
+    absl::MutexLock lock(mutex_);
+    result = InsertAndLockDetailedLocked(block_hashes, slices, &reclaimed);
+    client = registry_client_;
+    local_id = raiden_id_;
+  }
+  // A reclaimed candidate's entry and host block are gone (even when the
+  // admission itself was rolled back), so its global mapping must not keep
+  // advertising it. Synchronous: completes before the caller can issue the
+  // save whose commit re-registers the hash.
+  if (client != nullptr && !reclaimed.empty()) {
+    auto status = client->Unregister(reclaimed, local_id);
+    if (!status.ok()) {
+      LOG(WARNING) << "Global registry unregister for reclaimed candidates "
+                   << "failed: " << status.message();
+    }
+  }
+  return result;
+}
+
+InsertAndLockResult HostOffloadBackend::InsertAndLockDetailedLocked(
+    absl::Span<const std::string> block_hashes,
+    absl::Span<const RaidenBlockID> slices,
+    std::vector<std::string>* reclaimed) {
   InsertAndLockResult result;
 
   std::vector<size_t> existing_indices;
@@ -351,7 +378,7 @@ InsertAndLockResult HostOffloadBackend::InsertAndLockDetailed(
   for (auto it = new_indices.rbegin(); it != new_indices.rend(); ++it) {
     size_t i = *it;
     const std::string& hash = block_hashes[i];
-    ReclaimStaleCandidate(hash);
+    ReclaimStaleCandidate(hash, reclaimed);
     std::optional<std::pair<std::string, RaidenBlockID>> evicted;
     if (i < slices.size()) {
       evicted = lru_cache_.Put(hash, slices[i]);
@@ -390,7 +417,13 @@ InsertAndLockResult HostOffloadBackend::InsertAndLockDetailed(
   }
 
   if (eviction_count > 0) {
-    pending_eviction_counts_[GetSortedHashes(block_hashes)] = eviction_count;
+    std::vector<std::string> displaced_hashes;
+    displaced_hashes.reserve(result.displaced.size());
+    for (const auto& [hash, slice] : result.displaced) {
+      displaced_hashes.push_back(hash);
+    }
+    pending_evictions_[GetSortedHashes(block_hashes)] =
+        std::move(displaced_hashes);
   }
   result.success = true;
   result.existing.reserve(existing_indices.size());
@@ -423,16 +456,19 @@ size_t HostOffloadBackend::ReleaseAndDelete(
     }
   }
 
-  size_t restoration_count = 0;
-  auto it = pending_eviction_counts_.find(GetSortedHashes(block_hashes));
-  if (it != pending_eviction_counts_.end()) {
-    restoration_count = it->second;
-    pending_eviction_counts_.erase(it);
-  }
-
-  size_t to_restore = std::min(deleted_blocks, restoration_count);
-  for (size_t i = 0; i < to_restore; ++i) {
-    lru_cache_.RestoreLastCandidate();
+  // Restore exactly this admission's displaced candidates (reverse
+  // displacement order, so the pre-admission LRU order is approximated).
+  // A concurrent admission may have appended its own victims to the
+  // candidate list since, so a positional "restore the last N" would
+  // resurrect the wrong entries. A candidate that was reclaimed by a
+  // same-hash re-admission in the meantime is gone and stays gone.
+  auto it = pending_evictions_.find(GetSortedHashes(block_hashes));
+  if (it != pending_evictions_.end()) {
+    for (auto hash_it = it->second.rbegin(); hash_it != it->second.rend();
+         ++hash_it) {
+      lru_cache_.RestoreCandidate(*hash_it);
+    }
+    pending_evictions_.erase(it);
   }
 
   return deleted_blocks;
@@ -488,7 +524,7 @@ void HostOffloadBackend::Release(absl::Span<const std::string> block_hashes) {
   for (auto it = block_hashes.rbegin(); it != block_hashes.rend(); ++it) {
     lru_cache_.Unpin(*it);
   }
-  pending_eviction_counts_.erase(GetSortedHashes(block_hashes));
+  pending_evictions_.erase(GetSortedHashes(block_hashes));
 }
 
 int HostOffloadBackend::GetPinCount(const std::string& hash) const {
@@ -1100,12 +1136,16 @@ void HostOffloadBackend::ClearMetadataEntry(const RaidenBlockID& block) {
   }
 }
 
-void HostOffloadBackend::ReclaimStaleCandidate(const std::string& hash) {
+void HostOffloadBackend::ReclaimStaleCandidate(
+    const std::string& hash, std::vector<std::string>* reclaimed) {
   // The caller only reaches here when Contains(hash) is false, so any entry
   // still findable under this hash is an eviction candidate.
   const RaidenBlockID* stale = lru_cache_.PeekIncludingCandidates(hash);
   if (stale == nullptr) {
     return;
+  }
+  if (reclaimed != nullptr) {
+    reclaimed->push_back(hash);
   }
   ClearMetadataEntry(*stale);
   // HOST / HOST_AND_HBM means host_block_id is a block of the LOCAL

@@ -1591,11 +1591,12 @@ void KVCacheStore::PollSavesInternal(std::vector<SaveState> ready_saves) {
       write_through_regs.reserve(state.block_hashes.size());
       std::vector<std::string> update_hashes;
       std::vector<RaidenBlockID> update_slices;
-      // Commit per hash. A batch-prefix Lookup halts at the first miss, so
-      // it used to report every later hash done without committing it and
-      // leak its host block permanently. Local tier only: a hash that
-      // vanished locally but exists on a peer must not have this node's
-      // host block committed onto its REMOTE slice.
+      // Commit per hash, with a local-only single-hash Lookup each: a
+      // batch-prefix Lookup halts at the first miss, which would report
+      // every later hash done without committing it and leak its host
+      // block permanently. Local tier only: a hash that vanished locally
+      // but exists on a peer must not have this node's host block
+      // committed onto its REMOTE slice.
       for (size_t i = 0; i < state.block_hashes.size(); ++i) {
         const auto& hash = state.block_hashes[i];
         auto lookup_or = backend()->Lookup(absl::MakeConstSpan(&hash, 1),

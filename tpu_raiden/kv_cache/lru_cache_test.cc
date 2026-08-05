@@ -326,6 +326,30 @@ TEST(LRUCacheTest, RestoreLastCandidate) {
   EXPECT_EQ(evict_again3->first, 3);
 }
 
+TEST(LRUCacheTest, RestoreCandidateByKey) {
+  LRUCache<int, std::string> cache(3);
+  cache.Put(1, "one");
+  cache.Put(2, "two");
+  cache.Put(3, "three");
+  cache.Evict();  // 1 becomes candidate
+  cache.Evict();  // 2 becomes candidate
+
+  // Restore a specific candidate that is NOT the last one.
+  EXPECT_TRUE(cache.RestoreCandidate(1));
+  EXPECT_TRUE(cache.Contains(1));
+  EXPECT_EQ(cache.GetEvictCandidateKeys(),
+            (std::vector<int>{2}));
+
+  // Not a candidate (active) and absent keys both report false.
+  EXPECT_FALSE(cache.RestoreCandidate(1));
+  EXPECT_FALSE(cache.RestoreCandidate(42));
+
+  // Restored at the LRU position: 1 is the next eviction victim.
+  auto evicted = cache.Evict();
+  ASSERT_TRUE(evicted.has_value());
+  EXPECT_EQ(evicted->first, 1);
+}
+
 TEST(LRUCacheTest, CandidateVisibility) {
   LRUCache<int, std::string> cache(2);
   cache.Put(1, "one");
