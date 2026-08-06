@@ -1,0 +1,41 @@
+Waiting for prefill-a up (http://j-6576ba39-dec9-43cb-98ac-prefill-a-0-0.j-6576ba39-dec9-43cb-98ac:8000/health, up to 5400s)
+prefill-a is up (850s)
+Waiting for decode-a up (http://j-6576ba39-dec9-43cb-98ac-decode-a-0-0.j-6576ba39-dec9-43cb-98ac:7200/health, up to 5400s)
+decode-a is up (0s)
+Waiting for proxy-a up (http://j-6576ba39-dec9-43cb-98ac-prefill-a-0-0.j-6576ba39-dec9-43cb-98ac:10000/healthcheck, up to 600s)
+proxy-a is up (0s)
+Waiting for prefill-b up (http://j-6576ba39-dec9-43cb-98ac-prefill-b-0-0.j-6576ba39-dec9-43cb-98ac:8000/health, up to 5400s)
+prefill-b is up (0s)
+Waiting for decode-b up (http://j-6576ba39-dec9-43cb-98ac-decode-b-0-0.j-6576ba39-dec9-43cb-98ac:7200/health, up to 5400s)
+decode-b is up (0s)
+Waiting for proxy-b up (http://j-6576ba39-dec9-43cb-98ac-prefill-b-0-0.j-6576ba39-dec9-43cb-98ac:10000/healthcheck, up to 600s)
+proxy-b is up (0s)
+Waiting for stack-A engine readiness (first compile, up to 60 min)...
+stack-A engines are ready.
+Waiting for stack-B engine readiness (first compile, up to 60 min)...
+stack-B engines are ready.
+=== stage 1: cross-stack KA (36928 tokens) ===
+ka: A=[89, 89, 89, 89, 89, 89, 89, 89] B=[89, 89, 89, 89, 89, 89, 89, 89] identical=True b_prefill_ext_hits=36864.0
+=== stage 2: seeding 48 docs via stack A ===
+Traceback (most recent call last):
+  File "<stdin>", line 107, in <module>
+  File "<stdin>", line 47, in ask
+  File "/usr/local/lib/python3.12/urllib/request.py", line 215, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/urllib/request.py", line 521, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/urllib/request.py", line 630, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/urllib/request.py", line 559, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/urllib/request.py", line 492, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/urllib/request.py", line 639, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 500: Internal Server Error
+

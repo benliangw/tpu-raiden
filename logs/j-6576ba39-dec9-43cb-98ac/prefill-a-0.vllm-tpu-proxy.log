@@ -1,0 +1,194 @@
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:10000 (Press CTRL+C to quit)
+Initialized 1 prefill clients and 1 decode clients.
+INFO:     10.36.31.226:57210 - "GET /healthcheck HTTP/1.1" 200 OK
+PERF PROXY req_received req_id=f5cc0025-703b-4d85-812a-6ecd29706dad ts=1786017707.858976
+PERF PROXY prefill_send req_id=f5cc0025-703b-4d85-812a-6ecd29706dad ts=1786017707.890336
+PERF PROXY latency summary | prefill: n=1 avg=5940.41ms min=5940.41ms max=5940.41ms
+PERF PROXY prefill_recv req_id=f5cc0025-703b-4d85-812a-6ecd29706dad ts=1786017713.830743 dur_ms=5940.41
+INFO:     10.36.31.226:57222 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=f5cc0025-703b-4d85-812a-6ecd29706dad ts=1786017713.831142
+PERF PROXY first_chunk req_id=f5cc0025-703b-4d85-812a-6ecd29706dad ts=1786017715.773476 dur_from_decode_send_ms=1942.33 ttft_ms=7914.57
+PERF PROXY req_received req_id=80c540ff-e436-4714-9390-b56414f22ac8 ts=1786017727.939177
+PERF PROXY prefill_send req_id=80c540ff-e436-4714-9390-b56414f22ac8 ts=1786017727.954908
+PERF PROXY prefill_recv req_id=80c540ff-e436-4714-9390-b56414f22ac8 ts=1786017733.923318 dur_ms=5968.41 kv_uuid=998708909636973
+INFO:     10.36.31.226:46052 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=80c540ff-e436-4714-9390-b56414f22ac8 ts=1786017733.926514 kv_uuid=998708909636973
+PERF PROXY first_chunk req_id=80c540ff-e436-4714-9390-b56414f22ac8 ts=1786017736.610134 dur_from_decode_send_ms=2683.62 ttft_ms=8674.14 kv_uuid=998708909636973
+PERF PROXY req_received req_id=cf3401bd-b111-43fa-9216-ada303e8aa01 ts=1786017770.139162
+PERF PROXY prefill_send req_id=cf3401bd-b111-43fa-9216-ada303e8aa01 ts=1786017770.159799
+PERF PROXY latency summary | decode_first: n=2 avg=2312.98ms min=1942.33ms max=2683.62ms | prefill: n=3 avg=5859.35ms min=5669.23ms max=5968.41ms | prefill_from_req: n=2 avg=5979.58ms min=5971.83ms max=5987.32ms | ttft: n=2 avg=8294.35ms min=7914.57ms max=8674.14ms
+PERF PROXY prefill_recv req_id=cf3401bd-b111-43fa-9216-ada303e8aa01 ts=1786017775.829029 dur_ms=5669.23 kv_uuid=214594293177925
+INFO:     10.36.31.226:52458 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=cf3401bd-b111-43fa-9216-ada303e8aa01 ts=1786017775.832789 kv_uuid=214594293177925
+PERF PROXY first_chunk req_id=cf3401bd-b111-43fa-9216-ada303e8aa01 ts=1786017776.386143 dur_from_decode_send_ms=553.35 ttft_ms=6250.74 kv_uuid=214594293177925
+PERF PROXY req_received req_id=c3938373-d057-4764-9fb3-11b1fd4dd2ab ts=1786017776.401355
+PERF PROXY prefill_send req_id=c3938373-d057-4764-9fb3-11b1fd4dd2ab ts=1786017776.415435
+PERF PROXY prefill_recv req_id=c3938373-d057-4764-9fb3-11b1fd4dd2ab ts=1786017782.068202 dur_ms=5652.77 kv_uuid=820088812324177
+INFO:     10.36.31.226:49226 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=c3938373-d057-4764-9fb3-11b1fd4dd2ab ts=1786017782.071314 kv_uuid=820088812324177
+PERF PROXY first_chunk req_id=c3938373-d057-4764-9fb3-11b1fd4dd2ab ts=1786017782.572021 dur_from_decode_send_ms=500.71 ttft_ms=6173.82 kv_uuid=820088812324177
+PERF PROXY req_received req_id=f2473fdc-fac2-4db1-adb4-8b427a99fdba ts=1786017782.585492
+PERF PROXY prefill_send req_id=f2473fdc-fac2-4db1-adb4-8b427a99fdba ts=1786017782.599311
+PERF PROXY prefill_recv req_id=f2473fdc-fac2-4db1-adb4-8b427a99fdba ts=1786017788.225815 dur_ms=5626.50 kv_uuid=1034935587058705
+INFO:     10.36.31.226:49228 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=f2473fdc-fac2-4db1-adb4-8b427a99fdba ts=1786017788.229027 kv_uuid=1034935587058705
+PERF PROXY first_chunk req_id=f2473fdc-fac2-4db1-adb4-8b427a99fdba ts=1786017788.632038 dur_from_decode_send_ms=403.01 ttft_ms=6049.57 kv_uuid=1034935587058705
+PERF PROXY req_received req_id=e89dd8ce-b561-4d83-8fea-554e3d3369e6 ts=1786017788.644751
+PERF PROXY prefill_send req_id=e89dd8ce-b561-4d83-8fea-554e3d3369e6 ts=1786017788.658396
+PERF PROXY prefill_recv req_id=e89dd8ce-b561-4d83-8fea-554e3d3369e6 ts=1786017794.282521 dur_ms=5624.13 kv_uuid=1015177741713329
+INFO:     10.36.31.226:60312 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=e89dd8ce-b561-4d83-8fea-554e3d3369e6 ts=1786017794.285409 kv_uuid=1015177741713329
+PERF PROXY first_chunk req_id=e89dd8ce-b561-4d83-8fea-554e3d3369e6 ts=1786017794.696686 dur_from_decode_send_ms=411.28 ttft_ms=6055.01 kv_uuid=1015177741713329
+PERF PROXY req_received req_id=a97c399f-0782-494a-9153-d0379348c162 ts=1786017794.710124
+PERF PROXY prefill_send req_id=a97c399f-0782-494a-9153-d0379348c162 ts=1786017794.724125
+PERF PROXY prefill_recv req_id=a97c399f-0782-494a-9153-d0379348c162 ts=1786017800.346497 dur_ms=5622.37 kv_uuid=661736837312669
+INFO:     10.36.31.226:60710 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=a97c399f-0782-494a-9153-d0379348c162 ts=1786017800.348935 kv_uuid=661736837312669
+PERF PROXY first_chunk req_id=a97c399f-0782-494a-9153-d0379348c162 ts=1786017800.859509 dur_from_decode_send_ms=510.57 ttft_ms=6152.10 kv_uuid=661736837312669
+PERF PROXY req_received req_id=806ee856-a28e-4122-a81d-857164f9427a ts=1786017800.876748
+PERF PROXY prefill_send req_id=806ee856-a28e-4122-a81d-857164f9427a ts=1786017800.890444
+PERF PROXY latency summary | decode_first: n=7 avg=1000.70ms min=403.01ms max=2683.62ms | prefill: n=8 avg=5714.35ms min=5611.01ms max=5968.41ms | prefill_from_req: n=7 avg=5749.44ms min=5639.09ms max=5987.32ms | ttft: n=7 avg=6752.85ms min=6049.57ms max=8674.14ms
+PERF PROXY prefill_recv req_id=806ee856-a28e-4122-a81d-857164f9427a ts=1786017806.501459 dur_ms=5611.01 kv_uuid=825028121190121
+INFO:     10.36.31.226:60724 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=806ee856-a28e-4122-a81d-857164f9427a ts=1786017806.504368 kv_uuid=825028121190121
+PERF PROXY first_chunk req_id=806ee856-a28e-4122-a81d-857164f9427a ts=1786017806.989235 dur_from_decode_send_ms=484.87 ttft_ms=6115.11 kv_uuid=825028121190121
+PERF PROXY req_received req_id=8623c5da-9a51-4436-9f01-eb414e92d596 ts=1786017807.002010
+PERF PROXY prefill_send req_id=8623c5da-9a51-4436-9f01-eb414e92d596 ts=1786017807.016002
+PERF PROXY prefill_recv req_id=8623c5da-9a51-4436-9f01-eb414e92d596 ts=1786017812.628057 dur_ms=5612.05 kv_uuid=775860056885225
+INFO:     10.36.31.226:39106 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=8623c5da-9a51-4436-9f01-eb414e92d596 ts=1786017812.631011 kv_uuid=775860056885225
+PERF PROXY first_chunk req_id=8623c5da-9a51-4436-9f01-eb414e92d596 ts=1786017813.024523 dur_from_decode_send_ms=393.51 ttft_ms=6025.07 kv_uuid=775860056885225
+PERF PROXY req_received req_id=ef8af347-179b-47a3-9e5b-60cecfb6312e ts=1786017813.037503
+PERF PROXY prefill_send req_id=ef8af347-179b-47a3-9e5b-60cecfb6312e ts=1786017813.051877
+PERF PROXY prefill_recv req_id=ef8af347-179b-47a3-9e5b-60cecfb6312e ts=1786017818.685048 dur_ms=5633.17 kv_uuid=50082645213085
+INFO:     10.36.31.226:39112 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=ef8af347-179b-47a3-9e5b-60cecfb6312e ts=1786017818.689821 kv_uuid=50082645213085
+PERF PROXY first_chunk req_id=ef8af347-179b-47a3-9e5b-60cecfb6312e ts=1786017819.242013 dur_from_decode_send_ms=552.19 ttft_ms=6207.40 kv_uuid=50082645213085
+PERF PROXY req_received req_id=a1cbdd6c-4d21-4b84-8ced-7037d97f6a8a ts=1786017819.256542
+PERF PROXY prefill_send req_id=a1cbdd6c-4d21-4b84-8ced-7037d97f6a8a ts=1786017819.275458
+PERF PROXY prefill_recv req_id=a1cbdd6c-4d21-4b84-8ced-7037d97f6a8a ts=1786017824.892485 dur_ms=5617.03 kv_uuid=1117839780582777
+INFO:     10.36.31.226:43996 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=a1cbdd6c-4d21-4b84-8ced-7037d97f6a8a ts=1786017824.897144 kv_uuid=1117839780582777
+PERF PROXY first_chunk req_id=a1cbdd6c-4d21-4b84-8ced-7037d97f6a8a ts=1786017825.416046 dur_from_decode_send_ms=518.90 ttft_ms=6164.04 kv_uuid=1117839780582777
+PERF PROXY req_received req_id=8fca022f-e752-4ce8-ba7c-53e04a5710f7 ts=1786017825.430529
+PERF PROXY prefill_send req_id=8fca022f-e752-4ce8-ba7c-53e04a5710f7 ts=1786017825.449370
+PERF PROXY prefill_recv req_id=8fca022f-e752-4ce8-ba7c-53e04a5710f7 ts=1786017831.061305 dur_ms=5611.93 kv_uuid=499503263381041
+INFO:     10.36.31.226:41220 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=8fca022f-e752-4ce8-ba7c-53e04a5710f7 ts=1786017831.064354 kv_uuid=499503263381041
+PERF PROXY first_chunk req_id=8fca022f-e752-4ce8-ba7c-53e04a5710f7 ts=1786017831.563788 dur_from_decode_send_ms=499.43 ttft_ms=6137.37 kv_uuid=499503263381041
+PERF PROXY req_received req_id=b8393442-f875-4d51-90cf-ce0b80ce92bd ts=1786017831.584183
+PERF PROXY prefill_send req_id=b8393442-f875-4d51-90cf-ce0b80ce92bd ts=1786017831.598092
+PERF PROXY latency summary | decode_first: n=12 avg=787.82ms min=393.51ms max=2683.62ms | prefill: n=13 avg=5677.16ms min=5611.01ms max=5968.41ms | prefill_from_req: n=12 avg=5702.32ms min=5627.34ms max=5987.32ms | ttft: n=12 avg=6493.24ms min=6025.07ms max=8674.14ms
+PERF PROXY prefill_recv req_id=b8393442-f875-4d51-90cf-ce0b80ce92bd ts=1786017837.212175 dur_ms=5614.08 kv_uuid=371335682271781
+INFO:     10.36.31.226:41234 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=b8393442-f875-4d51-90cf-ce0b80ce92bd ts=1786017837.215034 kv_uuid=371335682271781
+PERF PROXY first_chunk req_id=b8393442-f875-4d51-90cf-ce0b80ce92bd ts=1786017837.629332 dur_from_decode_send_ms=414.30 ttft_ms=6047.74 kv_uuid=371335682271781
+PERF PROXY req_received req_id=368969f2-e840-4821-b470-d40d80df78a7 ts=1786017837.643220
+PERF PROXY prefill_send req_id=368969f2-e840-4821-b470-d40d80df78a7 ts=1786017837.657776
+PERF PROXY prefill_recv req_id=368969f2-e840-4821-b470-d40d80df78a7 ts=1786017843.276022 dur_ms=5618.25 kv_uuid=1108667348960441
+INFO:     10.36.31.226:42380 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=368969f2-e840-4821-b470-d40d80df78a7 ts=1786017843.278832 kv_uuid=1108667348960441
+PERF PROXY first_chunk req_id=368969f2-e840-4821-b470-d40d80df78a7 ts=1786017843.666837 dur_from_decode_send_ms=388.01 ttft_ms=6026.64 kv_uuid=1108667348960441
+PERF PROXY req_received req_id=68a03b03-4443-4714-b914-773ad840ba62 ts=1786017843.682045
+PERF PROXY prefill_send req_id=68a03b03-4443-4714-b914-773ad840ba62 ts=1786017843.695238
+PERF PROXY prefill_recv req_id=68a03b03-4443-4714-b914-773ad840ba62 ts=1786017849.306806 dur_ms=5611.57 kv_uuid=303212291933257
+INFO:     10.36.31.226:42390 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=68a03b03-4443-4714-b914-773ad840ba62 ts=1786017849.309305 kv_uuid=303212291933257
+PERF PROXY first_chunk req_id=68a03b03-4443-4714-b914-773ad840ba62 ts=1786017849.814532 dur_from_decode_send_ms=505.23 ttft_ms=6135.27 kv_uuid=303212291933257
+PERF PROXY req_received req_id=59d6fac1-0051-4b97-bafb-e25d88eae2fc ts=1786017849.827094
+PERF PROXY prefill_send req_id=59d6fac1-0051-4b97-bafb-e25d88eae2fc ts=1786017849.839734
+PERF PROXY prefill_recv req_id=59d6fac1-0051-4b97-bafb-e25d88eae2fc ts=1786017855.455979 dur_ms=5616.25 kv_uuid=561907575151645
+INFO:     10.36.31.226:41356 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=59d6fac1-0051-4b97-bafb-e25d88eae2fc ts=1786017855.458638 kv_uuid=561907575151645
+PERF PROXY first_chunk req_id=59d6fac1-0051-4b97-bafb-e25d88eae2fc ts=1786017855.951738 dur_from_decode_send_ms=493.10 ttft_ms=6127.36 kv_uuid=561907575151645
+PERF PROXY req_received req_id=80dd3f88-4614-4103-bc82-e393b289a8da ts=1786017855.964940
+PERF PROXY prefill_send req_id=80dd3f88-4614-4103-bc82-e393b289a8da ts=1786017855.983520
+PERF PROXY prefill_recv req_id=80dd3f88-4614-4103-bc82-e393b289a8da ts=1786017861.609154 dur_ms=5625.63 kv_uuid=401398645977117
+INFO:     10.36.31.226:45292 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=80dd3f88-4614-4103-bc82-e393b289a8da ts=1786017861.611545 kv_uuid=401398645977117
+PERF PROXY first_chunk req_id=80dd3f88-4614-4103-bc82-e393b289a8da ts=1786017862.112018 dur_from_decode_send_ms=500.47 ttft_ms=6150.16 kv_uuid=401398645977117
+PERF PROXY req_received req_id=6d2dd0a7-d3ca-4f3a-bfbb-95e78c42ae25 ts=1786017862.130183
+PERF PROXY prefill_send req_id=6d2dd0a7-d3ca-4f3a-bfbb-95e78c42ae25 ts=1786017862.143198
+PERF PROXY latency summary | decode_first: n=17 avg=691.46ms min=388.01ms max=2683.62ms | prefill: n=18 avg=5661.27ms min=5611.01ms max=5968.41ms | prefill_from_req: n=17 avg=5682.39ms min=5627.34ms max=5987.32ms | ttft: n=17 avg=6376.83ms min=6025.07ms max=8674.14ms
+PERF PROXY prefill_recv req_id=6d2dd0a7-d3ca-4f3a-bfbb-95e78c42ae25 ts=1786017867.771231 dur_ms=5628.03 kv_uuid=915822038995629
+INFO:     10.36.31.226:45296 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=6d2dd0a7-d3ca-4f3a-bfbb-95e78c42ae25 ts=1786017867.774187 kv_uuid=915822038995629
+PERF PROXY first_chunk req_id=6d2dd0a7-d3ca-4f3a-bfbb-95e78c42ae25 ts=1786017868.171293 dur_from_decode_send_ms=397.11 ttft_ms=6043.86 kv_uuid=915822038995629
+PERF PROXY req_received req_id=1802a7a4-a262-431c-af26-d889728abb14 ts=1786017868.184633
+PERF PROXY prefill_send req_id=1802a7a4-a262-431c-af26-d889728abb14 ts=1786017868.199660
+Error occurred in disagg prefill proxy server - /v1/completions endpoint
+Server error '500 Internal Server Error' for url 'http://j-6576ba39-dec9-43cb-98ac-prefill-a-0-0.j-6576ba39-dec9-43cb-98ac:8000/v1/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500
+Traceback (most recent call last):
+  File "/root/torchtpu-vllm/examples/disagg/toy_proxy_server.py", line 361, in _handle_completions
+    response = await send_request_to_prefill(prefill_client_info, api,
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/torchtpu-vllm/examples/disagg/toy_proxy_server.py", line 286, in send_request_to_prefill
+    response.raise_for_status()
+  File "/usr/local/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Server error '500 Internal Server Error' for url 'http://j-6576ba39-dec9-43cb-98ac-prefill-a-0-0.j-6576ba39-dec9-43cb-98ac:8000/v1/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500
+
+INFO:     10.36.31.226:46432 - "POST /v1/completions HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py", line 422, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 63, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/fastapi/applications.py", line 1159, in __call__
+    await super().__call__(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/applications.py", line 90, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/usr/local/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 680, in app
+    await route.handle(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 134, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 120, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 674, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 328, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/torchtpu-vllm/examples/disagg/toy_proxy_server.py", line 436, in handle_completions
+    return await _handle_completions("/v1/completions", request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/torchtpu-vllm/examples/disagg/toy_proxy_server.py", line 361, in _handle_completions
+    response = await send_request_to_prefill(prefill_client_info, api,
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/torchtpu-vllm/examples/disagg/toy_proxy_server.py", line 286, in send_request_to_prefill
+    response.raise_for_status()
+  File "/usr/local/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Server error '500 Internal Server Error' for url 'http://j-6576ba39-dec9-43cb-98ac-prefill-a-0-0.j-6576ba39-dec9-43cb-98ac:8000/v1/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500
+

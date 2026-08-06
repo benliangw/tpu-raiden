@@ -1,0 +1,1954 @@
+# BASELINE 2 of qwen35-disagg-gpc-xstack.yml: DISAGG + LOCAL OFFLOADING,
+# NO GLOBAL PREFIX CACHE (today's production multi-connector config).
+#
+# Identical topology to the GPC recipe — two complete PCP8+DP8 disagg
+# stacks with V2 offload stores on every leg — but the prefill stores are
+# NOT registry-joined: no global_registry_address / raiden_orchestrator /
+# store_server_ip keys and no registry pod. Each stack's DRAM cache is an
+# island. Everything else matches the GPC recipe, so the numbers are
+# directly comparable.
+#
+# WHAT IT SHOWS: offloading works WITHIN a stack but not ACROSS stacks.
+# The check pod seeds 48 docs via stack A, then
+#   - a-revisit (control): same docs via stack A -> A's own store must
+#     serve them (>= 90% hits; proves offloading itself works, so the
+#     B-side misses mean "island", not "broken offloading"),
+#   - x-revisit: same docs via stack B -> ~0 hits, full recompute — the
+#     island. The GPC recipe turns exactly this pass into remote hits by
+#     adding the registry keys.
+#   - cold: fresh docs via stack B (validity).
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: ttpu-qwen35-xstack-local-offload
+  namespace: cloud-devkit-jobs
+spec:
+  successPolicy:
+    operator: All
+    targetReplicatedJobs:
+      - check
+  ttlSecondsAfterFinished: 900
+  replicatedJobs:
+    # ---------------------------------------------------------
+    # STACK A: PREFILL (PCP8) + PROXY, then DECODE (DP8)
+    # ---------------------------------------------------------
+    - name: prefill-a
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            spec:
+              dnsPolicy: ClusterFirstWithHostNet
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: 2x2x1
+                cloud.google.com/gke-tpu-accelerator: tpu7x
+              initContainers:
+                - name: tpu-node-setup
+                  image: busybox
+                  securityContext:
+                    privileged: true
+                  command: ["/bin/sh", "-c"]
+                  args:
+                    - |
+                      sysctl -w vm.max_map_count=8388608
+                      if [ -f /sys/module/vfio_iommu_type1/parameters/dma_entry_limit ]; then
+                        echo 2000000 > /sys/module/vfio_iommu_type1/parameters/dma_entry_limit
+                        echo "Successfully increased dma_entry_limit"
+                      fi
+              containers:
+              - name: vllm-tpu-prefill
+                image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:latest
+                imagePullPolicy: Always
+                command: ["/bin/bash", "-c"]
+                args:
+                - |
+                  set -eo pipefail
+                  : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                  export CDK_OUTPUT_DIR
+                  mkdir -p "$CDK_OUTPUT_DIR"
+                  export PYTHONUNBUFFERED=1
+
+                  echo "===== Syncing dependencies to pyproject.toml ====="
+                  # Keep the vllm== pin: this installs the pinned vLLM from
+                  # PyPI, replacing the image's editable install of the NFS
+                  # checkout at /root/cloud-devkit/vllm (which can drift from
+                  # the version the torchtpu-vllm code expects). Only the
+                  # torch-tpu pin is stripped; it is installed from a wheel
+                  # below.
+                  mkdir -p /tmp/depsync
+                  sed -E '/"torch-tpu==/d' /root/torchtpu-vllm/pyproject.toml > /tmp/depsync/pyproject.toml
+                  uv pip install --system -r /tmp/depsync/pyproject.toml --index-url https://pypi.org/simple
+
+
+                  # Pinned tpu-raiden build; serves both raiden control
+                  # planes in this pod.
+                  uv pip install --system --no-deps \
+                    "$RAIDEN_WHEEL"
+                  python3 -c "from tpu_raiden.rpc.raiden_controller import RaidenController, RaidenControllerServer" \
+                    || { echo "RESULT: FAIL (raiden import)"; exit 1; }
+
+                  export PYTHONPATH=/root/torchtpu-vllm/src:/root/torchtpu-vllm:${PYTHONPATH:-}
+
+                  python3 -c 'from tpu_raiden.api.torch import torch_tpu_common_loader as tl; tl.load_torch_tpu_common(); from tpu_raiden.frameworks.torch import _tpu_raiden_torch as trt; S = trt.KVCacheStore; assert hasattr(S, "num_registered_workers"), "raiden wheel too old (missing num_registered_workers)"; import vllm_torchtpu.offload.raiden_connector as rc; assert hasattr(rc, "TPURaidenOffloadingConnector"); print("V2 preflight OK")' \
+                    || { echo "RESULT: FAIL (V2 preflight)"; exit 1; }
+
+                  # Two raiden control planes coexist in this pod (disagg
+                  # controller + offload store controller); without this,
+                  # ControllerServer is a process-wide singleton that
+                  # silently reuses the first bound port.
+                  export RAIDEN_DISABLE_SINGLETON_WORKER=1
+
+                  export VLLM_HOST_IP="${JS_NAME}-prefill-a-0-0.${JS_NAME}"
+                  NS="${JS_NAME//[^a-zA-Z0-9_]/_}"
+                  export TPU_KV_TRANSFER_NAMESPACE="${NS}_prefill_a"
+                  export TPU_RAIDEN_JOB_NAME=prefill_a
+                  export TPU_RAIDEN_ENGINE_ID="${JS_NAME}-prefill-a-engine"
+                  export TPU_RAIDEN_CONTROLLER_ADDRESS="${VLLM_HOST_IP}:${CONTROLLER_PORT}"
+
+                  echo "===== Pre-downloading $MODEL snapshot ====="
+                  DL_OK=""
+                  for i in $(seq 1 30); do
+                    if python3 -c "import os; from huggingface_hub import snapshot_download; snapshot_download(os.environ['MODEL'])"; then
+                      DL_OK=1; break
+                    fi
+                    echo "snapshot_download failed (attempt $i/30); retrying in 60s"
+                    sleep 60
+                  done
+                  [ -n "$DL_OK" ] || { echo "RESULT: FAIL (model snapshot download)"; exit 1; }
+                  export HF_HUB_OFFLINE=1
+
+                  echo "===== Starting Raiden controller on :${CONTROLLER_PORT} ====="
+                  cat > /tmp/raiden_controller.py <<'PYEOF'
+                  import argparse, json, logging, os, signal, threading, time
+                  from pathlib import Path
+                  from tpu_raiden.rpc.raiden_controller import RaidenController, RaidenControllerServer
+
+                  parser = argparse.ArgumentParser()
+                  parser.add_argument("--port", type=int, required=True)
+                  parser.add_argument("--advertise-host", required=True)
+                  parser.add_argument("--request-registry-ttl-s", type=float, default=600.0)
+                  parser.add_argument("--ready-file", type=Path, required=True)
+                  args = parser.parse_args()
+
+                  logging.basicConfig(level=logging.INFO,
+                                      format="%(asctime)s %(levelname)s %(message)s",
+                                      force=True)
+                  stopping = threading.Event()
+                  signal.signal(signal.SIGINT, lambda *_: stopping.set())
+                  signal.signal(signal.SIGTERM, lambda *_: stopping.set())
+
+                  controller = RaidenController(port=args.port,
+                                                request_registry_ttl_s=args.request_registry_ttl_s)
+                  server = RaidenControllerServer(controller)
+                  server.start()
+                  payload = {
+                      "schema_version": 1,
+                      "event": "raiden_controller_ready",
+                      "pid": os.getpid(),
+                      "requested_port": args.port,
+                      "port": server.port,
+                      "advertise_host": args.advertise_host,
+                      "address": f"{args.advertise_host}:{server.port}",
+                      "request_registry_ttl_s": args.request_registry_ttl_s,
+                      "time_unix_s": time.time(),
+                  }
+                  args.ready_file.parent.mkdir(parents=True, exist_ok=True)
+                  tmp = args.ready_file.with_name(f".{args.ready_file.name}.{os.getpid()}.tmp")
+                  tmp.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")
+                  tmp.replace(args.ready_file)
+                  print(json.dumps(payload, sort_keys=True), flush=True)
+                  try:
+                      while not stopping.wait(1.0):
+                          pass
+                  finally:
+                      server.stop()
+                  PYEOF
+                  rm -f /tmp/controller.ready.json
+                  python3 /tmp/raiden_controller.py \
+                    --port "$CONTROLLER_PORT" \
+                    --advertise-host "$VLLM_HOST_IP" \
+                    --request-registry-ttl-s 600 \
+                    --ready-file /tmp/controller.ready.json \
+                    > "$CDK_OUTPUT_DIR/controller.log" 2>&1 &
+                  CONTROLLER_PID=$!
+                  for i in $(seq 1 200); do
+                    [ -s /tmp/controller.ready.json ] && break
+                    kill -0 "$CONTROLLER_PID" 2>/dev/null \
+                      || { echo "RESULT: FAIL (controller exited)"; cat "$CDK_OUTPUT_DIR/controller.log"; exit 1; }
+                    sleep 0.5
+                  done
+                  [ -s /tmp/controller.ready.json ] || { echo "RESULT: FAIL (controller not ready)"; exit 1; }
+                  cat /tmp/controller.ready.json
+
+                  COMPILATION_CONFIG='{"backend":"vllm_torchtpu.compilation.tpu_compiler.TpuCompilerAdaptor","compile_sizes":[4096],"inductor_compile_config":{"enable_auto_functionalized_v2":false,"size_asserts":false,"alignment_asserts":false,"scalar_asserts":false}}'
+
+                  # Raiden must remain first for load arbitration. PCP8 is one
+                  # engine, so its 256 GiB store is sharded across the 8 PCP
+                  # workers (one controller at OFFLOAD_CONTROLLER_PORT; no DP
+                  # offset). LOCAL-ONLY store: deliberately no registry keys —
+                  # this is the island baseline.
+                  KV_TRANSFER_CONFIG='{"kv_connector":"TPUMultiConnector","kv_connector_module_path":"vllm_torchtpu.distributed.kv_transfer.tpu_multi_connector","kv_role":"kv_producer","kv_connector_extra_config":{"connectors":[{"kv_connector":"TPURaidenConnector","kv_connector_module_path":"vllm_torchtpu.distributed.kv_transfer.tpu_connector","kv_role":"kv_producer","kv_port":14579},{"kv_connector":"TPURaidenOffloadingConnector","kv_connector_module_path":"vllm_torchtpu.offload.raiden_connector","kv_role":"kv_both","kv_connector_extra_config":{"cpu_bytes_to_use":274877906944,"raiden_controller_port":'"$OFFLOAD_CONTROLLER_PORT"'}}]}}'
+
+                  echo "===== Starting Qwen3.5 PCP8 prefill node (disagg+offload) ====="
+                  exec vllm serve \
+                    "$MODEL" \
+                    --served-model-name "$SERVED_MODEL" \
+                    --trust-remote-code \
+                    --seed 42 \
+                    --max-model-len 65536 \
+                    --enable-expert-parallel \
+                    --disable-custom-all-reduce \
+                    --gpu-memory-utilization 0.9 \
+                    --kv-cache-dtype fp8 \
+                    --language-model-only \
+                    --max-num-batched-tokens 4096 \
+                    --max-num-seqs 16 \
+                    --no-disable-hybrid-kv-cache-manager \
+                    --attention-backend CUSTOM \
+                    --mamba-cache-mode align \
+                    --enable-prompt-tokens-details \
+                    --no-enable-log-requests \
+                    --compilation-config "$COMPILATION_CONFIG" \
+                    --enable-prefix-caching \
+                    --no-async-scheduling \
+                    --block-size 4096 \
+                    --tensor-parallel-size 1 \
+                    --host 0.0.0.0 \
+                    --port 8000 \
+                    --num-gpu-blocks-override 128 \
+                    --prefill-context-parallel-size 8 \
+                    --cp-kv-cache-interleave-size 256 \
+                    --kv-transfer-config "$KV_TRANSFER_CONFIG" \
+                    2>&1 | tee "$CDK_OUTPUT_DIR/server.log"
+                env:
+                  - name: JS_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                  # No sharing in this baseline; kept identical to the GPC
+                  # recipe so the connector config is the only variable.
+                  - name: PYTHONHASHSEED
+                    value: "0"
+                  - name: MODEL
+                    value: "Qwen/Qwen3.5-35B-A3B-FP8"
+                  - name: SERVED_MODEL
+                    value: "Qwen3.5-35B-A3B-FP8"
+                  - name: CONTROLLER_PORT
+                    value: "27000"
+                  # V2 offload store controller (second raiden control
+                  # plane); distinct from the disagg CONTROLLER_PORT above,
+                  # TPU_KV_TRANSFER_PORT 9100, side channel 9600, and
+                  # kv_port 14579.
+                  - name: OFFLOAD_CONTROLLER_PORT
+                    value: "47800"
+                  - name: VLLM_LOGGING_LEVEL
+                    value: "INFO"
+                  - name: HF_HUB_DISABLE_XET
+                    value: "1"
+                  # --- device / topology (8 devices on one 2x2x1 tpu7x host) ---
+                  - name: JAX_PLATFORMS
+                    value: "tpu,cpu"
+                  - name: PJRT_DEVICE
+                    value: TPU
+                  - name: TPU_BACKEND_TYPE
+                    value: "jax"
+                  - name: VLLM_TARGET_DEVICE
+                    value: "tpu"
+                  - name: TPU_TOPOLOGY
+                    value: "2x2x1"
+                  - name: TPU_CHIPS_PER_HOST_BOUNDS
+                    value: "2,2,1"
+                  - name: TPU_HOST_BOUNDS
+                    value: "1,1,1"
+                  - name: TPU_LIBRARY_PATH
+                    value: ""
+                  - name: MEGASCALE_NUM_SLICES
+                    value: ""
+                  - name: MEGASCALE_SLICE_ID
+                    value: ""
+                  - name: TPU_PROCESS_ADDRESSES
+                    value: ""
+                  - name: TPU_WORKER_HOSTNAMES
+                    value: ""
+                  - name: TPU_PROCESS_PORT
+                    value: ""
+                  - name: MEGASCALE_COORDINATOR_ADDRESS
+                    value: ""
+                  - name: MEGASCALE_PORT
+                    value: ""
+                  # --- model / kernel config ---
+                  - name: MODEL_IMPL_TYPE
+                    value: "vllm"
+                  - name: NEW_MODEL_DESIGN
+                    value: "0"
+                  - name: SKIP_JAX_PRECOMPILE
+                    value: "1"
+                  - name: VLLM_XLA_CHECK_RECOMPILATION
+                    value: "0"
+                  - name: USE_MOE_SPARSE_CORE
+                    value: "0"
+                  - name: TPUMISC_HMA_CHECKSUM_TRACE
+                    value: "0"
+                  - name: TPU_GDN_CONV_STATE_TILE_PAD
+                    value: "1"
+                  - name: XLA_PYTHON_CLIENT_PREALLOCATE
+                    value: "false"
+                  - name: VLLM_ALLOW_LONG_MAX_MODEL_LEN
+                    value: "1"
+                  - name: USE_BATCHED_RPA_KERNEL
+                    value: "1"
+                  - name: RAGGED_GATED_DELTA_RULE_IMPL
+                    value: "chunked_kernel_v3_pd"
+                  - name: ONEHOT_MOE_PERMUTE_THRESHOLD
+                    value: "1024"
+                  - name: TPU_RAGGED_GATHER_REDUCE_IMPL
+                    value: "fallback"
+                  - name: TPU_RAGGED_GATHER_IMPL
+                    value: "fallback"
+                  - name: LIBTPU_INIT_ARGS
+                    value: "--xla_tpu_scoped_vmem_limit_kib=65536 --xla_tpu_enable_latency_hiding_scheduler=false"
+                  # libtpu 0.0.43 can take longer than the 120 s default to
+                  # bootstrap the PCP8 LOCAL_RANK remap probe.
+                  - name: TPU_PCP_REMAP_PROBE_TIMEOUT_S
+                    value: "600"
+                  # Include model load, KV-cache profiling, and warmup.
+                  - name: VLLM_ENGINE_READY_TIMEOUT_S
+                    value: "1800"
+                  - name: TORCH_TPU_INTERNAL_TIER2_COMPILATION_CACHE
+                    value: "disabled"
+                  # --- Raiden KV transfer ---
+                  - name: TPU_VLLM_ENABLE_UNIFIED_BLOCK_POOL
+                    value: "1"
+                  - name: TPU_USE_RAIDEN_KV_CACHE_MANAGER
+                    value: "1"
+                  - name: TPU_RAIDEN_QWEN35_ADMISSION
+                    value: "1"
+                  - name: TPU_KV_RESHARD_TRANSPORT
+                    value: "raiden"
+                  # Producer-side Stage-3 byte-span lowering needs the
+                  # destination page geometry; it cannot read the decoder's
+                  # block_size. Must track decode's --block-size 4096.
+                  - name: TPU_KV_RESHARD_DST_PAGE_TOKENS
+                    value: "4096"
+                  # Pinned tpu-raiden build. Anchored once and
+                  # aliased by the other three legs, so the
+                  # stacks can never run mixed wheels.
+                  - name: RAIDEN_WHEEL
+                    value: &raiden-wheel "/root/wheels/tpu_raiden_torch-0.0.1.dev20260805174527-1_raiden_controller_0cc40b6-cp312-cp312-manylinux_2_31_x86_64.whl"
+                  - name: TPU_RAIDEN_TRANSFER_PARALLELISM
+                    value: "8"
+                  - name: TPU_ENABLE_D2H_TRANSFER
+                    value: "1"
+                  - name: TPU_HMA_D2H_COPY_IMPL
+                    value: "device_put"
+                  - name: TPU_HMA_MIN_DONE_RECVING_BATCH
+                    value: "1"
+                  - name: TPU_HMA_MAX_DONE_RECVING_BATCH
+                    value: "1"
+                  - name: TPU_HMA_MAX_INFLIGHT_D2H_SENDS
+                    value: "1"
+                  - name: TPU_HMA_MAX_INFLIGHT_PULLS
+                    value: "8"
+                  - name: TPU_MAX_HOST_KV_BUFFER_SIZE
+                    value: "64"
+                  # Exceeds measured claim latency while bounding how long an
+                  # abandoned request can pin the prefill block pool.
+                  - name: TPU_P2P_WAIT_PULL_TIMEOUT
+                    value: "300"
+                  - name: TPU_KV_SHM_POOL_GB
+                    value: "8"
+                  - name: TPU_KV_TRANSFER_PORT
+                    value: "9100"
+                  - name: TPU_SIDE_CHANNEL_PORT
+                    value: "9600"
+                  # --- KV offloading: V2 store path (see KV_TRANSFER_CONFIG);
+                  # the V1 VLLM_TPU_OFFLOAD_RAIDEN knob does not apply. ---
+                volumeMounts:
+                  - name: hf-token-volume
+                    mountPath: /root/.cache/huggingface/token
+                    subPath: token
+                    readOnly: true
+                  - name: huggingface-storage
+                    mountPath: /root/.cache/huggingface/
+                  - name: dshm
+                    mountPath: /dev/shm
+                  - name: torchtpu-vllm-nfs
+                    mountPath: /root/torchtpu-vllm
+                  - name: vllm-nfs
+                    mountPath: /root/cloud-devkit/vllm
+                  - name: wheels-nfs
+                    mountPath: /root/wheels
+                    readOnly: true
+                securityContext:
+                  privileged: true
+                  capabilities:
+                    add:
+                    - IPC_LOCK
+                resources:
+                  limits:
+                    google.com/tpu: "4"
+                    memory: "850Gi"
+                    cpu: "200"
+                  requests:
+                    google.com/tpu: "4"
+                    memory: "850Gi"
+                    cpu: "200"
+                ports:
+                  - containerPort: 8000
+
+              - name: vllm-tpu-proxy
+                image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:latest
+                imagePullPolicy: Always
+                command: ["/bin/bash", "-c"]
+                args:
+                  - |
+                    PREFILLER_DNS="${JS_NAME}-prefill-a-0-0.${JS_NAME}"
+                    DECODER_DNS="${JS_NAME}-decode-a-0-0.${JS_NAME}"
+
+                    python3 /root/torchtpu-vllm/examples/disagg/toy_proxy_server.py \
+                      --host 0.0.0.0 \
+                      --port 10000 \
+                      --prefiller-host $PREFILLER_DNS \
+                      --prefiller-port 8000 \
+                      --decoder-host $DECODER_DNS \
+                      --decoder-port 7200
+                env:
+                - name: JS_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                volumeMounts:
+                  - name: torchtpu-vllm-nfs
+                    mountPath: /root/torchtpu-vllm
+                    readOnly: true
+                ports:
+                - containerPort: 10000
+                resources:
+                  requests: { cpu: "8", memory: "16Gi" }
+                  limits: { cpu: "16", memory: "32Gi" }
+
+              volumes:
+              - name: dshm
+                emptyDir:
+                  medium: Memory
+              - name: hf-token-volume
+                secret:
+                  secretName: vllm-hf-token
+                  items:
+                  - key: HF_TOKEN
+                    path: token
+              - name: huggingface-storage
+                ephemeral:
+                  volumeClaimTemplate:
+                    spec:
+                      storageClassName: "premium-rwo"
+                      accessModes: [ "ReadWriteOnce" ]
+                      resources:
+                        requests:
+                          storage: 256Gi
+              - name: torchtpu-vllm-nfs
+                nfs:
+                  server: 10.225.237.178
+                  # Branch worktree, not the repo root: pins the job to
+                  # benliangw/raiden_controller, which carries the V2 offload
+                  # stack and the disagg connectors.
+                  path: /workspace/vllm-torchtpu/raiden_controller
+              - name: vllm-nfs
+                nfs:
+                  server: 10.225.237.178
+                  path: /workspace/vllm
+              - name: wheels-nfs
+                nfs:
+                  server: 10.225.237.178
+                  path: /workspace/wheels
+
+    - name: decode-a
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            spec:
+              dnsPolicy: ClusterFirstWithHostNet
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: 2x2x1
+                cloud.google.com/gke-tpu-accelerator: tpu7x
+              initContainers:
+                - name: tpu-node-setup
+                  image: busybox
+                  securityContext:
+                    privileged: true
+                  command: ["/bin/sh", "-c"]
+                  args:
+                    - |
+                      sysctl -w vm.max_map_count=8388608
+                      if [ -f /sys/module/vfio_iommu_type1/parameters/dma_entry_limit ]; then
+                        echo 2000000 > /sys/module/vfio_iommu_type1/parameters/dma_entry_limit
+                        echo "Successfully increased dma_entry_limit"
+                      fi
+              containers:
+              - name: vllm-tpu-decode
+                image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:latest
+                imagePullPolicy: Always
+                command: ["/bin/bash", "-c"]
+                args:
+                - |
+                  set -eo pipefail
+                  : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                  export CDK_OUTPUT_DIR
+                  mkdir -p "$CDK_OUTPUT_DIR"
+                  export PYTHONUNBUFFERED=1
+
+                  echo "===== Syncing dependencies to pyproject.toml ====="
+                  # Keep the vllm== pin: this installs the pinned vLLM from
+                  # PyPI, replacing the image's editable install of the NFS
+                  # checkout at /root/cloud-devkit/vllm (which can drift from
+                  # the version the torchtpu-vllm code expects). Only the
+                  # torch-tpu pin is stripped; it is installed from a wheel
+                  # below.
+                  mkdir -p /tmp/depsync
+                  sed -E '/"torch-tpu==/d' /root/torchtpu-vllm/pyproject.toml > /tmp/depsync/pyproject.toml
+                  uv pip install --system -r /tmp/depsync/pyproject.toml --index-url https://pypi.org/simple
+
+
+                  # Pinned tpu-raiden build; serves both raiden control
+                  # planes in this pod.
+                  uv pip install --system --no-deps \
+                    "$RAIDEN_WHEEL"
+                  python3 -c "from tpu_raiden.rpc.raiden_controller import RaidenController, RaidenControllerServer" \
+                    || { echo "RESULT: FAIL (raiden import)"; exit 1; }
+
+                  export PYTHONPATH=/root/torchtpu-vllm/src:/root/torchtpu-vllm:${PYTHONPATH:-}
+
+                  python3 -c 'from tpu_raiden.api.torch import torch_tpu_common_loader as tl; tl.load_torch_tpu_common(); from tpu_raiden.frameworks.torch import _tpu_raiden_torch as trt; S = trt.KVCacheStore; assert hasattr(S, "num_registered_workers"), "raiden wheel too old (missing num_registered_workers)"; import vllm_torchtpu.offload.raiden_connector as rc; assert hasattr(rc, "TPURaidenOffloadingConnector"); print("V2 preflight OK")' \
+                    || { echo "RESULT: FAIL (V2 preflight)"; exit 1; }
+
+                  # Two raiden control planes coexist in this pod (disagg
+                  # controller + offload store controller); without this,
+                  # ControllerServer is a process-wide singleton that
+                  # silently reuses the first bound port.
+                  export RAIDEN_DISABLE_SINGLETON_WORKER=1
+
+                  export VLLM_HOST_IP="${JS_NAME}-decode-a-0-0.${JS_NAME}"
+                  NS="${JS_NAME//[^a-zA-Z0-9_]/_}"
+                  export TPU_KV_TRANSFER_NAMESPACE="${NS}_decode_a"
+                  export TPU_RAIDEN_JOB_NAME=decode_a
+                  export TPU_RAIDEN_ENGINE_ID="${JS_NAME}-decode-a-engine"
+                  export TPU_RAIDEN_CONTROLLER_ADDRESS="${VLLM_HOST_IP}:${CONTROLLER_PORT}"
+
+                  echo "===== Pre-downloading $MODEL snapshot ====="
+                  DL_OK=""
+                  for i in $(seq 1 30); do
+                    if python3 -c "import os; from huggingface_hub import snapshot_download; snapshot_download(os.environ['MODEL'])"; then
+                      DL_OK=1; break
+                    fi
+                    echo "snapshot_download failed (attempt $i/30); retrying in 60s"
+                    sleep 60
+                  done
+                  [ -n "$DL_OK" ] || { echo "RESULT: FAIL (model snapshot download)"; exit 1; }
+                  export HF_HUB_OFFLINE=1
+
+                  echo "===== Starting Raiden controller on :${CONTROLLER_PORT} ====="
+                  cat > /tmp/raiden_controller.py <<'PYEOF'
+                  import argparse, json, logging, os, signal, threading, time
+                  from pathlib import Path
+                  from tpu_raiden.rpc.raiden_controller import RaidenController, RaidenControllerServer
+
+                  parser = argparse.ArgumentParser()
+                  parser.add_argument("--port", type=int, required=True)
+                  parser.add_argument("--advertise-host", required=True)
+                  parser.add_argument("--request-registry-ttl-s", type=float, default=600.0)
+                  parser.add_argument("--ready-file", type=Path, required=True)
+                  args = parser.parse_args()
+
+                  logging.basicConfig(level=logging.INFO,
+                                      format="%(asctime)s %(levelname)s %(message)s",
+                                      force=True)
+                  stopping = threading.Event()
+                  signal.signal(signal.SIGINT, lambda *_: stopping.set())
+                  signal.signal(signal.SIGTERM, lambda *_: stopping.set())
+
+                  controller = RaidenController(port=args.port,
+                                                request_registry_ttl_s=args.request_registry_ttl_s)
+                  server = RaidenControllerServer(controller)
+                  server.start()
+                  payload = {
+                      "schema_version": 1,
+                      "event": "raiden_controller_ready",
+                      "pid": os.getpid(),
+                      "requested_port": args.port,
+                      "port": server.port,
+                      "advertise_host": args.advertise_host,
+                      "address": f"{args.advertise_host}:{server.port}",
+                      "request_registry_ttl_s": args.request_registry_ttl_s,
+                      "time_unix_s": time.time(),
+                  }
+                  args.ready_file.parent.mkdir(parents=True, exist_ok=True)
+                  tmp = args.ready_file.with_name(f".{args.ready_file.name}.{os.getpid()}.tmp")
+                  tmp.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")
+                  tmp.replace(args.ready_file)
+                  print(json.dumps(payload, sort_keys=True), flush=True)
+                  try:
+                      while not stopping.wait(1.0):
+                          pass
+                  finally:
+                      server.stop()
+                  PYEOF
+                  rm -f /tmp/controller.ready.json
+                  python3 /tmp/raiden_controller.py \
+                    --port "$CONTROLLER_PORT" \
+                    --advertise-host "$VLLM_HOST_IP" \
+                    --request-registry-ttl-s 600 \
+                    --ready-file /tmp/controller.ready.json \
+                    > "$CDK_OUTPUT_DIR/controller.log" 2>&1 &
+                  CONTROLLER_PID=$!
+                  for i in $(seq 1 200); do
+                    [ -s /tmp/controller.ready.json ] && break
+                    kill -0 "$CONTROLLER_PID" 2>/dev/null \
+                      || { echo "RESULT: FAIL (controller exited)"; cat "$CDK_OUTPUT_DIR/controller.log"; exit 1; }
+                    sleep 0.5
+                  done
+                  [ -s /tmp/controller.ready.json ] || { echo "RESULT: FAIL (controller not ready)"; exit 1; }
+                  cat /tmp/controller.ready.json
+
+                  COMPILATION_CONFIG='{"backend":"vllm_torchtpu.compilation.tpu_compiler.TpuCompilerAdaptor","compile_sizes":[4096],"inductor_compile_config":{"enable_auto_functionalized_v2":false,"size_asserts":false,"alignment_asserts":false,"scalar_asserts":false}}'
+
+                  # Raiden must remain first for proxied-load arbitration.
+                  # DP8 allocates one 8 GiB store per engine (64 GiB total);
+                  # each engine binds its own offload controller at
+                  # OFFLOAD_CONTROLLER_PORT + dp_local_rank (47800-47807).
+                  KV_TRANSFER_CONFIG='{"kv_connector":"TPUMultiConnector","kv_connector_module_path":"vllm_torchtpu.distributed.kv_transfer.tpu_multi_connector","kv_role":"kv_consumer","kv_connector_extra_config":{"connectors":[{"kv_connector":"TPURaidenConnector","kv_connector_module_path":"vllm_torchtpu.distributed.kv_transfer.tpu_connector","kv_role":"kv_consumer","kv_port":14579},{"kv_connector":"TPURaidenOffloadingConnector","kv_connector_module_path":"vllm_torchtpu.offload.raiden_connector","kv_role":"kv_both","kv_connector_extra_config":{"cpu_bytes_to_use":8589934592,"raiden_controller_port":'"$OFFLOAD_CONTROLLER_PORT"'}}]}}'
+
+                  # The proxy runs in another pod, so bind 0.0.0.0.
+                  # Align-mode hybrid caching needs 16 request blocks plus
+                  # six grouping/layout blocks at max_model_len=65536.
+                  echo "===== Starting Qwen3.5 DP8 decode node (disagg+offload) ====="
+                  exec vllm serve \
+                    "$MODEL" \
+                    --served-model-name "$SERVED_MODEL" \
+                    --trust-remote-code \
+                    --seed 42 \
+                    --max-model-len 65536 \
+                    --enable-expert-parallel \
+                    --disable-custom-all-reduce \
+                    --gpu-memory-utilization 0.9 \
+                    --kv-cache-dtype fp8 \
+                    --language-model-only \
+                    --max-num-batched-tokens 4096 \
+                    --max-num-seqs 16 \
+                    --no-disable-hybrid-kv-cache-manager \
+                    --attention-backend CUSTOM \
+                    --mamba-cache-mode align \
+                    --enable-prompt-tokens-details \
+                    --no-enable-log-requests \
+                    --compilation-config "$COMPILATION_CONFIG" \
+                    --enable-prefix-caching \
+                    --no-async-scheduling \
+                    --block-size 4096 \
+                    --tensor-parallel-size 1 \
+                    --host 0.0.0.0 \
+                    --port 7200 \
+                    --num-gpu-blocks-override 262 \
+                    --prefill-context-parallel-size 1 \
+                    --data-parallel-size 8 \
+                    --data-parallel-size-local 8 \
+                    --kv-transfer-config "$KV_TRANSFER_CONFIG" \
+                    2>&1 | tee "$CDK_OUTPUT_DIR/server.log"
+                env:
+                  - name: JS_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                  - name: MODEL
+                    value: "Qwen/Qwen3.5-35B-A3B-FP8"
+                  - name: SERVED_MODEL
+                    value: "Qwen3.5-35B-A3B-FP8"
+                  - name: CONTROLLER_PORT
+                    value: "28000"
+                  # V2 offload store controller (second raiden control
+                  # plane); distinct from the disagg CONTROLLER_PORT above,
+                  # TPU_KV_TRANSFER_PORT 9100, side channel 9600, and
+                  # kv_port 14579.
+                  - name: OFFLOAD_CONTROLLER_PORT
+                    value: "47800"
+                  - name: VLLM_LOGGING_LEVEL
+                    value: "INFO"
+                  - name: HF_HUB_DISABLE_XET
+                    value: "1"
+                  # --- device / topology (8 devices on one 2x2x1 tpu7x host) ---
+                  - name: JAX_PLATFORMS
+                    value: "tpu,cpu"
+                  - name: PJRT_DEVICE
+                    value: TPU
+                  - name: TPU_BACKEND_TYPE
+                    value: "jax"
+                  - name: VLLM_TARGET_DEVICE
+                    value: "tpu"
+                  - name: TPU_TOPOLOGY
+                    value: "2x2x1"
+                  - name: TPU_CHIPS_PER_HOST_BOUNDS
+                    value: "2,2,1"
+                  - name: TPU_HOST_BOUNDS
+                    value: "1,1,1"
+                  - name: TPU_LIBRARY_PATH
+                    value: ""
+                  - name: MEGASCALE_NUM_SLICES
+                    value: ""
+                  - name: MEGASCALE_SLICE_ID
+                    value: ""
+                  - name: TPU_PROCESS_ADDRESSES
+                    value: ""
+                  - name: TPU_WORKER_HOSTNAMES
+                    value: ""
+                  - name: TPU_PROCESS_PORT
+                    value: ""
+                  - name: MEGASCALE_COORDINATOR_ADDRESS
+                    value: ""
+                  - name: MEGASCALE_PORT
+                    value: ""
+                  # --- model / kernel config ---
+                  - name: MODEL_IMPL_TYPE
+                    value: "vllm"
+                  - name: NEW_MODEL_DESIGN
+                    value: "0"
+                  - name: SKIP_JAX_PRECOMPILE
+                    value: "1"
+                  - name: VLLM_XLA_CHECK_RECOMPILATION
+                    value: "0"
+                  - name: USE_MOE_SPARSE_CORE
+                    value: "0"
+                  - name: TPUMISC_HMA_CHECKSUM_TRACE
+                    value: "0"
+                  - name: TPU_GDN_CONV_STATE_TILE_PAD
+                    value: "1"
+                  - name: XLA_PYTHON_CLIENT_PREALLOCATE
+                    value: "false"
+                  - name: VLLM_ALLOW_LONG_MAX_MODEL_LEN
+                    value: "1"
+                  - name: USE_BATCHED_RPA_KERNEL
+                    value: "1"
+                  - name: RAGGED_GATED_DELTA_RULE_IMPL
+                    value: "chunked_kernel_v3_pd"
+                  - name: ONEHOT_MOE_PERMUTE_THRESHOLD
+                    value: "1024"
+                  - name: TPU_RAGGED_GATHER_REDUCE_IMPL
+                    value: "fallback"
+                  - name: TPU_RAGGED_GATHER_IMPL
+                    value: "fallback"
+                  - name: LIBTPU_INIT_ARGS
+                    value: "--xla_tpu_scoped_vmem_limit_kib=65536 --xla_tpu_enable_latency_hiding_scheduler=false"
+                  - name: TORCH_TPU_INTERNAL_TIER2_COMPILATION_CACHE
+                    value: "disabled"
+                  # --- Raiden KV transfer ---
+                  - name: TPU_VLLM_ENABLE_UNIFIED_BLOCK_POOL
+                    value: "1"
+                  - name: TPU_USE_RAIDEN_KV_CACHE_MANAGER
+                    value: "1"
+                  - name: TPU_RAIDEN_QWEN35_ADMISSION
+                    value: "1"
+                  - name: TPU_KV_RESHARD_TRANSPORT
+                    value: "raiden"
+                  # Producer-side Stage-3 byte-span lowering needs the
+                  # destination page geometry; it cannot read the decoder's
+                  # block_size. Must track decode's --block-size 4096.
+                  - name: TPU_KV_RESHARD_DST_PAGE_TOKENS
+                    value: "4096"
+                  - name: RAIDEN_WHEEL
+                    value: *raiden-wheel
+                  - name: TPU_RAIDEN_TRANSFER_PARALLELISM
+                    value: "8"
+                  - name: TPU_ENABLE_D2H_TRANSFER
+                    value: "1"
+                  - name: TPU_HMA_D2H_COPY_IMPL
+                    value: "device_put"
+                  - name: TPU_HMA_MIN_DONE_RECVING_BATCH
+                    value: "1"
+                  - name: TPU_HMA_MAX_DONE_RECVING_BATCH
+                    value: "1"
+                  - name: TPU_HMA_MAX_INFLIGHT_D2H_SENDS
+                    value: "1"
+                  - name: TPU_HMA_MAX_INFLIGHT_PULLS
+                    value: "8"
+                  - name: TPU_MAX_HOST_KV_BUFFER_SIZE
+                    value: "64"
+                  # Exceeds measured claim latency while bounding how long an
+                  # abandoned request can pin the small prefill block pool.
+                  - name: TPU_P2P_WAIT_PULL_TIMEOUT
+                    value: "300"
+                  - name: TPU_KV_SHM_POOL_GB
+                    value: "8"
+                  - name: TPU_KV_TRANSFER_PORT
+                    value: "9100"
+                  - name: TPU_SIDE_CHANNEL_PORT
+                    value: "9600"
+                  # --- KV offloading: V2 store path (see KV_TRANSFER_CONFIG);
+                  # the V1 VLLM_TPU_OFFLOAD_RAIDEN knob does not apply. ---
+                volumeMounts:
+                  - name: hf-token-volume
+                    mountPath: /root/.cache/huggingface/token
+                    subPath: token
+                    readOnly: true
+                  - name: huggingface-storage
+                    mountPath: /root/.cache/huggingface/
+                  - name: dshm
+                    mountPath: /dev/shm
+                  - name: torchtpu-vllm-nfs
+                    mountPath: /root/torchtpu-vllm
+                  - name: vllm-nfs
+                    mountPath: /root/cloud-devkit/vllm
+                  - name: wheels-nfs
+                    mountPath: /root/wheels
+                    readOnly: true
+                securityContext:
+                  privileged: true
+                  capabilities:
+                    add:
+                    - IPC_LOCK
+                resources:
+                  limits:
+                    google.com/tpu: "4"
+                    memory: "850Gi"
+                    cpu: "200"
+                  requests:
+                    google.com/tpu: "4"
+                    memory: "850Gi"
+                    cpu: "200"
+                ports:
+                  - containerPort: 7200
+
+              volumes:
+              - name: dshm
+                emptyDir:
+                  medium: Memory
+              - name: hf-token-volume
+                secret:
+                  secretName: vllm-hf-token
+                  items:
+                  - key: HF_TOKEN
+                    path: token
+              - name: huggingface-storage
+                ephemeral:
+                  volumeClaimTemplate:
+                    spec:
+                      storageClassName: "premium-rwo"
+                      accessModes: [ "ReadWriteOnce" ]
+                      resources:
+                        requests:
+                          storage: 256Gi
+              - name: torchtpu-vllm-nfs
+                nfs:
+                  server: 10.225.237.178
+                  # Branch worktree, not the repo root: pins the job to
+                  # benliangw/raiden_controller, which carries the V2 offload
+                  # stack and the disagg connectors.
+                  path: /workspace/vllm-torchtpu/raiden_controller
+              - name: vllm-nfs
+                nfs:
+                  server: 10.225.237.178
+                  path: /workspace/vllm
+              - name: wheels-nfs
+                nfs:
+                  server: 10.225.237.178
+                  path: /workspace/wheels
+
+    # ---------------------------------------------------------
+    # STACK B: PREFILL (PCP8) + PROXY, then DECODE (DP8)
+    # ---------------------------------------------------------
+    - name: prefill-b
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            spec:
+              dnsPolicy: ClusterFirstWithHostNet
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: 2x2x1
+                cloud.google.com/gke-tpu-accelerator: tpu7x
+              initContainers:
+                - name: tpu-node-setup
+                  image: busybox
+                  securityContext:
+                    privileged: true
+                  command: ["/bin/sh", "-c"]
+                  args:
+                    - |
+                      sysctl -w vm.max_map_count=8388608
+                      if [ -f /sys/module/vfio_iommu_type1/parameters/dma_entry_limit ]; then
+                        echo 2000000 > /sys/module/vfio_iommu_type1/parameters/dma_entry_limit
+                        echo "Successfully increased dma_entry_limit"
+                      fi
+              containers:
+              - name: vllm-tpu-prefill
+                image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:latest
+                imagePullPolicy: Always
+                command: ["/bin/bash", "-c"]
+                args:
+                - |
+                  set -eo pipefail
+                  : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                  export CDK_OUTPUT_DIR
+                  mkdir -p "$CDK_OUTPUT_DIR"
+                  export PYTHONUNBUFFERED=1
+
+                  echo "===== Syncing dependencies to pyproject.toml ====="
+                  # Keep the vllm== pin: this installs the pinned vLLM from
+                  # PyPI, replacing the image's editable install of the NFS
+                  # checkout at /root/cloud-devkit/vllm (which can drift from
+                  # the version the torchtpu-vllm code expects). Only the
+                  # torch-tpu pin is stripped; it is installed from a wheel
+                  # below.
+                  mkdir -p /tmp/depsync
+                  sed -E '/"torch-tpu==/d' /root/torchtpu-vllm/pyproject.toml > /tmp/depsync/pyproject.toml
+                  uv pip install --system -r /tmp/depsync/pyproject.toml --index-url https://pypi.org/simple
+
+
+                  # Pinned tpu-raiden build; serves both raiden control
+                  # planes in this pod.
+                  uv pip install --system --no-deps \
+                    "$RAIDEN_WHEEL"
+                  python3 -c "from tpu_raiden.rpc.raiden_controller import RaidenController, RaidenControllerServer" \
+                    || { echo "RESULT: FAIL (raiden import)"; exit 1; }
+
+                  export PYTHONPATH=/root/torchtpu-vllm/src:/root/torchtpu-vllm:${PYTHONPATH:-}
+
+                  python3 -c 'from tpu_raiden.api.torch import torch_tpu_common_loader as tl; tl.load_torch_tpu_common(); from tpu_raiden.frameworks.torch import _tpu_raiden_torch as trt; S = trt.KVCacheStore; assert hasattr(S, "num_registered_workers"), "raiden wheel too old (missing num_registered_workers)"; import vllm_torchtpu.offload.raiden_connector as rc; assert hasattr(rc, "TPURaidenOffloadingConnector"); print("V2 preflight OK")' \
+                    || { echo "RESULT: FAIL (V2 preflight)"; exit 1; }
+
+                  # Two raiden control planes coexist in this pod (disagg
+                  # controller + offload store controller); without this,
+                  # ControllerServer is a process-wide singleton that
+                  # silently reuses the first bound port.
+                  export RAIDEN_DISABLE_SINGLETON_WORKER=1
+
+                  export VLLM_HOST_IP="${JS_NAME}-prefill-b-0-0.${JS_NAME}"
+                  NS="${JS_NAME//[^a-zA-Z0-9_]/_}"
+                  export TPU_KV_TRANSFER_NAMESPACE="${NS}_prefill_b"
+                  export TPU_RAIDEN_JOB_NAME=prefill_b
+                  export TPU_RAIDEN_ENGINE_ID="${JS_NAME}-prefill-b-engine"
+                  export TPU_RAIDEN_CONTROLLER_ADDRESS="${VLLM_HOST_IP}:${CONTROLLER_PORT}"
+
+                  echo "===== Pre-downloading $MODEL snapshot ====="
+                  DL_OK=""
+                  for i in $(seq 1 30); do
+                    if python3 -c "import os; from huggingface_hub import snapshot_download; snapshot_download(os.environ['MODEL'])"; then
+                      DL_OK=1; break
+                    fi
+                    echo "snapshot_download failed (attempt $i/30); retrying in 60s"
+                    sleep 60
+                  done
+                  [ -n "$DL_OK" ] || { echo "RESULT: FAIL (model snapshot download)"; exit 1; }
+                  export HF_HUB_OFFLINE=1
+
+                  echo "===== Starting Raiden controller on :${CONTROLLER_PORT} ====="
+                  cat > /tmp/raiden_controller.py <<'PYEOF'
+                  import argparse, json, logging, os, signal, threading, time
+                  from pathlib import Path
+                  from tpu_raiden.rpc.raiden_controller import RaidenController, RaidenControllerServer
+
+                  parser = argparse.ArgumentParser()
+                  parser.add_argument("--port", type=int, required=True)
+                  parser.add_argument("--advertise-host", required=True)
+                  parser.add_argument("--request-registry-ttl-s", type=float, default=600.0)
+                  parser.add_argument("--ready-file", type=Path, required=True)
+                  args = parser.parse_args()
+
+                  logging.basicConfig(level=logging.INFO,
+                                      format="%(asctime)s %(levelname)s %(message)s",
+                                      force=True)
+                  stopping = threading.Event()
+                  signal.signal(signal.SIGINT, lambda *_: stopping.set())
+                  signal.signal(signal.SIGTERM, lambda *_: stopping.set())
+
+                  controller = RaidenController(port=args.port,
+                                                request_registry_ttl_s=args.request_registry_ttl_s)
+                  server = RaidenControllerServer(controller)
+                  server.start()
+                  payload = {
+                      "schema_version": 1,
+                      "event": "raiden_controller_ready",
+                      "pid": os.getpid(),
+                      "requested_port": args.port,
+                      "port": server.port,
+                      "advertise_host": args.advertise_host,
+                      "address": f"{args.advertise_host}:{server.port}",
+                      "request_registry_ttl_s": args.request_registry_ttl_s,
+                      "time_unix_s": time.time(),
+                  }
+                  args.ready_file.parent.mkdir(parents=True, exist_ok=True)
+                  tmp = args.ready_file.with_name(f".{args.ready_file.name}.{os.getpid()}.tmp")
+                  tmp.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")
+                  tmp.replace(args.ready_file)
+                  print(json.dumps(payload, sort_keys=True), flush=True)
+                  try:
+                      while not stopping.wait(1.0):
+                          pass
+                  finally:
+                      server.stop()
+                  PYEOF
+                  rm -f /tmp/controller.ready.json
+                  python3 /tmp/raiden_controller.py \
+                    --port "$CONTROLLER_PORT" \
+                    --advertise-host "$VLLM_HOST_IP" \
+                    --request-registry-ttl-s 600 \
+                    --ready-file /tmp/controller.ready.json \
+                    > "$CDK_OUTPUT_DIR/controller.log" 2>&1 &
+                  CONTROLLER_PID=$!
+                  for i in $(seq 1 200); do
+                    [ -s /tmp/controller.ready.json ] && break
+                    kill -0 "$CONTROLLER_PID" 2>/dev/null \
+                      || { echo "RESULT: FAIL (controller exited)"; cat "$CDK_OUTPUT_DIR/controller.log"; exit 1; }
+                    sleep 0.5
+                  done
+                  [ -s /tmp/controller.ready.json ] || { echo "RESULT: FAIL (controller not ready)"; exit 1; }
+                  cat /tmp/controller.ready.json
+
+                  COMPILATION_CONFIG='{"backend":"vllm_torchtpu.compilation.tpu_compiler.TpuCompilerAdaptor","compile_sizes":[4096],"inductor_compile_config":{"enable_auto_functionalized_v2":false,"size_asserts":false,"alignment_asserts":false,"scalar_asserts":false}}'
+
+                  # Raiden must remain first for load arbitration. PCP8 is one
+                  # engine, so its 256 GiB store is sharded across the 8 PCP
+                  # workers (one controller at OFFLOAD_CONTROLLER_PORT; no DP
+                  # offset). LOCAL-ONLY store: deliberately no registry keys —
+                  # this is the island baseline.
+                  KV_TRANSFER_CONFIG='{"kv_connector":"TPUMultiConnector","kv_connector_module_path":"vllm_torchtpu.distributed.kv_transfer.tpu_multi_connector","kv_role":"kv_producer","kv_connector_extra_config":{"connectors":[{"kv_connector":"TPURaidenConnector","kv_connector_module_path":"vllm_torchtpu.distributed.kv_transfer.tpu_connector","kv_role":"kv_producer","kv_port":14579},{"kv_connector":"TPURaidenOffloadingConnector","kv_connector_module_path":"vllm_torchtpu.offload.raiden_connector","kv_role":"kv_both","kv_connector_extra_config":{"cpu_bytes_to_use":274877906944,"raiden_controller_port":'"$OFFLOAD_CONTROLLER_PORT"'}}]}}'
+
+                  echo "===== Starting Qwen3.5 PCP8 prefill node (disagg+offload) ====="
+                  exec vllm serve \
+                    "$MODEL" \
+                    --served-model-name "$SERVED_MODEL" \
+                    --trust-remote-code \
+                    --seed 42 \
+                    --max-model-len 65536 \
+                    --enable-expert-parallel \
+                    --disable-custom-all-reduce \
+                    --gpu-memory-utilization 0.9 \
+                    --kv-cache-dtype fp8 \
+                    --language-model-only \
+                    --max-num-batched-tokens 4096 \
+                    --max-num-seqs 16 \
+                    --no-disable-hybrid-kv-cache-manager \
+                    --attention-backend CUSTOM \
+                    --mamba-cache-mode align \
+                    --enable-prompt-tokens-details \
+                    --no-enable-log-requests \
+                    --compilation-config "$COMPILATION_CONFIG" \
+                    --enable-prefix-caching \
+                    --no-async-scheduling \
+                    --block-size 4096 \
+                    --tensor-parallel-size 1 \
+                    --host 0.0.0.0 \
+                    --port 8000 \
+                    --num-gpu-blocks-override 128 \
+                    --prefill-context-parallel-size 8 \
+                    --cp-kv-cache-interleave-size 256 \
+                    --kv-transfer-config "$KV_TRANSFER_CONFIG" \
+                    2>&1 | tee "$CDK_OUTPUT_DIR/server.log"
+                env:
+                  - name: JS_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                  # No sharing in this baseline; kept identical to the GPC
+                  # recipe so the connector config is the only variable.
+                  - name: PYTHONHASHSEED
+                    value: "0"
+                  - name: MODEL
+                    value: "Qwen/Qwen3.5-35B-A3B-FP8"
+                  - name: SERVED_MODEL
+                    value: "Qwen3.5-35B-A3B-FP8"
+                  - name: CONTROLLER_PORT
+                    value: "27000"
+                  # V2 offload store controller (second raiden control
+                  # plane); distinct from the disagg CONTROLLER_PORT above,
+                  # TPU_KV_TRANSFER_PORT 9100, side channel 9600, and
+                  # kv_port 14579.
+                  - name: OFFLOAD_CONTROLLER_PORT
+                    value: "47800"
+                  - name: VLLM_LOGGING_LEVEL
+                    value: "INFO"
+                  - name: HF_HUB_DISABLE_XET
+                    value: "1"
+                  # --- device / topology (8 devices on one 2x2x1 tpu7x host) ---
+                  - name: JAX_PLATFORMS
+                    value: "tpu,cpu"
+                  - name: PJRT_DEVICE
+                    value: TPU
+                  - name: TPU_BACKEND_TYPE
+                    value: "jax"
+                  - name: VLLM_TARGET_DEVICE
+                    value: "tpu"
+                  - name: TPU_TOPOLOGY
+                    value: "2x2x1"
+                  - name: TPU_CHIPS_PER_HOST_BOUNDS
+                    value: "2,2,1"
+                  - name: TPU_HOST_BOUNDS
+                    value: "1,1,1"
+                  - name: TPU_LIBRARY_PATH
+                    value: ""
+                  - name: MEGASCALE_NUM_SLICES
+                    value: ""
+                  - name: MEGASCALE_SLICE_ID
+                    value: ""
+                  - name: TPU_PROCESS_ADDRESSES
+                    value: ""
+                  - name: TPU_WORKER_HOSTNAMES
+                    value: ""
+                  - name: TPU_PROCESS_PORT
+                    value: ""
+                  - name: MEGASCALE_COORDINATOR_ADDRESS
+                    value: ""
+                  - name: MEGASCALE_PORT
+                    value: ""
+                  # --- model / kernel config ---
+                  - name: MODEL_IMPL_TYPE
+                    value: "vllm"
+                  - name: NEW_MODEL_DESIGN
+                    value: "0"
+                  - name: SKIP_JAX_PRECOMPILE
+                    value: "1"
+                  - name: VLLM_XLA_CHECK_RECOMPILATION
+                    value: "0"
+                  - name: USE_MOE_SPARSE_CORE
+                    value: "0"
+                  - name: TPUMISC_HMA_CHECKSUM_TRACE
+                    value: "0"
+                  - name: TPU_GDN_CONV_STATE_TILE_PAD
+                    value: "1"
+                  - name: XLA_PYTHON_CLIENT_PREALLOCATE
+                    value: "false"
+                  - name: VLLM_ALLOW_LONG_MAX_MODEL_LEN
+                    value: "1"
+                  - name: USE_BATCHED_RPA_KERNEL
+                    value: "1"
+                  - name: RAGGED_GATED_DELTA_RULE_IMPL
+                    value: "chunked_kernel_v3_pd"
+                  - name: ONEHOT_MOE_PERMUTE_THRESHOLD
+                    value: "1024"
+                  - name: TPU_RAGGED_GATHER_REDUCE_IMPL
+                    value: "fallback"
+                  - name: TPU_RAGGED_GATHER_IMPL
+                    value: "fallback"
+                  - name: LIBTPU_INIT_ARGS
+                    value: "--xla_tpu_scoped_vmem_limit_kib=65536 --xla_tpu_enable_latency_hiding_scheduler=false"
+                  # libtpu 0.0.43 can take longer than the 120 s default to
+                  # bootstrap the PCP8 LOCAL_RANK remap probe.
+                  - name: TPU_PCP_REMAP_PROBE_TIMEOUT_S
+                    value: "600"
+                  # Include model load, KV-cache profiling, and warmup.
+                  - name: VLLM_ENGINE_READY_TIMEOUT_S
+                    value: "1800"
+                  - name: TORCH_TPU_INTERNAL_TIER2_COMPILATION_CACHE
+                    value: "disabled"
+                  # --- Raiden KV transfer ---
+                  - name: TPU_VLLM_ENABLE_UNIFIED_BLOCK_POOL
+                    value: "1"
+                  - name: TPU_USE_RAIDEN_KV_CACHE_MANAGER
+                    value: "1"
+                  - name: TPU_RAIDEN_QWEN35_ADMISSION
+                    value: "1"
+                  - name: TPU_KV_RESHARD_TRANSPORT
+                    value: "raiden"
+                  # Producer-side Stage-3 byte-span lowering needs the
+                  # destination page geometry; it cannot read the decoder's
+                  # block_size. Must track decode's --block-size 4096.
+                  - name: TPU_KV_RESHARD_DST_PAGE_TOKENS
+                    value: "4096"
+                  - name: RAIDEN_WHEEL
+                    value: *raiden-wheel
+                  - name: TPU_RAIDEN_TRANSFER_PARALLELISM
+                    value: "8"
+                  - name: TPU_ENABLE_D2H_TRANSFER
+                    value: "1"
+                  - name: TPU_HMA_D2H_COPY_IMPL
+                    value: "device_put"
+                  - name: TPU_HMA_MIN_DONE_RECVING_BATCH
+                    value: "1"
+                  - name: TPU_HMA_MAX_DONE_RECVING_BATCH
+                    value: "1"
+                  - name: TPU_HMA_MAX_INFLIGHT_D2H_SENDS
+                    value: "1"
+                  - name: TPU_HMA_MAX_INFLIGHT_PULLS
+                    value: "8"
+                  - name: TPU_MAX_HOST_KV_BUFFER_SIZE
+                    value: "64"
+                  # Exceeds measured claim latency while bounding how long an
+                  # abandoned request can pin the prefill block pool.
+                  - name: TPU_P2P_WAIT_PULL_TIMEOUT
+                    value: "300"
+                  - name: TPU_KV_SHM_POOL_GB
+                    value: "8"
+                  - name: TPU_KV_TRANSFER_PORT
+                    value: "9100"
+                  - name: TPU_SIDE_CHANNEL_PORT
+                    value: "9600"
+                  # --- KV offloading: V2 store path (see KV_TRANSFER_CONFIG);
+                  # the V1 VLLM_TPU_OFFLOAD_RAIDEN knob does not apply. ---
+                volumeMounts:
+                  - name: hf-token-volume
+                    mountPath: /root/.cache/huggingface/token
+                    subPath: token
+                    readOnly: true
+                  - name: huggingface-storage
+                    mountPath: /root/.cache/huggingface/
+                  - name: dshm
+                    mountPath: /dev/shm
+                  - name: torchtpu-vllm-nfs
+                    mountPath: /root/torchtpu-vllm
+                  - name: vllm-nfs
+                    mountPath: /root/cloud-devkit/vllm
+                  - name: wheels-nfs
+                    mountPath: /root/wheels
+                    readOnly: true
+                securityContext:
+                  privileged: true
+                  capabilities:
+                    add:
+                    - IPC_LOCK
+                resources:
+                  limits:
+                    google.com/tpu: "4"
+                    memory: "850Gi"
+                    cpu: "200"
+                  requests:
+                    google.com/tpu: "4"
+                    memory: "850Gi"
+                    cpu: "200"
+                ports:
+                  - containerPort: 8000
+
+              - name: vllm-tpu-proxy
+                image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:latest
+                imagePullPolicy: Always
+                command: ["/bin/bash", "-c"]
+                args:
+                  - |
+                    PREFILLER_DNS="${JS_NAME}-prefill-b-0-0.${JS_NAME}"
+                    DECODER_DNS="${JS_NAME}-decode-b-0-0.${JS_NAME}"
+
+                    python3 /root/torchtpu-vllm/examples/disagg/toy_proxy_server.py \
+                      --host 0.0.0.0 \
+                      --port 10000 \
+                      --prefiller-host $PREFILLER_DNS \
+                      --prefiller-port 8000 \
+                      --decoder-host $DECODER_DNS \
+                      --decoder-port 7200
+                env:
+                - name: JS_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                volumeMounts:
+                  - name: torchtpu-vllm-nfs
+                    mountPath: /root/torchtpu-vllm
+                    readOnly: true
+                ports:
+                - containerPort: 10000
+                resources:
+                  requests: { cpu: "8", memory: "16Gi" }
+                  limits: { cpu: "16", memory: "32Gi" }
+
+              volumes:
+              - name: dshm
+                emptyDir:
+                  medium: Memory
+              - name: hf-token-volume
+                secret:
+                  secretName: vllm-hf-token
+                  items:
+                  - key: HF_TOKEN
+                    path: token
+              - name: huggingface-storage
+                ephemeral:
+                  volumeClaimTemplate:
+                    spec:
+                      storageClassName: "premium-rwo"
+                      accessModes: [ "ReadWriteOnce" ]
+                      resources:
+                        requests:
+                          storage: 256Gi
+              - name: torchtpu-vllm-nfs
+                nfs:
+                  server: 10.225.237.178
+                  # Branch worktree, not the repo root: pins the job to
+                  # benliangw/raiden_controller, which carries the V2 offload
+                  # stack and the disagg connectors.
+                  path: /workspace/vllm-torchtpu/raiden_controller
+              - name: vllm-nfs
+                nfs:
+                  server: 10.225.237.178
+                  path: /workspace/vllm
+              - name: wheels-nfs
+                nfs:
+                  server: 10.225.237.178
+                  path: /workspace/wheels
+
+    - name: decode-b
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            spec:
+              dnsPolicy: ClusterFirstWithHostNet
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: 2x2x1
+                cloud.google.com/gke-tpu-accelerator: tpu7x
+              initContainers:
+                - name: tpu-node-setup
+                  image: busybox
+                  securityContext:
+                    privileged: true
+                  command: ["/bin/sh", "-c"]
+                  args:
+                    - |
+                      sysctl -w vm.max_map_count=8388608
+                      if [ -f /sys/module/vfio_iommu_type1/parameters/dma_entry_limit ]; then
+                        echo 2000000 > /sys/module/vfio_iommu_type1/parameters/dma_entry_limit
+                        echo "Successfully increased dma_entry_limit"
+                      fi
+              containers:
+              - name: vllm-tpu-decode
+                image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:latest
+                imagePullPolicy: Always
+                command: ["/bin/bash", "-c"]
+                args:
+                - |
+                  set -eo pipefail
+                  : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                  export CDK_OUTPUT_DIR
+                  mkdir -p "$CDK_OUTPUT_DIR"
+                  export PYTHONUNBUFFERED=1
+
+                  echo "===== Syncing dependencies to pyproject.toml ====="
+                  # Keep the vllm== pin: this installs the pinned vLLM from
+                  # PyPI, replacing the image's editable install of the NFS
+                  # checkout at /root/cloud-devkit/vllm (which can drift from
+                  # the version the torchtpu-vllm code expects). Only the
+                  # torch-tpu pin is stripped; it is installed from a wheel
+                  # below.
+                  mkdir -p /tmp/depsync
+                  sed -E '/"torch-tpu==/d' /root/torchtpu-vllm/pyproject.toml > /tmp/depsync/pyproject.toml
+                  uv pip install --system -r /tmp/depsync/pyproject.toml --index-url https://pypi.org/simple
+
+
+                  # Pinned tpu-raiden build; serves both raiden control
+                  # planes in this pod.
+                  uv pip install --system --no-deps \
+                    "$RAIDEN_WHEEL"
+                  python3 -c "from tpu_raiden.rpc.raiden_controller import RaidenController, RaidenControllerServer" \
+                    || { echo "RESULT: FAIL (raiden import)"; exit 1; }
+
+                  export PYTHONPATH=/root/torchtpu-vllm/src:/root/torchtpu-vllm:${PYTHONPATH:-}
+
+                  python3 -c 'from tpu_raiden.api.torch import torch_tpu_common_loader as tl; tl.load_torch_tpu_common(); from tpu_raiden.frameworks.torch import _tpu_raiden_torch as trt; S = trt.KVCacheStore; assert hasattr(S, "num_registered_workers"), "raiden wheel too old (missing num_registered_workers)"; import vllm_torchtpu.offload.raiden_connector as rc; assert hasattr(rc, "TPURaidenOffloadingConnector"); print("V2 preflight OK")' \
+                    || { echo "RESULT: FAIL (V2 preflight)"; exit 1; }
+
+                  # Two raiden control planes coexist in this pod (disagg
+                  # controller + offload store controller); without this,
+                  # ControllerServer is a process-wide singleton that
+                  # silently reuses the first bound port.
+                  export RAIDEN_DISABLE_SINGLETON_WORKER=1
+
+                  export VLLM_HOST_IP="${JS_NAME}-decode-b-0-0.${JS_NAME}"
+                  NS="${JS_NAME//[^a-zA-Z0-9_]/_}"
+                  export TPU_KV_TRANSFER_NAMESPACE="${NS}_decode_b"
+                  export TPU_RAIDEN_JOB_NAME=decode_b
+                  export TPU_RAIDEN_ENGINE_ID="${JS_NAME}-decode-b-engine"
+                  export TPU_RAIDEN_CONTROLLER_ADDRESS="${VLLM_HOST_IP}:${CONTROLLER_PORT}"
+
+                  echo "===== Pre-downloading $MODEL snapshot ====="
+                  DL_OK=""
+                  for i in $(seq 1 30); do
+                    if python3 -c "import os; from huggingface_hub import snapshot_download; snapshot_download(os.environ['MODEL'])"; then
+                      DL_OK=1; break
+                    fi
+                    echo "snapshot_download failed (attempt $i/30); retrying in 60s"
+                    sleep 60
+                  done
+                  [ -n "$DL_OK" ] || { echo "RESULT: FAIL (model snapshot download)"; exit 1; }
+                  export HF_HUB_OFFLINE=1
+
+                  echo "===== Starting Raiden controller on :${CONTROLLER_PORT} ====="
+                  cat > /tmp/raiden_controller.py <<'PYEOF'
+                  import argparse, json, logging, os, signal, threading, time
+                  from pathlib import Path
+                  from tpu_raiden.rpc.raiden_controller import RaidenController, RaidenControllerServer
+
+                  parser = argparse.ArgumentParser()
+                  parser.add_argument("--port", type=int, required=True)
+                  parser.add_argument("--advertise-host", required=True)
+                  parser.add_argument("--request-registry-ttl-s", type=float, default=600.0)
+                  parser.add_argument("--ready-file", type=Path, required=True)
+                  args = parser.parse_args()
+
+                  logging.basicConfig(level=logging.INFO,
+                                      format="%(asctime)s %(levelname)s %(message)s",
+                                      force=True)
+                  stopping = threading.Event()
+                  signal.signal(signal.SIGINT, lambda *_: stopping.set())
+                  signal.signal(signal.SIGTERM, lambda *_: stopping.set())
+
+                  controller = RaidenController(port=args.port,
+                                                request_registry_ttl_s=args.request_registry_ttl_s)
+                  server = RaidenControllerServer(controller)
+                  server.start()
+                  payload = {
+                      "schema_version": 1,
+                      "event": "raiden_controller_ready",
+                      "pid": os.getpid(),
+                      "requested_port": args.port,
+                      "port": server.port,
+                      "advertise_host": args.advertise_host,
+                      "address": f"{args.advertise_host}:{server.port}",
+                      "request_registry_ttl_s": args.request_registry_ttl_s,
+                      "time_unix_s": time.time(),
+                  }
+                  args.ready_file.parent.mkdir(parents=True, exist_ok=True)
+                  tmp = args.ready_file.with_name(f".{args.ready_file.name}.{os.getpid()}.tmp")
+                  tmp.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")
+                  tmp.replace(args.ready_file)
+                  print(json.dumps(payload, sort_keys=True), flush=True)
+                  try:
+                      while not stopping.wait(1.0):
+                          pass
+                  finally:
+                      server.stop()
+                  PYEOF
+                  rm -f /tmp/controller.ready.json
+                  python3 /tmp/raiden_controller.py \
+                    --port "$CONTROLLER_PORT" \
+                    --advertise-host "$VLLM_HOST_IP" \
+                    --request-registry-ttl-s 600 \
+                    --ready-file /tmp/controller.ready.json \
+                    > "$CDK_OUTPUT_DIR/controller.log" 2>&1 &
+                  CONTROLLER_PID=$!
+                  for i in $(seq 1 200); do
+                    [ -s /tmp/controller.ready.json ] && break
+                    kill -0 "$CONTROLLER_PID" 2>/dev/null \
+                      || { echo "RESULT: FAIL (controller exited)"; cat "$CDK_OUTPUT_DIR/controller.log"; exit 1; }
+                    sleep 0.5
+                  done
+                  [ -s /tmp/controller.ready.json ] || { echo "RESULT: FAIL (controller not ready)"; exit 1; }
+                  cat /tmp/controller.ready.json
+
+                  COMPILATION_CONFIG='{"backend":"vllm_torchtpu.compilation.tpu_compiler.TpuCompilerAdaptor","compile_sizes":[4096],"inductor_compile_config":{"enable_auto_functionalized_v2":false,"size_asserts":false,"alignment_asserts":false,"scalar_asserts":false}}'
+
+                  # Raiden must remain first for proxied-load arbitration.
+                  # DP8 allocates one 8 GiB store per engine (64 GiB total);
+                  # each engine binds its own offload controller at
+                  # OFFLOAD_CONTROLLER_PORT + dp_local_rank (47800-47807).
+                  KV_TRANSFER_CONFIG='{"kv_connector":"TPUMultiConnector","kv_connector_module_path":"vllm_torchtpu.distributed.kv_transfer.tpu_multi_connector","kv_role":"kv_consumer","kv_connector_extra_config":{"connectors":[{"kv_connector":"TPURaidenConnector","kv_connector_module_path":"vllm_torchtpu.distributed.kv_transfer.tpu_connector","kv_role":"kv_consumer","kv_port":14579},{"kv_connector":"TPURaidenOffloadingConnector","kv_connector_module_path":"vllm_torchtpu.offload.raiden_connector","kv_role":"kv_both","kv_connector_extra_config":{"cpu_bytes_to_use":8589934592,"raiden_controller_port":'"$OFFLOAD_CONTROLLER_PORT"'}}]}}'
+
+                  # The proxy runs in another pod, so bind 0.0.0.0.
+                  # Align-mode hybrid caching needs 16 request blocks plus
+                  # six grouping/layout blocks at max_model_len=65536.
+                  echo "===== Starting Qwen3.5 DP8 decode node (disagg+offload) ====="
+                  exec vllm serve \
+                    "$MODEL" \
+                    --served-model-name "$SERVED_MODEL" \
+                    --trust-remote-code \
+                    --seed 42 \
+                    --max-model-len 65536 \
+                    --enable-expert-parallel \
+                    --disable-custom-all-reduce \
+                    --gpu-memory-utilization 0.9 \
+                    --kv-cache-dtype fp8 \
+                    --language-model-only \
+                    --max-num-batched-tokens 4096 \
+                    --max-num-seqs 16 \
+                    --no-disable-hybrid-kv-cache-manager \
+                    --attention-backend CUSTOM \
+                    --mamba-cache-mode align \
+                    --enable-prompt-tokens-details \
+                    --no-enable-log-requests \
+                    --compilation-config "$COMPILATION_CONFIG" \
+                    --enable-prefix-caching \
+                    --no-async-scheduling \
+                    --block-size 4096 \
+                    --tensor-parallel-size 1 \
+                    --host 0.0.0.0 \
+                    --port 7200 \
+                    --num-gpu-blocks-override 262 \
+                    --prefill-context-parallel-size 1 \
+                    --data-parallel-size 8 \
+                    --data-parallel-size-local 8 \
+                    --kv-transfer-config "$KV_TRANSFER_CONFIG" \
+                    2>&1 | tee "$CDK_OUTPUT_DIR/server.log"
+                env:
+                  - name: JS_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                  - name: MODEL
+                    value: "Qwen/Qwen3.5-35B-A3B-FP8"
+                  - name: SERVED_MODEL
+                    value: "Qwen3.5-35B-A3B-FP8"
+                  - name: CONTROLLER_PORT
+                    value: "28000"
+                  # V2 offload store controller (second raiden control
+                  # plane); distinct from the disagg CONTROLLER_PORT above,
+                  # TPU_KV_TRANSFER_PORT 9100, side channel 9600, and
+                  # kv_port 14579.
+                  - name: OFFLOAD_CONTROLLER_PORT
+                    value: "47800"
+                  - name: VLLM_LOGGING_LEVEL
+                    value: "INFO"
+                  - name: HF_HUB_DISABLE_XET
+                    value: "1"
+                  # --- device / topology (8 devices on one 2x2x1 tpu7x host) ---
+                  - name: JAX_PLATFORMS
+                    value: "tpu,cpu"
+                  - name: PJRT_DEVICE
+                    value: TPU
+                  - name: TPU_BACKEND_TYPE
+                    value: "jax"
+                  - name: VLLM_TARGET_DEVICE
+                    value: "tpu"
+                  - name: TPU_TOPOLOGY
+                    value: "2x2x1"
+                  - name: TPU_CHIPS_PER_HOST_BOUNDS
+                    value: "2,2,1"
+                  - name: TPU_HOST_BOUNDS
+                    value: "1,1,1"
+                  - name: TPU_LIBRARY_PATH
+                    value: ""
+                  - name: MEGASCALE_NUM_SLICES
+                    value: ""
+                  - name: MEGASCALE_SLICE_ID
+                    value: ""
+                  - name: TPU_PROCESS_ADDRESSES
+                    value: ""
+                  - name: TPU_WORKER_HOSTNAMES
+                    value: ""
+                  - name: TPU_PROCESS_PORT
+                    value: ""
+                  - name: MEGASCALE_COORDINATOR_ADDRESS
+                    value: ""
+                  - name: MEGASCALE_PORT
+                    value: ""
+                  # --- model / kernel config ---
+                  - name: MODEL_IMPL_TYPE
+                    value: "vllm"
+                  - name: NEW_MODEL_DESIGN
+                    value: "0"
+                  - name: SKIP_JAX_PRECOMPILE
+                    value: "1"
+                  - name: VLLM_XLA_CHECK_RECOMPILATION
+                    value: "0"
+                  - name: USE_MOE_SPARSE_CORE
+                    value: "0"
+                  - name: TPUMISC_HMA_CHECKSUM_TRACE
+                    value: "0"
+                  - name: TPU_GDN_CONV_STATE_TILE_PAD
+                    value: "1"
+                  - name: XLA_PYTHON_CLIENT_PREALLOCATE
+                    value: "false"
+                  - name: VLLM_ALLOW_LONG_MAX_MODEL_LEN
+                    value: "1"
+                  - name: USE_BATCHED_RPA_KERNEL
+                    value: "1"
+                  - name: RAGGED_GATED_DELTA_RULE_IMPL
+                    value: "chunked_kernel_v3_pd"
+                  - name: ONEHOT_MOE_PERMUTE_THRESHOLD
+                    value: "1024"
+                  - name: TPU_RAGGED_GATHER_REDUCE_IMPL
+                    value: "fallback"
+                  - name: TPU_RAGGED_GATHER_IMPL
+                    value: "fallback"
+                  - name: LIBTPU_INIT_ARGS
+                    value: "--xla_tpu_scoped_vmem_limit_kib=65536 --xla_tpu_enable_latency_hiding_scheduler=false"
+                  - name: TORCH_TPU_INTERNAL_TIER2_COMPILATION_CACHE
+                    value: "disabled"
+                  # --- Raiden KV transfer ---
+                  - name: TPU_VLLM_ENABLE_UNIFIED_BLOCK_POOL
+                    value: "1"
+                  - name: TPU_USE_RAIDEN_KV_CACHE_MANAGER
+                    value: "1"
+                  - name: TPU_RAIDEN_QWEN35_ADMISSION
+                    value: "1"
+                  - name: TPU_KV_RESHARD_TRANSPORT
+                    value: "raiden"
+                  # Producer-side Stage-3 byte-span lowering needs the
+                  # destination page geometry; it cannot read the decoder's
+                  # block_size. Must track decode's --block-size 4096.
+                  - name: TPU_KV_RESHARD_DST_PAGE_TOKENS
+                    value: "4096"
+                  - name: RAIDEN_WHEEL
+                    value: *raiden-wheel
+                  - name: TPU_RAIDEN_TRANSFER_PARALLELISM
+                    value: "8"
+                  - name: TPU_ENABLE_D2H_TRANSFER
+                    value: "1"
+                  - name: TPU_HMA_D2H_COPY_IMPL
+                    value: "device_put"
+                  - name: TPU_HMA_MIN_DONE_RECVING_BATCH
+                    value: "1"
+                  - name: TPU_HMA_MAX_DONE_RECVING_BATCH
+                    value: "1"
+                  - name: TPU_HMA_MAX_INFLIGHT_D2H_SENDS
+                    value: "1"
+                  - name: TPU_HMA_MAX_INFLIGHT_PULLS
+                    value: "8"
+                  - name: TPU_MAX_HOST_KV_BUFFER_SIZE
+                    value: "64"
+                  # Exceeds measured claim latency while bounding how long an
+                  # abandoned request can pin the small prefill block pool.
+                  - name: TPU_P2P_WAIT_PULL_TIMEOUT
+                    value: "300"
+                  - name: TPU_KV_SHM_POOL_GB
+                    value: "8"
+                  - name: TPU_KV_TRANSFER_PORT
+                    value: "9100"
+                  - name: TPU_SIDE_CHANNEL_PORT
+                    value: "9600"
+                  # --- KV offloading: V2 store path (see KV_TRANSFER_CONFIG);
+                  # the V1 VLLM_TPU_OFFLOAD_RAIDEN knob does not apply. ---
+                volumeMounts:
+                  - name: hf-token-volume
+                    mountPath: /root/.cache/huggingface/token
+                    subPath: token
+                    readOnly: true
+                  - name: huggingface-storage
+                    mountPath: /root/.cache/huggingface/
+                  - name: dshm
+                    mountPath: /dev/shm
+                  - name: torchtpu-vllm-nfs
+                    mountPath: /root/torchtpu-vllm
+                  - name: vllm-nfs
+                    mountPath: /root/cloud-devkit/vllm
+                  - name: wheels-nfs
+                    mountPath: /root/wheels
+                    readOnly: true
+                securityContext:
+                  privileged: true
+                  capabilities:
+                    add:
+                    - IPC_LOCK
+                resources:
+                  limits:
+                    google.com/tpu: "4"
+                    memory: "850Gi"
+                    cpu: "200"
+                  requests:
+                    google.com/tpu: "4"
+                    memory: "850Gi"
+                    cpu: "200"
+                ports:
+                  - containerPort: 7200
+
+              volumes:
+              - name: dshm
+                emptyDir:
+                  medium: Memory
+              - name: hf-token-volume
+                secret:
+                  secretName: vllm-hf-token
+                  items:
+                  - key: HF_TOKEN
+                    path: token
+              - name: huggingface-storage
+                ephemeral:
+                  volumeClaimTemplate:
+                    spec:
+                      storageClassName: "premium-rwo"
+                      accessModes: [ "ReadWriteOnce" ]
+                      resources:
+                        requests:
+                          storage: 256Gi
+              - name: torchtpu-vllm-nfs
+                nfs:
+                  server: 10.225.237.178
+                  # Branch worktree, not the repo root: pins the job to
+                  # benliangw/raiden_controller, which carries the V2 offload
+                  # stack and the disagg connectors.
+                  path: /workspace/vllm-torchtpu/raiden_controller
+              - name: vllm-nfs
+                nfs:
+                  server: 10.225.237.178
+                  path: /workspace/vllm
+              - name: wheels-nfs
+                nfs:
+                  server: 10.225.237.178
+                  path: /workspace/wheels
+
+    # ---------------------------------------------------------
+    # CHECK: the cross-stack evidence gate
+    # ---------------------------------------------------------
+    - name: check
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            spec:
+              restartPolicy: Never
+              containers:
+              - name: gpc-check
+                image: vllm/vllm-tpu:nightly
+                imagePullPolicy: Always
+                env:
+                  - name: JS_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                  - name: MODEL
+                    value: "Qwen3.5-35B-A3B-FP8"
+                  - name: PROXY_PORT
+                    value: "10000"
+                  - name: GPC_DOCS
+                    value: "48"
+                  - name: GPC_PROMPT_TOKENS
+                    value: "32832"
+                  - name: PUBLISH_WAIT_S
+                    value: "15"
+                command: ["/bin/bash", "-c"]
+                args:
+                  - |
+                    set -eo pipefail
+                    : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                    export CDK_OUTPUT_DIR
+                    mkdir -p "$CDK_OUTPUT_DIR"
+                    export PYTHONUNBUFFERED=1
+
+                    PA="${JS_NAME}-prefill-a-0-0.${JS_NAME}"
+                    PB="${JS_NAME}-prefill-b-0-0.${JS_NAME}"
+                    DA="${JS_NAME}-decode-a-0-0.${JS_NAME}"
+                    DB="${JS_NAME}-decode-b-0-0.${JS_NAME}"
+                    PROXY_A="http://${PA}:${PROXY_PORT}"
+                    PROXY_B="http://${PB}:${PROXY_PORT}"
+
+                    wait_for() {
+                      local name="$1" url="$2" timeout="$3" elapsed=0 interval=5
+                      echo "Waiting for $name up ($url, up to ${timeout}s)"
+                      until curl -sf "$url" > /dev/null; do
+                        if [ "$elapsed" -ge "$timeout" ]; then
+                          echo "RESULT: FAIL ($name did not become healthy within ${timeout}s)" >&2
+                          exit 1
+                        fi
+                        sleep "$interval"; elapsed=$((elapsed + interval))
+                      done
+                      echo "$name is up (${elapsed}s)"
+                    }
+
+                    wait_for prefill-a "http://$PA:8000/health" $((90 * 60))
+                    wait_for decode-a  "http://$DA:7200/health" $((90 * 60))
+                    wait_for proxy-a   "$PROXY_A/healthcheck"   $((10 * 60))
+                    wait_for prefill-b "http://$PB:8000/health" $((90 * 60))
+                    wait_for decode-b  "http://$DB:7200/health" $((90 * 60))
+                    wait_for proxy-b   "$PROXY_B/healthcheck"   $((10 * 60))
+
+                    # Engine readiness doubles as the registration-gate
+                    # warm-up on all four stores (the first request through
+                    # each proxy triggers deferred worker registration).
+                    for leg in A B; do
+                      PROXY_VAR="PROXY_$leg"; PROXY="${!PROXY_VAR}"
+                      echo "Waiting for stack-$leg engine readiness (first compile, up to 60 min)..."
+                      # Wall-clock deadline: a hung curl consumes up to
+                      # its --max-time on top of the sleep, so counting
+                      # sleeps alone could stretch far past 60 minutes.
+                      deadline=$((SECONDS + 60 * 60))
+                      until curl -sf --max-time 300 -X POST "$PROXY/v1/completions" \
+                          -H "Content-Type: application/json" \
+                          -d "{\"model\": \"$MODEL\", \"prompt\": \"Hello\", \"max_tokens\": 5}" > /dev/null; do
+                        if [ "$SECONDS" -ge "$deadline" ]; then
+                          echo "RESULT: FAIL (stack-$leg engine not ready within 60 minutes)"; exit 1
+                        fi
+                        echo "stack-$leg compiling, waiting 30s..."; sleep 30
+                      done
+                      echo "stack-$leg engines are ready."
+                    done
+                    sleep 5
+
+                    python3 - "$PROXY_A" "$PROXY_B" "http://$PB:8000" "http://$PA:8000" \
+                        "$MODEL" <<'GPC_EOF'
+                    import json
+                    import os
+                    import re
+                    import sys
+                    import time
+                    import urllib.request
+
+                    proxy_a, proxy_b, prefill_b, prefill_a, model = sys.argv[1:]
+                    DOCS = int(os.environ.get("GPC_DOCS", "48"))
+                    PLEN = int(os.environ.get("GPC_PROMPT_TOKENS", "32832"))
+                    PUBLISH_WAIT_S = float(os.environ.get("PUBLISH_WAIT_S", "15"))
+
+                    KEYS = dict(ttft_s="time_to_first_token_seconds_sum",
+                                ttft_n="time_to_first_token_seconds_count",
+                                pre_s="request_prefill_time_seconds_sum",
+                                pre_n="request_prefill_time_seconds_count",
+                                hit="external_prefix_cache_hits_total",
+                                q="external_prefix_cache_queries_total")
+
+                    def scrape(base):
+                        with urllib.request.urlopen(f"{base}/metrics",
+                                                    timeout=30) as r:
+                            text = r.read().decode()
+                        m = {}
+                        for line in text.splitlines():
+                            if line.startswith("#"):
+                                continue
+                            mo = re.match(
+                                r"vllm:([a-z_0-9]+)\{.*\} ([0-9.e+-]+)$", line)
+                            if mo:
+                                m[mo.group(1)] = (m.get(mo.group(1), 0.0)
+                                                  + float(mo.group(2)))
+                        return m
+
+                    def ask(base, prompt, max_tokens):
+                        payload = {
+                            "model": model, "prompt": prompt,
+                            "max_tokens": max_tokens, "temperature": 0.0,
+                            "seed": 0, "ignore_eos": True,
+                            "add_special_tokens": False,
+                            "return_token_ids": True,
+                        }
+                        req = urllib.request.Request(
+                            base + "/v1/completions",
+                            data=json.dumps(payload).encode(),
+                            headers={"Content-Type": "application/json"})
+                        with urllib.request.urlopen(req, timeout=900) as r:
+                            return json.loads(r.read())["choices"][0].get(
+                                "token_ids")
+
+                    # Serial requests on quiet engines: a per-request metrics
+                    # delta on the measured prefill is exactly that request.
+                    def measured(base_proxy, prompt, prefill_base):
+                        before = scrape(prefill_base)
+                        ask(base_proxy, prompt, 1)
+                        after = scrape(prefill_base)
+                        d = {k: after.get(v, 0) - before.get(v, 0)
+                             for k, v in KEYS.items()}
+                        return {"ttft": d["ttft_s"] / (d["ttft_n"] or 1),
+                                "prefill": d["pre_s"] / (d["pre_n"] or 1),
+                                "hit": d["hit"], "q": d["q"]}
+
+                    def run_pass(tag, base_proxy, base_token, prefill_base):
+                        rows = []
+                        for doc in range(DOCS):
+                            r = measured(base_proxy,
+                                         [base_token + doc] * PLEN,
+                                         prefill_base)
+                            print(f"[{tag}] doc{doc} ttft={r['ttft']:.3f}s "
+                                  f"prefill={r['prefill']:.3f}s "
+                                  f"ext_hit={int(r['hit'])}/{int(r['q'])}",
+                                  flush=True)
+                            rows.append(r)
+                        n = max(len(rows), 1)
+                        med = sorted(x["ttft"] for x in rows)[n // 2]
+                        pre = sum(x["prefill"] for x in rows) / n
+                        hits = sum(x["hit"] for x in rows)
+                        qs = sum(x["q"] for x in rows) or 1
+                        pct = 100 * hits / qs
+                        print(f"[{tag}:summary] reqs={n} ttft_p50={med:.3f}s "
+                              f"prefill_avg={pre:.3f}s ext_hit_pct={pct:.1f}")
+                        return med, pre, pct
+
+                    failures = []
+
+                    # ---- stage 1: cross-stack KA probe ----
+                    # Same probe and waits as the GPC recipe. The stores are
+                    # NOT registry-joined, so stack B must recompute the KA
+                    # with ZERO external hits — B's island never saw it.
+                    # Outputs are compared only at the first tokens — the
+                    # stack is not run-to-run deterministic, so never gate
+                    # on full byte equality.
+                    print("=== stage 1: cross-stack KA (32832 tokens) ===")
+                    ka_a = ask(proxy_a, [89] * 32832, 8)
+                    time.sleep(2 * PUBLISH_WAIT_S)
+                    before = scrape(prefill_b)
+                    ka_b = ask(proxy_b, [89] * 32832, 8)
+                    delta = scrape(prefill_b)
+                    ka_hits = delta.get(KEYS["hit"], 0) - before.get(
+                        KEYS["hit"], 0)
+                    print(f"ka: A={ka_a} B={ka_b} "
+                          f"identical={bool(ka_a) and ka_a == ka_b} "
+                          f"b_prefill_ext_hits={ka_hits}")
+                    if not ka_a or not ka_b or ka_a[:2] != ka_b[:2]:
+                        failures.append(
+                            "cross-stack KA diverged at the first tokens: "
+                            f"A={ka_a} B={ka_b}")
+                    if ka_hits != 0:
+                        failures.append(
+                            f"KA replay hit {ka_hits} external tokens on "
+                            "stack B — the stores are sharing without a "
+                            "registry, this is not the island baseline")
+
+                    # ---- stage 2: the island A/B ----
+                    # Seed docs through stack A, then three passes:
+                    #   a-revisit (control): same docs via stack A — must be
+                    #     served by A's OWN store (>= 90% hits; HBM is only
+                    #     128 blocks, the 48x8-block seed evicted it), which
+                    #     proves offloading itself works in this run — so
+                    #     the B-side misses below mean "island", not
+                    #     "offloading broken".
+                    #   x-revisit: same docs via stack B — every prefix is in
+                    #     A's DRAM but B cannot see it: ~0 hits, full
+                    #     recompute. THIS is the pass the GPC recipe turns
+                    #     into remote hits.
+                    #   cold: fresh docs via stack B (validity).
+                    print(f"=== stage 2: seeding {DOCS} docs via stack A ===")
+                    for doc in range(DOCS):
+                        ask(proxy_a, [500 + doc] * PLEN, 1)
+                    print(f"waiting {PUBLISH_WAIT_S:.0f}s for saves to "
+                          "commit")
+                    time.sleep(PUBLISH_WAIT_S)
+
+                    print(f"=== a-revisit control: same {DOCS} docs via stack A ===")
+                    arev_ttft, arev_pre, arev_hit = run_pass(
+                        "arevisit", proxy_a, 500, prefill_a)
+                    print(f"=== cross-revisit: same {DOCS} docs via stack B ===")
+                    rev_ttft, rev_pre, rev_hit = run_pass(
+                        "xrevisit", proxy_b, 500, prefill_b)
+                    print(f"=== cold baseline: {DOCS} fresh docs via stack B ===")
+                    cold_ttft, cold_pre, cold_hit = run_pass(
+                        "cold", proxy_b, 600, prefill_b)
+
+                    print(f"[island:ab] arevisit_prefill_avg={arev_pre:.3f}s "
+                          f"xrevisit_prefill_avg={rev_pre:.3f}s "
+                          f"cold_prefill_avg={cold_pre:.3f}s")
+
+                    if arev_hit < 90:
+                        failures.append(
+                            f"a-revisit ext_hit_pct={arev_hit:.1f} < 90: "
+                            "stack A did not serve its own docs from its "
+                            "store — offloading is broken in this run, so "
+                            "the island comparison is invalid")
+                    if rev_hit > 5:
+                        failures.append(
+                            f"cross-revisit ext_hit_pct={rev_hit:.1f} > 5: "
+                            "stack B hit stack A's docs without a registry "
+                            "— this is not the island baseline")
+                    if cold_hit > 5:
+                        failures.append(
+                            f"cold pass ext_hit_pct={cold_hit:.1f}: fresh "
+                            "docs are not cold, the A/B is invalid")
+
+                    if failures:
+                        print("RESULT: FAIL (" + "; ".join(failures) + ")")
+                        sys.exit(1)
+                    print(f"RESULT: PASS (island baseline: a-revisit "
+                          f"ext_hit_pct={arev_hit:.1f} at "
+                          f"{arev_pre:.3f}s proves local offloading works; "
+                          f"cross-revisit ext_hit_pct={rev_hit:.1f} at "
+                          f"{rev_pre:.3f}s vs cold {cold_pre:.3f}s — the "
+                          "other stack's DRAM is unreachable)")
+                    GPC_EOF
+                resources:
+                  limits:
+                    memory: "16Gi"
+                    cpu: "4"
+                  requests:
+                    memory: "8Gi"
+                    cpu: "2"
