@@ -1,0 +1,65 @@
+Waiting for prefill-a up (http://j-b4ea320c-062b-4249-aa66-prefill-a-0-0.j-b4ea320c-062b-4249-aa66:8000/health, up to 5400s)
+prefill-a is up (0s)
+Waiting for decode-a up (http://j-b4ea320c-062b-4249-aa66-decode-a-0-0.j-b4ea320c-062b-4249-aa66:7200/health, up to 5400s)
+decode-a is up (0s)
+Waiting for proxy-a up (http://j-b4ea320c-062b-4249-aa66-prefill-a-0-0.j-b4ea320c-062b-4249-aa66:10000/healthcheck, up to 600s)
+proxy-a is up (0s)
+Waiting for prefill-b up (http://j-b4ea320c-062b-4249-aa66-prefill-b-0-0.j-b4ea320c-062b-4249-aa66:8000/health, up to 5400s)
+prefill-b is up (0s)
+Waiting for decode-b up (http://j-b4ea320c-062b-4249-aa66-decode-b-0-0.j-b4ea320c-062b-4249-aa66:7200/health, up to 5400s)
+decode-b is up (0s)
+Waiting for proxy-b up (http://j-b4ea320c-062b-4249-aa66-prefill-b-0-0.j-b4ea320c-062b-4249-aa66:10000/healthcheck, up to 600s)
+proxy-b is up (0s)
+Waiting for stack-A engine readiness (first compile, up to 60 min)...
+stack-A engines are ready.
+Waiting for stack-B engine readiness (first compile, up to 60 min)...
+stack-B engines are ready.
+=== stage 1: cross-stack KA (36928 tokens) ===
+ka: A=[89, 89, 89, 89, 89, 89, 89, 89] B=[89, 89, 89, 89, 89, 89, 89, 89] identical=True b_prefill_ext_hits=0.0
+=== stage 2: seeding 48 docs via stack A ===
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/urllib/request.py", line 1344, in do_open
+    h.request(req.get_method(), req.selector, req.data, headers,
+  File "/usr/local/lib/python3.12/http/client.py", line 1358, in request
+    self._send_request(method, url, body, headers, encode_chunked)
+  File "/usr/local/lib/python3.12/http/client.py", line 1404, in _send_request
+    self.endheaders(body, encode_chunked=encode_chunked)
+  File "/usr/local/lib/python3.12/http/client.py", line 1353, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+  File "/usr/local/lib/python3.12/http/client.py", line 1113, in _send_output
+    self.send(msg)
+  File "/usr/local/lib/python3.12/http/client.py", line 1057, in send
+    self.connect()
+  File "/usr/local/lib/python3.12/http/client.py", line 1023, in connect
+    self.sock = self._create_connection(
+                ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/socket.py", line 865, in create_connection
+    raise exceptions[0]
+  File "/usr/local/lib/python3.12/socket.py", line 850, in create_connection
+    sock.connect(sa)
+ConnectionRefusedError: [Errno 111] Connection refused
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "<stdin>", line 107, in <module>
+  File "<stdin>", line 47, in ask
+  File "/usr/local/lib/python3.12/urllib/request.py", line 215, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/urllib/request.py", line 515, in open
+    response = self._open(req, data)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/urllib/request.py", line 532, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/urllib/request.py", line 492, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/urllib/request.py", line 1373, in http_open
+    return self.do_open(http.client.HTTPConnection, req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/urllib/request.py", line 1347, in do_open
+    raise URLError(err)
+urllib.error.URLError: <urlopen error [Errno 111] Connection refused>
+
