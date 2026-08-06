@@ -1,0 +1,21 @@
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:10000 (Press CTRL+C to quit)
+Initialized 1 prefill clients and 1 decode clients.
+INFO:     10.36.31.81:33866 - "GET /healthcheck HTTP/1.1" 200 OK
+PERF PROXY req_received req_id=4e3299fd-332d-4d23-8b1f-dbd77adbd08a ts=1786036005.856024
+PERF PROXY prefill_send req_id=4e3299fd-332d-4d23-8b1f-dbd77adbd08a ts=1786036005.888644
+PERF PROXY latency summary | prefill: n=1 avg=5145.55ms min=5145.55ms max=5145.55ms
+PERF PROXY prefill_recv req_id=4e3299fd-332d-4d23-8b1f-dbd77adbd08a ts=1786036011.034199 dur_ms=5145.55
+INFO:     10.36.31.81:43694 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=4e3299fd-332d-4d23-8b1f-dbd77adbd08a ts=1786036011.034607
+PERF PROXY first_chunk req_id=4e3299fd-332d-4d23-8b1f-dbd77adbd08a ts=1786036013.193162 dur_from_decode_send_ms=2158.56 ttft_ms=7337.21
+PERF PROXY req_received req_id=79dbe08f-bf8f-46b5-9fd1-f96f59b4759d ts=1786036055.359120
+PERF PROXY prefill_send req_id=79dbe08f-bf8f-46b5-9fd1-f96f59b4759d ts=1786036055.377886
+PERF PROXY latency summary | decode_first: n=1 avg=2158.56ms min=2158.56ms max=2158.56ms | prefill: n=2 avg=2936.25ms min=726.95ms max=5145.55ms | prefill_from_req: n=1 avg=5178.24ms min=5178.24ms max=5178.24ms | ttft: n=1 avg=7337.21ms min=7337.21ms max=7337.21ms
+PERF PROXY prefill_recv req_id=79dbe08f-bf8f-46b5-9fd1-f96f59b4759d ts=1786036056.104840 dur_ms=726.95 kv_uuid=306746086292673
+INFO:     10.36.31.81:36870 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=79dbe08f-bf8f-46b5-9fd1-f96f59b4759d ts=1786036056.107934 kv_uuid=306746086292673
+PERF PROXY first_chunk req_id=79dbe08f-bf8f-46b5-9fd1-f96f59b4759d ts=1786036059.169083 dur_from_decode_send_ms=3061.15 ttft_ms=3812.93 kv_uuid=306746086292673
+

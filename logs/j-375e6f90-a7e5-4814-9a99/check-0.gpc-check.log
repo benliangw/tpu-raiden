@@ -1,0 +1,50 @@
+Waiting for prefill-a up (http://j-375e6f90-a7e5-4814-9a99-prefill-a-0-0.j-375e6f90-a7e5-4814-9a99:8000/health, up to 5400s)
+prefill-a is up (705s)
+Waiting for decode-a up (http://j-375e6f90-a7e5-4814-9a99-decode-a-0-0.j-375e6f90-a7e5-4814-9a99:7200/health, up to 5400s)
+decode-a is up (0s)
+Waiting for proxy-a up (http://j-375e6f90-a7e5-4814-9a99-prefill-a-0-0.j-375e6f90-a7e5-4814-9a99:10000/healthcheck, up to 600s)
+proxy-a is up (0s)
+Waiting for prefill-b up (http://j-375e6f90-a7e5-4814-9a99-prefill-b-0-0.j-375e6f90-a7e5-4814-9a99:8000/health, up to 5400s)
+prefill-b is up (25s)
+Waiting for decode-b up (http://j-375e6f90-a7e5-4814-9a99-decode-b-0-0.j-375e6f90-a7e5-4814-9a99:7200/health, up to 5400s)
+decode-b is up (0s)
+Waiting for proxy-b up (http://j-375e6f90-a7e5-4814-9a99-prefill-b-0-0.j-375e6f90-a7e5-4814-9a99:10000/healthcheck, up to 600s)
+proxy-b is up (0s)
+Waiting for stack-A engine readiness (first compile, up to 60 min)...
+stack-A engines are ready.
+Waiting for stack-B engine readiness (first compile, up to 60 min)...
+stack-B engines are ready.
+=== stage 1: cross-stack KA (36928 tokens) ===
+ka: A=[89, 89, 89, 89, 89, 89, 89, 89] B=[89, 89, 89, 89, 89, 89, 89, 89] identical=True b_prefill_ext_hits=36864.0
+=== stage 2: seeding 48 docs via stack A ===
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/http/client.py", line 584, in _get_chunk_left
+    chunk_left = self._read_next_chunk_size()
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/http/client.py", line 551, in _read_next_chunk_size
+    return int(line, 16)
+           ^^^^^^^^^^^^^
+ValueError: invalid literal for int() with base 16: b''
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/http/client.py", line 602, in _read_chunked
+    while (chunk_left := self._get_chunk_left()) is not None:
+                         ^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/http/client.py", line 586, in _get_chunk_left
+    raise IncompleteRead(b'')
+http.client.IncompleteRead: IncompleteRead(0 bytes read)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<stdin>", line 107, in <module>
+  File "<stdin>", line 48, in ask
+  File "/usr/local/lib/python3.12/http/client.py", line 478, in read
+    return self._read_chunked(amt)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/http/client.py", line 614, in _read_chunked
+    raise IncompleteRead(b''.join(value)) from exc
+http.client.IncompleteRead: IncompleteRead(0 bytes read)
+

@@ -1,0 +1,128 @@
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:10000 (Press CTRL+C to quit)
+Initialized 1 prefill clients and 1 decode clients.
+INFO:     10.36.31.81:35018 - "GET /healthcheck HTTP/1.1" 200 OK
+PERF PROXY req_received req_id=e524e17c-d9fd-4670-b778-0325647a5d3d ts=1786035996.470908
+PERF PROXY prefill_send req_id=e524e17c-d9fd-4670-b778-0325647a5d3d ts=1786035996.505308
+PERF PROXY latency summary | prefill: n=1 avg=7163.42ms min=7163.42ms max=7163.42ms
+PERF PROXY prefill_recv req_id=e524e17c-d9fd-4670-b778-0325647a5d3d ts=1786036003.668728 dur_ms=7163.42
+INFO:     10.36.31.81:48362 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=e524e17c-d9fd-4670-b778-0325647a5d3d ts=1786036003.669162
+PERF PROXY first_chunk req_id=e524e17c-d9fd-4670-b778-0325647a5d3d ts=1786036005.835301 dur_from_decode_send_ms=2166.14 ttft_ms=9364.48
+PERF PROXY req_received req_id=69ddd4e6-12a6-4688-8cc7-5e157bfd0067 ts=1786036018.320547
+PERF PROXY prefill_send req_id=69ddd4e6-12a6-4688-8cc7-5e157bfd0067 ts=1786036018.336112
+PERF PROXY prefill_recv req_id=69ddd4e6-12a6-4688-8cc7-5e157bfd0067 ts=1786036022.201281 dur_ms=3865.17 kv_uuid=501288197017445
+INFO:     10.36.31.81:35994 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=69ddd4e6-12a6-4688-8cc7-5e157bfd0067 ts=1786036022.204239 kv_uuid=501288197017445
+PERF PROXY first_chunk req_id=69ddd4e6-12a6-4688-8cc7-5e157bfd0067 ts=1786036025.300122 dur_from_decode_send_ms=3095.88 ttft_ms=6982.39 kv_uuid=501288197017445
+PERF PROXY req_received req_id=0d498469-d6cf-48af-8691-7c63baad97db ts=1786036059.199575
+PERF PROXY prefill_send req_id=0d498469-d6cf-48af-8691-7c63baad97db ts=1786036059.223413
+PERF PROXY latency summary | decode_first: n=2 avg=2631.01ms min=2166.14ms max=3095.88ms | prefill: n=3 avg=4841.46ms min=3495.78ms max=7163.42ms | prefill_from_req: n=2 avg=5540.72ms min=3883.55ms max=7197.90ms | ttft: n=2 avg=8173.43ms min=6982.39ms max=9364.48ms
+PERF PROXY prefill_recv req_id=0d498469-d6cf-48af-8691-7c63baad97db ts=1786036062.719198 dur_ms=3495.78 kv_uuid=605355226540093
+INFO:     10.36.31.81:40608 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=0d498469-d6cf-48af-8691-7c63baad97db ts=1786036062.722677 kv_uuid=605355226540093
+PERF PROXY first_chunk req_id=0d498469-d6cf-48af-8691-7c63baad97db ts=1786036063.621938 dur_from_decode_send_ms=899.26 ttft_ms=4425.01 kv_uuid=605355226540093
+PERF PROXY req_received req_id=c2edf6b0-3f08-4846-81f5-5cf4546d5dbc ts=1786036063.635613
+PERF PROXY prefill_send req_id=c2edf6b0-3f08-4846-81f5-5cf4546d5dbc ts=1786036063.651361
+PERF PROXY prefill_recv req_id=c2edf6b0-3f08-4846-81f5-5cf4546d5dbc ts=1786036067.161079 dur_ms=3509.72 kv_uuid=410835471035601
+INFO:     10.36.31.81:40612 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=c2edf6b0-3f08-4846-81f5-5cf4546d5dbc ts=1786036067.164046 kv_uuid=410835471035601
+PERF PROXY first_chunk req_id=c2edf6b0-3f08-4846-81f5-5cf4546d5dbc ts=1786036067.635255 dur_from_decode_send_ms=471.21 ttft_ms=4002.88 kv_uuid=410835471035601
+PERF PROXY req_received req_id=665f50ef-495d-41e6-ae06-4b6634958811 ts=1786036067.648773
+PERF PROXY prefill_send req_id=665f50ef-495d-41e6-ae06-4b6634958811 ts=1786036067.663131
+PERF PROXY prefill_recv req_id=665f50ef-495d-41e6-ae06-4b6634958811 ts=1786036071.163206 dur_ms=3500.07 kv_uuid=233887891493433
+INFO:     10.36.31.81:44678 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=665f50ef-495d-41e6-ae06-4b6634958811 ts=1786036071.166122 kv_uuid=233887891493433
+PERF PROXY first_chunk req_id=665f50ef-495d-41e6-ae06-4b6634958811 ts=1786036071.609187 dur_from_decode_send_ms=443.06 ttft_ms=3963.23 kv_uuid=233887891493433
+PERF PROXY req_received req_id=5fa53fbb-abc5-41f1-af4d-87087aae0aa6 ts=1786036071.624195
+PERF PROXY prefill_send req_id=5fa53fbb-abc5-41f1-af4d-87087aae0aa6 ts=1786036071.638666
+PERF PROXY prefill_recv req_id=5fa53fbb-abc5-41f1-af4d-87087aae0aa6 ts=1786036075.158313 dur_ms=3519.65 kv_uuid=794940185391281
+INFO:     10.36.31.81:44686 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=5fa53fbb-abc5-41f1-af4d-87087aae0aa6 ts=1786036075.160929 kv_uuid=794940185391281
+PERF PROXY first_chunk req_id=5fa53fbb-abc5-41f1-af4d-87087aae0aa6 ts=1786036075.608757 dur_from_decode_send_ms=447.83 ttft_ms=3987.10 kv_uuid=794940185391281
+PERF PROXY req_received req_id=15c83088-315e-4836-9b70-e664d0b473bf ts=1786036075.625359
+PERF PROXY prefill_send req_id=15c83088-315e-4836-9b70-e664d0b473bf ts=1786036075.640173
+PERF PROXY prefill_recv req_id=15c83088-315e-4836-9b70-e664d0b473bf ts=1786036079.142763 dur_ms=3502.59 kv_uuid=574970101682669
+INFO:     10.36.31.81:38760 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=15c83088-315e-4836-9b70-e664d0b473bf ts=1786036079.145326 kv_uuid=574970101682669
+PERF PROXY first_chunk req_id=15c83088-315e-4836-9b70-e664d0b473bf ts=1786036079.668125 dur_from_decode_send_ms=522.80 ttft_ms=4045.64 kv_uuid=574970101682669
+PERF PROXY req_received req_id=a9ea0561-86f0-4dbe-8c83-ae68f26c72f4 ts=1786036079.682818
+PERF PROXY prefill_send req_id=a9ea0561-86f0-4dbe-8c83-ae68f26c72f4 ts=1786036079.697473
+PERF PROXY prefill_recv req_id=a9ea0561-86f0-4dbe-8c83-ae68f26c72f4 ts=1786036083.178547 dur_ms=3481.07 kv_uuid=256345284623009
+INFO:     10.36.31.81:38772 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=a9ea0561-86f0-4dbe-8c83-ae68f26c72f4 ts=1786036083.181312 kv_uuid=256345284623009
+PERF PROXY first_chunk req_id=a9ea0561-86f0-4dbe-8c83-ae68f26c72f4 ts=1786036083.618069 dur_from_decode_send_ms=436.76 ttft_ms=3938.10 kv_uuid=256345284623009
+PERF PROXY req_received req_id=5b6ec9e8-3713-43f9-a484-5f8cc860f9e6 ts=1786036083.633228
+PERF PROXY prefill_send req_id=5b6ec9e8-3713-43f9-a484-5f8cc860f9e6 ts=1786036083.647848
+PERF PROXY prefill_recv req_id=5b6ec9e8-3713-43f9-a484-5f8cc860f9e6 ts=1786036087.136487 dur_ms=3488.64 kv_uuid=1006258239952685
+INFO:     10.36.31.81:38780 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=5b6ec9e8-3713-43f9-a484-5f8cc860f9e6 ts=1786036087.139259 kv_uuid=1006258239952685
+PERF PROXY first_chunk req_id=5b6ec9e8-3713-43f9-a484-5f8cc860f9e6 ts=1786036087.588215 dur_from_decode_send_ms=448.96 ttft_ms=3958.42 kv_uuid=1006258239952685
+PERF PROXY req_received req_id=2668f58e-728e-47b3-9459-afccc791ad68 ts=1786036087.602122
+PERF PROXY prefill_send req_id=2668f58e-728e-47b3-9459-afccc791ad68 ts=1786036087.616259
+PERF PROXY prefill_recv req_id=2668f58e-728e-47b3-9459-afccc791ad68 ts=1786036091.110852 dur_ms=3494.59 kv_uuid=282665353552893
+INFO:     10.36.31.81:47072 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=2668f58e-728e-47b3-9459-afccc791ad68 ts=1786036091.114097 kv_uuid=282665353552893
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py", line 422, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 63, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/fastapi/applications.py", line 1159, in __call__
+    await super().__call__(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/applications.py", line 90, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/usr/local/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 680, in app
+    await route.handle(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 134, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 121, in app
+    await response(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/responses.py", line 273, in __call__
+    async with create_collapsing_task_group() as task_group:
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/contextlib.py", line 231, in __aexit__
+    await self.gen.athrow(value)
+  File "/usr/local/lib/python3.12/site-packages/starlette/_utils.py", line 93, in create_collapsing_task_group
+    raise exc from exc.__cause__ or context
+  File "/usr/local/lib/python3.12/site-packages/anyio/_core/_tasks.py", line 278, in _run_coro
+    retval = await self._coro
+             ^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/starlette/responses.py", line 276, in wrap
+    await func()
+  File "/usr/local/lib/python3.12/site-packages/starlette/responses.py", line 250, in stream_response
+    async for chunk in self.body_iterator:
+  File "/root/torchtpu-vllm/examples/disagg/toy_proxy_server.py", line 399, in generate_stream
+    async for chunk in stream_from_decode(decode_client_info,
+  File "/root/torchtpu-vllm/examples/disagg/toy_proxy_server.py", line 326, in stream_from_decode
+    response.raise_for_status()
+  File "/usr/local/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Server error '500 Internal Server Error' for url 'http://j-375e6f90-a7e5-4814-9a99-decode-a-0-0.j-375e6f90-a7e5-4814-9a99:7200/v1/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500
+
