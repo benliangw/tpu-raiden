@@ -501,7 +501,7 @@ NB_MODULE(_tpu_raiden_torch, m) {
 
   nb::class_<tpu_raiden::kv_cache::KVCacheStoreWrapper>(m, "KVCacheStore")
       .def(nb::init<size_t, std::string, tpu_raiden::kv_cache::RaidenId, int,
-                    int64_t, std::string, std::string, int>(),
+                    int64_t, std::string, std::string, int, int>(),
            nb::arg("capacity"), nb::arg("global_registry_address") = "",
            nb::arg("raiden_id") = tpu_raiden::kv_cache::RaidenId(),
            // No defaults: every KVCacheStore has a controller and a
@@ -509,7 +509,18 @@ NB_MODULE(_tpu_raiden_torch, m) {
            // valid values a caller can fall into by omission.
            nb::arg("num_shards"), nb::arg("shard_size_bytes") = 0,
            nb::arg("raiden_orchestrator_address") = "",
-           nb::arg("store_server_ip"), nb::arg("raiden_controller_port") = 0)
+           nb::arg("store_server_ip"), nb::arg("raiden_controller_port") = 0,
+           // expected_worker_count > 0 blocks construction until that many
+           // workers have registered with the controller (raises on timeout,
+           // RAIDEN_EXPECTED_WORKERS_TIMEOUT_S seconds). Leave 0 when workers
+           // register only after the store exists.
+           nb::arg("expected_worker_count") = 0,
+           // The GIL is released for the whole construction: a blocking
+           // expected_worker_count barrier must let same-process Python
+           // threads run (a single-process worker's registration thread
+           // registers while this call waits; holding the GIL would
+           // deadlock it).
+           nb::call_guard<nb::gil_scoped_release>())
       .def_prop_ro(
           "raiden_id",
           [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self) {
@@ -524,14 +535,6 @@ NB_MODULE(_tpu_raiden_torch, m) {
                    [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self) {
                      return self->store_server_address();
                    })
-      .def(
-          "num_registered_workers",
-          [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self) {
-            return self->num_registered_workers();
-          },
-          "Number of workers currently registered with this store's "
-          "controller. Save/Load fan out to exactly these workers; callers "
-          "must gate transfers until every expected worker has registered.")
       .def(
           "lookup",
           [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self,

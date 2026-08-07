@@ -77,6 +77,13 @@ class KVCacheStore {
   // Whether this store is discoverable is decided by the registry, not by this
   // field -- with no `global_registry_address` no server is started at all.
 
+  // `expected_worker_count` > 0 makes construction block until that many
+  // workers have registered with the in-process RaidenController, and fail
+  // (Create() throws, the raw constructors abort the process via the
+  // controller's exception) if they have not all registered within
+  // RAIDEN_EXPECTED_WORKERS_TIMEOUT_S seconds (default 600). Callers whose
+  // workers register only after the store exists must leave it 0.
+
   // Safe factory method to create KVCacheStore from a single BackendConfig.
   static absl::StatusOr<std::unique_ptr<KVCacheStore>> Create(
       const BackendConfig& config, size_t capacity = 0,
@@ -84,7 +91,8 @@ class KVCacheStore {
       int num_shards = 0, int64_t shard_size_bytes = 0,
       absl::string_view raiden_orchestrator_address = "",
       absl::string_view store_server_ip = "", int raiden_controller_port = 0,
-      std::optional<KVCacheMetadata> metadata = std::nullopt);
+      std::optional<KVCacheMetadata> metadata = std::nullopt,
+      int expected_worker_count = 0);
 
   // Safe factory method to create KVCacheStore from a list of BackendConfigs.
   static absl::StatusOr<std::unique_ptr<KVCacheStore>> Create(
@@ -93,7 +101,8 @@ class KVCacheStore {
       int num_shards = 0, int64_t shard_size_bytes = 0,
       absl::string_view raiden_orchestrator_address = "",
       absl::string_view store_server_ip = "", int raiden_controller_port = 0,
-      std::optional<KVCacheMetadata> metadata = std::nullopt);
+      std::optional<KVCacheMetadata> metadata = std::nullopt,
+      int expected_worker_count = 0);
 
   // Flexible constructor accepting a custom root backend
   explicit KVCacheStore(std::shared_ptr<KVCacheStoreBackend> backend,
@@ -102,7 +111,8 @@ class KVCacheStore {
                         absl::string_view raiden_orchestrator_address = "",
                         absl::string_view store_server_ip = "",
                         int raiden_controller_port = 0,
-                        absl::string_view global_registry_address = "");
+                        absl::string_view global_registry_address = "",
+                        int expected_worker_count = 0);
 
   // Constructor accepting an ordered list of backends.
   // `global_registry_address` is what this store publishes itself to. The
@@ -113,7 +123,8 @@ class KVCacheStore {
       RaidenId raiden_id = {}, int num_shards = 0, int64_t shard_size_bytes = 0,
       absl::string_view raiden_orchestrator_address = "",
       absl::string_view store_server_ip = "", int raiden_controller_port = 0,
-      absl::string_view global_registry_address = "");
+      absl::string_view global_registry_address = "",
+      int expected_worker_count = 0);
 
   // Links RaidenController to all backends in backends_. Returns an error iff
   // this store owns a store_server_ip and starting/publishing its server
@@ -132,7 +143,8 @@ class KVCacheStore {
                         absl::string_view raiden_orchestrator_address = "",
                         absl::string_view store_server_ip = "",
                         int raiden_controller_port = 0,
-                        std::optional<KVCacheMetadata> metadata = std::nullopt);
+                        std::optional<KVCacheMetadata> metadata = std::nullopt,
+                        int expected_worker_count = 0);
 
   // Test-only constructor for injecting mock controller
   explicit KVCacheStore(
@@ -255,13 +267,6 @@ class KVCacheStore {
 
   size_t capacity() const;
   std::string raiden_controller_address() const;
-
-  // Number of workers currently registered with this store's in-process
-  // raiden controller (0 when the store has no controller). Save/Load fan out
-  // to exactly these workers, and a partial worker set still reports success
-  // -- callers gating on full registration (e.g. one worker per TP rank) must
-  // poll this before enabling transfers.
-  size_t num_registered_workers() const;
 
   // "host:port" of this store's KVCacheStoreService, as published to the
   // global registry. Empty when this store has no registry configured, since
@@ -415,7 +420,8 @@ class KVCacheStore {
               RaidenId raiden_id, int num_shards, int64_t shard_size_bytes,
               absl::string_view raiden_orchestrator_address,
               absl::string_view store_server_ip, int raiden_controller_port,
-              absl::string_view global_registry_address, CreateTag);
+              absl::string_view global_registry_address,
+              int expected_worker_count, CreateTag);
 
   // Registers ValidateAndPinHostBlocks/UnpinHostBlocks as ReadRemote step-6a
   // hooks on raiden_controller_ (no-op if there is no controller).

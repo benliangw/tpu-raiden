@@ -1331,7 +1331,8 @@ TEST_F(KVCacheStoreEmbeddedControllerTest,
   KVCacheStore store(1, std::move(controller), "", rid);
   auto* raiden_controller = KVCacheStoreTest::GetController(store);
   ASSERT_NE(raiden_controller, nullptr);
-  EXPECT_EQ(store.num_registered_workers(), 1);
+  ASSERT_EQ(
+      raiden_controller->worker_registry()->GetRegisteredWorkers().size(), 1);
   // DeallocateBlockIds unlocks blocks (making them evictable) but never
   // clears is_allocated, so reclamation is visible in the locked count, not
   // num_free_blocks().
