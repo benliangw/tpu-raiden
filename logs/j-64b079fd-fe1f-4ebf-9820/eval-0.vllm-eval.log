@@ -1,0 +1,120 @@
+ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
+gcsfs 2026.1.0 requires fsspec==2026.1.0, but you have fsspec 2025.3.0 which is incompatible.
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+Waiting for prefill up (http://j-64b079fd-fe1f-4ebf-9820-prefill-0-0.j-64b079fd-fe1f-4ebf-9820:8000/health, up to 5400s)
+prefill is up (1035s)
+Waiting for decode up (http://j-64b079fd-fe1f-4ebf-9820-decode-0-0.j-64b079fd-fe1f-4ebf-9820:7200/health, up to 5400s)
+decode is up (0s)
+Waiting for proxy up (http://j-64b079fd-fe1f-4ebf-9820-prefill-0-0.j-64b079fd-fe1f-4ebf-9820:10000/healthcheck, up to 600s)
+proxy is up (0s)
+Waiting for correctness to finish (beacon to stop answering, up to 2h)...
+correctness finished; starting eval
+Waiting for engine readiness (up to 60 min)...
+Engines are ready.
+===== Peak prefill throughput (write-through active) =====
+[peak-prefill:summary] docs=36 conc=12 prompt_tokens=32832 wall=344.5s prompt_tok_per_s=3431 server_ttft_avg=108.08s prefill_avg=9.568s ext_hit_pct=0.0
+PEAK-PREFILL COMPLETE (errors=0)
+===== DRAM->HBM restore latency (alternating long queries) =====
+[restore:cold] doc0 ttft=3.649s prefill=3.644s ext_hit=0/32831
+[restore:cold] doc1 ttft=3.651s prefill=3.645s ext_hit=0/32831
+[restore:cold] doc2 ttft=3.646s prefill=3.641s ext_hit=0/32831
+[restore:cold] doc3 ttft=3.646s prefill=3.640s ext_hit=0/32831
+[restore:cold] doc4 ttft=3.645s prefill=3.639s ext_hit=0/32831
+[restore:cold] doc5 ttft=3.644s prefill=3.639s ext_hit=0/32831
+[restore:cold] doc6 ttft=3.641s prefill=3.636s ext_hit=0/32831
+[restore:cold] doc7 ttft=3.646s prefill=3.641s ext_hit=0/32831
+[restore:cold] doc8 ttft=3.651s prefill=3.645s ext_hit=0/32831
+[restore:cold] doc9 ttft=3.648s prefill=3.642s ext_hit=0/32831
+[restore:cold] doc10 ttft=3.649s prefill=3.643s ext_hit=0/32831
+[restore:cold] doc11 ttft=181.128s prefill=181.123s ext_hit=0/32831
+[restore:cold] doc12 ttft=38.055s prefill=38.050s ext_hit=0/32831
+[restore:cold] doc13 ttft=3.660s prefill=3.654s ext_hit=0/32831
+[restore:cold] doc14 ttft=3.656s prefill=3.651s ext_hit=0/32831
+[restore:cold] doc15 ttft=3.655s prefill=3.649s ext_hit=0/32831
+[restore:cold] doc16 ttft=3.658s prefill=3.652s ext_hit=0/32831
+[restore:cold] doc17 ttft=3.658s prefill=3.651s ext_hit=0/32831
+[restore:cold] doc18 ttft=3.656s prefill=3.650s ext_hit=0/32831
+[restore:cold] doc19 ttft=3.654s prefill=3.648s ext_hit=0/32831
+[restore:cold] doc20 ttft=3.656s prefill=3.650s ext_hit=0/32831
+[restore:cold] doc21 ttft=3.657s prefill=3.651s ext_hit=0/32831
+[restore:cold] doc22 ttft=3.646s prefill=3.640s ext_hit=0/32831
+[restore:cold] doc23 ttft=3.646s prefill=3.640s ext_hit=0/32831
+[restore:cold] doc24 ttft=3.661s prefill=3.655s ext_hit=0/32831
+[restore:cold] doc25 ttft=3.662s prefill=3.656s ext_hit=0/32831
+[restore:cold] doc26 ttft=3.661s prefill=3.655s ext_hit=0/32831
+[restore:cold] doc27 ttft=3.670s prefill=3.664s ext_hit=0/32831
+[restore:cold] doc28 ttft=3.661s prefill=3.655s ext_hit=0/32831
+[restore:cold] doc29 ttft=3.660s prefill=3.655s ext_hit=0/32831
+[restore:cold] doc30 ttft=3.658s prefill=3.652s ext_hit=0/32831
+[restore:cold] doc31 ttft=3.658s prefill=3.652s ext_hit=0/32831
+[restore:cold] doc32 ttft=3.657s prefill=3.651s ext_hit=0/32831
+[restore:cold] doc33 ttft=3.667s prefill=3.661s ext_hit=0/32831
+[restore:cold] doc34 ttft=3.660s prefill=3.654s ext_hit=0/32831
+[restore:cold] doc35 ttft=180.791s prefill=180.785s ext_hit=0/32831
+[restore:cold] doc36 ttft=38.060s prefill=38.053s ext_hit=0/32831
+[restore:cold] doc37 ttft=3.657s prefill=3.651s ext_hit=0/32831
+[restore:cold] doc38 ttft=3.656s prefill=3.650s ext_hit=0/32831
+[restore:cold] doc39 ttft=3.657s prefill=3.652s ext_hit=0/32831
+[restore:cold] doc40 ttft=3.657s prefill=3.652s ext_hit=0/32831
+[restore:cold] doc41 ttft=3.661s prefill=3.656s ext_hit=0/32831
+[restore:cold] doc42 ttft=3.659s prefill=3.654s ext_hit=0/32831
+[restore:cold] doc43 ttft=3.655s prefill=3.650s ext_hit=0/32831
+[restore:cold] doc44 ttft=3.655s prefill=3.650s ext_hit=0/32831
+[restore:cold] doc45 ttft=3.654s prefill=3.649s ext_hit=0/32831
+[restore:cold] doc46 ttft=3.655s prefill=3.650s ext_hit=0/32831
+[restore:cold] doc47 ttft=3.658s prefill=3.652s ext_hit=0/32831
+[restore:revisit] doc0 ttft=3.641s prefill=0.412s ext_hit=32768/32831
+[restore:revisit] doc1 ttft=3.661s prefill=0.413s ext_hit=32768/32831
+[restore:revisit] doc2 ttft=3.663s prefill=0.412s ext_hit=32768/32831
+[restore:revisit] doc3 ttft=3.672s prefill=0.415s ext_hit=32768/32831
+[restore:revisit] doc4 ttft=3.658s prefill=0.411s ext_hit=32768/32831
+[restore:revisit] doc5 ttft=3.664s prefill=0.412s ext_hit=32768/32831
+[restore:revisit] doc6 ttft=3.656s prefill=0.411s ext_hit=32768/32831
+[restore:revisit] doc7 ttft=3.654s prefill=0.412s ext_hit=32768/32831
+[restore:revisit] doc8 ttft=3.658s prefill=0.412s ext_hit=32768/32831
+[restore:revisit] doc9 ttft=3.668s prefill=0.414s ext_hit=32768/32831
+[restore:revisit] doc10 ttft=3.659s prefill=0.412s ext_hit=32768/32831
+[restore:revisit] doc11 ttft=180.798s prefill=0.413s ext_hit=32768/32831
+[restore:revisit] doc12 ttft=38.061s prefill=0.413s ext_hit=32768/32831
+[restore:revisit] doc13 ttft=3.647s prefill=0.411s ext_hit=32768/32831
+[restore:revisit] doc14 ttft=3.656s prefill=0.411s ext_hit=32768/32831
+[restore:revisit] doc15 ttft=3.647s prefill=0.413s ext_hit=32768/32831
+[restore:revisit] doc16 ttft=3.656s prefill=0.412s ext_hit=32768/32831
+[restore:revisit] doc17 ttft=3.659s prefill=0.412s ext_hit=32768/32831
+[restore:revisit] doc18 ttft=3.660s prefill=0.412s ext_hit=32768/32831
+[restore:revisit] doc19 ttft=3.643s prefill=0.411s ext_hit=32768/32831
+[restore:revisit] doc20 ttft=3.646s prefill=0.411s ext_hit=32768/32831
+[restore:revisit] doc21 ttft=3.658s prefill=0.413s ext_hit=32768/32831
+[restore:revisit] doc22 ttft=3.649s prefill=0.412s ext_hit=32768/32831
+[restore:revisit] doc23 ttft=3.651s prefill=0.413s ext_hit=32768/32831
+[restore:revisit] doc24 ttft=3.632s prefill=0.412s ext_hit=32768/32831
+[restore:revisit] doc25 ttft=3.653s prefill=0.412s ext_hit=32768/32831
+[restore:revisit] doc26 ttft=3.648s prefill=0.412s ext_hit=32768/32831
+[restore:revisit] doc27 ttft=3.665s prefill=0.412s ext_hit=32768/32831
+[restore:revisit] doc28 ttft=3.655s prefill=0.411s ext_hit=32768/32831
+[restore:revisit] doc29 ttft=3.666s prefill=0.412s ext_hit=32768/32831
+[restore:revisit] doc30 ttft=3.652s prefill=0.412s ext_hit=32768/32831
+[restore:revisit] doc31 ttft=3.657s prefill=0.413s ext_hit=32768/32831
+[restore:revisit] doc32 ttft=3.656s prefill=0.412s ext_hit=32768/32831
+[restore:revisit] doc33 ttft=3.664s prefill=0.414s ext_hit=32768/32831
+[restore:revisit] doc34 ttft=3.644s prefill=0.413s ext_hit=32768/32831
+[restore:revisit] doc35 ttft=180.791s prefill=0.413s ext_hit=32768/32831
+[restore:revisit] doc36 ERROR: Remote end closed connection without response
+[restore:revisit] doc37 ERROR: <urlopen error [Errno 111] Connection refused>
+[restore:revisit] doc38 ERROR: <urlopen error [Errno 111] Connection refused>
+[restore:revisit] doc39 ERROR: <urlopen error [Errno 111] Connection refused>
+[restore:revisit] doc40 ERROR: <urlopen error [Errno 111] Connection refused>
+[restore:revisit] doc41 ERROR: <urlopen error [Errno 111] Connection refused>
+[restore:revisit] doc42 ERROR: <urlopen error [Errno 111] Connection refused>
+[restore:revisit] doc43 ERROR: <urlopen error [Errno 111] Connection refused>
+[restore:revisit] doc44 ERROR: <urlopen error [Errno 111] Connection refused>
+[restore:revisit] doc45 ERROR: <urlopen error [Errno 111] Connection refused>
+[restore:revisit] doc46 ERROR: <urlopen error [Errno 111] Connection refused>
+[restore:revisit] doc47 ERROR: <urlopen error [Errno 111] Connection refused>
+[restore:cold:summary] reqs=48 ttft_avg=12.476s ttft_p50=3.657s prefill_avg=12.470s ext_hit_pct=0.0
+[restore:revisit:summary] reqs=36 ttft_avg=14.452s ttft_p50=3.657s prefill_avg=0.412s ext_hit_pct=99.8
+[restore:ab] ttft_p50_ratio=1.00 restore_tok_per_s=8961
+RESTORE-LATENCY: FAIL
+  - 12 request errors
+===== Long-context (many-shot) GSM8K offload eval =====
+
