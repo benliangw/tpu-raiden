@@ -14,6 +14,7 @@
 
 #include "tpu_raiden/core/controller/worker_registry.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -25,6 +26,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
+#include "absl/time/time.h"
 #include "grpcpp/create_channel.h"
 #include "grpcpp/security/credentials.h"
 #include "tpu_raiden/core/controller/worker_service_client.h"
@@ -100,6 +102,15 @@ std::vector<WorkerRegistration> WorkerRegistry::GetRegisteredWorkers() const {
     result.push_back(reg);
   }
   return result;
+}
+
+bool WorkerRegistry::AwaitWorkerCount(size_t count,
+                                      absl::Duration timeout) const {
+  auto reached = [this, count]() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+    return workers_.size() >= count;
+  };
+  absl::MutexLock lock(mutex_);
+  return mutex_.AwaitWithTimeout(absl::Condition(&reached), timeout);
 }
 
 absl::StatusOr<WorkerRegistration> WorkerRegistry::GetWorker(

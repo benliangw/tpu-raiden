@@ -135,6 +135,23 @@ absl::Duration RemoteReadDeadline() {
   return kDeadline;
 }
 
+// How long a construction-time worker barrier (expected_worker_count > 0)
+// waits for registrations before failing. RAIDEN_EXPECTED_WORKERS_TIMEOUT_S;
+// defaults to 10 minutes. Read per call, not cached, so tests can vary it.
+absl::Duration ExpectedWorkersTimeout() {
+  constexpr absl::Duration kDefault = absl::Minutes(10);
+  const char* raw = std::getenv("RAIDEN_EXPECTED_WORKERS_TIMEOUT_S");
+  if (raw == nullptr) return kDefault;
+  int64_t seconds = 0;
+  if (!absl::SimpleAtoi(raw, &seconds) || seconds <= 0) {
+    LOG(ERROR) << "RAIDEN_EXPECTED_WORKERS_TIMEOUT_S=\"" << raw
+               << "\" is not a positive integer number of seconds; using "
+               << kDefault;
+    return kDefault;
+  }
+  return absl::Seconds(seconds);
+}
+
 // Per-phase tracing for a remote read. Off unless RAIDEN_LEASE_TRACE is set:
 // a stalled read is otherwise invisible (the phases are all async callbacks,
 // and a hang looks identical to a slow peer), and this is the first thing
@@ -181,7 +198,8 @@ void CheckTimingTripleOnce() {
 
 void RaidenController::Init(absl::Span<const std::string> worker_addresses,
                             absl::string_view raiden_orchestrator_address,
-                            absl::string_view raiden_controller_address) {
+                            absl::string_view raiden_controller_address,
+                            int expected_worker_count) {
   // Publish ourselves to in-flight reads (cleared in the destructor).
   {
     absl::MutexLock lock(&lifetime_->mu);
@@ -264,13 +282,32 @@ void RaidenController::Init(absl::Span<const std::string> worker_addresses,
           "Failed to register with orchestrator: ", status.message()));
     }
   }
+
+  // 5. Block until the expected workers have registered. The ControllerServer
+  // is already up (step 2), so dynamic registrations can arrive while we wait.
+  if (expected_worker_count > 0) {
+    const absl::Duration timeout = ExpectedWorkersTimeout();
+    LOG(INFO) << "RaidenController: waiting up to " << timeout << " for "
+              << expected_worker_count << " worker(s) to register at "
+              << raiden_controller_address_;
+    if (!worker_registry_->AwaitWorkerCount(
+            static_cast<size_t>(expected_worker_count), timeout)) {
+      throw std::runtime_error(absl::StrCat(
+          "RaidenController: expected ", expected_worker_count,
+          " worker(s) to register within ", absl::FormatDuration(timeout),
+          ", got ", worker_registry_->GetRegisteredWorkers().size(),
+          " (set RAIDEN_EXPECTED_WORKERS_TIMEOUT_S to adjust the timeout)"));
+    }
+    LOG(INFO) << "RaidenController: all " << expected_worker_count
+              << " expected worker(s) registered";
+  }
 }
 
 RaidenController::RaidenController(
     const rpc::RaidenIdProto& unit, int num_blocks, int num_shards,
     int64_t shard_size_bytes, absl::string_view raiden_orchestrator_address,
     absl::string_view raiden_controller_address,
-    bool preprovision_worker_buffers)
+    bool preprovision_worker_buffers, int expected_worker_count)
     : unit_(unit),
       num_shards_(num_shards),
       shard_size_bytes_(shard_size_bytes),
@@ -280,7 +317,7 @@ RaidenController::RaidenController(
       block_manager_(
           std::make_unique<kv_cache::LogicalBlockManager>(num_blocks)) {
   Init(/*worker_addresses=*/{}, raiden_orchestrator_address,
-       raiden_controller_address);
+       raiden_controller_address, expected_worker_count);
 }
 
 RaidenController::RaidenController(
@@ -289,7 +326,7 @@ RaidenController::RaidenController(
     int num_shards, int64_t shard_size_bytes,
     absl::string_view raiden_orchestrator_address,
     absl::string_view raiden_controller_address,
-    bool preprovision_worker_buffers)
+    bool preprovision_worker_buffers, int expected_worker_count)
     : unit_(unit),
       num_shards_(num_shards),
       shard_size_bytes_(shard_size_bytes),
@@ -299,7 +336,7 @@ RaidenController::RaidenController(
       block_manager_(
           std::make_unique<kv_cache::LogicalBlockManager>(num_blocks)) {
   Init(worker_addresses, raiden_orchestrator_address,
-       raiden_controller_address);
+       raiden_controller_address, expected_worker_count);
 }
 
 RaidenController::~RaidenController() {

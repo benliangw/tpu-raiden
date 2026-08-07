@@ -15,6 +15,7 @@
 #include "tpu_raiden/core/controller/raiden_controller.h"
 
 #include <cstdint>
+#include <cstdlib>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -260,6 +261,34 @@ TEST_F(RaidenControllerTest, ConstructorThrowsOnBufferCreationFailure) {
             "");
       },
       std::runtime_error);
+}
+
+TEST_F(RaidenControllerTest, ExpectedWorkerCountSatisfiedByStaticWorkers) {
+  // Statically supplied workers register during Init, so the barrier is
+  // already met when the wait runs and construction returns promptly.
+  RaidenController controller(
+      unit_, std::vector<std::string>{test_server_->server_address},
+      /*num_blocks=*/5, /*num_shards=*/2,
+      /*shard_size_bytes=*/512, orchestrator_address_, "",
+      /*preprovision_worker_buffers=*/true, /*expected_worker_count=*/1);
+  EXPECT_EQ(controller.worker_registry()->GetRegisteredWorkers().size(), 1);
+}
+
+TEST_F(RaidenControllerTest, ExpectedWorkerCountTimesOut) {
+  setenv("RAIDEN_EXPECTED_WORKERS_TIMEOUT_S", "1", /*overwrite=*/1);
+  try {
+    RaidenController controller(
+        unit_, std::vector<std::string>{test_server_->server_address},
+        /*num_blocks=*/5, /*num_shards=*/2,
+        /*shard_size_bytes=*/512, orchestrator_address_, "",
+        /*preprovision_worker_buffers=*/true, /*expected_worker_count=*/2);
+    unsetenv("RAIDEN_EXPECTED_WORKERS_TIMEOUT_S");
+    FAIL() << "construction should have thrown on the worker barrier";
+  } catch (const std::runtime_error& e) {
+    unsetenv("RAIDEN_EXPECTED_WORKERS_TIMEOUT_S");
+    EXPECT_THAT(e.what(), HasSubstr("expected 2 worker(s)"));
+    EXPECT_THAT(e.what(), HasSubstr("got 1"));
+  }
 }
 
 TEST_F(RaidenControllerTest, RegisterWorkerFailsOnBufferCreationFailure) {
