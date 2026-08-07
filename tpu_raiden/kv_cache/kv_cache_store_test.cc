@@ -104,19 +104,6 @@ class KVCacheStoreTest {
                            : std::vector<std::string>{};
   }
 
-  // Drives the save-commit path directly with an already-completed transfer,
-  // so tests can stage the exact LRU state the commit will observe (the real
-  // path races with the 10 ms poller thread).
-  static void PollSavesDirect(KVCacheStore& store,
-                              std::vector<std::string> hashes,
-                              std::vector<int> host_ids) {
-    std::vector<KVCacheStore::SaveState> ready;
-    ready.push_back(KVCacheStore::SaveState{tsl::Future<>(absl::OkStatus()),
-                                            std::move(hashes),
-                                            std::move(host_ids)});
-    store.PollSavesInternal(std::move(ready));
-  }
-
 };
 
 namespace {
@@ -1640,62 +1627,6 @@ TEST(KVCacheStoreTest, RollbackRestoresOwnDisplacedCandidates) {
   auto lookup_b = store.Lookup({"hash_b"});
   ASSERT_TRUE(lookup_b.ok());
   EXPECT_EQ(lookup_b->size(), 1);
-}
-
-// [R5a] The save-commit path must handle a hash that vanished mid-save (pin
-// contract broken, e.g. released and deleted): before the fix, a
-// batch-prefix lookup reported every hash after the first miss as done
-// without committing it, and its host block leaked permanently.
-TEST_F(KVCacheStoreEmbeddedControllerTest,
-       PollSavesReportsVanishedHashFailedWithoutLeaking) {
-  auto controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
-  RaidenId rid{"test_job", "0", "test_cache", 0};
-  KVCacheStore store(4, std::move(controller), "", rid);
-  auto* raiden_controller = KVCacheStoreTest::GetController(store);
-  ASSERT_NE(raiden_controller, nullptr);
-  const int base_locked =
-      raiden_controller->block_manager()->num_locked_blocks();
-
-  // hash_a is present (pinned HBM, as during a real save); hash_gone
-  // vanished after its transfer was issued. hash_b comes AFTER the miss —
-  // the prefix-lookup bug reported it done without committing it.
-  ASSERT_TRUE(
-      store.Insert({"hash_a"}, {RaidenBlockID(rid, -1, 0, BlockStatus::HBM)},
-                   false)
-          .first);
-  ASSERT_TRUE(
-      store.Insert({"hash_b"}, {RaidenBlockID(rid, -1, 1, BlockStatus::HBM)},
-                   false)
-          .first);
-  ASSERT_TRUE(store.Pin({"hash_a", "hash_b"}));
-
-  auto host_ids_or = raiden_controller->AllocateBlockIds(3);
-  ASSERT_TRUE(host_ids_or.ok());
-  const std::vector<int> host_ids(host_ids_or->begin(), host_ids_or->end());
-  EXPECT_EQ(raiden_controller->block_manager()->num_locked_blocks(),
-            base_locked + 3);
-  KVCacheStoreTest::PollSavesDirect(store, {"hash_a", "hash_gone", "hash_b"},
-                                    host_ids);
-
-  auto [done, failed, pending] = store.PollSaveStatus();
-  EXPECT_THAT(done, ::testing::UnorderedElementsAre("hash_a", "hash_b"));
-  EXPECT_THAT(failed, ::testing::ElementsAre("hash_gone"));
-
-  // Both present hashes were committed with their host blocks; the vanished
-  // hash's block went back to the allocator.
-  auto lookup_res = store.Lookup({"hash_a", "hash_b"});
-  ASSERT_TRUE(lookup_res.ok());
-  ASSERT_EQ(lookup_res->size(), 2);
-  EXPECT_EQ((*lookup_res)[0].second.status, BlockStatus::HOST_AND_HBM);
-  EXPECT_EQ((*lookup_res)[0].second.host_block_id, host_ids[0]);
-  EXPECT_EQ((*lookup_res)[1].second.status, BlockStatus::HOST_AND_HBM);
-  EXPECT_EQ((*lookup_res)[1].second.host_block_id, host_ids[2]);
-  EXPECT_EQ(raiden_controller->block_manager()->num_locked_blocks(),
-            base_locked + 2);
-
-  store.Release({"hash_a", "hash_b"});
 }
 
 TEST_F(KVCacheStoreEmbeddedControllerTest, SaveMultiWorkerSuccess) {

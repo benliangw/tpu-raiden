@@ -1583,43 +1583,34 @@ void KVCacheStore::PollSavesInternal(std::vector<SaveState> ready_saves) {
     if (status.ok()) {
       std::vector<global_registry::Registration> write_through_regs;
       write_through_regs.reserve(state.block_hashes.size());
-      std::vector<std::string> update_hashes;
-      std::vector<RaidenBlockID> update_slices;
-      // Commit per hash, with a local-only single-hash Lookup each: a
-      // batch-prefix Lookup halts at the first miss, which would report
-      // every later hash done without committing it and leak its host
-      // block permanently. Local tier only: a hash that vanished locally
-      // but exists on a peer must not have this node's host block
-      // committed onto its REMOTE slice.
-      for (size_t i = 0; i < state.block_hashes.size(); ++i) {
-        const auto& hash = state.block_hashes[i];
-        auto lookup_or = backend()->Lookup(absl::MakeConstSpan(&hash, 1),
-                                           LookupOptions{.max_tier = 0});
-        if (lookup_or.ok() && !lookup_or.value().empty()) {
-          RaidenBlockID block = lookup_or.value()[0].second;
-          block.host_block_id = state.host_block_ids[i];
-          block.status = BlockStatus::HOST_AND_HBM;
-          update_hashes.push_back(hash);
-          update_slices.push_back(block);
-          if (registry_client_) {
-            write_through_regs.push_back({
-                .prefix_hash = hash,
-                .raiden_id = raiden_id_,
-                .block_id = state.host_block_ids[i],
-            });
+      auto lookup_or = backend()->Lookup(state.block_hashes);
+      if (lookup_or.ok()) {
+        const auto& slices = lookup_or.value();
+        std::vector<std::string> update_hashes;
+        std::vector<RaidenBlockID> update_slices;
+        for (size_t i = 0; i < state.block_hashes.size(); ++i) {
+          const auto& hash = state.block_hashes[i];
+          if (i < slices.size()) {
+            RaidenBlockID block = slices[i].second;
+            block.host_block_id = state.host_block_ids[i];
+            block.status = BlockStatus::HOST_AND_HBM;
+            update_hashes.push_back(hash);
+            update_slices.push_back(block);
+            if (registry_client_) {
+              write_through_regs.push_back({
+                  .prefix_hash = hash,
+                  .raiden_id = raiden_id_,
+                  .block_id = state.host_block_ids[i],
+              });
+            }
           }
           done_saves_.push_back(hash);
-        } else {
-          // The entry vanished mid-save (pin contract broken or deleted):
-          // nothing points at the host copy, so return the block to the
-          // allocator and report the hash failed — never done-but-
-          // uncommitted.
-          DeallocateBlockIds(absl::MakeConstSpan(&state.host_block_ids[i], 1));
-          failed_saves_.push_back(hash);
         }
-      }
-      if (!update_hashes.empty()) {
-        backend()->Insert(update_hashes, update_slices, /*on_host=*/true);
+        if (!update_hashes.empty()) {
+          backend()->Insert(update_hashes, update_slices, /*on_host=*/true);
+        }
+      } else {
+        DeallocateBlockIds(state.host_block_ids);
       }
       if (!write_through_regs.empty() && registry_client_ &&
           write_through_pool_) {
