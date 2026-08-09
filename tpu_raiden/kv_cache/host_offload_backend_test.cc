@@ -154,9 +154,12 @@ TEST(HostOffloadBackendTest, LookupReturnsRemoteDescriptors) {
   unit_proto.set_data_name(local_node_id.data_name);
   unit_proto.set_data_replica_idx(local_node_id.data_replica_idx);
 
-  controller::RaidenController controller(unit_proto, /*num_blocks=*/100,
-                                          /*num_shards=*/1,
-                                          /*shard_size_bytes=*/1024);
+  auto controller_ptr =
+      controller::RaidenController::Create(unit_proto, /*num_blocks=*/100,
+                                           /*num_shards=*/1,
+                                           /*shard_size_bytes=*/1024)
+          .value();
+  controller::RaidenController& controller = *controller_ptr;
 
   BackendConfig config;
   config.type = "HostOffloadBackend";
@@ -208,9 +211,12 @@ TEST(HostOffloadBackendTest,
   unit_proto.set_data_name(local_node_id.data_name);
   unit_proto.set_data_replica_idx(local_node_id.data_replica_idx);
 
-  controller::RaidenController controller(unit_proto, /*num_blocks=*/100,
-                                          /*num_shards=*/1,
-                                          /*shard_size_bytes=*/1024);
+  auto controller_ptr =
+      controller::RaidenController::Create(unit_proto, /*num_blocks=*/100,
+                                           /*num_shards=*/1,
+                                           /*shard_size_bytes=*/1024)
+          .value();
+  controller::RaidenController& controller = *controller_ptr;
 
   BackendConfig config;
   config.type = "HostOffloadBackend";
@@ -294,9 +300,12 @@ TEST(HostOffloadBackendTest, ServerLifecycleAndControllerInitialization) {
   unit_proto.set_data_name(node_id.data_name);
   unit_proto.set_data_replica_idx(node_id.data_replica_idx);
 
-  controller::RaidenController controller(unit_proto, /*num_blocks=*/100,
-                                          /*num_shards=*/1,
-                                          /*shard_size_bytes=*/1024);
+  auto controller_ptr =
+      controller::RaidenController::Create(unit_proto, /*num_blocks=*/100,
+                                           /*num_shards=*/1,
+                                           /*shard_size_bytes=*/1024)
+          .value();
+  controller::RaidenController& controller = *controller_ptr;
 
   auto backend_or = HostOffloadBackend::Create(config, &controller);
   ASSERT_OK(backend_or.status());
@@ -320,10 +329,13 @@ TEST(HostOffloadBackendTest, StartServerStripsControllerPort) {
   unit_proto.set_data_name(node_id.data_name);
   unit_proto.set_data_replica_idx(node_id.data_replica_idx);
 
-  controller::RaidenController controller(
-      unit_proto, /*num_blocks=*/100, /*num_shards=*/1,
-      /*shard_size_bytes=*/1024, /*raiden_orchestrator_address=*/"",
-      /*raiden_controller_address=*/"127.0.0.1:12345");
+  auto controller_ptr =
+      controller::RaidenController::Create(
+          unit_proto, /*num_blocks=*/100, /*num_shards=*/1,
+          /*shard_size_bytes=*/1024, /*raiden_orchestrator_address=*/"",
+          /*raiden_controller_address=*/"127.0.0.1:12345")
+          .value();
+  controller::RaidenController& controller = *controller_ptr;
 
   BackendConfig config;
   config.type = "HostOffloadBackend";
@@ -414,10 +426,13 @@ TEST(HostOffloadBackendTest, EndToEndFetchRPC) {
   dst_unit_proto.set_data_name(dst_raiden_id.data_name);
   dst_unit_proto.set_data_replica_idx(dst_raiden_id.data_replica_idx);
 
-  controller::RaidenController dst_controller(
-      dst_unit_proto, /*num_blocks=*/100, /*num_shards=*/1,
-      /*shard_size_bytes=*/1024, orchestrator_address,
-      /*raiden_controller_address=*/"");
+  auto dst_controller_ptr =
+      controller::RaidenController::Create(
+          dst_unit_proto, /*num_blocks=*/100, /*num_shards=*/1,
+          /*shard_size_bytes=*/1024, orchestrator_address,
+          /*raiden_controller_address=*/"")
+          .value();
+  controller::RaidenController& dst_controller = *dst_controller_ptr;
 
   BackendConfig dst_config;
   dst_config.type = "HostOffloadBackend";
@@ -479,9 +494,12 @@ TEST(HostOffloadBackendTest, LoadMismatchedDeviceBlockCount) {
   unit_proto.set_data_name(node_id.data_name);
   unit_proto.set_data_replica_idx(node_id.data_replica_idx);
 
-  controller::RaidenController controller(unit_proto, /*num_blocks=*/100,
-                                          /*num_shards=*/1,
-                                          /*shard_size_bytes=*/1024);
+  auto controller_ptr =
+      controller::RaidenController::Create(unit_proto, /*num_blocks=*/100,
+                                           /*num_shards=*/1,
+                                           /*shard_size_bytes=*/1024)
+          .value();
+  controller::RaidenController& controller = *controller_ptr;
   BackendConfig config;
   config.type = "HostOffloadBackend";
   config.capacity = 100;
@@ -537,10 +555,12 @@ TEST(HostOffloadBackendTest, LoadSuccess) {
   local_unit.set_data_name(local_node_id.data_name);
   local_unit.set_data_replica_idx(local_node_id.data_replica_idx);
 
-  controller::RaidenController controller(
-      local_unit, /*num_blocks=*/100, /*num_shards=*/1,
-      /*shard_size_bytes=*/1024, orchestrator_address,
-      /*raiden_controller_address=*/"");
+  auto controller_ptr = controller::RaidenController::Create(
+                            local_unit, /*num_blocks=*/100, /*num_shards=*/1,
+                            /*shard_size_bytes=*/1024, orchestrator_address,
+                            /*raiden_controller_address=*/"")
+                            .value();
+  controller::RaidenController& controller = *controller_ptr;
 
   // Setup fake server for remote node to process Fetch
   BackendConfig remote_config;
@@ -613,9 +633,12 @@ TEST(HostOffloadBackendTest, LoadLocalSuccess) {
   unit_proto.set_data_name(node_id.data_name);
   unit_proto.set_data_replica_idx(node_id.data_replica_idx);
 
-  controller::RaidenController controller(unit_proto, /*num_blocks=*/100,
-                                          /*num_shards=*/1,
-                                          /*shard_size_bytes=*/1024);
+  auto controller_ptr =
+      controller::RaidenController::Create(unit_proto, /*num_blocks=*/100,
+                                           /*num_shards=*/1,
+                                           /*shard_size_bytes=*/1024)
+          .value();
+  controller::RaidenController& controller = *controller_ptr;
   auto test_worker_server = controller::CreateTestWorkerServer();
   auto transfer_mock =
       std::make_unique<controller::ShardAwareMockTransferManager>();
@@ -654,9 +677,12 @@ TEST(HostOffloadBackendTest, LoadLocalMissingBlockError) {
   unit_proto.set_data_name(node_id.data_name);
   unit_proto.set_data_replica_idx(node_id.data_replica_idx);
 
-  controller::RaidenController controller(unit_proto, /*num_blocks=*/100,
-                                          /*num_shards=*/1,
-                                          /*shard_size_bytes=*/1024);
+  auto controller_ptr =
+      controller::RaidenController::Create(unit_proto, /*num_blocks=*/100,
+                                           /*num_shards=*/1,
+                                           /*shard_size_bytes=*/1024)
+          .value();
+  controller::RaidenController& controller = *controller_ptr;
   BackendConfig config;
   config.type = "HostOffloadBackend";
   config.capacity = 100;
@@ -680,9 +706,12 @@ TEST(HostOffloadBackendTest, LoadLocalNonHostBlockError) {
   unit_proto.set_data_name(node_id.data_name);
   unit_proto.set_data_replica_idx(node_id.data_replica_idx);
 
-  controller::RaidenController controller(unit_proto, /*num_blocks=*/100,
-                                          /*num_shards=*/1,
-                                          /*shard_size_bytes=*/1024);
+  auto controller_ptr =
+      controller::RaidenController::Create(unit_proto, /*num_blocks=*/100,
+                                           /*num_shards=*/1,
+                                           /*shard_size_bytes=*/1024)
+          .value();
+  controller::RaidenController& controller = *controller_ptr;
   BackendConfig config;
   config.type = "HostOffloadBackend";
   config.capacity = 100;
@@ -711,10 +740,13 @@ TEST(HostOffloadBackendTest, StoreServerOverride) {
   local_unit.set_data_name(local_node_id.data_name);
   local_unit.set_data_replica_idx(local_node_id.data_replica_idx);
 
-  controller::RaidenController controller(
-      local_unit, /*num_blocks=*/100, /*num_shards=*/1,
-      /*shard_size_bytes=*/1024, /*raiden_orchestrator_address=*/"",
-      /*raiden_controller_address=*/"");
+  auto controller_ptr =
+      controller::RaidenController::Create(
+          local_unit, /*num_blocks=*/100, /*num_shards=*/1,
+          /*shard_size_bytes=*/1024, /*raiden_orchestrator_address=*/"",
+          /*raiden_controller_address=*/"")
+          .value();
+  controller::RaidenController& controller = *controller_ptr;
 
   BackendConfig config;
   config.type = "HostOffloadBackend";
@@ -820,9 +852,12 @@ TEST(HostOffloadBackendWriteRemoteTest, InsertAllOrNothingRespectsPinnedSpace) {
 // block, so a rollback that only erased would leak one block per attempt.
 TEST(HostOffloadBackendWriteRemoteTest, RollbackInsertErasesAndFreesBlocks) {
   RaidenId id{"job", "0", "data", 0};
-  controller::RaidenController controller(ToProto(id), /*num_blocks=*/4,
-                                          /*num_shards=*/1,
-                                          /*shard_size_bytes=*/1024);
+  auto controller_ptr =
+      controller::RaidenController::Create(ToProto(id), /*num_blocks=*/4,
+                                           /*num_shards=*/1,
+                                           /*shard_size_bytes=*/1024)
+          .value();
+  controller::RaidenController& controller = *controller_ptr;
   HostOffloadBackend backend(/*capacity=*/8, std::nullopt, id, &controller);
 
   auto ids_or = controller.AllocateBlockIds(4);
@@ -953,9 +988,12 @@ TEST(HostOffloadBackendTest, LookupAndPinRemoteDescriptorsUnpinnedLocally) {
   unit_proto.set_data_name(local_node_id.data_name);
   unit_proto.set_data_replica_idx(local_node_id.data_replica_idx);
 
-  controller::RaidenController controller(unit_proto, /*num_blocks=*/100,
-                                          /*num_shards=*/1,
-                                          /*shard_size_bytes=*/1024);
+  auto controller_ptr =
+      controller::RaidenController::Create(unit_proto, /*num_blocks=*/100,
+                                           /*num_shards=*/1,
+                                           /*shard_size_bytes=*/1024)
+          .value();
+  controller::RaidenController& controller = *controller_ptr;
 
   BackendConfig config;
   config.type = "HostOffloadBackend";

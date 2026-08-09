@@ -124,6 +124,30 @@ absl::Status ValidateBackends(
   return absl::OkStatus();
 }
 
+// Builds the store's in-process RaidenController. Fails when the controller's
+// Init() fails, e.g. on the expected-worker barrier timing out.
+absl::StatusOr<std::unique_ptr<::tpu_raiden::controller::RaidenController>>
+MakeRaidenController(const RaidenId& raiden_id, size_t num_blocks,
+                     int num_shards, int64_t shard_size_bytes,
+                     absl::string_view raiden_orchestrator_address,
+                     absl::string_view store_server_ip,
+                     int raiden_controller_port, int expected_worker_count) {
+  ::tpu_raiden::rpc::RaidenIdProto unit_proto;
+  unit_proto.set_job_name(raiden_id.job_name);
+  unit_proto.set_job_replica_id(raiden_id.job_replica_id);
+  unit_proto.set_data_name(raiden_id.data_name);
+  unit_proto.set_data_replica_idx(raiden_id.data_replica_idx);
+
+  // The store's block ids resolve against the manager's own pool, so the
+  // legacy physical-buffer pre-provisioning would allocate that pool a
+  // second time on the worker.
+  return ::tpu_raiden::controller::RaidenController::Create(
+      unit_proto, num_blocks, num_shards, shard_size_bytes,
+      raiden_orchestrator_address,
+      ComposeControllerAddress(store_server_ip, raiden_controller_port),
+      /*preprovision_worker_buffers=*/false, expected_worker_count);
+}
+
 }  // namespace
 
 absl::StatusOr<std::unique_ptr<KVCacheStore>> KVCacheStore::Create(
@@ -186,14 +210,23 @@ absl::StatusOr<std::unique_ptr<KVCacheStore>> KVCacheStore::Create(
                                      ? backend_configs[0].raiden_id
                                      : raiden_id;
 
-  // CreateTag: the constructor itself must not wire the controller (and
-  // FATAL on failure) -- that would defeat Create()'s whole purpose of
-  // returning a recoverable Status. Create() does the wiring below instead.
+  // CreateTag: the constructor itself must not create or wire the controller
+  // (and FATAL on failure) -- that would defeat Create()'s whole purpose of
+  // returning a recoverable Status. Create() does both below instead.
   auto store = absl::WrapUnique(new KVCacheStore(
       std::move(backends), effective_raiden_id, num_shards, shard_size_bytes,
       raiden_orchestrator_address, store_server_ip, raiden_controller_port,
       global_registry_address, expected_worker_count,
       KVCacheStore::CreateTag{}));
+
+  if (num_shards > 0) {
+    ASSIGN_OR_RETURN(
+        store->raiden_controller_,
+        MakeRaidenController(effective_raiden_id, store->capacity(), num_shards,
+                             shard_size_bytes, raiden_orchestrator_address,
+                             store_server_ip, raiden_controller_port,
+                             expected_worker_count));
+  }
 
   if (store->raiden_controller_ != nullptr) {
     RETURN_IF_ERROR(
@@ -251,27 +284,10 @@ KVCacheStore::KVCacheStore(
     registry_client_ =
         std::make_shared<global_registry::GlobalRegistryClient>(channel);
   }
-  if (num_shards > 0) {
-    ::tpu_raiden::rpc::RaidenIdProto unit_proto;
-    unit_proto.set_job_name(raiden_id_.job_name);
-    unit_proto.set_job_replica_id(raiden_id_.job_replica_id);
-    unit_proto.set_data_name(raiden_id_.data_name);
-    unit_proto.set_data_replica_idx(raiden_id_.data_replica_idx);
-
-    size_t cap = capacity();
-    // The store's block ids resolve against the manager's own pool, so the
-    // legacy physical-buffer pre-provisioning would allocate that pool a
-    // second time on the worker.
-    raiden_controller_ =
-        std::make_unique<::tpu_raiden::controller::RaidenController>(
-            unit_proto, cap, num_shards, shard_size_bytes,
-            raiden_orchestrator_address,
-            ComposeControllerAddress(store_server_ip, raiden_controller_port),
-            /*preprovision_worker_buffers=*/false, expected_worker_count);
-  }
-  // Deliberately does NOT wire the controller here (see CreateTag) -- the
-  // caller (Create()) does that itself so a publish failure can return a
-  // Status instead of aborting the process.
+  // Deliberately does NOT create or wire the controller here (see CreateTag)
+  // -- the caller does both itself, so that on the Create() path a controller
+  // Init or publish failure can return a Status instead of aborting the
+  // process.
 }
 
 KVCacheStore::KVCacheStore(
@@ -285,6 +301,19 @@ KVCacheStore::KVCacheStore(
                    store_server_ip, raiden_controller_port,
                    global_registry_address, expected_worker_count,
                    CreateTag{}) {
+  if (num_shards > 0) {
+    absl::StatusOr<std::unique_ptr<::tpu_raiden::controller::RaidenController>>
+        controller = MakeRaidenController(
+            raiden_id_, capacity(), num_shards, shard_size_bytes,
+            raiden_orchestrator_address, store_server_ip,
+            raiden_controller_port, expected_worker_count);
+    if (!controller.ok()) {
+      LOG(FATAL) << "KVCacheStore failed to initialize its RaidenController: "
+                 << controller.status().message()
+                 << " Use KVCacheStore::Create() for a recoverable error.";
+    }
+    raiden_controller_ = *std::move(controller);
+  }
   if (raiden_controller_) {
     if (absl::Status s = SetRaidenController(raiden_controller_.get());
         !s.ok()) {
@@ -334,18 +363,17 @@ KVCacheStore::KVCacheStore(
         std::make_shared<global_registry::GlobalRegistryClient>(channel);
   }
   if (num_shards > 0) {
-    ::tpu_raiden::rpc::RaidenIdProto unit_proto;
-    unit_proto.set_job_name(raiden_id_.job_name);
-    unit_proto.set_job_replica_id(raiden_id_.job_replica_id);
-    unit_proto.set_data_name(raiden_id_.data_name);
-    unit_proto.set_data_replica_idx(raiden_id_.data_replica_idx);
-
-    raiden_controller_ =
-        std::make_unique<::tpu_raiden::controller::RaidenController>(
-            unit_proto, capacity, num_shards, shard_size_bytes,
-            raiden_orchestrator_address,
-            ComposeControllerAddress(store_server_ip, raiden_controller_port),
-            /*preprovision_worker_buffers=*/false, expected_worker_count);
+    absl::StatusOr<std::unique_ptr<::tpu_raiden::controller::RaidenController>>
+        controller = MakeRaidenController(
+            raiden_id_, capacity, num_shards, shard_size_bytes,
+            raiden_orchestrator_address, store_server_ip,
+            raiden_controller_port, expected_worker_count);
+    if (!controller.ok()) {
+      LOG(FATAL) << "KVCacheStore failed to initialize its RaidenController: "
+                 << controller.status().message()
+                 << " Use KVCacheStore::Create() for a recoverable error.";
+    }
+    raiden_controller_ = *std::move(controller);
   }
 
   // registry_client_ is assigned a few lines above, and must be: a backend

@@ -79,8 +79,8 @@ class KVCacheStore {
   //
   // `expected_worker_count` > 0 makes construction block until that many
   // workers have registered with the in-process RaidenController, and fail
-  // (Create() throws, the raw constructors abort the process via the
-  // controller's exception) if they have not all registered within
+  // (Create() returns kDeadlineExceeded, the raw constructors abort the
+  // process) if they have not all registered within
   // RAIDEN_EXPECTED_WORKERS_TIMEOUT_S seconds (default 120). Callers whose
   // workers register only after the store exists must leave it 0.
 
@@ -412,12 +412,13 @@ class KVCacheStore {
   absl::StatusOr<size_t> RecoverFromLocalManifest();
 
  private:
-  // Tag selecting the constructor overload below that does NOT auto-wire the
-  // controller (SetRaidenController) or FATAL on failure -- used exclusively
-  // by Create(), which does that wiring itself afterward so a publish failure
-  // can return a Status instead of aborting the process. The public
-  // constructor with the same parameters delegates to this one and then
-  // wires+FATALs, for direct (non-Create()) callers.
+  // Tag selecting the constructor overload below that does NOT create or wire
+  // the controller (RaidenController::Create + SetRaidenController) or FATAL
+  // on failure -- used exclusively by Create(), which does both itself
+  // afterward so a controller Init or publish failure can return a Status
+  // instead of aborting the process. The public constructor with the same
+  // parameters delegates to this one and then creates+wires+FATALs, for
+  // direct (non-Create()) callers.
   struct CreateTag {};
   KVCacheStore(std::vector<std::shared_ptr<KVCacheStoreBackend>> backends,
                RaidenId raiden_id, int num_shards, int64_t shard_size_bytes,

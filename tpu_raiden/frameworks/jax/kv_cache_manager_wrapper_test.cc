@@ -533,10 +533,12 @@ TEST(KVCacheManagerWrapperTest, RaidenControllerTransferBuffersIntegration) {
 
   std::string server_address = absl::StrCat("localhost:", port);
 
-  controller::RaidenController controller(
-      unit, std::vector<std::string>{server_address},
-      /*num_blocks=*/5, /*num_shards=*/1,
-      /*shard_size_bytes=*/512);
+  auto controller_ptr = controller::RaidenController::Create(
+                            unit, std::vector<std::string>{server_address},
+                            /*num_blocks=*/5, /*num_shards=*/1,
+                            /*shard_size_bytes=*/512)
+                            .value();
+  controller::RaidenController& controller = *controller_ptr;
 
   std::vector<int64_t> src_offsets = {10, 30};
   std::vector<int64_t> dst_offsets = {20, 40};

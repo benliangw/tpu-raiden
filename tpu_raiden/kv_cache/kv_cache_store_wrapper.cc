@@ -91,7 +91,13 @@ KVCacheStoreWrapper::KVCacheStoreWrapper(
       num_shards, shard_size_bytes, raiden_orchestrator_address,
       store_server_ip, raiden_controller_port, metadata, expected_worker_count);
   if (!store_or.ok()) {
-    throw std::invalid_argument(std::string(store_or.status().message()));
+    // invalid_argument maps to Python ValueError, runtime_error to
+    // RuntimeError: a bad configuration is the caller's mistake, everything
+    // else (e.g. the expected-worker barrier timing out) is a runtime failure.
+    if (store_or.status().code() == absl::StatusCode::kInvalidArgument) {
+      throw std::invalid_argument(std::string(store_or.status().message()));
+    }
+    throw std::runtime_error(std::string(store_or.status().message()));
   }
   controller_ = *std::move(store_or);
 

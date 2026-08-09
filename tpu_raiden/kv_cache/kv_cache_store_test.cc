@@ -979,9 +979,11 @@ MakeRecoveryController(const RaidenId& rid, int num_blocks) {
   unit.set_job_replica_id(rid.job_replica_id);
   unit.set_data_name(rid.data_name);
   unit.set_data_replica_idx(rid.data_replica_idx);
-  return std::make_unique<::tpu_raiden::controller::RaidenController>(
-      unit, num_blocks, /*num_shards=*/1, /*shard_size_bytes=*/512,
-      /*raiden_orchestrator_address=*/"", /*raiden_controller_address=*/"");
+  return ::tpu_raiden::controller::RaidenController::Create(
+             unit, num_blocks, /*num_shards=*/1, /*shard_size_bytes=*/512,
+             /*raiden_orchestrator_address=*/"",
+             /*raiden_controller_address=*/"")
+      .value();
 }
 
 TEST(KVCacheStoreTest, InsertSetsAndDeleteClearsMetadataEntries) {
@@ -1143,9 +1145,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, SaveReusesFreedBlocksAfterEvict) {
       ::tpu_raiden::KVManagerHolder(&mock_mgr));
 
   // A two-block pool, so the first save exhausts it.
-  auto controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 2, 1, 512, orchestrator_address_, "");
+  auto controller = ::tpu_raiden::controller::RaidenController::Create(
+                        unit_, 2, 1, 512, orchestrator_address_, "")
+                        .value();
   RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
   auto* controller_ptr = controller.get();
 
@@ -1198,9 +1200,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, SaveSuccess) {
   test_server_->service->SetTransferManager(
       ::tpu_raiden::KVManagerHolder(&mock_mgr));
 
-  auto controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto controller = ::tpu_raiden::controller::RaidenController::Create(
+                        unit_, 10, 1, 512, orchestrator_address_, "")
+                        .value();
   RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
 
   RaidenId rid{"test_job", "0", "test_cache", 0};
@@ -1263,9 +1265,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadSuccess) {
   test_server_->service->SetTransferManager(
       ::tpu_raiden::KVManagerHolder(&mock_mgr));
 
-  auto controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto controller = ::tpu_raiden::controller::RaidenController::Create(
+                        unit_, 10, 1, 512, orchestrator_address_, "")
+                        .value();
   RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
 
   RaidenId rid{"test_job", "0", "test_cache", 0};
@@ -1327,9 +1329,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadWithSlicesSuccess) {
   test_server_->service->SetTransferManager(
       ::tpu_raiden::KVManagerHolder(&mock_mgr));
 
-  auto controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto controller = ::tpu_raiden::controller::RaidenController::Create(
+                        unit_, 10, 1, 512, orchestrator_address_, "")
+                        .value();
   RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
 
   RaidenId rid{"test_job", "0", "test_cache", 0};
@@ -1380,9 +1382,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadWithSlicesSuccess) {
 }
 
 TEST_F(KVCacheStoreEmbeddedControllerTest, LoadWithSlicesSizeMismatch) {
-  auto controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto controller = ::tpu_raiden::controller::RaidenController::Create(
+                        unit_, 10, 1, 512, orchestrator_address_, "")
+                        .value();
   RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
 
   RaidenId rid{"test_job", "0", "test_cache", 0};
@@ -1403,9 +1405,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadWithSlicesUnpinnedSucceeds) {
   test_server_->service->SetTransferManager(
       ::tpu_raiden::KVManagerHolder(&mock_mgr));
 
-  auto controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto controller = ::tpu_raiden::controller::RaidenController::Create(
+                        unit_, 10, 1, 512, orchestrator_address_, "")
+                        .value();
   RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
 
   RaidenId rid{"test_job", "0", "test_cache", 0};
@@ -1423,9 +1425,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadWithSlicesUnpinnedSucceeds) {
 }
 
 TEST_F(KVCacheStoreEmbeddedControllerTest, LoadWithSlicesAlreadyLoadingFails) {
-  auto controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto controller = ::tpu_raiden::controller::RaidenController::Create(
+                        unit_, 10, 1, 512, orchestrator_address_, "")
+                        .value();
   RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
 
   RaidenId rid{"test_job", "0", "test_cache", 0};
@@ -1449,9 +1451,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadWithSlicesAlreadyLoadingFails) {
 }
 
 TEST_F(KVCacheStoreEmbeddedControllerTest, LoadWithSlicesMixedStatusesFails) {
-  auto controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto controller = ::tpu_raiden::controller::RaidenController::Create(
+                        unit_, 10, 1, 512, orchestrator_address_, "")
+                        .value();
   RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
 
   RaidenId rid{"test_job", "0", "test_cache", 0};
@@ -1481,9 +1483,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadWithSlicesRemoteSuccess) {
   RaidenId local_rid{"local_job", "0", "local_cache", 0};
   RaidenId remote_rid{"remote_job", "0", "remote_cache", 0};
 
-  auto controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto controller = ::tpu_raiden::controller::RaidenController::Create(
+                        unit_, 10, 1, 512, orchestrator_address_, "")
+                        .value();
   RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
 
   BackendConfig remote_config;
@@ -1561,9 +1563,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadRemoteSuccess) {
   RaidenId remote_rid{"remote_job", "0", "remote_cache", 0};
 
   // 2. Setup local RaidenController & KVCacheStore
-  auto controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto controller = ::tpu_raiden::controller::RaidenController::Create(
+                        unit_, 10, 1, 512, orchestrator_address_, "")
+                        .value();
   RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
 
   // 3. Setup remote node's backend & server
@@ -1638,9 +1640,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadRemoteSuccess) {
 }
 
 TEST_F(KVCacheStoreEmbeddedControllerTest, LoadUnpinnedRemoteBlockFails) {
-  auto controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto controller = ::tpu_raiden::controller::RaidenController::Create(
+                        unit_, 10, 1, 512, orchestrator_address_, "")
+                        .value();
   RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
 
   RaidenId local_rid{"local_job", "0", "local_cache", 0};
@@ -1671,9 +1673,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest,
   test_server_->service->SetTransferManager(
       ::tpu_raiden::KVManagerHolder(&mock_mgr));
 
-  auto controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto controller = ::tpu_raiden::controller::RaidenController::Create(
+                        unit_, 10, 1, 512, orchestrator_address_, "")
+                        .value();
   RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
 
   RaidenId rid{"test_job", "0", "test_cache", 0};
@@ -1756,9 +1758,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest,
   test_server_->service->SetTransferManager(
       ::tpu_raiden::KVManagerHolder(&mock_mgr));
 
-  auto controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto controller = ::tpu_raiden::controller::RaidenController::Create(
+                        unit_, 10, 1, 512, orchestrator_address_, "")
+                        .value();
   RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
 
   RaidenId rid{"test_job", "0", "test_cache", 0};
@@ -1816,9 +1818,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, SaveMultiWorkerSuccess) {
   test_server_1->service->SetTransferManager(
       ::tpu_raiden::KVManagerHolder(&mock_mgr_1));
 
-  auto controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto controller = ::tpu_raiden::controller::RaidenController::Create(
+                        unit_, 10, 1, 512, orchestrator_address_, "")
+                        .value();
 
   RegisterAndInitWorker(*controller, "worker_0", test_server_0->server_address);
   RegisterAndInitWorker(*controller, "worker_1", test_server_1->server_address);
@@ -1887,9 +1889,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadMultiWorkerSuccess) {
   test_server_1->service->SetTransferManager(
       ::tpu_raiden::KVManagerHolder(&mock_mgr_1));
 
-  auto controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto controller = ::tpu_raiden::controller::RaidenController::Create(
+                        unit_, 10, 1, 512, orchestrator_address_, "")
+                        .value();
 
   RegisterAndInitWorker(*controller, "worker_0", test_server_0->server_address);
   RegisterAndInitWorker(*controller, "worker_1", test_server_1->server_address);
@@ -1956,9 +1958,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, SaveWriteThrough) {
   test_server_->service->SetTransferManager(
       ::tpu_raiden::KVManagerHolder(&mock_mgr));
 
-  auto controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto controller = ::tpu_raiden::controller::RaidenController::Create(
+                        unit_, 10, 1, 512, orchestrator_address_, "")
+                        .value();
   RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
 
   // 3. Initialize KVCacheStore with the registry server address & controller
@@ -2047,9 +2049,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, EvictByHashesHostAndHbmToErased) {
   test_server_->service->SetTransferManager(
       ::tpu_raiden::KVManagerHolder(&mock_mgr));
 
-  auto controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto controller = ::tpu_raiden::controller::RaidenController::Create(
+                        unit_, 10, 1, 512, orchestrator_address_, "")
+                        .value();
   RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
 
   // Allocate 2 block IDs from controller so we have host_block_ids
@@ -2137,9 +2139,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, EvictByHashesHostToErased) {
   test_server_->service->SetTransferManager(
       ::tpu_raiden::KVManagerHolder(&mock_mgr));
 
-  auto controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto controller = ::tpu_raiden::controller::RaidenController::Create(
+                        unit_, 10, 1, 512, orchestrator_address_, "")
+                        .value();
   RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
 
   auto alloc_or = controller->AllocateBlockIds(2);
@@ -2204,9 +2206,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, EvictOnSave) {
   test_server_->service->SetTransferManager(
       ::tpu_raiden::KVManagerHolder(&mock_mgr));
 
-  auto controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 2, 1, 512, orchestrator_address_, "");
+  auto controller = ::tpu_raiden::controller::RaidenController::Create(
+                        unit_, 2, 1, 512, orchestrator_address_, "")
+                        .value();
   auto* controller_ptr = controller.get();
   RegisterAndInitWorker(*controller_ptr, "worker_0",
                         test_server_->server_address);
@@ -2288,9 +2290,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, ProactiveEvictionWithCandidates) {
       ::tpu_raiden::KVManagerHolder(&mock_mgr));
 
   // Capacity is 2
-  auto controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 2, 1, 512, orchestrator_address_, "");
+  auto controller = ::tpu_raiden::controller::RaidenController::Create(
+                        unit_, 2, 1, 512, orchestrator_address_, "")
+                        .value();
   RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
 
   RaidenId rid{"test_job", "0", "test_cache", 0};
@@ -2453,9 +2455,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, ReadRemoteSuccess) {
   // transfer manager) executes the copy, and the source only leases.
 
   // Setup dest controller and KVCacheStore
-  auto dst_controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto dst_controller = ::tpu_raiden::controller::RaidenController::Create(
+                            unit_, 10, 1, 512, orchestrator_address_, "")
+                            .value();
   RegisterAndInitWorker(*dst_controller, "worker_0",
                         test_server_->server_address);
 
@@ -2580,9 +2582,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, ReadRemoteFailure) {
   // design the DESTINATION's own worker (test_server_, backed by a mock
   // transfer manager) executes the copy, and the source only leases.
 
-  auto dst_controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto dst_controller = ::tpu_raiden::controller::RaidenController::Create(
+                            unit_, 10, 1, 512, orchestrator_address_, "")
+                            .value();
   RegisterAndInitWorker(*dst_controller, "worker_0",
                         test_server_->server_address);
 
@@ -2689,9 +2691,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest,
   // the DESTINATION's own worker (test_server_, backed by a mock transfer
   // manager) executes the copy; the source only leases.
 
-  auto dst_controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto dst_controller = ::tpu_raiden::controller::RaidenController::Create(
+                            unit_, 10, 1, 512, orchestrator_address_, "")
+                            .value();
   RegisterAndInitWorker(*dst_controller, "worker_0",
                         test_server_->server_address);
   RaidenId rid{"dst_job", "0", "dst_cache", 0};
@@ -2762,9 +2764,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest,
   // the DESTINATION's own worker (test_server_, backed by a mock transfer
   // manager) executes the copy; the source only leases.
 
-  auto dst_controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto dst_controller = ::tpu_raiden::controller::RaidenController::Create(
+                            unit_, 10, 1, 512, orchestrator_address_, "")
+                            .value();
   RegisterAndInitWorker(*dst_controller, "worker_0",
                         test_server_->server_address);
   RaidenId rid{"dst_job", "0", "dst_cache", 0};
@@ -2846,9 +2848,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, ReadRemoteDuplicateFails) {
   // the DESTINATION's own worker (test_server_, backed by a mock transfer
   // manager) executes the copy; the source only leases.
 
-  auto dst_controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto dst_controller = ::tpu_raiden::controller::RaidenController::Create(
+                            unit_, 10, 1, 512, orchestrator_address_, "")
+                            .value();
   RegisterAndInitWorker(*dst_controller, "worker_0",
                         test_server_->server_address);
 
@@ -2890,9 +2892,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, ReadRemoteAllocationFailureAborts) {
   test_server_->service->SetTransferManager(
       ::tpu_raiden::KVManagerHolder(&mock_mgr));
 
-  auto dst_controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 1, 1, 512, orchestrator_address_, "");
+  auto dst_controller = ::tpu_raiden::controller::RaidenController::Create(
+                            unit_, 1, 1, 512, orchestrator_address_, "")
+                            .value();
   RegisterAndInitWorker(*dst_controller, "worker_0",
                         test_server_->server_address);
 
@@ -3032,9 +3034,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, ReadRemoteMultipleSources) {
   // the DESTINATION's own worker (test_server_, backed by a mock transfer
   // manager) executes the copy; the source only leases.
 
-  auto dst_controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto dst_controller = ::tpu_raiden::controller::RaidenController::Create(
+                            unit_, 10, 1, 512, orchestrator_address_, "")
+                            .value();
   RegisterAndInitWorker(*dst_controller, "worker_0",
                         test_server_->server_address);
 
@@ -3089,9 +3091,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest,
   test_server_->service->SetTransferManager(
       ::tpu_raiden::KVManagerHolder(&mock_mgr));
 
-  auto controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto controller = ::tpu_raiden::controller::RaidenController::Create(
+                        unit_, 10, 1, 512, orchestrator_address_, "")
+                        .value();
   RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
 
   MetadataRegion region(10);
@@ -3188,9 +3190,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest,
   // the DESTINATION's own worker (test_server_, backed by a mock transfer
   // manager) executes the copy; the source only leases.
 
-  auto dst_controller =
-      std::make_unique<::tpu_raiden::controller::RaidenController>(
-          unit_, 10, 1, 512, orchestrator_address_, "");
+  auto dst_controller = ::tpu_raiden::controller::RaidenController::Create(
+                            unit_, 10, 1, 512, orchestrator_address_, "")
+                            .value();
   RegisterAndInitWorker(*dst_controller, "worker_0",
                         test_server_->server_address);
 
