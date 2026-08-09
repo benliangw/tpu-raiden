@@ -274,12 +274,7 @@ std::pair<bool, BlockSliceList> HostOffloadBackend::Insert(
         }
         continue;
       }
-      if (metadata_.has_value()) {
-        if (const RaidenBlockID* stale =
-                lru_cache_.PeekIncludingCandidates(hash)) {
-          ClearMetadataEntry(*stale);
-        }
-      }
+      ReclaimStaleCandidate(hash);
       std::optional<std::pair<std::string, RaidenBlockID>> evicted;
       if (i < slices.size()) {
         evicted = lru_cache_.Put(hash, slices[i]);
@@ -329,7 +324,34 @@ std::pair<bool, BlockSliceList> HostOffloadBackend::Insert(
 bool HostOffloadBackend::InsertAndLock(
     absl::Span<const std::string> block_hashes,
     absl::Span<const RaidenBlockID> slices, bool /*on_host*/) {
-  absl::MutexLock lock(mutex_);
+  std::vector<std::string> reclaimed;
+  std::shared_ptr<global_registry::GlobalRegistryClient> client;
+  RaidenId local_id;
+  bool success;
+  {
+    absl::MutexLock lock(mutex_);
+    success = InsertAndLockImpl(block_hashes, slices, &reclaimed);
+    client = registry_client_;
+    local_id = raiden_id_;
+  }
+  // A reclaimed candidate's entry and host block are gone (even when the
+  // admission itself was rolled back), so its global mapping must not keep
+  // advertising it. Synchronous: completes before the caller can issue the
+  // save whose commit re-registers the hash.
+  if (client != nullptr && !reclaimed.empty()) {
+    auto status = client->Unregister(reclaimed, local_id);
+    if (!status.ok()) {
+      LOG(WARNING) << "Global registry unregister for reclaimed candidates "
+                   << "failed: " << status.message();
+    }
+  }
+  return success;
+}
+
+bool HostOffloadBackend::InsertAndLockImpl(
+    absl::Span<const std::string> block_hashes,
+    absl::Span<const RaidenBlockID> slices,
+    std::vector<std::string>* reclaimed) {
 
   std::vector<size_t> existing_indices;
   std::vector<size_t> new_indices;
@@ -362,12 +384,7 @@ bool HostOffloadBackend::InsertAndLock(
   for (auto it = new_indices.rbegin(); it != new_indices.rend(); ++it) {
     size_t i = *it;
     const std::string& hash = block_hashes[i];
-    if (metadata_.has_value()) {
-      if (const RaidenBlockID* stale =
-              lru_cache_.PeekIncludingCandidates(hash)) {
-        ClearMetadataEntry(*stale);
-      }
-    }
+    ReclaimStaleCandidate(hash, reclaimed);
     std::optional<std::pair<std::string, RaidenBlockID>> evicted;
     if (i < slices.size()) {
       evicted = lru_cache_.Put(hash, slices[i]);
@@ -1213,6 +1230,39 @@ void HostOffloadBackend::ClearMetadataEntry(const RaidenBlockID& block) {
     LOG(WARNING) << "Failed to clear the metadata entry for block "
                  << block.host_block_id << ": " << status.message();
   }
+}
+
+void HostOffloadBackend::ReclaimStaleCandidate(
+    const std::string& hash, std::vector<std::string>* reclaimed) {
+  // The caller only reaches here when Contains(hash) is false, so any entry
+  // still findable under this hash is an eviction candidate.
+  const RaidenBlockID* stale = lru_cache_.PeekIncludingCandidates(hash);
+  if (stale == nullptr) {
+    return;
+  }
+  if (reclaimed != nullptr) {
+    reclaimed->push_back(hash);
+  }
+  ClearMetadataEntry(*stale);
+  // HOST / HOST_AND_HBM means host_block_id is a block of the LOCAL
+  // allocator (REMOTE entries carry the peer's coordinate instead). The
+  // entry is erased below, so this is the last point the old block id is
+  // visible -- return it to the allocator here.
+  if (raiden_controller_ != nullptr && stale->host_block_id >= 0 &&
+      (stale->status == BlockStatus::HOST ||
+       stale->status == BlockStatus::HOST_AND_HBM)) {
+    absl::Status status =
+        raiden_controller_->DeallocateBlockIds({stale->host_block_id});
+    if (!status.ok()) {
+      LOG(WARNING) << "Failed to deallocate host block "
+                   << stale->host_block_id
+                   << " of replaced eviction candidate: " << status.message();
+    }
+  }
+  // Erase the candidate so the caller's Put() takes the new-key path, which
+  // enforces capacity and surfaces a displaced entry; overwriting the
+  // candidate in place would re-admit the key without either.
+  lru_cache_.Erase(hash);
 }
 
 std::vector<std::string> HostOffloadBackend::GetSortedHashes(
