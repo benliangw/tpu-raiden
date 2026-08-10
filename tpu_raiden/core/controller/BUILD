@@ -109,7 +109,6 @@ cc_library(
         "//tpu_raiden/proto:worker_service_cc_proto",
         "//tpu_raiden/rpc:raiden_service_cc_proto",
         "@com_github_grpc_grpc//:grpc++",
-        "@com_google_absl//absl/cleanup",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/memory",

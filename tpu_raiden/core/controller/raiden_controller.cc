@@ -28,7 +28,6 @@
 #include <utility>
 #include <vector>
 
-#include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/log.h"
 #include "absl/memory/memory.h"
@@ -184,11 +183,9 @@ absl::Status RaidenController::Init(
     absl::Span<const std::string> worker_addresses,
     absl::string_view raiden_orchestrator_address,
     absl::string_view raiden_controller_address, int expected_worker_count) {
-  // If Init fails (e.g. timeout or error during worker/orchestrator
-  // registration), ensure any registered callbacks and singleton references
-  // are detached so late registrations or in-flight operations do not invoke
-  // callbacks on a destroyed RaidenController.
-  absl::Cleanup init_cleanup = [this] { Cleanup(); };
+  // On failure the caller (Create) drops the unique_ptr, so ~RaidenController
+  // runs Cleanup() and detaches the registered callbacks and singleton
+  // references. Do not also unwind here: Cleanup() is not idempotent.
 
   // Publish ourselves to in-flight reads (cleared in the destructor / Cleanup).
   {
@@ -296,7 +293,6 @@ absl::Status RaidenController::Init(
     }
   }
 
-  std::move(init_cleanup).Cancel();
   return absl::OkStatus();
 }
 
