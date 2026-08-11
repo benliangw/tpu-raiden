@@ -110,12 +110,14 @@ TORCH_DEPS = [
 ]
 
 # Torch wheel only: the JAX wheel keeps its historical exclusion of the
-# global-registry stack (see the note under JAX_DEPS).
+# global-registry stack (see the note under JAX_DEPS). The scripts
+# deliberately reuse the cc_binary names, so an operator sees one name
+# everywhere: pip-installed environments and raw bazel-bin deployments.
 TORCH_ENTRY_POINTS = {
     "console_scripts": [
-        "tpu-raiden-global-registry = " +
+        "global_registry_server = " +
         "tpu_raiden.kv_cache.global_registry.gpc_launcher:global_registry_main",
-        "tpu-raiden-orchestrator = " +
+        "raiden_orchestrator_main = " +
         "tpu_raiden.kv_cache.global_registry.gpc_launcher:orchestrator_main",
     ],
 }

@@ -19,8 +19,8 @@ The tpu_raiden_torch wheel ships `global_registry_server` and
 install of the wheel is enough to run the global-prefix-cache control plane —
 no separately distributed bazel-bin artifacts, and the binaries are always the
 exact build the installed client library was released with. The wheel's
-console scripts (`tpu-raiden-global-registry`, `tpu-raiden-orchestrator`)
-resolve the bundled binary and exec it with argv passed through unchanged.
+console scripts (named after the binaries they wrap) resolve the bundled
+binary and exec it with argv passed through unchanged.
 """
 
 import os
