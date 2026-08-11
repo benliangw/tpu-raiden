@@ -28,7 +28,6 @@ import pathlib
 import shutil
 import stat
 import sys
-import tempfile
 
 _PACKAGE_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
@@ -38,12 +37,38 @@ RAIDEN_ORCHESTRATOR = (
     _PACKAGE_ROOT / "core" / "controller" / "raiden_orchestrator_main")
 
 
+def _staged_copy(binary: pathlib.Path, exec_bits: int) -> str:
+    """Return an executable copy of `binary` under a fixed staging path.
+
+    The path is deterministic rather than a fresh temp dir, because the exec
+    below replaces this process and no cleanup ever runs: one copy per binary
+    is reused across restarts instead of leaking a several-hundred-MB copy
+    (potentially into a tmpfs) every time a launcher starts. copy2 keeps the
+    mtime, so size+mtime is enough to spot a wheel upgrade underneath us.
+    """
+    staging_dir = pathlib.Path(os.environ.get("TMPDIR", "/tmp"),
+                               "tpu_raiden_bin")
+    staging_dir.mkdir(parents=True, exist_ok=True)
+    staged = staging_dir / binary.name
+    src = binary.stat()
+    if not (staged.is_file() and os.access(staged, os.X_OK) and
+            staged.stat().st_size == src.st_size and
+            staged.stat().st_mtime == src.st_mtime):
+        # Copy under a unique name and rename, so a launcher starting
+        # concurrently never execs a half-written binary.
+        pending = staging_dir / f".{binary.name}.{os.getpid()}"
+        shutil.copy2(binary, pending)
+        pending.chmod(pending.stat().st_mode | exec_bits)
+        pending.replace(staged)
+    return str(staged)
+
+
 def _executable_path(binary: pathlib.Path) -> str:
     """Return an executable path for a bundled binary.
 
     Wheel extraction does not reliably preserve the execute bit, and
     site-packages may be read-only, so try in order: already executable,
-    chmod in place, copy to a temp dir and chmod there.
+    chmod in place, staged copy.
     """
     if not binary.is_file():
         raise SystemExit(
@@ -60,11 +85,7 @@ def _executable_path(binary: pathlib.Path) -> str:
             return str(binary)
     except OSError:
         pass
-    staged = pathlib.Path(
-        tempfile.mkdtemp(prefix="tpu_raiden_bin.")) / binary.name
-    shutil.copy2(binary, staged)
-    staged.chmod(staged.stat().st_mode | exec_bits)
-    return str(staged)
+    return _staged_copy(binary, exec_bits)
 
 
 def _exec(binary: pathlib.Path) -> None:
