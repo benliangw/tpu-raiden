@@ -316,6 +316,27 @@ class KVCacheStore:
       raw_slices.append(s._impl)  # pylint: disable=protected-access
     self._impl.delete(block_hashes, raw_slices)
 
+  def evict(self, block_hashes: list[bytes]) -> int:
+    """Evicts host-resident blocks, freeing their host blocks immediately.
+
+    The caller-driven counterpart to the automatic LRU eviction that happens
+    under admission pressure: a node that has handed blocks to a peer via
+    write_remote() (proactive eviction) uses this to free its local copies
+    once poll_remote_write_status() reports them done.
+
+    Only entries in HOST or HOST_AND_HBM status with pin count 0 are evicted;
+    anything else (absent, pinned, or not host-resident) is skipped. Evicted
+    entries are unregistered from the global registry -- this store's own
+    registrations only, so a peer's published copy stays findable.
+
+    Args:
+      block_hashes: Block hashes to evict.
+
+    Returns:
+      Number of host blocks actually evicted (skips are not errors).
+    """
+    return self._impl.evict(block_hashes)
+
   def capacity(self) -> int:
     return self._impl.capacity()
 

@@ -723,6 +723,14 @@ NB_MODULE(_tpu_raiden_torch, m) {
             self->Delete(hashes, slices);
           },
           nb::arg("block_hashes"), nb::arg("slices"))
+      .def(
+          "evict",
+          [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self,
+             const std::vector<nb::bytes>& block_hashes) {
+            auto hashes = ToStdStringVector(block_hashes);
+            return self->Evict(hashes);
+          },
+          nb::arg("block_hashes"))
       .def("capacity",
            [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self) {
              return self->capacity();

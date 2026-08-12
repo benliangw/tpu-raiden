@@ -225,6 +225,22 @@ class KVCacheStore {
   void Delete(const std::vector<std::string>& block_hashes,
               const std::vector<RaidenBlockID>& slices);
 
+  // Evicts host blocks by their logical block hashes.
+  //
+  // Checks if the blocks exist in the cache and are in HOST or HOST_AND_HBM
+  // status and erases them from the cache. Pinned entries are skipped.
+  // Releases the host blocks via RaidenController and unregisters them from
+  // GlobalRegistry (this store's own registrations only).
+  //
+  // This is the caller-driven counterpart to the automatic LRU eviction that
+  // AllocateBlockIds performs under admission pressure: a caller that has
+  // handed blocks to a peer via WriteRemote (proactive eviction) uses it to
+  // free its local copies once the peer's copy is committed and published.
+  //
+  // Input: `block_hashes` - list of block hashes to evict.
+  // Output: Number of successfully evicted host blocks.
+  size_t Evict(const std::vector<std::string>& block_hashes);
+
   // Pins cached block hashes in memory, protecting them against LRU eviction
   // while in active use. Returns true if all keys exist and were successfully
   // pinned.
@@ -450,17 +466,6 @@ class KVCacheStore {
   // Registers ValidateAndPinHostBlocks/UnpinHostBlocks as ReadRemote step-6a
   // hooks on raiden_controller_ (no-op if there is no controller).
   void RegisterReadRemoteHooks();
-
-  // Evicts host blocks by their logical block hashes.
-  //
-  // Checks if the blocks exist in the cache and are in HOST or HOST_AND_HBM
-  // status and erases them from the cache.
-  // Releases the host blocks via RaidenController and unregisters them from
-  // GlobalRegistry.
-  //
-  // Input: `block_hashes` - list of block hashes to evict.
-  // Output: Number of successfully evicted host blocks.
-  size_t Evict(const std::vector<std::string>& block_hashes);
 
   struct SaveState {
     tsl::Future<> future;

@@ -364,6 +364,41 @@ class KVCacheStoreTest(absltest.TestCase):
     self.assertEqual(del_count, 2)
     self.assertLen(controller.lookup([b"local_1", b"local_2"]), 2)
 
+  def test_evict(self):
+    controller = kv_cache_store.KVCacheStore(
+        capacity=4, num_shards=1, store_server_ip="127.0.0.1"
+    )
+
+    def _slice(idx, status):
+      return kv_cache_store.RaidenBlockID(
+          kv_cache_store.RaidenId("local_job", "0", "kv_cache", idx),
+          -1,
+          status,
+      )
+
+    hashes = [b"evict_1", b"evict_2", b"evict_3"]
+    slices = [
+        _slice(0, kv_cache_store.BlockStatus.HOST),
+        _slice(1, kv_cache_store.BlockStatus.HOST),
+        _slice(2, kv_cache_store.BlockStatus.REMOTE),
+    ]
+    self.assertTrue(controller.insert(hashes, slices, True)[0])
+
+    # A pinned entry is skipped, a REMOTE entry is not host-resident, and an
+    # absent hash is not an error: only the unpinned HOST entry goes.
+    self.assertTrue(controller.pin([b"evict_1"]))
+    self.assertEqual(
+        controller.evict([b"evict_1", b"evict_2", b"evict_3", b"evict_4"]), 1
+    )
+    self.assertLen(controller.lookup([b"evict_1"]), 1)
+    self.assertEmpty(controller.lookup([b"evict_2"]))
+    self.assertLen(controller.lookup([b"evict_3"]), 1)
+
+    # After release the pinned entry becomes evictable.
+    controller.release([b"evict_1"])
+    self.assertEqual(controller.evict([b"evict_1"]), 1)
+    self.assertEmpty(controller.lookup([b"evict_1"]))
+
   def test_save_and_load_mocked(self):
     controller = kv_cache_store.KVCacheStore(
         capacity=20, num_shards=1, store_server_ip="127.0.0.1"
