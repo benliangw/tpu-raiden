@@ -99,14 +99,14 @@ JAX_DEPS = [
 # //tpu_raiden/kv_cache:kv_cache_store -> //kv_cache/global_registry.
 
 # Torch native extensions + public API (require the torch_tpu module at build).
-# gpc_launcher additionally bundles the global_registry_server and
+# binary_launcher additionally bundles the global_registry_server and
 # raiden_orchestrator_main binaries as package data, so installing the torch
 # wheel is sufficient to run the GPC control plane (see TORCH_ENTRY_POINTS).
 TORCH_DEPS = [
     "//tpu_raiden/frameworks/torch:_tpu_raiden_torch",
     "//tpu_raiden/api/torch:kv_cache_manager_torch_py",
     "//tpu_raiden/api/torch:weight_synchronizer_torch_py",
-    "//tpu_raiden/kv_cache/global_registry:gpc_launcher",
+    "//tpu_raiden/core/controller:binary_launcher",
 ]
 
 # Torch wheel only: the JAX wheel keeps its historical exclusion of the
@@ -116,9 +116,9 @@ TORCH_DEPS = [
 TORCH_ENTRY_POINTS = {
     "console_scripts": [
         "global_registry_server = " +
-        "tpu_raiden.kv_cache.global_registry.gpc_launcher:global_registry_main",
+        "tpu_raiden.core.controller.binary_launcher:global_registry_main",
         "raiden_orchestrator_main = " +
-        "tpu_raiden.kv_cache.global_registry.gpc_launcher:orchestrator_main",
+        "tpu_raiden.core.controller.binary_launcher:orchestrator_main",
     ],
 }
 
