@@ -56,12 +56,25 @@ def _executable_path(binary: pathlib.Path) -> str:
             f"{binary} is not executable and its permissions could not be "
             f"updated ({e}). Ensure the binary has execute permissions."
         ) from e
+    # chmod can be a silent no-op on some network and overlay filesystems, so
+    # confirm rather than trust it returning without an error.
+    if not os.access(binary, os.X_OK):
+        raise SystemExit(
+            f"{binary} is still not executable after chmod. Ensure the binary "
+            "has execute permissions."
+        )
     return str(binary)
 
 
 def _exec(binary: pathlib.Path) -> None:
     path = _executable_path(binary)
-    os.execv(path, [path, *sys.argv[1:]])
+    try:
+        os.execv(path, [path, *sys.argv[1:]])
+    except OSError as e:
+        # execv only returns on failure: a noexec mount, an architecture
+        # mismatch, or a missing dynamic loader. Name the path, so the pod log
+        # says what could not be run rather than showing a bare traceback.
+        raise SystemExit(f"failed to exec {path}: {e}") from e
 
 
 def global_registry_main() -> None:
