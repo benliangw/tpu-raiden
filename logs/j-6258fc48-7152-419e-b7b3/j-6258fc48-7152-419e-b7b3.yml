@@ -1,0 +1,373 @@
+# Block-major offload A/B on current HEAD — OFF leg (VLLM_TPU_BLOCK_MAJOR_KV=0).
+# Refresh of perf-recipe-32b-bm-on.yml: instead of yinlin's frozen image, the
+# source comes from the NFS worktree /workspace/vllm-torchtpu/block-major
+# (yinlin's block-major KV bundle merged to main + torch-path transfer
+# staging in offload/cpu_tpu.py). Deltas vs the old bm pair, mirrored in
+# perf-recipe-32b-bm-head-on.yml so the legs differ ONLY in the flag:
+#   1. image -> vllm-torchtpu-benliangw_google_com:latest, with the branch
+#      worktree NFS-mounted at /root/torchtpu-vllm and a dep-sync preamble
+#      (vllm from the branch pyproject pin; torch-tpu stays image-baked).
+#   2. VLLM_TPU_OFFLOAD_RAIDEN=0 — torch offload path. On this dense model
+#      the flag under test switches BOTH the device KV layout (single
+#      [num_blocks, num_layers, ...] bundle + bundled RPA kernel) AND the
+#      offload transfer plane (64 per-layer DMAs per transfer -> 1).
+#   3. Explicit VLLM_TPU_BLOCK_MAJOR_KV knob per leg.
+# Compare TTFT/TPOT/throughput from `vllm bench serve prefix_repetition`
+# between the legs; judge on timing, never byte equality.
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: ttpu-32b-bmh-off
+  namespace: cloud-devkit-jobs
+spec:
+  successPolicy:
+    operator: All
+    targetReplicatedJobs:
+      - bench
+  replicatedJobs:
+    # vllm-server: Runs vLLM serve on TPU.
+    - name: vllm-server
+      replicas: 1
+      template:
+        spec:
+          ttlSecondsAfterFinished: 900
+          backoffLimit: 0
+          template:
+            spec:
+              restartPolicy: Never
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: "2x2x1"
+                cloud.google.com/gke-tpu-accelerator: "tpu7x"
+              affinity:
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms:
+                    - matchExpressions:
+                      - key: kubernetes.io/hostname
+                        operator: NotIn
+                        values:
+                        - "gke-tpu-dff5da07-1qlq"
+
+              volumes:
+                - name: dshm
+                  emptyDir:
+                    medium: Memory
+                    sizeLimit: "64Gi"
+                - name: hf-token-volume
+                  secret:
+                    secretName: vllm-hf-token
+                    items:
+                      - key: HF_TOKEN
+                        path: token
+                - name: huggingface-storage
+                  ephemeral:
+                    volumeClaimTemplate:
+                      spec:
+                        storageClassName: "premium-rwo"
+                        accessModes: [ "ReadWriteOnce" ]
+                        resources:
+                          requests:
+                            storage: 600Gi
+                - name: torchtpu-vllm-nfs
+                  nfs:
+                    server: 10.225.237.178
+                    # Branch worktree: pins the job to benliangw/block-major.
+                    path: /workspace/vllm-torchtpu/block-major
+                - name: wheels-nfs
+                  nfs:
+                    server: 10.225.237.178
+                    path: /workspace/wheels
+
+              containers:
+                - name: vllm-server
+                  image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:latest
+                  imagePullPolicy: Always
+                  env:
+                    - name: MODEL
+                      value: "Qwen/Qwen3-32B"
+                    - name: PORT
+                      value: "8000"
+                    - name: OFFLOAD_MODE
+                      value: "on"
+                    - name: GPU_MEM_UTIL
+                      value: "0.85"
+                    - name: KV_OFFLOADING_SIZE
+                      value: "200"
+                    - name: KV_OFFLOAD_LAZY_STORE
+                      value: "1"
+                    - name: KV_OFFLOAD_HBM_LOG_INTERVAL_S
+                      value: "5"
+                    - name: KV_H2D_POOL_MAX_BLOCKS
+                      value: "512"
+                    - name: MAX_H2D_PREWARM_BLOCKS
+                      value: "512"
+                    - name: TPU_TOPOLOGY
+                      value: "2x2x1"
+                    - name: TPU_CHIPS_PER_HOST_BOUNDS
+                      value: "2,2,1"
+                    - name: TPU_HOST_BOUNDS
+                      value: "1,1,1"
+                    - name: TPU_STDERR_LOG_LEVEL
+                      value: "0"
+                    - name: VLLM_LOGGING_LEVEL
+                      value: "INFO"
+                    - name: PERFETTO
+                      value: "false"
+                    # Torch offload path (NOT raiden direct-DMA): where the
+                    # block-major transfer staging under test lives.
+                    - name: VLLM_TPU_OFFLOAD_RAIDEN
+                      value: "0"
+                    - name: RAIDEN_WHEEL
+                      value: &raiden-wheel "/root/wheels/tpu_raiden_torch-0.0.1.dev20260810190258-cp312-cp312-manylinux_2_31_x86_64.whl"
+                    # A/B knob — the ONLY functional difference between the
+                    # bm-head-on and bm-head-off legs.
+                    - name: VLLM_TPU_BLOCK_MAJOR_KV
+                      value: "0"
+                    # Explicitly disable megascale (single-host)
+                    - name: MEGASCALE_NUM_SLICES
+                      value: ""
+                    - name: MEGASCALE_SLICE_ID
+                      value: ""
+                    - name: TPU_PROCESS_ADDRESSES
+                      value: ""
+                    - name: TPU_WORKER_HOSTNAMES
+                      value: ""
+                    - name: TPU_PROCESS_PORT
+                      value: ""
+                    - name: MEGASCALE_COORDINATOR_ADDRESS
+                      value: ""
+                    - name: MEGASCALE_PORT
+                      value: ""
+
+                  volumeMounts:
+                    - name: hf-token-volume
+                      mountPath: /root/.cache/huggingface/token
+                      subPath: token
+                      readOnly: true
+                    - name: huggingface-storage
+                      mountPath: /root/.cache/huggingface/
+                    - name: dshm
+                      mountPath: /dev/shm
+                    - name: torchtpu-vllm-nfs
+                      mountPath: /root/torchtpu-vllm
+                    - name: wheels-nfs
+                      mountPath: /root/wheels
+                      readOnly: true
+
+                  command: [ "/bin/bash", "-c" ]
+                  args:
+                    - |
+                      set -eo pipefail
+                      : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                      export CDK_OUTPUT_DIR
+                      mkdir -p "$CDK_OUTPUT_DIR"
+                      export PYTHONUNBUFFERED=1
+
+                      # ---- Source & deps: run vllm-torchtpu from the NFS ----
+                      # branch worktree (benliangw/block-major). vllm installs
+                      # from the branch's pyproject pin; torch-tpu stays at the
+                      # image's baked build (ABI-matched libpywrap — see
+                      # qwen35_offloading.yml for the full rationale).
+                      mkdir -p /tmp/depsync
+                      sed -E '/"(torch-tpu|tpu-raiden-torch|vllm)(==| @)/d' /root/torchtpu-vllm/pyproject.toml > /tmp/depsync/pyproject.toml
+                      uv pip install --system -r /tmp/depsync/pyproject.toml --index-url https://pypi.org/simple
+
+                      VLLM_SPEC=$(grep -E '^[[:space:]]*"vllm' /root/torchtpu-vllm/pyproject.toml | sed -E 's/^[[:space:]]*"([^"]+)".*/\1/' | head -n1)
+                      if [ -n "$VLLM_SPEC" ]; then
+                        echo "Installing pinned vLLM from active worktree: $VLLM_SPEC"
+                        VLLM_TARGET_DEVICE=empty uv pip install --system --no-deps "$VLLM_SPEC"
+                      fi
+
+                      TT_VER=$(sed -nE 's/^[[:space:]]*"torch-tpu==([^"]+)".*/\1/p' /root/torchtpu-vllm/pyproject.toml | head -1)
+                      if [ -n "$TT_VER" ]; then
+                        TT_WHL=$(ls /root/wheels/torch_tpu-${TT_VER}-*.whl 2>/dev/null | head -1 || true)
+                        if [ -n "$TT_WHL" ]; then
+                          echo "Installing pinned torch-tpu from /root/wheels: $TT_WHL"
+                          uv pip install --system --no-deps "$TT_WHL"
+                        else
+                          echo "RESULT: FAIL (/root/wheels/torch_tpu-${TT_VER}-*.whl missing — run ~/workspace/sync_wheels.sh)"
+                          exit 1
+                        fi
+                      fi
+
+                      uv pip install --system --no-deps "$RAIDEN_WHEEL"
+                      python3 -c "import tpu_raiden.api.torch.kv_cache_manager" || { echo "RESULT: FAIL (raiden import)"; exit 1; }
+                      export PYTHONPATH=/root/torchtpu-vllm/src:/root/torchtpu-vllm:${PYTHONPATH:-}
+
+                      # Set up Perfetto tracing / custom libtpu if enabled
+                      if [ "$PERFETTO" = "true" ]; then
+                        echo "Enabling Perfetto tracing with custom libtpu..."
+                        export TPU_LIBRARY_PATH="/root/cloud-devkit/base/bin/libtpu.so"
+                        mkdir -p "$(dirname "$TPU_LIBRARY_PATH")"
+                        gcloud storage cp gs://cloud-devkit/libs/libtpu/20260521/libtpu.so "$TPU_LIBRARY_PATH"
+                        export TPU_VMODULE="tpu_pjrt_client=1,pjrt_stream_executor_client=1,tpu_pjrt_compiler_utils=1"
+                      fi
+
+                      # jparkerh tip (2026-05-21): disable enhanced launch
+                      # barrier to avoid an H2D-path deadlock on first cache
+                      # hit.
+                      export LIBTPU_INIT_ARGS="--xla_tpu_use_enhanced_launch_barrier=false ${LIBTPU_INIT_ARGS:-}"
+                      # Enlarge libtpu's premapped DMA staging region so
+                      # D2H/H2D copies don't fall back to per-call pin.
+                      # NB: This is PER-DEVICE. 8 chips × 16 GiB = 128 GiB host RAM
+                      # reserved by libtpu. Bigger sizes blow the 900 GiB pod limit
+                      # given 400 GiB cpu_pool + ~240 GiB fp8 weights.
+                      export TPU_PREMAPPED_BUFFER_SIZE=$((16 * 1024 * 1024 * 1024))
+                      export TPU_PREMAPPED_BUFFER_TRANSFER_THRESHOLD_BYTES=$((16 * 1024 * 1024 * 1024))
+                      export MODEL_IMPL_TYPE=vllm
+                      export USE_BATCHED_RPA_KERNEL=1
+                      export VLLM_MOE_ROUTING_SIMULATION_STRATEGY=uniform_random
+                      # v24: eviction-triggered offload toggle (read by the
+                      # scheduler-side OffloadingConnector). Re-exported here
+                      # because pod env does not survive vllm's spawn().
+                      export KV_OFFLOAD_LAZY_STORE="${KV_OFFLOAD_LAZY_STORE:-0}"
+
+                      OFFLOAD_ARGS=()
+                      if [ "$OFFLOAD_MODE" = "on" ]; then
+                        OFFLOAD_ARGS=(
+                          --kv-offloading-size "$KV_OFFLOADING_SIZE"
+                          --kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_connector_extra_config":{"spec_name":"TPUCPUOffloadingSpec","spec_module_path":"vllm_torchtpu.offload.cpu_tpu"}}'
+                        )
+                        echo "Starting vLLM server (offload=ON, GPU_MEM_UTIL=$GPU_MEM_UTIL, KV=$KV_OFFLOADING_SIZE GiB)..."
+                      else
+                        echo "Starting vLLM server (offload=OFF, GPU_MEM_UTIL=$GPU_MEM_UTIL)..."
+                      fi
+
+                      exec vllm serve "$MODEL" \
+                          --tensor-parallel-size=8 \
+                          --gpu-memory-utilization="$GPU_MEM_UTIL" \
+                          "${OFFLOAD_ARGS[@]}" \
+                          --async-scheduling \
+                          --port="$PORT" \
+                          2>&1 | tee "$CDK_OUTPUT_DIR/server.log"
+
+                  resources:
+                    limits:
+                      google.com/tpu: 4
+                      memory: "900Gi"
+                      cpu: "16"
+                      ephemeral-storage: "100Gi"
+                    requests:
+                      google.com/tpu: 4
+                      memory: "900Gi"
+                      cpu: "16"
+                      ephemeral-storage: "50Gi"
+
+    # bench: Runs benchmark client against vllm-server.
+    - name: bench
+      replicas: 1
+      template:
+        spec:
+          ttlSecondsAfterFinished: 900
+          backoffLimit: 0
+          template:
+            spec:
+              restartPolicy: Never
+
+              volumes:
+                - name: hf-token-volume
+                  secret:
+                    secretName: vllm-hf-token
+                    items:
+                      - key: HF_TOKEN
+                        path: token
+
+              containers:
+                - name: vllm-bench
+                  image: vllm/vllm-tpu:nightly
+                  imagePullPolicy: Always
+                  env:
+                    - name: JS_NAME
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                    - name: MODEL
+                      value: "Qwen/Qwen3-32B"
+                    - name: PORT
+                      value: "8000"
+                    - name: NUM_PREFIXES
+                      value: "96"
+                    - name: NUM_PROMPTS
+                      value: "1024"
+                    - name: PREFIX_LEN
+                      value: "8192"
+                    - name: MAX_CONCURRENCY
+                      value: "64"
+                    - name: OUTPUT_LEN
+                      value: "256"
+                    - name: PERFETTO
+                      value: "false"
+
+                  volumeMounts:
+                    - name: hf-token-volume
+                      mountPath: /root/.cache/huggingface/token
+                      subPath: token
+                      readOnly: true
+
+                  command: [ "/bin/bash", "-c" ]
+                  args:
+                    - |
+                      set -eo pipefail
+                      : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                      export CDK_OUTPUT_DIR
+                      mkdir -p "$CDK_OUTPUT_DIR"
+                      export PYTHONUNBUFFERED=1
+
+                      VLLM_SERVER_DNS="${JS_NAME}-vllm-server-0-0.${JS_NAME}"
+                      echo "Waiting for vLLM at http://${VLLM_SERVER_DNS}:${PORT}/health (up to 90 min)..."
+                      max_wait=$((180 * 60))
+                      waited=0
+                      while ! curl -sf "http://${VLLM_SERVER_DNS}:${PORT}/health" >/dev/null 2>&1; do
+                        if [ "$waited" -ge "$max_wait" ]; then
+                          echo "ERROR: vllm-server not ready within 90 minutes"
+                          exit 1
+                        fi
+                        if [ "$waited" -gt 0 ] && [ $((waited % 60)) -eq 0 ]; then
+                          echo "  ...still waiting (${waited}s elapsed)"
+                        fi
+                        sleep 1
+                        waited=$((waited + 1))
+                      done
+                      echo "vllm-server ready (${waited}s)"
+
+                      echo "Running vllm bench serve..."
+                      vllm bench serve \
+                          --backend vllm \
+                          --model "$MODEL" \
+                          --host "$VLLM_SERVER_DNS" \
+                          --port "$PORT" \
+                          --dataset-name prefix_repetition \
+                          --prefix-repetition-num-prefixes "$NUM_PREFIXES" \
+                          --prefix-repetition-prefix-len "$PREFIX_LEN" \
+                          --prefix-repetition-suffix-len 256 \
+                          --prefix-repetition-output-len "$OUTPUT_LEN" \
+                          --num-prompts "$NUM_PROMPTS" \
+                          --max-concurrency "$MAX_CONCURRENCY" \
+                          --request-rate inf \
+                          --save-result \
+                          --ignore-eos \
+                          --result-filename "$CDK_OUTPUT_DIR/bench_result.json" \
+                          --seed 42 2>&1 | tee "$CDK_OUTPUT_DIR/bench.log"
+
+                      if [ "$PERFETTO" = "true" ]; then
+                        set +e
+                        echo "===== begin: cpu_tpu + libtpu trace lines ====="
+                        VLLM_SRV_LOG=$(find /cdk-outputs/outputs/${JS_NAME}-vllm-server-0 -name server.log 2>/dev/null | head -1)
+                        if [ -n "$VLLM_SRV_LOG" ] && [ -r "$VLLM_SRV_LOG" ]; then
+                          echo "found server.log: $VLLM_SRV_LOG ($(wc -l < "$VLLM_SRV_LOG") lines)"
+                          grep -aE '^trace (main|d2h|h2d) ' "$VLLM_SRV_LOG"
+                          grep -aE '\([0-9]+x[0-9]+x[0-9]+_TC[0-9]\)Executables(Start|Complete)' "$VLLM_SRV_LOG"
+                        else
+                          echo "WARN: vllm-server server.log not accessible from bench pod"
+                        fi
+                        echo "===== end: cpu_tpu + libtpu trace lines ====="
+                        set -e
+                      fi
+
+                  resources:
+                    limits:
+                      memory: "8Gi"
+                      cpu: "2"
+                    requests:
+                      memory: "4Gi"
+                      cpu: "1"

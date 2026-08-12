@@ -1,0 +1,178 @@
+===== Syncing dependencies to pyproject.toml =====
+Using Python 3.12.13 environment at: /usr/local
+Resolved 121 packages in 573ms
+Downloading nvidia-cuda-cupti (10.2MiB)
+Downloading nvidia-cufile (1.2MiB)
+Downloading nvidia-nvshmem-cu13 (57.6MiB)
+Downloading nvidia-cuda-runtime (2.1MiB)
+Downloading nvidia-cusparse (139.2MiB)
+Downloading nvidia-curand (56.8MiB)
+Downloading nvidia-nvjitlink (38.9MiB)
+Downloading nvidia-nccl-cu13 (196.4MiB)
+Downloading nvidia-cuda-nvrtc (86.0MiB)
+Downloading nvidia-cusparselt-cu13 (162.3MiB)
+Downloading nvidia-cusolver (191.6MiB)
+Downloading nvidia-cufft (204.2MiB)
+Downloading nvidia-cublas (403.5MiB)
+Downloading nvidia-cudnn-cu13 (349.2MiB)
+Downloading jaxlib (81.5MiB)
+Downloading torchvision (7.3MiB)
+Downloading torch (502.2MiB)
+Downloading libtpu (205.6MiB)
+Downloading jax (3.1MiB)
+ Downloaded nvidia-cufile
+ Downloaded nvidia-cuda-runtime
+ Downloaded torchvision
+ Downloaded jax
+ Downloaded nvidia-cuda-cupti
+ Downloaded nvidia-nvjitlink
+ Downloaded nvidia-curand
+ Downloaded nvidia-nvshmem-cu13
+ Downloaded jaxlib
+ Downloaded nvidia-cuda-nvrtc
+ Downloaded nvidia-cusparse
+ Downloaded nvidia-cusparselt-cu13
+ Downloaded nvidia-cusolver
+ Downloaded nvidia-nccl-cu13
+ Downloaded nvidia-cufft
+ Downloaded libtpu
+ Downloaded nvidia-cudnn-cu13
+ Downloaded nvidia-cublas
+ Downloaded torch
+Prepared 21 packages in 23.95s
+Uninstalled 7 packages in 3.80s
+Installed 21 packages in 170ms
+ + cuda-toolkit==13.0.3.0
+ - jax==0.10.0
+ + jax==0.10.2
+ - jaxlib==0.10.0
+ + jaxlib==0.10.2
+ - libtpu==0.0.40
+ + libtpu==0.0.44.1
+ + nvidia-cublas==13.1.1.3
+ + nvidia-cuda-cupti==13.0.85
+ - nvidia-cuda-nvrtc==13.3.33
+ + nvidia-cuda-nvrtc==13.0.88
+ - nvidia-cuda-runtime==13.3.29
+ + nvidia-cuda-runtime==13.0.96
+ + nvidia-cudnn-cu13==9.20.0.48
+ + nvidia-cufft==12.0.0.61
+ + nvidia-cufile==1.15.1.6
+ + nvidia-curand==10.4.0.35
+ + nvidia-cusolver==12.0.4.66
+ + nvidia-cusparse==12.6.3.3
+ + nvidia-cusparselt-cu13==0.8.1
+ + nvidia-nccl-cu13==2.29.7
+ + nvidia-nvjitlink==13.3.33
+ + nvidia-nvshmem-cu13==3.4.5
+ + nvidia-nvtx==13.0.85
+ - torch==2.11.0+cpu
+ + torch==2.13.0
+ - torchvision==0.26.0+cpu
+ + torchvision==0.28.0
+Installing pinned vLLM from active worktree: vllm @ git+https://github.com/vllm-project/vllm.git@v0.26.1rc0
+Using Python 3.12.13 environment at: /usr/local
+   Updating https://github.com/vllm-project/vllm.git (v0.26.1rc0)
+    Updated https://github.com/vllm-project/vllm.git (53f6dd5c6f7725df4e5ac9441569860023100870)
+Resolved 1 package in 17.45s
+   Building vllm @ git+https://github.com/vllm-project/vllm.git@53f6dd5c6f7725df4e5ac9441569860023100870
+      Built vllm @ git+https://github.com/vllm-project/vllm.git@53f6dd5c6f7725df4e5ac9441569860023100870
+Prepared 1 package in 3.14s
+Uninstalled 1 package in 6ms
+Installed 1 package in 34ms
+ - vllm==0.23.1rc1.dev927+gc0e8e1f12.d20260708.tpu (from file:///root/cloud-devkit/vllm)
+ + vllm==0.26.1rc0+empty (from git+https://github.com/vllm-project/vllm.git@53f6dd5c6f7725df4e5ac9441569860023100870)
+Installing pinned torch-tpu from /root/wheels: /root/wheels/torch_tpu-0.1.1.dev20260810130143-cp312-cp312-manylinux_2_31_x86_64.whl
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 4ms
+Prepared 1 package in 847ms
+Uninstalled 1 package in 115ms
+Installed 1 package in 3ms
+ - torch-tpu==0.1.1 (from file:///artifact-source/opt/wheels/torch_tpu-0.1.1-cp312-cp312-manylinux_2_31_x86_64.whl)
+ + torch-tpu==0.1.1.dev20260810130143 (from file:///root/wheels/torch_tpu-0.1.1.dev20260810130143-cp312-cp312-manylinux_2_31_x86_64.whl)
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 3ms
+Prepared 1 package in 279ms
+Installed 1 package in 2ms
+ + tpu-raiden-torch==0.0.1.dev20260810190258 (from file:///root/wheels/tpu_raiden_torch-0.0.1.dev20260810190258-cp312-cp312-manylinux_2_31_x86_64.whl)
+Starting vLLM server (offload=ON, GPU_MEM_UTIL=0.60, KV=200 GiB)...
+===== Starting Qwen3.5 server with KV offloading =====
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1786510997.658448     343 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1786510997.815546     343 device_rt.cc:121] PjRt runtime initialization deferred for tpu
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+INFO 08-12 05:03:17 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-12 05:03:17 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-12 05:03:17 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 08-12 05:03:19 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-12 05:03:19 [tpu_info.py:26] 
+INFO 08-12 05:03:19 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-12 05:03:19 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 08-12 05:03:19 [tpu_platform.py:960] Pin memory is not supported on TPU.
+INFO 08-12 05:03:29 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-12 05:03:29 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+(APIServer pid=343) INFO 08-12 05:03:32 [api_utils.py:345] 
+(APIServer pid=343) INFO 08-12 05:03:32 [api_utils.py:345]        █     █     █▄   ▄█
+(APIServer pid=343) INFO 08-12 05:03:32 [api_utils.py:345]  ▄▄ ▄█ █     █     █ ▀▄▀ █  version 0.26.1rc0
+(APIServer pid=343) INFO 08-12 05:03:32 [api_utils.py:345]   █▄█▀ █     █     █     █  model   Qwen/Qwen3.5-35B-A3B-FP8
+(APIServer pid=343) INFO 08-12 05:03:32 [api_utils.py:345]    ▀▀  ▀▀▀▀▀ ▀▀▀▀▀ ▀     ▀
+(APIServer pid=343) INFO 08-12 05:03:32 [api_utils.py:345] 
+(APIServer pid=343) INFO 08-12 05:03:32 [api_utils.py:273] non-default args: {'model_tag': 'Qwen/Qwen3.5-35B-A3B-FP8', 'model': 'Qwen/Qwen3.5-35B-A3B-FP8', 'max_model_len': 8192, 'tensor_parallel_size': 4, 'enable_expert_parallel': True, 'gpu_memory_utilization': 0.6, 'num_gpu_blocks_override': 512, 'enable_prefix_caching': True, 'mamba_cache_mode': 'align', 'kv_offloading_size': 200.0, 'language_model_only': True, 'max_num_batched_tokens': 4096, 'max_num_seqs': 16, 'async_scheduling': False, 'kv_transfer_config': KVTransferConfig(kv_connector='OffloadingConnector', engine_id='dd2a2a92-b793-4b2c-9959-81edc7a72618', kv_buffer_device='tpu', kv_buffer_size=1000000000.0, kv_role='kv_both', kv_rank=None, kv_parallel_size=1, kv_ip='127.0.0.1', kv_port=14579, kv_connector_extra_config={'spec_name': 'TPUCPUOffloadingSpec', 'spec_module_path': 'vllm_torchtpu.offload.cpu_tpu'}, kv_connector_module_path=None, enable_permute_local_kv=False, kv_load_failure_policy='fail')}
+(APIServer pid=343) Traceback (most recent call last):
+(APIServer pid=343)   File "/usr/local/bin/vllm", line 10, in <module>
+(APIServer pid=343)     sys.exit(main())
+(APIServer pid=343)              ^^^^^^
+(APIServer pid=343)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/cli/main.py", line 95, in main
+(APIServer pid=343)     args.dispatch_function(args)
+(APIServer pid=343)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/cli/serve.py", line 148, in cmd
+(APIServer pid=343)     uvloop.run(run_server(args))
+(APIServer pid=343)   File "/usr/local/lib/python3.12/site-packages/uvloop/__init__.py", line 96, in run
+(APIServer pid=343)     return __asyncio.run(
+(APIServer pid=343)            ^^^^^^^^^^^^^^
+(APIServer pid=343)   File "/usr/local/lib/python3.12/asyncio/runners.py", line 195, in run
+(APIServer pid=343)     return runner.run(main)
+(APIServer pid=343)            ^^^^^^^^^^^^^^^^
+(APIServer pid=343)   File "/usr/local/lib/python3.12/asyncio/runners.py", line 118, in run
+(APIServer pid=343)     return self._loop.run_until_complete(task)
+(APIServer pid=343)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=343)   File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+(APIServer pid=343)   File "/usr/local/lib/python3.12/site-packages/uvloop/__init__.py", line 48, in wrapper
+(APIServer pid=343)     return await main
+(APIServer pid=343)            ^^^^^^^^^^
+(APIServer pid=343)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 766, in run_server
+(APIServer pid=343)     await run_server_worker(listen_address, sock, args, **uvicorn_kwargs)
+(APIServer pid=343)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 780, in run_server_worker
+(APIServer pid=343)     async with build_async_engine_client(
+(APIServer pid=343)                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=343)   File "/usr/local/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=343)     return await anext(self.gen)
+(APIServer pid=343)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=343)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 134, in build_async_engine_client
+(APIServer pid=343)     engine_args = AsyncEngineArgs.from_cli_args(args)
+(APIServer pid=343)                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=343)   File "/usr/local/lib/python3.12/site-packages/vllm/engine/arg_utils.py", line 1643, in from_cli_args
+(APIServer pid=343)     engine_args = cls(
+(APIServer pid=343)                   ^^^^
+(APIServer pid=343)   File "<string>", line 227, in __init__
+(APIServer pid=343)   File "/usr/local/lib/python3.12/site-packages/vllm/engine/arg_utils.py", line 792, in __post_init__
+(APIServer pid=343)     self.model = get_model_path(self.model, self.revision)
+(APIServer pid=343)                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=343)   File "/usr/local/lib/python3.12/site-packages/vllm/transformers_utils/repo_utils.py", line 243, in get_model_path
+(APIServer pid=343)     return hf_api().snapshot_download(
+(APIServer pid=343)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=343)   File "/usr/local/lib/python3.12/site-packages/huggingface_hub/utils/_validators.py", line 89, in _inner_fn
+(APIServer pid=343)     return fn(*args, **kwargs)
+(APIServer pid=343)            ^^^^^^^^^^^^^^^^^^^
+(APIServer pid=343)   File "/usr/local/lib/python3.12/site-packages/huggingface_hub/hf_api.py", line 5835, in snapshot_download
+(APIServer pid=343)     return snapshot_download(
+(APIServer pid=343)            ^^^^^^^^^^^^^^^^^^
+(APIServer pid=343)   File "/usr/local/lib/python3.12/site-packages/huggingface_hub/utils/_validators.py", line 89, in _inner_fn
+(APIServer pid=343)     return fn(*args, **kwargs)
+(APIServer pid=343)            ^^^^^^^^^^^^^^^^^^^
+(APIServer pid=343)   File "/usr/local/lib/python3.12/site-packages/huggingface_hub/_snapshot_download.py", line 306, in snapshot_download
+(APIServer pid=343)     raise LocalEntryNotFoundError(
+(APIServer pid=343) huggingface_hub.errors.LocalEntryNotFoundError: Cannot find an appropriate cached snapshot folder for the specified revision on the local disk and outgoing traffic has been disabled. To enable repo look-ups and downloads online, pass 'local_files_only=False' as input.
+
