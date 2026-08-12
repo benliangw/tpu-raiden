@@ -954,6 +954,39 @@ absl::Status HostOffloadBackend::RegisterBlocksSync(
   return client->Register(registrations);
 }
 
+absl::Status HostOffloadBackend::EnsureRegisteredHostResident(
+    absl::Span<const std::string> block_hashes) {
+  std::shared_ptr<global_registry::GlobalRegistryClient> client;
+  RaidenId local_id;
+  std::vector<global_registry::Registration> registrations;
+  {
+    absl::MutexLock lock(mutex_);
+    client = registry_client_;
+    local_id = raiden_id_;
+    registrations.reserve(block_hashes.size());
+    for (const std::string& hash : block_hashes) {
+      // PeekIncludingCandidates for the same reason as
+      // AlreadyPresentHostResident: a candidate still holds its host block.
+      const RaidenBlockID* entry = lru_cache_.PeekIncludingCandidates(hash);
+      if (entry != nullptr && (entry->status == BlockStatus::HOST ||
+                               entry->status == BlockStatus::HOST_AND_HBM)) {
+        registrations.push_back({
+            .prefix_hash = hash,
+            .raiden_id = local_id,
+            .block_id = entry->host_block_id,
+        });
+      }
+    }
+  }
+  if (client == nullptr || registrations.empty()) {
+    // Without a registry nothing can be advertised (and no peer resolves
+    // this store through one either); with nothing resident there is
+    // nothing to vouch for.
+    return absl::OkStatus();
+  }
+  return client->Register(registrations);
+}
+
 tsl::Future<> HostOffloadBackend::Load(
     const RaidenId& remote_id, absl::Span<const std::string> block_hashes,
     absl::Span<const int32_t> device_block_ids,

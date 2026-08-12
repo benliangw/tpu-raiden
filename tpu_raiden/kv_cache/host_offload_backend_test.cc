@@ -195,6 +195,56 @@ TEST(HostOffloadBackendTest, LookupReturnsRemoteDescriptors) {
   EXPECT_EQ(partial_res->size(), 1);
 }
 
+TEST(HostOffloadBackendTest, EnsureRegisteredHostResidentPublishesHeldBlocks) {
+  auto reg_server = global_registry::CreateTestGlobalRegistryServer();
+  std::string server_address = reg_server->server_address;
+  auto registry_client = reg_server->client.get();
+
+  RaidenId local_node_id{"local_job", "0", "data", 0};
+  rpc::RaidenIdProto unit_proto;
+  unit_proto.set_job_name(local_node_id.job_name);
+  unit_proto.set_job_replica_id(local_node_id.job_replica_id);
+  unit_proto.set_data_name(local_node_id.data_name);
+  unit_proto.set_data_replica_idx(local_node_id.data_replica_idx);
+
+  controller::RaidenController controller(unit_proto, /*num_blocks=*/100,
+                                          /*num_shards=*/1,
+                                          /*shard_size_bytes=*/1024);
+
+  BackendConfig config;
+  config.type = "HostOffloadBackend";
+  config.capacity = 100;
+  config.global_registry_address = server_address;
+  config.raiden_id = local_node_id;
+
+  auto backend_or = HostOffloadBackend::Create(config, &controller);
+  ASSERT_OK(backend_or.status());
+  auto backend = *backend_or;
+
+  // Land two blocks the way a remote write does: present in the LRU, never
+  // published (InsertAllOrNothing does not touch the registry).
+  ASSERT_TRUE(backend->InsertAllOrNothing(
+      {"e1", "e2"}, {RaidenBlockID(local_node_id, 7, BlockStatus::HOST),
+                     RaidenBlockID(local_node_id, 8, BlockStatus::HOST)}));
+  auto before = registry_client->Lookup({"e1", "e2"});
+  ASSERT_OK(before.status());
+  EXPECT_TRUE(before->empty()) << "blocks must start unpublished";
+
+  // Absent hashes are skipped, not errors; held ones become findable.
+  ASSERT_OK(backend->EnsureRegisteredHostResident({"e1", "e2", "absent"}));
+
+  auto after = registry_client->Lookup({"e1", "e2"});
+  ASSERT_OK(after.status());
+  ASSERT_EQ(after->size(), 2);
+  EXPECT_EQ((*after)[0].block_id(), 7);
+  EXPECT_EQ((*after)[1].block_id(), 8);
+  EXPECT_EQ((*after)[0].raiden_id().job_name(), "local_job");
+
+  auto absent = registry_client->Lookup({"absent"});
+  ASSERT_OK(absent.status());
+  EXPECT_TRUE(absent->empty());
+}
+
 TEST(HostOffloadBackendTest,
      LookupStopsAtStaleLocalRaidenIdFromGlobalRegistry) {
   // Setup local gRPC registry server

@@ -245,6 +245,21 @@ class KVCacheStoreBackend {
         "Backend does not implement RegisterBlocksSync.");
   }
 
+  // Re-publishes already host-resident entries to the global registry,
+  // looking their host blocks up in this backend. Entries that are no longer
+  // host-resident are skipped, not errors.
+  //
+  // Exists so an ALL_EXIST / PARTIAL_EXIST answer can promise findability:
+  // mere LRU presence does not imply publication (a save's write-through or
+  // an earlier remote write's publication may have failed and kept the
+  // block), and a source that trusts an exist answer enough to free its own
+  // copy would otherwise strand the block unreachable-but-held.
+  virtual absl::Status EnsureRegisteredHostResident(
+      absl::Span<const std::string> block_hashes) {
+    return absl::UnimplementedError(
+        "Backend does not implement EnsureRegisteredHostResident.");
+  }
+
   // The peer-facing KVCacheStoreService server this backend hosts, if any.
   // Returning non-null tells the owning KVCacheStore to publish THIS server
   // rather than start a second one, so a node always serves peers from exactly

@@ -469,6 +469,10 @@ class KVCacheStore:
         existing: Hashes a destination already held when it refused a PARTIAL
           batch. This store does not reissue with the remainder -- doing so is
           the caller's decision, and this is the list it needs to make it.
+          The destination re-published these to the global registry before
+          answering (an offer it cannot vouch for fails instead), so like
+          `done` they are findable on the peer and the caller may drop its
+          own copy of exactly these hashes.
         unregistered: The destination HAS these -- the transfer succeeded --
           but could not publish them, so no lookup will find them there. They
           are reported failed because the safe default is to keep your own

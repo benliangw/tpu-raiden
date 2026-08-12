@@ -417,6 +417,11 @@ class KVCacheStore {
   //
   //   existing:     the destination already held these, so it refused the
   //                 batch. Reissuing with the remainder is the caller's call.
+  //                 The destination re-published them to the global registry
+  //                 before answering (a refused offer with an unpublishable
+  //                 copy fails instead), so like `done` these are
+  //                 registry-findable on the peer and a caller may drop its
+  //                 own copy of exactly these hashes.
   //   unregistered: the destination HAS these -- the transfer succeeded -- but
   //                 could not publish them, so no peer can find them. Reported
   //                 as failed because the safe default is for the caller to
