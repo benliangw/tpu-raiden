@@ -399,6 +399,27 @@ class KVCacheStoreTest(absltest.TestCase):
     self.assertEqual(controller.evict([b"evict_1"]), 1)
     self.assertEmpty(controller.lookup([b"evict_1"]))
 
+  def test_size_and_get_evictable_keys(self):
+    controller = kv_cache_store.KVCacheStore(
+        capacity=4, num_shards=1, store_server_ip="127.0.0.1"
+    )
+
+    hashes = [b"cold", b"warm", b"pinned"]
+    slices = [
+        kv_cache_store.RaidenId("inference_server", str(i), "kv_cache", 0)
+        for i in range(3)
+    ]
+    self.assertTrue(controller.insert(hashes, slices, True)[0])
+    self.assertEqual(controller.size(), 3)
+
+    # Pinned entries are not evictable; the rest come back coldest-first.
+    self.assertTrue(controller.pin([b"pinned"]))
+    self.assertEqual(
+        controller.get_evictable_keys(10), [b"cold", b"warm"]
+    )
+    self.assertEqual(controller.get_evictable_keys(1), [b"cold"])
+    controller.release([b"pinned"])
+
   def test_save_and_load_mocked(self):
     controller = kv_cache_store.KVCacheStore(
         capacity=20, num_shards=1, store_server_ip="127.0.0.1"

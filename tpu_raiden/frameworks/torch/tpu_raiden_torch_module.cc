@@ -735,6 +735,22 @@ NB_MODULE(_tpu_raiden_torch, m) {
            [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self) {
              return self->capacity();
            })
+      .def("size",
+           [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self) {
+             return self->size();
+           })
+      .def(
+          "get_evictable_keys",
+          [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self, size_t count) {
+            auto keys = self->GetEvictableKeys(count);
+            std::vector<nb::bytes> out;
+            out.reserve(keys.size());
+            for (const auto& key : keys) {
+              out.push_back(nb::bytes(key.data(), key.size()));
+            }
+            return out;
+          },
+          nb::arg("count"))
       .def(
           "pin",
           [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self,

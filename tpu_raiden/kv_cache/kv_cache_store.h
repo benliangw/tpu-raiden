@@ -305,6 +305,18 @@ class KVCacheStore {
   void UnpinHostBlocks(absl::Span<const std::string> block_hashes);
 
   size_t capacity() const;
+
+  // Number of entries currently held, eviction candidates included (a
+  // candidate still holds its host block, so it counts toward occupancy).
+  size_t size() const;
+
+  // The coldest unpinned entries in true eviction order -- candidates
+  // first, then the LRU tail -- up to `count`. Read-only: recency is not
+  // perturbed. Intended for planning proactive eviction (WriteRemote to a
+  // peer): note that candidates are Lookup-invisible and unreadable to
+  // peers, so probe with Lookup before offering what this returns.
+  std::vector<std::string> GetEvictableKeys(size_t count);
+
   std::string raiden_controller_address() const;
 
   // "host:port" of this store's KVCacheStoreService, as published to the

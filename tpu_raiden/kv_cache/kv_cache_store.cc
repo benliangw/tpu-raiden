@@ -861,6 +861,16 @@ size_t KVCacheStore::capacity() const {
   return (!backends_.empty() && backends_[0]) ? backends_[0]->GetCapacity() : 0;
 }
 
+size_t KVCacheStore::size() const {
+  return (!backends_.empty() && backends_[0]) ? backends_[0]->GetSize() : 0;
+}
+
+std::vector<std::string> KVCacheStore::GetEvictableKeys(size_t count) {
+  return (!backends_.empty() && backends_[0])
+             ? backends_[0]->GetEvictableKeys(count)
+             : std::vector<std::string>{};
+}
+
 std::string KVCacheStore::raiden_controller_address() const {
   if (raiden_controller_) {
     return raiden_controller_->controller_address();

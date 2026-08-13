@@ -340,6 +340,23 @@ class KVCacheStore:
   def capacity(self) -> int:
     return self._impl.capacity()
 
+  def size(self) -> int:
+    """Number of entries currently held, eviction candidates included.
+
+    A candidate still holds its host block, so it counts toward occupancy.
+    """
+    return self._impl.size()
+
+  def get_evictable_keys(self, count: int) -> list[bytes]:
+    """The coldest unpinned entries in true eviction order, up to `count`.
+
+    Eviction candidates come first, then the LRU tail. Read-only: recency is
+    not perturbed. Intended for planning proactive eviction (write_remote to
+    a peer). Candidates are lookup-invisible and unreadable to peers, so
+    probe with lookup() before offering what this returns.
+    """
+    return self._impl.get_evictable_keys(count)
+
   def pin(self, block_hashes: list[bytes]) -> bool:
     """Pins cached block hashes in memory, protecting them against LRU eviction while in active use."""
     return self._impl.pin(block_hashes)
