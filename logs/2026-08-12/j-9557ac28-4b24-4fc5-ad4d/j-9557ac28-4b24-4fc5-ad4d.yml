@@ -1,0 +1,153 @@
+# Pod-to-pod network benchmark between two tpu7x hosts.
+#
+# Motivation: the gpc-global-offloading x-revisit pulls one 32768-token
+# logical block (335.5 MB across all 8 PCP ranks) in ~164 ms, i.e. ~2.0 GB/s
+# aggregate and ~256 MB/s per worker stream — far below any plausible NIC
+# line rate. /sys/class/net/eth0/speed inside a pod is a veth placeholder
+# (always 10000), so this job measures the real thing: iperf3 over the same
+# pod-network path read_remote uses, between two pods scheduled exactly like
+# the two prefill legs (each claims a full tpu7x 2x2x1 host via the
+# google.com/tpu request, so they are guaranteed to land on distinct hosts).
+#
+# Reads: single-stream vs -P 4/8/16 says whether the path is per-stream
+# limited (matching raiden's slow per-worker pulls) or NIC limited; the
+# reverse run covers the server->client direction (the direction of a
+# read_remote pull); ping gives the RTT floor under the 5.24 MB sub-block
+# RPCs. Purely informational — PASSes once all measurements ran.
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: ttpu-net-iperf3-tpu7x
+  namespace: cloud-devkit-jobs
+spec:
+  successPolicy:
+    operator: All
+    targetReplicatedJobs:
+      - client
+  ttlSecondsAfterFinished: 900
+  replicatedJobs:
+    # server: sits on one tpu7x host and answers iperf3 for the client. Runs
+    # until the client job completes the JobSet (same pattern as the GPC
+    # registry pod).
+    - name: server
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            spec:
+              restartPolicy: Never
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: 2x2x1
+                cloud.google.com/gke-tpu-accelerator: tpu7x
+              affinity:
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms:
+                    - matchExpressions:
+                      - key: kubernetes.io/hostname
+                        operator: NotIn
+                        values:
+                        - "gke-tpu-dff5da07-1qlq"
+              containers:
+              - name: iperf-server
+                image: ubuntu:24.04
+                imagePullPolicy: IfNotPresent
+                command: ["/bin/bash", "-c"]
+                args:
+                  - |
+                    set -eo pipefail
+                    apt-get update -qq
+                    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq iperf3 > /dev/null \
+                      || { echo "RESULT: FAIL (apt-get install iperf3 failed — no egress?)"; exit 1; }
+                    echo "iperf3 server ready"
+                    exec iperf3 -s
+                ports:
+                - containerPort: 5201
+                resources:
+                  limits:
+                    google.com/tpu: "4"
+                    memory: "32Gi"
+                    cpu: "16"
+                  requests:
+                    google.com/tpu: "4"
+                    memory: "16Gi"
+                    cpu: "8"
+
+    # client: lands on a second tpu7x host (the server already holds all 4
+    # chips of its host), waits for the server, and runs the measurement
+    # matrix.
+    - name: client
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            spec:
+              restartPolicy: Never
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: 2x2x1
+                cloud.google.com/gke-tpu-accelerator: tpu7x
+              affinity:
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms:
+                    - matchExpressions:
+                      - key: kubernetes.io/hostname
+                        operator: NotIn
+                        values:
+                        - "gke-tpu-dff5da07-1qlq"
+              containers:
+              - name: iperf-client
+                image: ubuntu:24.04
+                imagePullPolicy: IfNotPresent
+                env:
+                  - name: JS_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                command: ["/bin/bash", "-c"]
+                args:
+                  - |
+                    set -eo pipefail
+                    apt-get update -qq
+                    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq iperf3 iputils-ping > /dev/null \
+                      || { echo "RESULT: FAIL (apt-get install failed — no egress?)"; exit 1; }
+
+                    SERVER="${JS_NAME}-server-0-0.${JS_NAME}"
+                    echo "Waiting for iperf3 server at ${SERVER}:5201 (up to 900s)..."
+                    waited=0
+                    until (exec 3<>"/dev/tcp/${SERVER}/5201") 2>/dev/null; do
+                      sleep 5; waited=$((waited + 5))
+                      [ "$waited" -ge 900 ] && { echo "RESULT: FAIL (server not reachable)"; exit 1; }
+                    done
+                    exec 3<&- 3>&- || true
+                    echo "server reachable (${waited}s)"
+
+                    echo "=== RTT (ping x20) ==="
+                    ping -c 20 -i 0.2 "$SERVER" | tail -2
+
+                    for P in 1 4 8 16; do
+                      echo "=== iperf3 client->server, ${P} stream(s), 10s ==="
+                      iperf3 -c "$SERVER" -t 10 -P "$P" | tail -4
+                    done
+
+                    # Reverse: data flows server->client, matching the
+                    # direction of a read_remote pull from the peer store.
+                    echo "=== iperf3 server->client (-R), 8 streams, 10s ==="
+                    iperf3 -c "$SERVER" -t 10 -P 8 -R | tail -4
+
+                    echo "RESULT: PASS (measurements complete — read bandwidth off the SUM lines above)"
+                resources:
+                  limits:
+                    google.com/tpu: "4"
+                    memory: "32Gi"
+                    cpu: "16"
+                  requests:
+                    google.com/tpu: "4"
+                    memory: "16Gi"
+                    cpu: "8"
