@@ -195,43 +195,62 @@ TEST(HostOffloadBackendTest, LookupReturnsRemoteDescriptors) {
   EXPECT_EQ(partial_res->size(), 1);
 }
 
-TEST(HostOffloadBackendTest, EnsureRegisteredHostResidentPublishesHeldBlocks) {
-  auto reg_server = global_registry::CreateTestGlobalRegistryServer();
-  std::string server_address = reg_server->server_address;
-  auto registry_client = reg_server->client.get();
+namespace {
 
+// Backend wired to a live in-process registry, for the exist-answer
+// publication contract tests.
+struct RegistryBackedBackend {
+  std::unique_ptr<global_registry::TestGlobalRegistryServer> reg_server;
+  std::unique_ptr<controller::RaidenController> controller;
+  std::shared_ptr<KVCacheStoreBackend> backend;
   RaidenId local_node_id{"local_job", "0", "data", 0};
-  rpc::RaidenIdProto unit_proto;
-  unit_proto.set_job_name(local_node_id.job_name);
-  unit_proto.set_job_replica_id(local_node_id.job_replica_id);
-  unit_proto.set_data_name(local_node_id.data_name);
-  unit_proto.set_data_replica_idx(local_node_id.data_replica_idx);
 
-  controller::RaidenController controller(unit_proto, /*num_blocks=*/100,
-                                          /*num_shards=*/1,
-                                          /*shard_size_bytes=*/1024);
+  explicit RegistryBackedBackend(size_t capacity) {
+    reg_server = global_registry::CreateTestGlobalRegistryServer();
+    rpc::RaidenIdProto unit_proto;
+    unit_proto.set_job_name(local_node_id.job_name);
+    unit_proto.set_job_replica_id(local_node_id.job_replica_id);
+    unit_proto.set_data_name(local_node_id.data_name);
+    unit_proto.set_data_replica_idx(local_node_id.data_replica_idx);
+    controller = std::make_unique<controller::RaidenController>(
+        unit_proto, /*num_blocks=*/100, /*num_shards=*/1,
+        /*shard_size_bytes=*/1024);
 
-  BackendConfig config;
-  config.type = "HostOffloadBackend";
-  config.capacity = 100;
-  config.global_registry_address = server_address;
-  config.raiden_id = local_node_id;
+    BackendConfig config;
+    config.type = "HostOffloadBackend";
+    config.capacity = capacity;
+    config.global_registry_address = reg_server->server_address;
+    config.raiden_id = local_node_id;
+    auto backend_or = HostOffloadBackend::Create(config, controller.get());
+    CHECK_OK(backend_or.status());
+    backend = *backend_or;
+  }
+};
 
-  auto backend_or = HostOffloadBackend::Create(config, &controller);
-  ASSERT_OK(backend_or.status());
-  auto backend = *backend_or;
+}  // namespace
+
+TEST(HostOffloadBackendTest,
+     EnsureRegisteredActiveHostResidentPublishesExactSet) {
+  RegistryBackedBackend fixture(/*capacity=*/100);
+  auto& backend = fixture.backend;
+  auto* registry_client = fixture.reg_server->client.get();
 
   // Land two blocks the way a remote write does: present in the LRU, never
   // published (InsertAllOrNothing does not touch the registry).
   ASSERT_TRUE(backend->InsertAllOrNothing(
-      {"e1", "e2"}, {RaidenBlockID(local_node_id, 7, BlockStatus::HOST),
-                     RaidenBlockID(local_node_id, 8, BlockStatus::HOST)}));
+      {"e1", "e2"},
+      {RaidenBlockID(fixture.local_node_id, 7, BlockStatus::HOST),
+       RaidenBlockID(fixture.local_node_id, 8, BlockStatus::HOST)}));
   auto before = registry_client->Lookup({"e1", "e2"});
   ASSERT_OK(before.status());
   EXPECT_TRUE(before->empty()) << "blocks must start unpublished";
 
-  // Absent hashes are skipped, not errors; held ones become findable.
-  ASSERT_OK(backend->EnsureRegisteredHostResident({"e1", "e2", "absent"}));
+  // Absent hashes are skipped, never vouched for; held ones become findable
+  // and the returned set names exactly what was published.
+  auto published =
+      backend->EnsureRegisteredActiveHostResident({"e1", "e2", "absent"});
+  ASSERT_OK(published.status());
+  EXPECT_THAT(*published, UnorderedElementsAre("e1", "e2"));
 
   auto after = registry_client->Lookup({"e1", "e2"});
   ASSERT_OK(after.status());
@@ -243,6 +262,42 @@ TEST(HostOffloadBackendTest, EnsureRegisteredHostResidentPublishesHeldBlocks) {
   auto absent = registry_client->Lookup({"absent"});
   ASSERT_OK(absent.status());
   EXPECT_TRUE(absent->empty());
+
+  // The pins taken around the publication were transient: entries are
+  // evictable again afterwards.
+  EXPECT_EQ(backend->GetPinCount("e1"), 0);
+  EXPECT_EQ(backend->GetPinCount("e2"), 0);
+}
+
+TEST(HostOffloadBackendTest,
+     EnsureRegisteredActiveHostResidentExcludesCandidates) {
+  RegistryBackedBackend fixture(/*capacity=*/2);
+  auto& backend = fixture.backend;
+  auto* registry_client = fixture.reg_server->client.get();
+
+  ASSERT_TRUE(backend->InsertAllOrNothing(
+      {"c1", "c2"},
+      {RaidenBlockID(fixture.local_node_id, 7, BlockStatus::HOST),
+       RaidenBlockID(fixture.local_node_id, 8, BlockStatus::HOST)}));
+  // Displace both into the eviction-candidate list the way a store
+  // admission does.
+  ASSERT_TRUE(backend->InsertAndLock(
+      {"n1", "n2"},
+      {RaidenBlockID(fixture.local_node_id, 9, BlockStatus::HOST),
+       RaidenBlockID(fixture.local_node_id, 10, BlockStatus::HOST)},
+      /*on_host=*/true));
+  ASSERT_THAT(backend->AlreadyPresentHostResident({"c1", "c2"}),
+              UnorderedElementsAre("c1", "c2"))
+      << "candidates still hold their host blocks";
+
+  // A candidate is invisible to Lookup, so no peer's read could ever
+  // validate it: it must not be vouched for, and nothing may be published.
+  auto published = backend->EnsureRegisteredActiveHostResident({"c1", "c2"});
+  ASSERT_OK(published.status());
+  EXPECT_TRUE(published->empty());
+  auto reg = registry_client->Lookup({"c1", "c2"});
+  ASSERT_OK(reg.status());
+  EXPECT_TRUE(reg->empty());
 }
 
 TEST(HostOffloadBackendTest,

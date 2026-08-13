@@ -442,24 +442,21 @@ void KVCacheStoreServiceImpl::Settle(const std::shared_ptr<WriteOp>& op) {
   // immediately without allocating landing blocks or pulling bytes.
   //
   // An exist answer promises findability, not just possession: the source is
-  // entitled to free its own copy on the strength of it, so the present
-  // hashes are re-published first (presence alone does not imply publication
-  // -- a save's registry write-through or an earlier remote write's
-  // publication may have failed and kept the block). If they cannot be
-  // published, the whole offer is refused rather than half-vouched.
-  std::vector<std::string> present =
-      backend_->AlreadyPresentHostResident(block_hashes);
+  // entitled to free its own copy on the strength of it. The backend call is
+  // atomic about that promise -- it reports exactly the entries that are
+  // active (a Lookup-invisible eviction candidate is unreadable to peers),
+  // still resident, and re-published under pin. An error means publication
+  // failed, and the whole offer is refused rather than half-vouched.
+  auto present_or = backend_->EnsureRegisteredActiveHostResident(block_hashes);
+  if (!present_or.ok()) {
+    return ::grpc::Status(
+        ::grpc::StatusCode::UNAVAILABLE,
+        absl::StrCat("Destination could not publish the offered block(s) it "
+                     "already holds, so it cannot vouch for them: ",
+                     present_or.status().message()));
+  }
+  const std::vector<std::string>& present = *present_or;
   if (!present.empty()) {
-    absl::Status registered = backend_->EnsureRegisteredHostResident(present);
-    if (!registered.ok()) {
-      return ::grpc::Status(
-          ::grpc::StatusCode::UNAVAILABLE,
-          absl::StrCat("Destination holds ", present.size(), " of ",
-                       block_hashes.size(),
-                       " offered block(s) but could not publish them to the "
-                       "global registry, so it cannot vouch for them: ",
-                       registered.message()));
-    }
     response->set_exist_state(present.size() == block_hashes.size()
                                   ? proto::WRITE_ALL_EXIST
                                   : proto::WRITE_PARTIAL_EXIST);
@@ -632,23 +629,22 @@ void KVCacheStoreServiceImpl::CompleteWriteRemote(
   };
 
   // Re-check existence. Same contract as the offer-time check: an exist
-  // verdict is only reported once the present hashes are published, since
-  // the source may free its own copy on the strength of it. A publication
-  // failure fails the claim instead -- the source keeps its copy and may
-  // retry later.
-  std::vector<std::string> present =
-      backend_->AlreadyPresentHostResident(op->block_hashes);
+  // verdict names exactly the entries that are active, still resident, and
+  // re-published under pin, since the source may free its own copy on the
+  // strength of it. A publication failure fails the claim instead -- the
+  // source keeps its copy and may retry later.
+  auto present_or =
+      backend_->EnsureRegisteredActiveHostResident(op->block_hashes);
+  if (!present_or.ok()) {
+    LOG(WARNING) << "Remote write " << op_id
+                 << ": destination could not publish the offered block(s) it "
+                    "already holds, so it cannot vouch for them: "
+                 << present_or.status().message();
+    finish(OpState::kFailed, {});
+    return;
+  }
+  std::vector<std::string> present = *std::move(present_or);
   if (!present.empty()) {
-    absl::Status registered = backend_->EnsureRegisteredHostResident(present);
-    if (!registered.ok()) {
-      LOG(WARNING) << "Remote write " << op_id << ": destination holds "
-                   << present.size() << " of " << op->block_hashes.size()
-                   << " offered block(s) but could not publish them to the "
-                      "global registry, so it cannot vouch for them: "
-                   << registered.message();
-      finish(OpState::kFailed, {});
-      return;
-    }
     if (present.size() == op->block_hashes.size()) {
       finish(OpState::kAllExist, {});
       return;

@@ -245,19 +245,36 @@ class KVCacheStoreBackend {
         "Backend does not implement RegisterBlocksSync.");
   }
 
-  // Re-publishes already host-resident entries to the global registry,
-  // looking their host blocks up in this backend. Entries that are no longer
-  // host-resident are skipped, not errors.
+  // Atomically selects the ACTIVE host-resident subset of `block_hashes`,
+  // pins it, re-publishes it to the global registry while the pins block
+  // eviction, unpins, and returns exactly the published subset.
   //
   // Exists so an ALL_EXIST / PARTIAL_EXIST answer can promise findability:
-  // mere LRU presence does not imply publication (a save's write-through or
-  // an earlier remote write's publication may have failed and kept the
-  // block), and a source that trusts an exist answer enough to free its own
-  // copy would otherwise strand the block unreachable-but-held.
-  virtual absl::Status EnsureRegisteredHostResident(
+  // a source that trusts an exist answer enough to free its own copy needs
+  // every reported hash to be fetchable afterwards, which takes three
+  // guarantees mere LRU presence does not give:
+  //
+  //   * Publication. A save's write-through or an earlier remote write's
+  //     publication may have failed and kept the block; re-registering under
+  //     pin closes that, and the pin also stops a concurrent eviction's
+  //     Unregister from being overwritten by this Register (which would
+  //     leave a permanently stale registry entry).
+  //   * Active, not candidate. An eviction candidate still holds its host
+  //     block but is invisible to Lookup, so ValidateAndPinHostBlocks could
+  //     never serve a peer's read of it. Candidates are treated as absent
+  //     (the transfer path's InsertAllOrNothing then refuses their batch
+  //     cleanly until the candidate is collected).
+  //   * No silent vouching. A hash that vanishes between selection and
+  //     publication is simply absent from the returned subset, never
+  //     reported successful.
+  //
+  // An error means publication itself failed; the caller must not report
+  // any exist verdict from it.
+  virtual absl::StatusOr<std::vector<std::string>>
+  EnsureRegisteredActiveHostResident(
       absl::Span<const std::string> block_hashes) {
     return absl::UnimplementedError(
-        "Backend does not implement EnsureRegisteredHostResident.");
+        "Backend does not implement EnsureRegisteredActiveHostResident.");
   }
 
   // The peer-facing KVCacheStoreService server this backend hosts, if any.

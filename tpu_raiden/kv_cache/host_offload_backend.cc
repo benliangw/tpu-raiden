@@ -954,37 +954,58 @@ absl::Status HostOffloadBackend::RegisterBlocksSync(
   return client->Register(registrations);
 }
 
-absl::Status HostOffloadBackend::EnsureRegisteredHostResident(
+absl::StatusOr<std::vector<std::string>>
+HostOffloadBackend::EnsureRegisteredActiveHostResident(
     absl::Span<const std::string> block_hashes) {
   std::shared_ptr<global_registry::GlobalRegistryClient> client;
-  RaidenId local_id;
+  std::vector<std::string> pinned;
   std::vector<global_registry::Registration> registrations;
   {
     absl::MutexLock lock(mutex_);
     client = registry_client_;
-    local_id = raiden_id_;
     registrations.reserve(block_hashes.size());
     for (const std::string& hash : block_hashes) {
-      // PeekIncludingCandidates for the same reason as
-      // AlreadyPresentHostResident: a candidate still holds its host block.
-      const RaidenBlockID* entry = lru_cache_.PeekIncludingCandidates(hash);
-      if (entry != nullptr && (entry->status == BlockStatus::HOST ||
-                               entry->status == BlockStatus::HOST_AND_HBM)) {
-        registrations.push_back({
-            .prefix_hash = hash,
-            .raiden_id = local_id,
-            .block_id = entry->host_block_id,
-        });
+      // Peek, not PeekIncludingCandidates: a candidate still holds its host
+      // block but is invisible to Lookup, so ValidateAndPinHostBlocks could
+      // never serve a peer's read of it -- vouching for one would promise a
+      // copy no peer can fetch. Selection and pin happen under one lock so a
+      // selected entry cannot vanish before its pin lands.
+      const RaidenBlockID* entry = lru_cache_.Peek(hash);
+      if (entry == nullptr || (entry->status != BlockStatus::HOST &&
+                               entry->status != BlockStatus::HOST_AND_HBM)) {
+        continue;
       }
+      if (!lru_cache_.Pin(hash)) {
+        continue;
+      }
+      pinned.push_back(hash);
+      registrations.push_back({
+          .prefix_hash = hash,
+          .raiden_id = raiden_id_,
+          .block_id = entry->host_block_id,
+      });
     }
   }
-  if (client == nullptr || registrations.empty()) {
-    // Without a registry nothing can be advertised (and no peer resolves
-    // this store through one either); with nothing resident there is
-    // nothing to vouch for.
-    return absl::OkStatus();
+  if (pinned.empty()) {
+    return std::vector<std::string>{};
   }
-  return client->Register(registrations);
+  // The pins keep every selected entry alive (and its registry entry
+  // un-Unregistered) across this Register, so a concurrent eviction cannot
+  // interleave Evict -> Unregister -> late Register into a permanently
+  // stale mapping. Without a registry nothing needs advertising -- no peer
+  // resolves this store through one either.
+  absl::Status registered =
+      client == nullptr ? absl::OkStatus() : client->Register(registrations);
+  {
+    absl::MutexLock lock(mutex_);
+    for (auto it = pinned.rbegin(); it != pinned.rend(); ++it) {
+      lru_cache_.Unpin(*it);
+    }
+  }
+  if (!registered.ok()) {
+    return registered;
+  }
+  return pinned;
 }
 
 tsl::Future<> HostOffloadBackend::Load(
