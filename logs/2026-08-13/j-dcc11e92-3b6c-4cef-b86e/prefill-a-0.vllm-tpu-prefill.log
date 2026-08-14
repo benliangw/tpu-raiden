@@ -1,0 +1,340 @@
+===== Syncing dependencies to pyproject.toml =====
+Using Python 3.12.13 environment at: /usr/local
+Resolved 121 packages in 783ms
+Downloading nvidia-cufile (1.2MiB)
+Downloading torchvision (7.3MiB)
+Downloading nvidia-cusolver (191.6MiB)
+Downloading nvidia-cuda-cupti (10.2MiB)
+Downloading nvidia-curand (56.8MiB)
+Downloading nvidia-nccl-cu13 (196.4MiB)
+Downloading nvidia-cuda-runtime (2.1MiB)
+Downloading nvidia-cusparse (139.2MiB)
+Downloading nvidia-cufft (204.2MiB)
+Downloading jaxlib (81.5MiB)
+Downloading torch (502.2MiB)
+Downloading nvidia-cudnn-cu13 (349.2MiB)
+Downloading nvidia-nvjitlink (38.9MiB)
+Downloading nvidia-cublas (403.5MiB)
+Downloading nvidia-cusparselt-cu13 (162.3MiB)
+Downloading nvidia-nvshmem-cu13 (57.6MiB)
+Downloading nvidia-cuda-nvrtc (86.0MiB)
+Downloading libtpu (205.6MiB)
+Downloading jax (3.1MiB)
+ Downloaded nvidia-cufile
+ Downloaded nvidia-cuda-runtime
+ Downloaded jax
+ Downloaded torchvision
+ Downloaded nvidia-cuda-cupti
+ Downloaded nvidia-nvjitlink
+ Downloaded nvidia-curand
+ Downloaded nvidia-nvshmem-cu13
+ Downloaded jaxlib
+ Downloaded nvidia-cuda-nvrtc
+ Downloaded nvidia-cusparse
+ Downloaded nvidia-cusparselt-cu13
+ Downloaded nvidia-cusolver
+ Downloaded nvidia-nccl-cu13
+ Downloaded nvidia-cufft
+ Downloaded libtpu
+ Downloaded nvidia-cudnn-cu13
+ Downloaded nvidia-cublas
+ Downloaded torch
+Prepared 21 packages in 2m 07s
+Uninstalled 7 packages in 3.17s
+Installed 21 packages in 243ms
+ + cuda-toolkit==13.0.3.0
+ - jax==0.10.0
+ + jax==0.10.2
+ - jaxlib==0.10.0
+ + jaxlib==0.10.2
+ - libtpu==0.0.40
+ + libtpu==0.0.44.1
+ + nvidia-cublas==13.1.1.3
+ + nvidia-cuda-cupti==13.0.85
+ - nvidia-cuda-nvrtc==13.3.33
+ + nvidia-cuda-nvrtc==13.0.88
+ - nvidia-cuda-runtime==13.3.29
+ + nvidia-cuda-runtime==13.0.96
+ + nvidia-cudnn-cu13==9.20.0.48
+ + nvidia-cufft==12.0.0.61
+ + nvidia-cufile==1.15.1.6
+ + nvidia-curand==10.4.0.35
+ + nvidia-cusolver==12.0.4.66
+ + nvidia-cusparse==12.6.3.3
+ + nvidia-cusparselt-cu13==0.8.1
+ + nvidia-nccl-cu13==2.29.7
+ + nvidia-nvjitlink==13.3.33
+ + nvidia-nvshmem-cu13==3.4.5
+ + nvidia-nvtx==13.0.85
+ - torch==2.11.0+cpu
+ + torch==2.13.0
+ - torchvision==0.26.0+cpu
+ + torchvision==0.28.0
+Installing pinned vLLM from active worktree: vllm==0.27.0
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 119ms
+Downloading vllm (298.4MiB)
+ Downloaded vllm
+Prepared 1 package in 2.95s
+Uninstalled 1 package in 4ms
+Installed 1 package in 142ms
+ - vllm==0.23.1rc1.dev927+gc0e8e1f12.d20260708.tpu (from file:///root/cloud-devkit/vllm)
+ + vllm==0.27.0
+Installing pinned torch-tpu: /root/wheels/torch_tpu-0.1.1.dev20260812220240-cp312-cp312-manylinux_2_31_x86_64.whl
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 4ms
+Prepared 1 package in 903ms
+Uninstalled 1 package in 96ms
+Installed 1 package in 3ms
+ - torch-tpu==0.1.1 (from file:///artifact-source/opt/wheels/torch_tpu-0.1.1-cp312-cp312-manylinux_2_31_x86_64.whl)
+ + torch-tpu==0.1.1.dev20260812220240 (from file:///root/wheels/torch_tpu-0.1.1.dev20260812220240-cp312-cp312-manylinux_2_31_x86_64.whl)
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 3ms
+Prepared 1 package in 344ms
+Installed 1 package in 2ms
+ + tpu-raiden-torch==0.0.1.dev20260812223300 (from file:///root/wheels/tpu_raiden_torch-0.0.1.dev20260812223300-1_pull_batching_98c5921-cp312-cp312-manylinux_2_31_x86_64.whl)
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1786711074.256455     866 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1786711074.314527     866 device_rt.cc:128] PjRt runtime initialization deferred for tpu
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+INFO 08-14 12:37:55 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-14 12:37:55 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-14 12:37:55 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 08-14 12:37:56 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-14 12:37:56 [tpu_info.py:26] 
+INFO 08-14 12:37:56 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-14 12:37:56 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 08-14 12:37:56 [tpu_platform.py:1047] Pin memory is not supported on TPU.
+INFO 08-14 12:38:04 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-14 12:38:04 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+V2 preflight OK
+Waiting for j-dcc11e92-3b6c-4cef-b86e-registry-0-0.j-dcc11e92-3b6c-4cef-b86e:48500 (up to 10 min)...
+j-dcc11e92-3b6c-4cef-b86e-registry-0-0.j-dcc11e92-3b6c-4cef-b86e:48500 reachable (0s)
+===== Starting Raiden controller on :27000 =====
+{"address": "j-dcc11e92-3b6c-4cef-b86e-prefill-a-0-0.j-dcc11e92-3b6c-4cef-b86e:27000", "advertise_host": "j-dcc11e92-3b6c-4cef-b86e-prefill-a-0-0.j-dcc11e92-3b6c-4cef-b86e", "event": "raiden_controller_ready", "pid": 1127, "port": 27000, "request_registry_ttl_s": 600.0, "requested_port": 27000, "schema_version": 1, "time_unix_s": 1786711086.9232674}
+===== Starting Qwen3.5 PCP8 prefill node (disagg+offload) =====
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1786711089.977275    1132 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1786711090.008536    1132 device_rt.cc:128] PjRt runtime initialization deferred for tpu
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+INFO 08-14 12:38:10 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-14 12:38:10 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-14 12:38:10 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 08-14 12:38:10 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-14 12:38:10 [tpu_info.py:26] 
+INFO 08-14 12:38:10 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-14 12:38:10 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 08-14 12:38:10 [tpu_platform.py:1047] Pin memory is not supported on TPU.
+INFO 08-14 12:38:14 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-14 12:38:14 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+(APIServer pid=1132) INFO 08-14 12:38:16 [api_utils.py:345] 
+(APIServer pid=1132) INFO 08-14 12:38:16 [api_utils.py:345]        █     █     █▄   ▄█
+(APIServer pid=1132) INFO 08-14 12:38:16 [api_utils.py:345]  ▄▄ ▄█ █     █     █ ▀▄▀ █  version 0.27.0
+(APIServer pid=1132) INFO 08-14 12:38:16 [api_utils.py:345]   █▄█▀ █     █     █     █  model   /root/models/Qwen/Qwen3.5-35B-A3B-FP8
+(APIServer pid=1132) INFO 08-14 12:38:16 [api_utils.py:345]    ▀▀  ▀▀▀▀▀ ▀▀▀▀▀ ▀     ▀
+(APIServer pid=1132) INFO 08-14 12:38:16 [api_utils.py:345] 
+(APIServer pid=1132) INFO 08-14 12:38:16 [api_utils.py:273] non-default args: {'model_tag': '/root/models/Qwen/Qwen3.5-35B-A3B-FP8', 'enable_prompt_tokens_details': True, 'host': '0.0.0.0', 'model': '/root/models/Qwen/Qwen3.5-35B-A3B-FP8', 'trust_remote_code': True, 'seed': 42, 'max_model_len': 65536, 'served_model_name': ['Qwen3.5-35B-A3B-FP8'], 'attention_backend': 'CUSTOM', 'cp_kv_cache_interleave_size': 256, 'prefill_context_parallel_size': 8, 'enable_expert_parallel': True, 'disable_custom_all_reduce': True, 'block_size': 4096, 'gpu_memory_utilization': 0.9, 'kv_cache_dtype': 'fp8', 'num_gpu_blocks_override': 128, 'enable_prefix_caching': True, 'mamba_cache_mode': 'align', 'language_model_only': True, 'max_num_batched_tokens': 4096, 'max_num_seqs': 16, 'disable_hybrid_kv_cache_manager': False, 'async_scheduling': False, 'kv_transfer_config': KVTransferConfig(kv_connector='TPUMultiConnector', engine_id='b000bb74-2ad4-4738-8fdf-eac228b52610', kv_buffer_device='tpu', kv_buffer_size=1000000000.0, kv_role='kv_producer', kv_rank=None, kv_parallel_size=1, kv_ip='127.0.0.1', kv_port=14579, kv_connector_extra_config={'connectors': [{'kv_connector': 'TPURaidenConnector', 'kv_connector_module_path': 'vllm_torchtpu.distributed.kv_transfer.tpu_connector', 'kv_role': 'kv_producer', 'kv_port': 14579}, {'kv_connector': 'TPURaidenOffloadingConnector', 'kv_connector_module_path': 'vllm_torchtpu.offload.raiden_connector', 'kv_role': 'kv_both', 'kv_connector_extra_config': {'cpu_bytes_to_use': 274877906944, 'raiden_controller_port': 47800, 'raiden_job_name': 'gpc-prefill-a', 'global_registry_address': 'j-dcc11e92-3b6c-4cef-b86e-registry-0-0.j-dcc11e92-3b6c-4cef-b86e:48500', 'store_server_ip': '10.36.17.187'}}]}, kv_connector_module_path='vllm_torchtpu.distributed.kv_transfer.tpu_multi_connector', enable_permute_local_kv=False, kv_load_failure_policy='fail'), 'compilation_config': {'mode': None, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'vllm_torchtpu.compilation.tpu_compiler.TpuCompilerAdaptor', 'custom_ops': [], 'ir_enable_torch_wrap': None, 'splitting_ops': None, 'compile_mm_encoder': False, 'cudagraph_mm_encoder': False, 'encoder_cudagraph_token_budgets': [], 'encoder_cudagraph_max_vision_items_per_batch': 0, 'encoder_cudagraph_max_frames_per_batch': None, 'compile_sizes': [4096], 'compile_ranges_endpoints': None, 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'size_asserts': False, 'alignment_asserts': False, 'scalar_asserts': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': None, 'cudagraph_num_of_warmups': 0, 'cudagraph_capture_sizes': None, 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': None, 'pass_config': {}, 'max_cudagraph_capture_size': None, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': None, 'static_all_moe_layers': []}}
+(APIServer pid=1132) INFO 08-14 12:38:26 [model.py:645] Resolved architecture: Qwen3_5MoeForConditionalGeneration
+(APIServer pid=1132) INFO 08-14 12:38:26 [model.py:1883] Using max model len 65536
+(APIServer pid=1132) INFO 08-14 12:38:27 [registry.py:134] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+(APIServer pid=1132) INFO 08-14 12:38:27 [model.py:842] Disabled mm_prefix attention mode because multimodal inputs are configuration-disabled. Attention backends without mm_prefix support may now be selected.
+(APIServer pid=1132) INFO 08-14 12:38:28 [cache.py:296] Using fp8 data type to store kv cache. It reduces the GPU memory footprint and boosts the performance. Meanwhile, it may cause accuracy drop without a proper scaling factor
+(APIServer pid=1132) INFO 08-14 12:38:28 [scheduler.py:242] Chunked prefill is enabled with max_num_batched_tokens=4096.
+(APIServer pid=1132) INFO 08-14 12:38:28 [config.py:638] Warning: Prefix caching in Mamba cache 'align' mode is currently enabled. Its support for Mamba layers is experimental. Please report any issues you may observe.
+(APIServer pid=1132) INFO 08-14 12:38:28 [kernel.py:306] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+(APIServer pid=1132) INFO 08-14 12:38:28 [__init__.py:43] Applied TPU patch: allow PCP through GPU-specific V2 checks.
+(APIServer pid=1132) INFO 08-14 12:38:28 [__init__.py:118] Applied TPU patch: include compiler hash in AOT cache key.
+(APIServer pid=1132) INFO 08-14 12:38:28 [__init__.py:168] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold'] from the compile cache key.
+(APIServer pid=1132) INFO 08-14 12:38:28 [__init__.py:198] Applied TPU patch: disable vLLM custom collective ops.
+(APIServer pid=1132) INFO 08-14 12:38:28 [__init__.py:219] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+(APIServer pid=1132) INFO 08-14 12:38:28 [__init__.py:251] Applied TPU patch: use explicit PCP collectives for monolithic MoE.
+(APIServer pid=1132) INFO 08-14 12:38:28 [__init__.py:314] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+(APIServer pid=1132) INFO 08-14 12:38:28 [__init__.py:453] Applied TPU patch: disable sequence-parallel MoE.
+(APIServer pid=1132) INFO 08-14 12:38:28 [__init__.py:522] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+(APIServer pid=1132) INFO 08-14 12:38:28 [__init__.py:436] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+(APIServer pid=1132) INFO 08-14 12:38:28 [__init__.py:288] Applied TPU patch: host-side expert-map lookup.
+(APIServer pid=1132) INFO 08-14 12:38:28 [__init__.py:980] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+(APIServer pid=1132) INFO 08-14 12:38:28 [__init__.py:670] Applied TPU patch: PCP-aware OffloadingConfig build.
+(APIServer pid=1132) INFO 08-14 12:38:28 [__init__.py:730] Applied TPU patch: OffloadingConnector TPU spec construction.
+(APIServer pid=1132) INFO 08-14 12:38:28 [__init__.py:766] Applied TPU patch: accurate layer counts for Kimi-K3 / KDA hybrid models.
+(APIServer pid=1132) INFO 08-14 12:38:28 [__init__.py:97] Applied TPU patch: reconcile hybrid producer prefix hits.
+(APIServer pid=1132) INFO 08-14 12:38:28 [__init__.py:1052] Applied LIFO free-block patch (pre-vllm#48017 order) to BlockPool
+(APIServer pid=1132) INFO 08-14 12:38:28 [__init__.py:469] Applied TPU patch: disable DP microbatching.
+(APIServer pid=1132) INFO 08-14 12:38:28 [__init__.py:575] Applied TPU patch: MultiprocExecutor worker binding env.
+(APIServer pid=1132) INFO 08-14 12:38:28 [model_loader_patches.py:293] Applied TPU patch: EP-sharded Run:AI weight streaming (fetch only local experts when the EP weight filter is on).
+(APIServer pid=1132) INFO 08-14 12:38:28 [tpu_platform.py:171] TorchTPU eager mode configured: DEFER_AND_FUSE (previous=DEFER_NEVER)
+(APIServer pid=1132) INFO 08-14 12:38:28 [tpu_platform.py:775] Using vLLM native multiprocess PCP world; PCP is not represented as a JAX mesh axis.
+(APIServer pid=1132) INFO 08-14 12:38:28 [tpu_platform.py:916] Preparing TorchTPU bootstrap env for native PCP multiprocess world_size=8.
+(APIServer pid=1132) INFO 08-14 12:38:28 [tpu_rank_binding.py:204] Probing PCP LOCAL_RANK remap for world_size=8 topology=2,2,1,2.
+(APIServer pid=1132) Traceback (most recent call last):
+(APIServer pid=1132)   File "/usr/local/bin/vllm", line 10, in <module>
+(APIServer pid=1132)     sys.exit(main())
+(APIServer pid=1132)              ^^^^^^
+(APIServer pid=1132)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/cli/main.py", line 97, in main
+(APIServer pid=1132)     args.dispatch_function(args)
+(APIServer pid=1132)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/cli/serve.py", line 152, in cmd
+(APIServer pid=1132)     uvloop.run(run_server(args))
+(APIServer pid=1132)   File "/usr/local/lib/python3.12/site-packages/uvloop/__init__.py", line 96, in run
+(APIServer pid=1132)     return __asyncio.run(
+(APIServer pid=1132)            ^^^^^^^^^^^^^^
+(APIServer pid=1132)   File "/usr/local/lib/python3.12/asyncio/runners.py", line 195, in run
+(APIServer pid=1132)     return runner.run(main)
+(APIServer pid=1132)            ^^^^^^^^^^^^^^^^
+(APIServer pid=1132)   File "/usr/local/lib/python3.12/asyncio/runners.py", line 118, in run
+(APIServer pid=1132)     return self._loop.run_until_complete(task)
+(APIServer pid=1132)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1132)   File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+(APIServer pid=1132)   File "/usr/local/lib/python3.12/site-packages/uvloop/__init__.py", line 48, in wrapper
+(APIServer pid=1132)     return await main
+(APIServer pid=1132)            ^^^^^^^^^^
+(APIServer pid=1132)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 764, in run_server
+(APIServer pid=1132)     await run_server_worker(listen_address, sock, args, **uvicorn_kwargs)
+(APIServer pid=1132)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 778, in run_server_worker
+(APIServer pid=1132)     async with build_async_engine_client(
+(APIServer pid=1132)                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1132)   File "/usr/local/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=1132)     return await anext(self.gen)
+(APIServer pid=1132)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1132)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 132, in build_async_engine_client
+(APIServer pid=1132)     async with build_async_engine_client_from_engine_args(
+(APIServer pid=1132)                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1132)   File "/usr/local/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=1132)     return await anext(self.gen)
+(APIServer pid=1132)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1132)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 156, in build_async_engine_client_from_engine_args
+(APIServer pid=1132)     vllm_config = engine_args.create_engine_config(usage_context=usage_context)
+(APIServer pid=1132)                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1132)   File "/usr/local/lib/python3.12/site-packages/vllm/engine/arg_utils.py", line 2464, in create_engine_config
+(APIServer pid=1132)     config = VllmConfig(
+(APIServer pid=1132)              ^^^^^^^^^^^
+(APIServer pid=1132)   File "/usr/local/lib/python3.12/site-packages/pydantic/_internal/_dataclasses.py", line 121, in __init__
+(APIServer pid=1132)     s.__pydantic_validator__.validate_python(ArgsKwargs(args, kwargs), self_instance=s)
+(APIServer pid=1132)   File "/usr/local/lib/python3.12/site-packages/vllm/config/vllm.py", line 1488, in __post_init__
+(APIServer pid=1132)     current_platform.check_and_update_config(self)
+(APIServer pid=1132)   File "/root/torchtpu-vllm/src/vllm_torchtpu/platforms/tpu_platform.py", line 919, in check_and_update_config
+(APIServer pid=1132)     ensure_pcp_local_rank_remap(
+(APIServer pid=1132)   File "/root/torchtpu-vllm/src/vllm_torchtpu/worker/tpu_rank_binding.py", line 321, in ensure_pcp_local_rank_remap
+(APIServer pid=1132)     remap = probe_pcp_local_rank_remap(world_size, get_topology=get_topology)
+(APIServer pid=1132)             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1132)   File "/root/torchtpu-vllm/src/vllm_torchtpu/worker/tpu_rank_binding.py", line 277, in probe_pcp_local_rank_remap
+(APIServer pid=1132)     raise RuntimeError("PCP LOCAL_RANK remap probe timed out.\n" +
+(APIServer pid=1132) RuntimeError: PCP LOCAL_RANK remap probe timed out.
+(APIServer pid=1132) rank 0 log (/tmp/vllm-tpu-pcp-remap-probe-eii4dznc/rank-0.log):
+(APIServer pid=1132) WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+(APIServer pid=1132) I0000 00:00:1786711111.567883    1920 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+(APIServer pid=1132) Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+(APIServer pid=1132) Registered Python module for 'tpu'.
+(APIServer pid=1132) Device type: tpu, Device index: default
+(APIServer pid=1132) Initializing TPU distributed runtime
+(APIServer pid=1132) W0000 00:00:1786711112.508823    1920 environment.cc:83] libtpu_init_args contains --xla_tpu_use_enhanced_launch_barrier=true, this can cause distributed hangs. Rewriting environment variable to false.
+(APIServer pid=1132) 
+(APIServer pid=1132) rank 1 log (/tmp/vllm-tpu-pcp-remap-probe-eii4dznc/rank-1.log):
+(APIServer pid=1132) WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+(APIServer pid=1132) I0000 00:00:1786711111.567884    1921 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+(APIServer pid=1132) Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+(APIServer pid=1132) Registered Python module for 'tpu'.
+(APIServer pid=1132) Device type: tpu, Device index: default
+(APIServer pid=1132) Initializing TPU distributed runtime
+(APIServer pid=1132) W0000 00:00:1786711111.642484    1921 environment.cc:83] libtpu_init_args contains --xla_tpu_use_enhanced_launch_barrier=true, this can cause distributed hangs. Rewriting environment variable to false.
+(APIServer pid=1132) 
+(APIServer pid=1132) rank 2 log (/tmp/vllm-tpu-pcp-remap-probe-eii4dznc/rank-2.log):
+(APIServer pid=1132) WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+(APIServer pid=1132) I0000 00:00:1786711111.545455    1922 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+(APIServer pid=1132) Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+(APIServer pid=1132) Registered Python module for 'tpu'.
+(APIServer pid=1132) Device type: tpu, Device index: default
+(APIServer pid=1132) Initializing TPU distributed runtime
+(APIServer pid=1132) W0000 00:00:1786711112.114434    1922 environment.cc:83] libtpu_init_args contains --xla_tpu_use_enhanced_launch_barrier=true, this can cause distributed hangs. Rewriting environment variable to false.
+(APIServer pid=1132) E0000 00:00:1786711567.249255    1922 pjrt_state.cc:291] PjrtBackend::GetClient failed to initialize: INTERNAL: retrieving a PjRtClient failed with: TPU initialization failed: GRPC_ERROR error message: START_SESSION failed. Contact GCE with UUID: 32959004918884867859836872914108418 if this is recurring. Max # of tries(=3) exhausted.
+(APIServer pid=1132) === Source Location Trace: ===
+(APIServer pid=1132) torch_tpu/common/status_builder.cc:107
+(APIServer pid=1132) 
+(APIServer pid=1132) Traceback (most recent call last):
+(APIServer pid=1132)   File "<string>", line 20, in <module>
+(APIServer pid=1132)   File "/usr/local/lib/python3.12/site-packages/torch/distributed/c10d_logger.py", line 83, in wrapper
+(APIServer pid=1132)     return func(*args, **kwargs)
+(APIServer pid=1132)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1132)   File "/usr/local/lib/python3.12/site-packages/torch/distributed/c10d_logger.py", line 97, in wrapper
+(APIServer pid=1132)     func_return = func(*args, **kwargs)
+(APIServer pid=1132)                   ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1132)   File "/usr/local/lib/python3.12/site-packages/torch/distributed/distributed_c10d.py", line 1899, in init_process_group
+(APIServer pid=1132)     default_pg, _ = _new_process_group_helper(
+(APIServer pid=1132)                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1132)   File "/usr/local/lib/python3.12/site-packages/torch/distributed/distributed_c10d.py", line 2246, in _new_process_group_helper
+(APIServer pid=1132)     backend_class = creator_fn(
+(APIServer pid=1132)                     ^^^^^^^^^^^
+(APIServer pid=1132) RuntimeError: PjRtClient is not initialized.
+(APIServer pid=1132) VLLM_TPU_PCP_REMAP_PROBE {"error": "RuntimeError('PjRtClient is not initialized.')", "local_rank": 2, "rank": 2}
+(APIServer pid=1132) 
+(APIServer pid=1132) rank 3 log (/tmp/vllm-tpu-pcp-remap-probe-eii4dznc/rank-3.log):
+(APIServer pid=1132) WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+(APIServer pid=1132) I0000 00:00:1786711111.645881    1923 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+(APIServer pid=1132) Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+(APIServer pid=1132) Registered Python module for 'tpu'.
+(APIServer pid=1132) Device type: tpu, Device index: default
+(APIServer pid=1132) Initializing TPU distributed runtime
+(APIServer pid=1132) W0000 00:00:1786711111.724735    1923 environment.cc:83] libtpu_init_args contains --xla_tpu_use_enhanced_launch_barrier=true, this can cause distributed hangs. Rewriting environment variable to false.
+(APIServer pid=1132) 
+(APIServer pid=1132) rank 4 log (/tmp/vllm-tpu-pcp-remap-probe-eii4dznc/rank-4.log):
+(APIServer pid=1132) WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+(APIServer pid=1132) I0000 00:00:1786711111.645882    1924 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+(APIServer pid=1132) Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+(APIServer pid=1132) Registered Python module for 'tpu'.
+(APIServer pid=1132) Device type: tpu, Device index: default
+(APIServer pid=1132) Initializing TPU distributed runtime
+(APIServer pid=1132) W0000 00:00:1786711111.724726    1924 environment.cc:83] libtpu_init_args contains --xla_tpu_use_enhanced_launch_barrier=true, this can cause distributed hangs. Rewriting environment variable to false.
+(APIServer pid=1132) E0000 00:00:1786711567.248571    1924 pjrt_state.cc:291] PjrtBackend::GetClient failed to initialize: INTERNAL: retrieving a PjRtClient failed with: TPU initialization failed: GRPC_ERROR error message: START_SESSION failed. Contact GCE with UUID: 32959004918884849413092799204556802 if this is recurring. Max # of tries(=3) exhausted.
+(APIServer pid=1132) === Source Location Trace: ===
+(APIServer pid=1132) torch_tpu/common/status_builder.cc:107
+(APIServer pid=1132) 
+(APIServer pid=1132) Traceback (most recent call last):
+(APIServer pid=1132)   File "<string>", line 20, in <module>
+(APIServer pid=1132)   File "/usr/local/lib/python3.12/site-packages/torch/distributed/c10d_logger.py", line 83, in wrapper
+(APIServer pid=1132)     return func(*args, **kwargs)
+(APIServer pid=1132)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1132)   File "/usr/local/lib/python3.12/site-packages/torch/distributed/c10d_logger.py", line 97, in wrapper
+(APIServer pid=1132)     func_return = func(*args, **kwargs)
+(APIServer pid=1132)                   ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1132)   File "/usr/local/lib/python3.12/site-packages/torch/distributed/distributed_c10d.py", line 1899, in init_process_group
+(APIServer pid=1132)     default_pg, _ = _new_process_group_helper(
+(APIServer pid=1132)                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1132)   File "/usr/local/lib/python3.12/site-packages/torch/distributed/distributed_c10d.py", line 2246, in _new_process_group_helper
+(APIServer pid=1132)     backend_class = creator_fn(
+(APIServer pid=1132)                     ^^^^^^^^^^^
+(APIServer pid=1132) RuntimeError: PjRtClient is not initialized.
+(APIServer pid=1132) VLLM_TPU_PCP_REMAP_PROBE {"error": "RuntimeError('PjRtClient is not initialized.')", "local_rank": 4, "rank": 4}
+(APIServer pid=1132) 
+(APIServer pid=1132) rank 5 log (/tmp/vllm-tpu-pcp-remap-probe-eii4dznc/rank-5.log):
+(APIServer pid=1132) WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+(APIServer pid=1132) I0000 00:00:1786711111.567884    1925 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+(APIServer pid=1132) Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+(APIServer pid=1132) Registered Python module for 'tpu'.
+(APIServer pid=1132) Device type: tpu, Device index: default
+(APIServer pid=1132) Initializing TPU distributed runtime
+(APIServer pid=1132) W0000 00:00:1786711111.644458    1925 environment.cc:83] libtpu_init_args contains --xla_tpu_use_enhanced_launch_barrier=true, this can cause distributed hangs. Rewriting environment variable to false.
+(APIServer pid=1132) 
+(APIServer pid=1132) rank 6 log (/tmp/vllm-tpu-pcp-remap-probe-eii4dznc/rank-6.log):
+(APIServer pid=1132) WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+(APIServer pid=1132) I0000 00:00:1786711111.543138    1926 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+(APIServer pid=1132) Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+(APIServer pid=1132) Registered Python module for 'tpu'.
+(APIServer pid=1132) Device type: tpu, Device index: default
+(APIServer pid=1132) Initializing TPU distributed runtime
+(APIServer pid=1132) W0000 00:00:1786711112.503847    1926 environment.cc:83] libtpu_init_args contains --xla_tpu_use_enhanced_launch_barrier=true, this can cause distributed hangs. Rewriting environment variable to false.
+(APIServer pid=1132) 
+(APIServer pid=1132) rank 7 log (/tmp/vllm-tpu-pcp-remap-probe-eii4dznc/rank-7.log):
+(APIServer pid=1132) WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+(APIServer pid=1132) I0000 00:00:1786711111.600649    1927 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+(APIServer pid=1132) Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+(APIServer pid=1132) Registered Python module for 'tpu'.
+(APIServer pid=1132) Device type: tpu, Device index: default
+(APIServer pid=1132) Initializing TPU distributed runtime
+(APIServer pid=1132) W0000 00:00:1786711111.675117    1927 environment.cc:83] libtpu_init_args contains --xla_tpu_use_enhanced_launch_barrier=true, this can cause distributed hangs. Rewriting environment variable to false.
+(APIServer pid=1132) 
+
