@@ -420,6 +420,35 @@ class KVCacheStore {
   absl::Status WriteRemote(const std::vector<std::string>& block_hashes,
                            const RaidenId& dst_raiden_id);
 
+  // L3 spill: this store autonomously hands its coldest unpinned
+  // host-resident entries to `dst_raiden_id` via WriteRemote once occupancy
+  // crosses `watermark`, and evicts the local copy of every hash the peer
+  // confirms (committed, or already held -- the destination re-publishes
+  // existing entries before vouching for them, so both verdicts imply a
+  // registry-findable peer copy). A later local lookup resolves the hash
+  // REMOTE through the registry and ReadRemote restores it, so the peer's
+  // DRAM acts as an L3 tier behind this host's pool.
+  //
+  // The policy runs on the poller thread: one batch in flight at a time,
+  // selection from the LRU tail (candidates excluded -- they are
+  // Lookup-invisible, so a peer's read could never validate them; in-flight
+  // saves and loads hold pins and so never appear), and a cooldown after a
+  // batch that confirmed nothing, so a refusing peer is not hammered.
+  struct L3SpillOptions {
+    // The peer store to offer cold blocks to. Must not be this store.
+    RaidenId dst_raiden_id;
+    // Fraction of capacity at which spilling arms.
+    double watermark = 0.9;
+    // Kernel blocks offered per WriteRemote batch.
+    size_t max_blocks_per_batch = 64;
+    // Back-off after a batch in which the peer confirmed nothing.
+    absl::Duration cooldown = absl::Seconds(2);
+  };
+
+  // Enables the L3 spill. Requires a global registry (the peer is resolved
+  // through it, and spilled blocks are only findable once published there).
+  absl::Status ConfigureL3Spill(L3SpillOptions options);
+
   // Polls all active/inflight WriteRemote operations.
   //
   // Returns {done, failed, pending, existing, unregistered}. The last two are
@@ -569,6 +598,9 @@ class KVCacheStore {
     // or this store would unpin while the destination could still legitimately
     // commit bytes read out of blocks it has released.
     absl::Time hold_expiry;
+    // An L3 spill batch: outcomes are consumed internally (confirm -> evict)
+    // instead of surfacing through the public remote-write poll queues.
+    bool l3_spill = false;
   };
 
   std::vector<SaveState> active_saves_ ABSL_GUARDED_BY(mutex_);
@@ -611,6 +643,12 @@ class KVCacheStore {
   absl::flat_hash_set<std::string> reading_hashes_ ABSL_GUARDED_BY(mutex_);
   absl::flat_hash_set<std::string> writing_hashes_ ABSL_GUARDED_BY(mutex_);
 
+  // L3 spill policy state; nullopt disables the spill entirely. One batch
+  // in flight at a time, launched and consumed on the poller thread.
+  std::optional<L3SpillOptions> l3_spill_options_ ABSL_GUARDED_BY(mutex_);
+  bool l3_spill_in_flight_ ABSL_GUARDED_BY(mutex_) = false;
+  absl::Time l3_next_spill_ ABSL_GUARDED_BY(mutex_) = absl::InfinitePast();
+
   std::unique_ptr<std::thread> poller_thread_;
   std::unique_ptr<tpu_raiden::NumaThreadPool> write_through_pool_;
   std::atomic<bool> stop_poller_{false};
@@ -629,6 +667,17 @@ class KVCacheStore {
   void FinishRemoteWrite(const RemoteWriteState& state, bool succeeded,
                          std::vector<std::string> existing,
                          std::vector<std::string> unregistered = {});
+
+  // WriteRemote body; l3_spill tags the operation's states so its outcomes
+  // route to the spill consumer instead of the public poll queues.
+  absl::Status WriteRemoteInternal(const std::vector<std::string>& block_hashes,
+                                   const RaidenId& dst_raiden_id,
+                                   bool l3_spill);
+
+  // One L3 spill step, run from the poller thread: launches at most one
+  // WriteRemote batch of the coldest active host-resident entries when
+  // occupancy is at or above the watermark.
+  void MaybeSpillL3();
 
   void PollerLoop();
   void PollSavesInternal(std::vector<SaveState> ready_saves);

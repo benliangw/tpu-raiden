@@ -33,6 +33,7 @@
 #include "absl/base/thread_annotations.h"
 #include "absl/log/check.h"
 #include "absl/status/status.h"
+#include "absl/status/status_matchers.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
@@ -524,6 +525,35 @@ class LookupFailingRegistryService final
  private:
   global_registry::GlobalRegistryServiceImpl delegate_;
 };
+
+TEST(KVCacheStoreTest, ConfigureL3SpillValidation) {
+  const RaidenId store_id{"src_job", "0", "kv_cache", 0};
+  const RaidenId peer_id{"peer_job", "0", "kv_cache", 0};
+
+  // Without a registry the spill has no way to resolve the peer, and
+  // spilled blocks would be findable nowhere.
+  KVCacheStore no_registry(4, "", store_id, /*num_shards=*/1,
+                           /*shard_size_bytes=*/512,
+                           /*store_server_ip=*/"127.0.0.1");
+  EXPECT_THAT(no_registry.ConfigureL3Spill({.dst_raiden_id = peer_id}),
+              ::absl_testing::StatusIs(absl::StatusCode::kFailedPrecondition));
+
+  auto reg_server = global_registry::CreateTestGlobalRegistryServer();
+  KVCacheStore store(4, reg_server->server_address, store_id,
+                     /*num_shards=*/1, /*shard_size_bytes=*/512,
+                     /*store_server_ip=*/"127.0.0.1");
+  EXPECT_THAT(store.ConfigureL3Spill({.dst_raiden_id = {}}),
+              ::absl_testing::StatusIs(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(store.ConfigureL3Spill({.dst_raiden_id = store_id}),
+              ::absl_testing::StatusIs(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(
+      store.ConfigureL3Spill({.dst_raiden_id = peer_id, .watermark = 0.0}),
+      ::absl_testing::StatusIs(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(store.ConfigureL3Spill(
+                  {.dst_raiden_id = peer_id, .max_blocks_per_batch = 0}),
+              ::absl_testing::StatusIs(absl::StatusCode::kInvalidArgument));
+  ASSERT_OK(store.ConfigureL3Spill({.dst_raiden_id = peer_id}));
+}
 
 TEST(KVCacheStoreTest, GlobalLookupRegistryDown) {
   LookupFailingRegistryService service;

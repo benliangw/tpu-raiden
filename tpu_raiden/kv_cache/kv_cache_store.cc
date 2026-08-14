@@ -1520,6 +1520,12 @@ absl::Duration RemoteWriteHold() {
 absl::Status KVCacheStore::WriteRemote(
     const std::vector<std::string>& block_hashes,
     const RaidenId& dst_raiden_id) {
+  return WriteRemoteInternal(block_hashes, dst_raiden_id, /*l3_spill=*/false);
+}
+
+absl::Status KVCacheStore::WriteRemoteInternal(
+    const std::vector<std::string>& block_hashes, const RaidenId& dst_raiden_id,
+    bool l3_spill) {
   if (block_hashes.empty()) {
     return absl::OkStatus();
   }
@@ -1613,7 +1619,8 @@ absl::Status KVCacheStore::WriteRemote(
     std::move(rollback).Cancel();
     FinishRemoteWrite({.dst_raiden_id = dst_raiden_id,
                        .block_hashes = block_hashes,
-                       .hold_expiry = hold_expiry},
+                       .hold_expiry = hold_expiry,
+                       .l3_spill = l3_spill},
                       /*succeeded=*/true, {});
     return absl::OkStatus();
   }
@@ -1623,7 +1630,8 @@ absl::Status KVCacheStore::WriteRemote(
     std::move(rollback).Cancel();
     FinishRemoteWrite({.dst_raiden_id = dst_raiden_id,
                        .block_hashes = block_hashes,
-                       .hold_expiry = hold_expiry},
+                       .hold_expiry = hold_expiry,
+                       .l3_spill = l3_spill},
                       /*succeeded=*/false, std::move(ack.existing_hashes));
     return absl::OkStatus();
   }
@@ -1649,6 +1657,7 @@ absl::Status KVCacheStore::WriteRemote(
         .block_hashes = block_hashes,
         .hold_expiry =
             std::max(hold_expiry, absl::Now() + ack.granted_deadline),
+        .l3_spill = l3_spill,
     });
   }
   std::move(rollback).Cancel();
@@ -1662,6 +1671,40 @@ void KVCacheStore::FinishRemoteWrite(const RemoteWriteState& state,
   if (auto* backend = this->backend().get(); backend != nullptr) {
     backend->Release(state.block_hashes);
   }
+  if (state.l3_spill) {
+    // Spill traffic is this store's own: outcomes never reach the public
+    // poll queues. A confirmed hash -- committed, or already held by the
+    // destination, which re-published it before vouching -- has a
+    // registry-findable peer copy, so the local copy is evicted; that frees
+    // the host blocks AND undoes the MRU promotion the internal pin/release
+    // just applied to what were by definition the coldest entries. Evict
+    // skips anything a concurrent load has pinned meanwhile. `unregistered`
+    // hashes landed but are findable nowhere, so they stay local.
+    std::vector<std::string> confirmed;
+    if (succeeded) {
+      confirmed = state.block_hashes;
+    } else {
+      confirmed = std::move(existing);
+    }
+    const size_t evicted = confirmed.empty() ? 0 : Evict(confirmed);
+    absl::MutexLock lock(mutex_);
+    for (const auto& hash : state.block_hashes) {
+      writing_hashes_.erase(hash);
+    }
+    l3_spill_in_flight_ = false;
+    if (confirmed.empty()) {
+      l3_next_spill_ = absl::Now() + l3_spill_options_->cooldown;
+      LOG(WARNING) << "L3 spill finished with no block confirmed by the peer ("
+                   << state.block_hashes.size() << " offered); backing off "
+                   << l3_spill_options_->cooldown;
+    } else {
+      LOG(INFO) << "L3 spill finished: " << confirmed.size() << " of "
+                << state.block_hashes.size()
+                << " blocks peer-held; evicted " << evicted
+                << " local copies";
+    }
+    return;
+  }
   absl::MutexLock lock(mutex_);
   for (const auto& hash : state.block_hashes) {
     writing_hashes_.erase(hash);
@@ -1672,6 +1715,93 @@ void KVCacheStore::FinishRemoteWrite(const RemoteWriteState& state,
   }
   for (auto& hash : unregistered) {
     unregistered_remote_writes_.push_back(std::move(hash));
+  }
+}
+
+absl::Status KVCacheStore::ConfigureL3Spill(L3SpillOptions options) {
+  if (options.dst_raiden_id.empty()) {
+    return absl::InvalidArgumentError(
+        "L3 spill requires a destination RaidenId");
+  }
+  if (options.dst_raiden_id == raiden_id_) {
+    return absl::InvalidArgumentError(
+        "L3 spill destination is this store; there is nowhere to spill to");
+  }
+  if (!(options.watermark > 0.0 && options.watermark <= 1.0)) {
+    return absl::InvalidArgumentError(absl::StrCat(
+        "L3 spill watermark must be in (0, 1]; got ", options.watermark));
+  }
+  if (options.max_blocks_per_batch == 0) {
+    return absl::InvalidArgumentError(
+        "L3 spill max_blocks_per_batch must be positive");
+  }
+  if (registry_client_ == nullptr) {
+    return absl::FailedPreconditionError(
+        "L3 spill requires a global registry: the peer is resolved through "
+        "it, and spilled blocks are only findable once published there");
+  }
+  const size_t capacity = this->capacity();
+  absl::MutexLock lock(mutex_);
+  l3_spill_options_ = options;
+  l3_next_spill_ = absl::InfinitePast();
+  LOG(INFO) << "L3 spill enabled to peer store '"
+            << options.dst_raiden_id.job_name << "': watermark "
+            << static_cast<size_t>(options.watermark * capacity) << " of "
+            << capacity << " kernel blocks, at most "
+            << options.max_blocks_per_batch << " blocks per batch";
+  return absl::OkStatus();
+}
+
+void KVCacheStore::MaybeSpillL3() {
+  std::vector<std::string> batch;
+  RaidenId dst;
+  {
+    absl::MutexLock lock(mutex_);
+    if (!l3_spill_options_.has_value() || l3_spill_in_flight_ ||
+        absl::Now() < l3_next_spill_) {
+      return;
+    }
+    auto* backend = backends_.empty() ? nullptr : backends_[0].get();
+    if (backend == nullptr) {
+      return;
+    }
+    const size_t capacity = backend->GetCapacity();
+    if (capacity == 0 ||
+        backend->GetSize() <
+            static_cast<size_t>(l3_spill_options_->watermark * capacity)) {
+      return;
+    }
+    // A hash some other WriteRemote is already shipping would fail the
+    // whole batch at launch; leave it to that operation.
+    std::vector<std::string> offerable;
+    for (auto& hash : backend->GetActiveEvictableHostKeys(
+             l3_spill_options_->max_blocks_per_batch)) {
+      if (!writing_hashes_.contains(hash)) {
+        offerable.push_back(std::move(hash));
+      }
+    }
+    batch = std::move(offerable);
+    if (batch.empty()) {
+      // Over the watermark with nothing offerable (everything pinned or
+      // mid-write): re-checking every poller tick would spin.
+      l3_next_spill_ = absl::Now() + l3_spill_options_->cooldown;
+      return;
+    }
+    dst = l3_spill_options_->dst_raiden_id;
+    l3_spill_in_flight_ = true;
+  }
+  LOG(INFO) << "L3 spill launched: offering " << batch.size()
+            << " cold blocks to peer '" << dst.job_name << "'";
+  // The all-exist ack finishes the operation synchronously inside this
+  // call, so in_flight may already be false again on return.
+  absl::Status status = WriteRemoteInternal(batch, dst, /*l3_spill=*/true);
+  if (!status.ok()) {
+    absl::MutexLock lock(mutex_);
+    l3_spill_in_flight_ = false;
+    l3_next_spill_ = absl::Now() + l3_spill_options_->cooldown;
+    LOG(WARNING) << "L3 spill of " << batch.size()
+                 << " blocks could not be offered (" << status.message()
+                 << "); backing off " << l3_spill_options_->cooldown;
   }
 }
 
@@ -1780,6 +1910,7 @@ KVCacheStore::PollRemoteWriteStatus() {
 void KVCacheStore::PollerLoop() {
   while (!stop_poller_.load()) {
     PollFuturesInternal();
+    MaybeSpillL3();
     absl::SleepFor(absl::Milliseconds(10));
   }
 }

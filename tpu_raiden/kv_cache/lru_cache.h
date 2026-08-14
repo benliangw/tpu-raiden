@@ -239,6 +239,21 @@ class LRUCache {
 
   // Returns up to `count` oldest evictable (unpinned) keys in LRU order (oldest
   // first).
+  // The coldest unpinned ACTIVE entries (LRU tail, oldest first), up to
+  // `count`. Unlike GetEvictableKeys this skips eviction candidates: a
+  // caller planning to hand entries to a peer needs entries a Lookup (and
+  // therefore a peer's read) can still see. Read-only.
+  std::vector<std::pair<Key, Value>> GetActiveEvictableEntries(
+      size_t count) const {
+    std::vector<std::pair<Key, Value>> entries;
+    entries.reserve(std::min(count, lru_list_.size()));
+    for (auto it = lru_list_.rbegin();
+         it != lru_list_.rend() && entries.size() < count; ++it) {
+      entries.emplace_back(it->key, it->value);
+    }
+    return entries;
+  }
+
   std::vector<Key> GetEvictableKeys(size_t count) const {
     std::vector<Key> keys;
     keys.reserve(

@@ -229,6 +229,44 @@ struct RegistryBackedBackend {
 
 }  // namespace
 
+TEST(HostOffloadBackendTest, GetActiveEvictableHostKeysColdestFirst) {
+  RegistryBackedBackend fixture(/*capacity=*/8);
+  auto& backend = fixture.backend;
+  const RaidenId id = fixture.local_node_id;
+
+  ASSERT_TRUE(backend->InsertAllOrNothing(
+      {"cold", "warm", "pinned", "remote"},
+      {RaidenBlockID(id, 1, BlockStatus::HOST),
+       RaidenBlockID(id, 2, BlockStatus::HOST),
+       RaidenBlockID(id, 3, BlockStatus::HOST),
+       RaidenBlockID(id, 4, BlockStatus::REMOTE)}));
+  ASSERT_TRUE(backend->Pin({"pinned"}));
+
+  // Coldest-first, pinned entries invisible, non-host statuses filtered.
+  EXPECT_THAT(backend->GetActiveEvictableHostKeys(10),
+              ::testing::ElementsAre("cold", "warm"));
+  EXPECT_THAT(backend->GetActiveEvictableHostKeys(1),
+              ::testing::ElementsAre("cold"));
+
+  // Candidates are excluded: a peer's read could never validate them.
+  // Releasing the pin and displacing the two cold entries (capacity
+  // pressure from InsertAndLock) moves them to the candidate list.
+  backend->Release({"pinned"});
+  RegistryBackedBackend small(/*capacity=*/2);
+  ASSERT_TRUE(small.backend->InsertAllOrNothing(
+      {"c1", "c2"}, {RaidenBlockID(small.local_node_id, 7, BlockStatus::HOST),
+                     RaidenBlockID(small.local_node_id, 8, BlockStatus::HOST)}));
+  ASSERT_TRUE(small.backend->InsertAndLock(
+      {"n1", "n2"}, {RaidenBlockID(small.local_node_id, 9, BlockStatus::HOST),
+                     RaidenBlockID(small.local_node_id, 10, BlockStatus::HOST)},
+      /*on_host=*/true));
+  EXPECT_THAT(small.backend->AlreadyPresentHostResident({"c1", "c2"}),
+              UnorderedElementsAre("c1", "c2"));
+  EXPECT_TRUE(small.backend->GetActiveEvictableHostKeys(10).empty())
+      << "candidates still hold blocks but are Lookup-invisible; n1/n2 are "
+         "pinned by InsertAndLock";
+}
+
 TEST(HostOffloadBackendTest,
      EnsureRegisteredActiveHostResidentPublishesExactSet) {
   RegistryBackedBackend fixture(/*capacity=*/100);

@@ -43,7 +43,12 @@ class KVCacheStoreWrapper {
       size_t lru_capacity, std::string global_registry_address = "",
       RaidenId raiden_id = {}, int num_shards = 0, int64_t shard_size_bytes = 0,
       std::string store_server_ip = "", int raiden_controller_port = 0,
-      int expected_worker_count = 0, std::string kv_pool_group = "");
+      int expected_worker_count = 0, std::string kv_pool_group = "",
+      // A non-empty destination enables the L3 spill (see
+      // KVCacheStore::L3SpillOptions); a configuration error throws.
+      RaidenId l3_spill_dst_raiden_id = {}, double l3_spill_watermark = 0.9,
+      int64_t l3_spill_max_blocks_per_batch = 64,
+      int l3_spill_cooldown_ms = 2000);
 
   explicit KVCacheStoreWrapper(std::unique_ptr<KVCacheStore> store)
       : controller_(std::move(store)) {}

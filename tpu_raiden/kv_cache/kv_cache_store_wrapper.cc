@@ -28,6 +28,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/time/time.h"
 #include "tpu_raiden/kv_cache/kv_cache_metadata.h"
 #include "tpu_raiden/kv_cache/kv_cache_metadata_shm.h"
 #include "tpu_raiden/kv_cache/kv_cache_store.h"
@@ -60,7 +61,9 @@ KVCacheStoreWrapper::KVCacheStoreWrapper(
     size_t lru_capacity, std::string global_registry_address,
     RaidenId raiden_id, int num_shards, int64_t shard_size_bytes,
     std::string store_server_ip, int raiden_controller_port,
-    int expected_worker_count, std::string kv_pool_group) {
+    int expected_worker_count, std::string kv_pool_group,
+    RaidenId l3_spill_dst_raiden_id, double l3_spill_watermark,
+    int64_t l3_spill_max_blocks_per_batch, int l3_spill_cooldown_ms) {
   std::optional<KVCacheMetadata> metadata;
   if (num_shards > 0) {
     std::string shm_key = MetadataShmKey();
@@ -95,6 +98,18 @@ KVCacheStoreWrapper::KVCacheStoreWrapper(
     throw std::invalid_argument(std::string(store_or.status().message()));
   }
   controller_ = *std::move(store_or);
+
+  if (!l3_spill_dst_raiden_id.empty()) {
+    absl::Status l3_status = controller_->ConfigureL3Spill(
+        {.dst_raiden_id = std::move(l3_spill_dst_raiden_id),
+         .watermark = l3_spill_watermark,
+         .max_blocks_per_batch =
+             static_cast<size_t>(l3_spill_max_blocks_per_batch),
+         .cooldown = absl::Milliseconds(l3_spill_cooldown_ms)});
+    if (!l3_status.ok()) {
+      throw std::invalid_argument(std::string(l3_status.message()));
+    }
+  }
 
   if (metadata_region_ != nullptr && metadata_region_->warm()) {
     auto recovered_or = controller_->RecoverFromLocalManifest();

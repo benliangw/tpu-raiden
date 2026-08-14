@@ -167,6 +167,12 @@ class KVCacheStore:
       store_server_ip: str,
       shard_size_bytes: int = 0,
       raiden_controller_port: int = 0,
+      expected_worker_count: int = 0,
+      kv_pool_group: str = "",
+      l3_spill_dst_raiden_id: RaidenId | None = None,
+      l3_spill_watermark: float = 0.9,
+      l3_spill_max_blocks_per_batch: int = 64,
+      l3_spill_cooldown_ms: int = 2000,
   ):
     """Creates a KVCacheStore.
 
@@ -188,10 +194,28 @@ class KVCacheStore:
       raiden_controller_port: Port for this store's RaidenController; 0 lets
         gRPC choose. Note that the IP address of the controller reuses
         store_server_ip.
+      expected_worker_count: When positive, construction blocks until this
+        many workers have registered with the controller.
+      kv_pool_group: KV pool group the store's KVTransferSpec is published
+        under; empty falls back to raiden_id.job_name.
+      l3_spill_dst_raiden_id: When set, this store autonomously hands its
+        coldest host-resident blocks to that peer via write_remote once
+        occupancy crosses l3_spill_watermark, and evicts the local copy of
+        every block the peer confirms; a later lookup resolves the block
+        REMOTE through the registry and read_remote restores it. Requires
+        global_registry_address; a configuration error raises at
+        construction.
+      l3_spill_watermark: Occupancy fraction at which spilling arms.
+      l3_spill_max_blocks_per_batch: Kernel blocks per write_remote batch.
+      l3_spill_cooldown_ms: Back-off after a batch the peer confirmed none
+        of.
     """
     raw_raiden_id = _impl.RaidenId()
     if raiden_id is not None:
       raw_raiden_id = raiden_id._impl  # pylint: disable=protected-access
+    raw_l3_dst = _impl.RaidenId()
+    if l3_spill_dst_raiden_id is not None:
+      raw_l3_dst = l3_spill_dst_raiden_id._impl  # pylint: disable=protected-access
     self._impl = _impl.KVCacheStore(
         capacity=capacity,
         global_registry_address=global_registry_address,
@@ -200,6 +224,12 @@ class KVCacheStore:
         shard_size_bytes=shard_size_bytes,
         store_server_ip=store_server_ip,
         raiden_controller_port=raiden_controller_port,
+        expected_worker_count=expected_worker_count,
+        kv_pool_group=kv_pool_group,
+        l3_spill_dst_raiden_id=raw_l3_dst,
+        l3_spill_watermark=l3_spill_watermark,
+        l3_spill_max_blocks_per_batch=l3_spill_max_blocks_per_batch,
+        l3_spill_cooldown_ms=l3_spill_cooldown_ms,
     )
 
   @property

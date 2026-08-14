@@ -399,6 +399,20 @@ class KVCacheStoreTest(absltest.TestCase):
     self.assertEqual(controller.evict([b"evict_1"]), 1)
     self.assertEmpty(controller.lookup([b"evict_1"]))
 
+  def test_l3_spill_requires_registry(self):
+    # A spill destination without a global registry is refused at
+    # construction: the peer is resolved through the registry, and spilled
+    # blocks are only findable once published there.
+    with self.assertRaises(ValueError):
+      kv_cache_store.KVCacheStore(
+          capacity=4,
+          num_shards=1,
+          store_server_ip="127.0.0.1",
+          l3_spill_dst_raiden_id=kv_cache_store.RaidenId(
+              "peer_job", "0", "kv_cache", 0
+          ),
+      )
+
   def test_size_and_get_evictable_keys(self):
     controller = kv_cache_store.KVCacheStore(
         capacity=4, num_shards=1, store_server_ip="127.0.0.1"

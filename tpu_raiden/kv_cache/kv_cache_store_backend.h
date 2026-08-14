@@ -177,6 +177,14 @@ class KVCacheStoreBackend {
   // Retrieves evictable keys from the backend.
   virtual std::vector<std::string> GetEvictableKeys(size_t count) { return {}; }
 
+  // The coldest unpinned ACTIVE host-resident keys in eviction order (oldest
+  // first), up to `count`. Excludes eviction candidates (Lookup-invisible,
+  // so a peer's read could never validate them) and entries that are not
+  // HOST/HOST_AND_HBM. Used by the L3 spill to pick what to hand to a peer.
+  virtual std::vector<std::string> GetActiveEvictableHostKeys(size_t count) {
+    return {};
+  }
+
   // Evicts keys from the backend and returns deallocated host block IDs.
   virtual std::vector<int> Evict(const std::vector<std::string>& block_hashes) {
     Delete(block_hashes, {});

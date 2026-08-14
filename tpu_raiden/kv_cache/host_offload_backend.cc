@@ -643,6 +643,19 @@ std::vector<std::string> HostOffloadBackend::GetEvictableKeys(size_t count) {
   return lru_cache_.GetEvictableKeys(count);
 }
 
+std::vector<std::string> HostOffloadBackend::GetActiveEvictableHostKeys(
+    size_t count) {
+  absl::MutexLock lock(mutex_);
+  std::vector<std::string> keys;
+  for (const auto& [key, value] : lru_cache_.GetActiveEvictableEntries(count)) {
+    if (value.status == BlockStatus::HOST ||
+        value.status == BlockStatus::HOST_AND_HBM) {
+      keys.push_back(key);
+    }
+  }
+  return keys;
+}
+
 std::vector<int> HostOffloadBackend::Evict(
     const std::vector<std::string>& block_hashes) {
   std::vector<int> host_ids_to_deallocate;

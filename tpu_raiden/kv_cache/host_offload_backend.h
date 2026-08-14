@@ -146,6 +146,8 @@ class HostOffloadBackend : public KVCacheStoreBackend {
   absl::StatusOr<std::vector<std::string>> EnsureRegisteredActiveHostResident(
       absl::Span<const std::string> block_hashes) override;
 
+  std::vector<std::string> GetActiveEvictableHostKeys(size_t count) override;
+
   // --- Remote write, source side ------------------------------------------
   //
   // The two halves of the source's role. The synchronous half offers blocks
