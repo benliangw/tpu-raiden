@@ -1,9 +1,44 @@
 Waiting for prefill up (http://j-b04f009e-4e81-4a4b-88e8-prefill-0-0.j-b04f009e-4e81-4a4b-88e8:8000/health, up to 5400s)
-prefill is up (745s)
+prefill is up (730s)
 Waiting for decode up (http://j-b04f009e-4e81-4a4b-88e8-decode-0-0.j-b04f009e-4e81-4a4b-88e8:7200/health, up to 5400s)
 decode is up (0s)
 Waiting for proxy up (http://j-b04f009e-4e81-4a4b-88e8-prefill-0-0.j-b04f009e-4e81-4a4b-88e8:10000/healthcheck, up to 600s)
 proxy is up (0s)
 Waiting for engine readiness (first compile, up to 60 min)...
 Engines are ready.
+status: {'pool_blocks': 6, 'l3_enabled': 1, 'spill_launched': 0, 'peer_held': 0, 'backoffs': 0}
+pool=6 blocks -> seeding 24 docs (watermark 0.75, margin 8, HBM floor 24)
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/http/client.py", line 584, in _get_chunk_left
+    chunk_left = self._read_next_chunk_size()
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/http/client.py", line 551, in _read_next_chunk_size
+    return int(line, 16)
+           ^^^^^^^^^^^^^
+ValueError: invalid literal for int() with base 16: b''
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/http/client.py", line 602, in _read_chunked
+    while (chunk_left := self._get_chunk_left()) is not None:
+                         ^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/http/client.py", line 586, in _get_chunk_left
+    raise IncompleteRead(b'')
+http.client.IncompleteRead: IncompleteRead(0 bytes read)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<stdin>", line 102, in <module>
+  File "<stdin>", line 58, in ask
+  File "/usr/local/lib/python3.12/json/__init__.py", line 293, in load
+    return loads(fp.read(),
+                 ^^^^^^^^^
+  File "/usr/local/lib/python3.12/http/client.py", line 478, in read
+    return self._read_chunked(amt)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/http/client.py", line 614, in _read_chunked
+    raise IncompleteRead(b''.join(value)) from exc
+http.client.IncompleteRead: IncompleteRead(0 bytes read)
 

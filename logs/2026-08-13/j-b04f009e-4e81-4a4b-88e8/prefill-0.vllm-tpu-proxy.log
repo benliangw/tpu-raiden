@@ -3,12 +3,77 @@ INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:10000 (Press CTRL+C to quit)
 Initialized 1 prefill clients and 1 decode clients.
-INFO:     10.36.26.201:58308 - "GET /healthcheck HTTP/1.1" 200 OK
-PERF PROXY req_received req_id=6ef022fd-966f-4fde-a4fb-58e16590e8d4 ts=1786672048.558111
-PERF PROXY prefill_send req_id=6ef022fd-966f-4fde-a4fb-58e16590e8d4 ts=1786672048.647076
-PERF PROXY latency summary | prefill: n=1 avg=638.65ms min=638.65ms max=638.65ms
-PERF PROXY prefill_recv req_id=6ef022fd-966f-4fde-a4fb-58e16590e8d4 ts=1786672049.285727 dur_ms=638.65
-INFO:     10.36.26.201:58318 - "POST /v1/completions HTTP/1.1" 200 OK
-PERF PROXY decode_send req_id=6ef022fd-966f-4fde-a4fb-58e16590e8d4 ts=1786672049.286207
-PERF PROXY first_chunk req_id=6ef022fd-966f-4fde-a4fb-58e16590e8d4 ts=1786672051.204364 dur_from_decode_send_ms=1918.16 ttft_ms=2646.33
+INFO:     10.36.31.44:35486 - "GET /healthcheck HTTP/1.1" 200 OK
+PERF PROXY req_received req_id=25333cdd-2a8c-4371-984b-85907ff27c04 ts=1786673943.590594
+PERF PROXY prefill_send req_id=25333cdd-2a8c-4371-984b-85907ff27c04 ts=1786673943.623670
+PERF PROXY latency summary | prefill: n=1 avg=644.55ms min=644.55ms max=644.55ms
+PERF PROXY prefill_recv req_id=25333cdd-2a8c-4371-984b-85907ff27c04 ts=1786673944.268218 dur_ms=644.55
+INFO:     10.36.31.44:35492 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=25333cdd-2a8c-4371-984b-85907ff27c04 ts=1786673944.268571
+PERF PROXY first_chunk req_id=25333cdd-2a8c-4371-984b-85907ff27c04 ts=1786673946.192899 dur_from_decode_send_ms=1924.33 ttft_ms=2602.37
+PERF PROXY req_received req_id=b0e3558f-8c41-416b-9f97-25d78ccff36f ts=1786673946.321403
+PERF PROXY prefill_send req_id=b0e3558f-8c41-416b-9f97-25d78ccff36f ts=1786673946.334302
+PERF PROXY prefill_recv req_id=b0e3558f-8c41-416b-9f97-25d78ccff36f ts=1786673949.748714 dur_ms=3414.41 kv_uuid=908875652743949
+INFO:     10.36.31.44:38854 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=b0e3558f-8c41-416b-9f97-25d78ccff36f ts=1786673949.751388 kv_uuid=908875652743949
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py", line 422, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 63, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/fastapi/applications.py", line 1159, in __call__
+    await super().__call__(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/applications.py", line 90, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/usr/local/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 680, in app
+    await route.handle(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 134, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 121, in app
+    await response(scope, receive, send)
+  File "/usr/local/lib/python3.12/site-packages/starlette/responses.py", line 273, in __call__
+    async with create_collapsing_task_group() as task_group:
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/contextlib.py", line 231, in __aexit__
+    await self.gen.athrow(value)
+  File "/usr/local/lib/python3.12/site-packages/starlette/_utils.py", line 93, in create_collapsing_task_group
+    raise exc from exc.__cause__ or context
+  File "/usr/local/lib/python3.12/site-packages/anyio/_core/_tasks.py", line 278, in _run_coro
+    retval = await self._coro
+             ^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/starlette/responses.py", line 276, in wrap
+    await func()
+  File "/usr/local/lib/python3.12/site-packages/starlette/responses.py", line 250, in stream_response
+    async for chunk in self.body_iterator:
+  File "/root/torchtpu-vllm/examples/disagg/toy_proxy_server.py", line 399, in generate_stream
+    async for chunk in stream_from_decode(decode_client_info,
+  File "/root/torchtpu-vllm/examples/disagg/toy_proxy_server.py", line 326, in stream_from_decode
+    response.raise_for_status()
+  File "/usr/local/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Server error '500 Internal Server Error' for url 'http://j-b04f009e-4e81-4a4b-88e8-decode-0-0.j-b04f009e-4e81-4a4b-88e8:7200/v1/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500
 
