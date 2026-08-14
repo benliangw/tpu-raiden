@@ -1,0 +1,113 @@
+Installing torch-tpu: /root/wheels/torch_tpu-0.1.1.dev20260813220221-cp312-cp312-manylinux_2_31_x86_64.whl
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 5ms
+Prepared 1 package in 927ms
+Uninstalled 1 package in 93ms
+Installed 1 package in 3ms
+ - torch-tpu==0.1.1 (from file:///artifact-source/opt/wheels/torch_tpu-0.1.1-cp312-cp312-manylinux_2_31_x86_64.whl)
+ + torch-tpu==0.1.1.dev20260813220221 (from file:///root/wheels/torch_tpu-0.1.1.dev20260813220221-cp312-cp312-manylinux_2_31_x86_64.whl)
+Installing tpu-raiden: /root/wheels/tpu_raiden_torch-0.0.1.dev20260813185659-1_block_major_5ca767b-cp312-cp312-manylinux_2_31_x86_64.whl
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 4ms
+Prepared 1 package in 311ms
+Installed 1 package in 2ms
+ + tpu-raiden-torch==0.0.1.dev20260813185659 (from file:///root/wheels/tpu_raiden_torch-0.0.1.dev20260813185659-1_block_major_5ca767b-cp312-cp312-manylinux_2_31_x86_64.whl)
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1786686177.597092     149 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1786686177.611882     149 tpu_profiler_plugin.cc:795] PyTorch PrivateUse1ProfilerRegistry not found. Native TPU profiling will be disabled (this is expected on PyTorch < 2.12).
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+I0000 00:00:1786686177.659908     149 device_rt.cc:128] PjRt runtime initialization deferred for tpu
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1786686190.983603       1 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1786686190.994677       1 tpu_profiler_plugin.cc:795] PyTorch PrivateUse1ProfilerRegistry not found. Native TPU profiling will be disabled (this is expected on PyTorch < 2.12).
+I0000 00:00:1786686191.013804       1 device_rt.cc:128] PjRt runtime initialization deferred for tpu
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+[bm-ab] allocating 2 legs: B=1024 F=15 row_bytes=131072 host_blocks=4449 (8.1 GiB host pool per leg)
+I0000 00:00:1786686191.107686       1 pjrt_api.cc:168] The PJRT plugin has PJRT API version 0.103. The framework PJRT API version is 0.114.
+WARNING: Logging before InitGoogle() is written to STDERR
+E0000 00:00:1786686191.111381       1 common_lib.cc:518] INVALID_ARGUMENT: Error: unexpected worker hostname 'WARNING: could not determine TPU worker hostnames or IP addresses' from env var TPU_WORKER_HOSTNAMES. Expecting a valid hostname or IP address without port number, or hostname:port:address triple. (Full TPU workers' addr string: WARNING: could not determine TPU worker hostnames or IP addresses, please set env var `TPU_WORKER_HOSTNAMES` manually, otherwise libtpu.so may not properly initialize.)
+=== Source Location Trace: === 
+learning/45eac/tfrc/runtime/libtpu_init_utils.cc:311
+I0000 00:00:1786686194.692494       1 pjrt_c_api_client.cc:187] PjRtCApiClient created.
+W0000 00:00:1786686194.692533       1 pjrt_state.cc:273] Only using 1 device out of all the 8 addressable devices.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1786686195.009289       1 tpu_utils.cc:518] Detected interface: eth0, BDF: None, MTU: 1460, NUMA: 0, Classification: Control/Fallback Interface
+InitTransportServer: target_numa=0
+InitTransportServer: Local IP: 10.36.20.65
+[bm-ab] frag leg up: arrays=15 transport_port=46319
+I0000 00:00:1786686201.909485       1 tpu_utils.cc:518] Detected interface: eth0, BDF: None, MTU: 1460, NUMA: 0, Classification: Control/Fallback Interface
+InitTransportServer: target_numa=0
+InitTransportServer: Local IP: 10.36.20.65
+[bm-ab] bundle leg up: arrays=1 transport_port=44787
+RESULT op=d2h_scatter leg=frag rb=1 p50_ms=0.274 min_ms=0.259 max_ms=0.434 gbytes_per_s=7.171 futures=15 dma_segments=15
+RESULT op=h2d_scatter leg=frag rb=1 p50_ms=0.269 min_ms=0.259 max_ms=0.280 gbytes_per_s=7.302 futures=15 dma_segments=15
+RESULT op=d2h_contig leg=frag rb=1 p50_ms=0.272 min_ms=0.264 max_ms=0.290 gbytes_per_s=7.236 futures=15 dma_segments=15
+RESULT op=h2d_contig leg=frag rb=1 p50_ms=0.269 min_ms=0.252 max_ms=0.276 gbytes_per_s=7.300 futures=15 dma_segments=15
+RESULT op=d2h_scatter leg=frag rb=4 p50_ms=0.791 min_ms=0.771 max_ms=0.816 gbytes_per_s=9.939 futures=15 dma_segments=60
+RESULT op=h2d_scatter leg=frag rb=4 p50_ms=0.772 min_ms=0.765 max_ms=0.819 gbytes_per_s=10.182 futures=15 dma_segments=60
+RESULT op=d2h_contig leg=frag rb=4 p50_ms=0.263 min_ms=0.256 max_ms=0.278 gbytes_per_s=29.955 futures=15 dma_segments=15
+RESULT op=h2d_contig leg=frag rb=4 p50_ms=0.273 min_ms=0.263 max_ms=0.302 gbytes_per_s=28.810 futures=15 dma_segments=15
+RESULT op=d2h_scatter leg=frag rb=16 p50_ms=2.827 min_ms=2.693 max_ms=3.270 gbytes_per_s=11.127 futures=15 dma_segments=240
+RESULT op=h2d_scatter leg=frag rb=16 p50_ms=2.715 min_ms=2.672 max_ms=2.974 gbytes_per_s=11.587 futures=15 dma_segments=240
+RESULT op=d2h_contig leg=frag rb=16 p50_ms=0.665 min_ms=0.645 max_ms=0.989 gbytes_per_s=47.335 futures=15 dma_segments=15
+RESULT op=h2d_contig leg=frag rb=16 p50_ms=0.648 min_ms=0.637 max_ms=0.687 gbytes_per_s=48.575 futures=15 dma_segments=15
+RESULT op=d2h_scatter leg=frag rb=64 p50_ms=10.875 min_ms=10.581 max_ms=11.296 gbytes_per_s=11.570 futures=15 dma_segments=960
+RESULT op=h2d_scatter leg=frag rb=64 p50_ms=11.351 min_ms=10.702 max_ms=11.530 gbytes_per_s=11.085 futures=15 dma_segments=960
+RESULT op=d2h_contig leg=frag rb=64 p50_ms=2.346 min_ms=2.309 max_ms=2.480 gbytes_per_s=53.640 futures=15 dma_segments=15
+RESULT op=h2d_contig leg=frag rb=64 p50_ms=2.323 min_ms=2.304 max_ms=2.358 gbytes_per_s=54.156 futures=15 dma_segments=15
+RESULT op=d2h_scatter leg=frag rb=256 p50_ms=42.361 min_ms=41.565 max_ms=43.566 gbytes_per_s=11.881 futures=15 dma_segments=3840
+RESULT op=h2d_scatter leg=frag rb=256 p50_ms=41.483 min_ms=41.341 max_ms=41.934 gbytes_per_s=12.133 futures=15 dma_segments=3840
+RESULT op=d2h_contig leg=frag rb=256 p50_ms=9.058 min_ms=9.031 max_ms=9.179 gbytes_per_s=55.563 futures=15 dma_segments=15
+RESULT op=h2d_contig leg=frag rb=256 p50_ms=9.003 min_ms=8.952 max_ms=9.169 gbytes_per_s=55.905 futures=15 dma_segments=15
+RESULT op=d2h_scatter leg=bundle rb=1 p50_ms=0.091 min_ms=0.089 max_ms=0.121 gbytes_per_s=21.630 futures=1 dma_segments=1
+RESULT op=h2d_scatter leg=bundle rb=1 p50_ms=0.090 min_ms=0.089 max_ms=0.092 gbytes_per_s=21.767 futures=1 dma_segments=1
+RESULT op=d2h_contig leg=bundle rb=1 p50_ms=0.090 min_ms=0.089 max_ms=0.094 gbytes_per_s=21.774 futures=1 dma_segments=1
+RESULT op=h2d_contig leg=bundle rb=1 p50_ms=0.091 min_ms=0.090 max_ms=0.098 gbytes_per_s=21.529 futures=1 dma_segments=1
+RESULT op=d2h_scatter leg=bundle rb=4 p50_ms=0.204 min_ms=0.198 max_ms=0.206 gbytes_per_s=38.564 futures=1 dma_segments=4
+RESULT op=h2d_scatter leg=bundle rb=4 p50_ms=0.204 min_ms=0.201 max_ms=0.207 gbytes_per_s=38.543 futures=1 dma_segments=4
+RESULT op=d2h_contig leg=bundle rb=4 p50_ms=0.194 min_ms=0.192 max_ms=0.205 gbytes_per_s=40.600 futures=1 dma_segments=1
+RESULT op=h2d_contig leg=bundle rb=4 p50_ms=0.194 min_ms=0.192 max_ms=0.196 gbytes_per_s=40.530 futures=1 dma_segments=1
+RESULT op=d2h_scatter leg=bundle rb=16 p50_ms=0.637 min_ms=0.617 max_ms=0.648 gbytes_per_s=49.372 futures=1 dma_segments=16
+RESULT op=h2d_scatter leg=bundle rb=16 p50_ms=0.633 min_ms=0.618 max_ms=0.644 gbytes_per_s=49.712 futures=1 dma_segments=16
+RESULT op=d2h_contig leg=bundle rb=16 p50_ms=0.629 min_ms=0.622 max_ms=0.806 gbytes_per_s=50.039 futures=1 dma_segments=1
+RESULT op=h2d_contig leg=bundle rb=16 p50_ms=0.624 min_ms=0.621 max_ms=0.628 gbytes_per_s=50.441 futures=1 dma_segments=1
+RESULT op=d2h_scatter leg=bundle rb=64 p50_ms=2.317 min_ms=2.293 max_ms=2.384 gbytes_per_s=54.315 futures=1 dma_segments=64
+RESULT op=h2d_scatter leg=bundle rb=64 p50_ms=2.328 min_ms=2.292 max_ms=2.364 gbytes_per_s=54.043 futures=1 dma_segments=64
+RESULT op=d2h_contig leg=bundle rb=64 p50_ms=2.294 min_ms=2.291 max_ms=2.298 gbytes_per_s=54.847 futures=1 dma_segments=1
+RESULT op=h2d_contig leg=bundle rb=64 p50_ms=2.287 min_ms=2.283 max_ms=2.482 gbytes_per_s=55.025 futures=1 dma_segments=1
+RESULT op=d2h_scatter leg=bundle rb=256 p50_ms=9.034 min_ms=8.985 max_ms=9.115 gbytes_per_s=55.714 futures=1 dma_segments=256
+RESULT op=h2d_scatter leg=bundle rb=256 p50_ms=9.019 min_ms=8.982 max_ms=9.109 gbytes_per_s=55.805 futures=1 dma_segments=256
+RESULT op=d2h_contig leg=bundle rb=256 p50_ms=8.965 min_ms=8.956 max_ms=9.101 gbytes_per_s=56.141 futures=1 dma_segments=1
+RESULT op=h2d_contig leg=bundle rb=256 p50_ms=8.937 min_ms=8.924 max_ms=9.125 gbytes_per_s=56.320 futures=1 dma_segments=1
+[bm-ab] remote sweep frag <- j-f231b913-ea4d-40d8-ac4a-producer-0-0.j-f231b913-ea4d-40d8-ac4a:43001
+RESULT op=h2h_pull leg=frag rb=1 p50_ms=1.896 min_ms=1.827 max_ms=2.141 gbytes_per_s=1.037 wire_frames=15
+RESULT op=h2d_after_pull leg=frag rb=1 p50_ms=0.300 min_ms=0.249 max_ms=0.621 gbytes_per_s=6.544 futures=15
+RESULT op=h2h_pull leg=frag rb=4 p50_ms=7.420 min_ms=7.229 max_ms=7.612 gbytes_per_s=1.060 wire_frames=60
+RESULT op=h2d_after_pull leg=frag rb=4 p50_ms=0.281 min_ms=0.245 max_ms=0.530 gbytes_per_s=27.941 futures=15
+RESULT op=h2h_pull leg=frag rb=16 p50_ms=28.870 min_ms=25.781 max_ms=29.832 gbytes_per_s=1.090 wire_frames=240
+RESULT op=h2d_after_pull leg=frag rb=16 p50_ms=0.695 min_ms=0.657 max_ms=0.851 gbytes_per_s=45.277 futures=15
+RESULT op=h2h_pull leg=frag rb=64 p50_ms=115.551 min_ms=101.411 max_ms=119.474 gbytes_per_s=1.089 wire_frames=960
+RESULT op=h2d_after_pull leg=frag rb=64 p50_ms=2.350 min_ms=2.305 max_ms=2.500 gbytes_per_s=53.541 futures=15
+RESULT op=h2h_pull leg=frag rb=256 p50_ms=410.856 min_ms=398.785 max_ms=439.103 gbytes_per_s=1.225 wire_frames=3840
+RESULT op=h2d_after_pull leg=frag rb=256 p50_ms=9.021 min_ms=8.995 max_ms=9.142 gbytes_per_s=55.793 futures=15
+[bm-ab] remote verify OK (frag, rb=1)
+[bm-ab] remote sweep bundle <- j-f231b913-ea4d-40d8-ac4a-producer-0-0.j-f231b913-ea4d-40d8-ac4a:39837
+RESULT op=h2h_pull leg=bundle rb=1 p50_ms=1.790 min_ms=1.727 max_ms=2.245 gbytes_per_s=1.098 wire_frames=1
+RESULT op=h2d_after_pull leg=bundle rb=1 p50_ms=0.096 min_ms=0.089 max_ms=0.377 gbytes_per_s=20.495 futures=1
+RESULT op=h2h_pull leg=bundle rb=4 p50_ms=6.968 min_ms=6.792 max_ms=7.642 gbytes_per_s=1.129 wire_frames=4
+RESULT op=h2d_after_pull leg=bundle rb=4 p50_ms=0.212 min_ms=0.200 max_ms=0.517 gbytes_per_s=37.028 futures=1
+RESULT op=h2h_pull leg=bundle rb=16 p50_ms=27.598 min_ms=27.428 max_ms=28.343 gbytes_per_s=1.140 wire_frames=16
+RESULT op=h2d_after_pull leg=bundle rb=16 p50_ms=0.627 min_ms=0.623 max_ms=0.961 gbytes_per_s=50.209 futures=1
+RESULT op=h2h_pull leg=bundle rb=64 p50_ms=108.136 min_ms=95.512 max_ms=110.069 gbytes_per_s=1.164 wire_frames=64
+RESULT op=h2d_after_pull leg=bundle rb=64 p50_ms=2.291 min_ms=2.286 max_ms=2.743 gbytes_per_s=54.921 futures=1
+RESULT op=h2h_pull leg=bundle rb=256 p50_ms=387.356 min_ms=358.342 max_ms=431.813 gbytes_per_s=1.299 wire_frames=256
+RESULT op=h2d_after_pull leg=bundle rb=256 p50_ms=8.936 min_ms=8.926 max_ms=9.235 gbytes_per_s=56.324 futures=1
+[bm-ab] remote verify OK (bundle, rb=1)
+RESULT: PASS (local + remote sweeps complete)
+
