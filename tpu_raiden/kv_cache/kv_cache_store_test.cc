@@ -555,6 +555,27 @@ TEST(KVCacheStoreTest, ConfigureL3SpillValidation) {
   ASSERT_OK(store.ConfigureL3Spill({.dst_raiden_id = peer_id}));
 }
 
+TEST(KVCacheStoreTest, L3SpillStatsReflectConfiguration) {
+  const RaidenId store_id{"src_job", "0", "kv_cache", 0};
+  const RaidenId peer_id{"peer_job", "0", "kv_cache", 0};
+  auto reg_server = global_registry::CreateTestGlobalRegistryServer();
+  KVCacheStore store(4, reg_server->server_address, store_id,
+                     /*num_shards=*/1, /*shard_size_bytes=*/512,
+                     /*store_server_ip=*/"127.0.0.1");
+
+  auto stats = store.GetL3SpillStats();
+  EXPECT_FALSE(stats.enabled);
+  EXPECT_EQ(stats.batches_launched, 0);
+  EXPECT_EQ(stats.blocks_offered, 0);
+  EXPECT_EQ(stats.blocks_peer_confirmed, 0);
+  EXPECT_EQ(stats.blocks_evicted, 0);
+  EXPECT_EQ(stats.empty_batches, 0);
+  EXPECT_EQ(stats.launch_failures, 0);
+
+  ASSERT_OK(store.ConfigureL3Spill({.dst_raiden_id = peer_id}));
+  EXPECT_TRUE(store.GetL3SpillStats().enabled);
+}
+
 TEST(KVCacheStoreTest, GlobalLookupRegistryDown) {
   LookupFailingRegistryService service;
   grpc::ServerBuilder builder;

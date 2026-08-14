@@ -1692,7 +1692,10 @@ void KVCacheStore::FinishRemoteWrite(const RemoteWriteState& state,
       writing_hashes_.erase(hash);
     }
     l3_spill_in_flight_ = false;
+    l3_spill_stats_.blocks_peer_confirmed += confirmed.size();
+    l3_spill_stats_.blocks_evicted += evicted;
     if (confirmed.empty()) {
+      ++l3_spill_stats_.empty_batches;
       l3_next_spill_ = absl::Now() + l3_spill_options_->cooldown;
       LOG(WARNING) << "L3 spill finished with no block confirmed by the peer ("
                    << state.block_hashes.size() << " offered); backing off "
@@ -1744,6 +1747,7 @@ absl::Status KVCacheStore::ConfigureL3Spill(L3SpillOptions options) {
   absl::MutexLock lock(mutex_);
   l3_spill_options_ = options;
   l3_next_spill_ = absl::InfinitePast();
+  l3_spill_stats_.enabled = true;
   LOG(INFO) << "L3 spill enabled to peer store '"
             << options.dst_raiden_id.job_name << "': watermark "
             << static_cast<size_t>(options.watermark * capacity) << " of "
@@ -1789,6 +1793,8 @@ void KVCacheStore::MaybeSpillL3() {
     }
     dst = l3_spill_options_->dst_raiden_id;
     l3_spill_in_flight_ = true;
+    ++l3_spill_stats_.batches_launched;
+    l3_spill_stats_.blocks_offered += batch.size();
   }
   LOG(INFO) << "L3 spill launched: offering " << batch.size()
             << " cold blocks to peer '" << dst.job_name << "'";
@@ -1799,10 +1805,16 @@ void KVCacheStore::MaybeSpillL3() {
     absl::MutexLock lock(mutex_);
     l3_spill_in_flight_ = false;
     l3_next_spill_ = absl::Now() + l3_spill_options_->cooldown;
+    ++l3_spill_stats_.launch_failures;
     LOG(WARNING) << "L3 spill of " << batch.size()
                  << " blocks could not be offered (" << status.message()
                  << "); backing off " << l3_spill_options_->cooldown;
   }
+}
+
+KVCacheStore::L3SpillStats KVCacheStore::GetL3SpillStats() const {
+  absl::MutexLock lock(mutex_);
+  return l3_spill_stats_;
 }
 
 void KVCacheStore::PollRemoteWritesInternal() {

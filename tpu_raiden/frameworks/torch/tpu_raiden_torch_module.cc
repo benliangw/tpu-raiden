@@ -761,6 +761,19 @@ NB_MODULE(_tpu_raiden_torch, m) {
             return out;
           },
           nb::arg("count"))
+      .def("l3_spill_stats",
+           [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self) {
+             const auto stats = self->GetL3SpillStats();
+             nb::dict out;
+             out["enabled"] = stats.enabled;
+             out["batches_launched"] = stats.batches_launched;
+             out["blocks_offered"] = stats.blocks_offered;
+             out["blocks_peer_confirmed"] = stats.blocks_peer_confirmed;
+             out["blocks_evicted"] = stats.blocks_evicted;
+             out["empty_batches"] = stats.empty_batches;
+             out["launch_failures"] = stats.launch_failures;
+             return out;
+           })
       .def(
           "pin",
           [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self,

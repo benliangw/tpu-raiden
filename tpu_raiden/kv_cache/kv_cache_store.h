@@ -449,6 +449,25 @@ class KVCacheStore {
   // through it, and spilled blocks are only findable once published there).
   absl::Status ConfigureL3Spill(L3SpillOptions options);
 
+  // Cumulative L3 spill counters, all in kernel blocks. The policy runs on
+  // the store's own poller thread, so this is the only way an embedding
+  // process can observe spill progress without scraping this store's logs.
+  struct L3SpillStats {
+    bool enabled = false;
+    // Batches handed to WriteRemote / kernel blocks in them.
+    size_t batches_launched = 0;
+    size_t blocks_offered = 0;
+    // Peer-confirmed (committed or already held, either way
+    // registry-findable there) / local copies actually evicted on confirm.
+    size_t blocks_peer_confirmed = 0;
+    size_t blocks_evicted = 0;
+    // Batches that finished with nothing confirmed, and batches WriteRemote
+    // refused at launch; both trigger the cooldown back-off.
+    size_t empty_batches = 0;
+    size_t launch_failures = 0;
+  };
+  L3SpillStats GetL3SpillStats() const;
+
   // Polls all active/inflight WriteRemote operations.
   //
   // Returns {done, failed, pending, existing, unregistered}. The last two are
@@ -648,6 +667,7 @@ class KVCacheStore {
   std::optional<L3SpillOptions> l3_spill_options_ ABSL_GUARDED_BY(mutex_);
   bool l3_spill_in_flight_ ABSL_GUARDED_BY(mutex_) = false;
   absl::Time l3_next_spill_ ABSL_GUARDED_BY(mutex_) = absl::InfinitePast();
+  L3SpillStats l3_spill_stats_ ABSL_GUARDED_BY(mutex_);
 
   std::unique_ptr<std::thread> poller_thread_;
   std::unique_ptr<tpu_raiden::NumaThreadPool> write_through_pool_;

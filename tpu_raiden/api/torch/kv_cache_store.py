@@ -387,6 +387,16 @@ class KVCacheStore:
     """
     return self._impl.get_evictable_keys(count)
 
+  def l3_spill_stats(self) -> dict:
+    """Cumulative L3 spill counters, all in kernel blocks.
+
+    Keys: enabled, batches_launched, blocks_offered, blocks_peer_confirmed,
+    blocks_evicted, empty_batches, launch_failures. The spill policy runs on
+    the store's internal poller thread, so polling this is how an embedding
+    process observes spill progress.
+    """
+    return self._impl.l3_spill_stats()
+
   def pin(self, block_hashes: list[bytes]) -> bool:
     """Pins cached block hashes in memory, protecting them against LRU eviction while in active use."""
     return self._impl.pin(block_hashes)

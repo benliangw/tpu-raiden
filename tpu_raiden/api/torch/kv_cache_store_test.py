@@ -434,6 +434,19 @@ class KVCacheStoreTest(absltest.TestCase):
     self.assertEqual(controller.get_evictable_keys(1), [b"cold"])
     controller.release([b"pinned"])
 
+  def test_l3_spill_stats_disabled_by_default(self):
+    controller = kv_cache_store.KVCacheStore(
+        capacity=4, num_shards=1, store_server_ip="127.0.0.1"
+    )
+    stats = controller.l3_spill_stats()
+    self.assertFalse(stats["enabled"])
+    self.assertEqual(stats["batches_launched"], 0)
+    self.assertEqual(stats["blocks_offered"], 0)
+    self.assertEqual(stats["blocks_peer_confirmed"], 0)
+    self.assertEqual(stats["blocks_evicted"], 0)
+    self.assertEqual(stats["empty_batches"], 0)
+    self.assertEqual(stats["launch_failures"], 0)
+
   def test_save_and_load_mocked(self):
     controller = kv_cache_store.KVCacheStore(
         capacity=20, num_shards=1, store_server_ip="127.0.0.1"
