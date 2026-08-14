@@ -1,0 +1,14 @@
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:10000 (Press CTRL+C to quit)
+Initialized 1 prefill clients and 1 decode clients.
+INFO:     10.36.29.81:49864 - "GET /healthcheck HTTP/1.1" 200 OK
+PERF PROXY req_received req_id=11687463-bc22-4cf0-b521-af92ffa1217a ts=1786740497.038985
+PERF PROXY prefill_send req_id=11687463-bc22-4cf0-b521-af92ffa1217a ts=1786740497.073791
+PERF PROXY latency summary | prefill: n=1 avg=790.82ms min=790.82ms max=790.82ms
+PERF PROXY prefill_recv req_id=11687463-bc22-4cf0-b521-af92ffa1217a ts=1786740497.864609 dur_ms=790.82
+INFO:     10.36.29.81:49880 - "POST /v1/completions HTTP/1.1" 200 OK
+PERF PROXY decode_send req_id=11687463-bc22-4cf0-b521-af92ffa1217a ts=1786740497.864997
+PERF PROXY first_chunk req_id=11687463-bc22-4cf0-b521-af92ffa1217a ts=1786740499.756243 dur_from_decode_send_ms=1891.25 ttft_ms=2717.32
+

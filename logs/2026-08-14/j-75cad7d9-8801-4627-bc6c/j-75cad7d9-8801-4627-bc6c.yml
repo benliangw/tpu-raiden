@@ -1,0 +1,399 @@
+# Block-major serving A/B — dense Qwen3-32B on TPURaidenOffloadingConnector.
+#
+# One recipe, two legs: launch once with no vars (block-major ON — the
+# [num_blocks, F, *R] device bundle + bundled RPA + one-array raiden
+# registration, vllm-torchtpu benliangw/block-major) and once with
+# --set BASELINE=1 (layer-major baseline, same branch, same wheels).
+# Compare the two legs' bench RESULT lines. NOTE: BASELINE is truthy on
+# ANY non-empty value including 0 — to run the feature leg, omit it.
+#
+# Serving stack: vLLM + V2 offload connector (TPURaidenOffloadingConnector,
+# controller-driven KVCacheStore, local host pool only — no global
+# registry). The HBM pool is deliberately small (NUM_GPU_BLOCKS_OVERRIDE)
+# so the seed pass overflows into the host pool and the revisit pass must
+# restore from it: that restore is the transfer plane block-major changes.
+#
+# Bench (two-pass, in-cluster):
+#   pass 1 seed:    N long docs, cold prefill, KV offloaded as it evicts
+#   pass 2 revisit: same docs; gate = external-hit metric delta > 0 AND
+#                   revisit mean latency < seed mean. Timing + hit
+#                   evidence only — never byte equality (TPU serving is
+#                   not run-to-run deterministic).
+#
+# HARD PREREQS:
+#   - The image's pinned torch-tpu is sufficient for BOTH legs: the bundled
+#     RPA op uses stock `pallas.jax_op` donation (on torch_tpu main since
+#     2026-04), the same mechanism as layer-major. Leave TORCH_TPU_WHEEL
+#     unset (= keep the image's torch-tpu) unless deliberately overriding —
+#     and then RAIDEN_WHEEL must be built against that same source.
+#   - RAIDEN_WHEEL: tpu-raiden wheel from benliangw/block-major
+#     (>= 5a80132, KV-layout-fingerprint handshake), built against the
+#     torch_tpu commit matching the torch-tpu actually installed (the
+#     image's pin when TORCH_TPU_WHEEL is unset).
+#   - /workspace/vllm-torchtpu/block-major worktree synced to
+#     benliangw/block-major >= 2754cbae.
+#   - Model downloads from HF (needs the vllm-hf-token secret); override
+#     MODEL to an NFS path under /root/models to serve offline instead.
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: vllm-qwen3-block-major
+  namespace: cloud-devkit-jobs
+spec:
+  successPolicy:
+    operator: All
+    targetReplicatedJobs:
+      - bench
+  ttlSecondsAfterFinished: 900
+  replicatedJobs:
+    - name: vllm-server
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            metadata:
+              annotations:
+                gke-gcsfuse/volumes: "true"
+            spec:
+              restartPolicy: Never
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: 2x2x1
+                cloud.google.com/gke-tpu-accelerator: tpu7x
+              initContainers:
+                - name: tpu-node-setup
+                  image: busybox
+                  securityContext:
+                    privileged: true
+                  command: ["/bin/sh", "-c"]
+                  args:
+                    - |
+                      sysctl -w vm.max_map_count=8388608
+                      if [ -f /sys/module/vfio_iommu_type1/parameters/dma_entry_limit ]; then
+                        echo 2000000 > /sys/module/vfio_iommu_type1/parameters/dma_entry_limit
+                      fi
+              containers:
+                - name: vllm-server
+                  image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:latest
+                  imagePullPolicy: Always
+                  command: ["/bin/bash", "-c"]
+                  args:
+                    - |
+                      set -eo pipefail
+                      : "${CDK_OUTPUT_DIR:=/tmp/cdk-outputs}"
+                      export CDK_OUTPUT_DIR
+                      mkdir -p "$CDK_OUTPUT_DIR"
+                      export PYTHONUNBUFFERED=1
+
+                      echo "===== Syncing dependencies to pyproject.toml ====="
+                      mkdir -p /tmp/depsync
+                      sed -E '/"(torch-tpu|tpu-raiden-torch|vllm)(==| @)/d' /root/torchtpu-vllm/pyproject.toml > /tmp/depsync/pyproject.toml
+                      uv pip install --system -r /tmp/depsync/pyproject.toml --index-url https://pypi.org/simple
+
+                      VLLM_SPEC=$(grep -E '^[[:space:]]*"vllm' /root/torchtpu-vllm/pyproject.toml | sed -E 's/^[[:space:]]*"([^"]+)".*/\1/' | head -n1)
+                      if [ -n "$VLLM_SPEC" ]; then
+                        echo "Installing pinned vLLM: $VLLM_SPEC"
+                        VLLM_TARGET_DEVICE=empty uv pip install --system --no-deps "$VLLM_SPEC"
+                      fi
+
+                      # Both legs run the image's pinned torch-tpu (stock
+                      # pallas.jax_op donation is all the bundled op
+                      # needs). TORCH_TPU_WHEEL is an explicit override
+                      # only — if set, the raiden wheel must be built
+                      # against that same torch_tpu source.
+                      if [ -n "${TORCH_TPU_WHEEL:-}" ] && [ "$TORCH_TPU_WHEEL" != "none" ]; then
+                        echo "Installing torch-tpu override: $TORCH_TPU_WHEEL"
+                        uv pip install --system --no-deps "$TORCH_TPU_WHEEL"
+                      fi
+
+                      if [ -n "${RAIDEN_WHEEL:-}" ] && [ "$RAIDEN_WHEEL" != "auto" ]; then
+                        RD_WHL="$RAIDEN_WHEEL"
+                      else
+                        RD_WHL=$(ls -t /root/wheels/tpu_raiden_torch-*.whl 2>/dev/null | head -1 || true)
+                      fi
+                      [ -n "$RD_WHL" ] || { echo "RESULT: FAIL (no tpu_raiden_torch wheel)"; exit 1; }
+                      echo "Installing tpu-raiden: $RD_WHL"
+                      uv pip install --system --no-deps "$RD_WHL"
+                      python3 -c "from tpu_raiden.api.torch.kv_cache_manager import _torch_impl; impl = _torch_impl(); assert hasattr(impl, 'KVCacheStore')" \
+                        || { echo "RESULT: FAIL (raiden import/KVCacheStore)"; exit 1; }
+
+                      export PYTHONPATH=/root/torchtpu-vllm/src:/root/torchtpu-vllm:${PYTHONPATH:-}
+                      python3 -c "import vllm_torchtpu.offload.raiden_connector as rc; assert hasattr(rc, 'TPURaidenOffloadingConnector'); import vllm_torchtpu.offload.block_major_layout as bml; print('block-major preflight OK, donation stack:', bml.donation_stack_available())" \
+                        || { echo "RESULT: FAIL (connector preflight)"; exit 1; }
+
+                      KV_XFER_CONFIG=$(printf '{"kv_connector": "TPURaidenOffloadingConnector", "kv_connector_module_path": "vllm_torchtpu.offload.raiden_connector", "kv_role": "kv_both", "kv_connector_extra_config": {"cpu_bytes_to_use": %s}}' "$KV_OFFLOAD_BYTES")
+                      echo "===== Starting Qwen3-32B (BLOCK_MAJOR=$VLLM_TPU_BLOCK_MAJOR_KV) ====="
+                      exec vllm serve \
+                        "$MODEL" \
+                        --tensor_parallel_size=4 \
+                        --max-model-len=16384 \
+                        --max-num-batched-tokens=4096 \
+                        --max-num-seqs=16 \
+                        --num-gpu-blocks-override="$NUM_GPU_BLOCKS_OVERRIDE" \
+                        --enable-prefix-caching \
+                        --no-async-scheduling \
+                        --gpu-memory-utilization="$GPU_MEM_UTIL" \
+                        --kv-transfer-config "$KV_XFER_CONFIG" \
+                        --port="$PORT" \
+                        2>&1 | tee "$CDK_OUTPUT_DIR/server.log"
+                  env:
+                    - name: MODEL
+                      value: "Qwen/Qwen3-32B"
+                    - name: PORT
+                      value: "8000"
+                    # The A/B knob — the only difference between the legs.
+                    # Default = feature ON; --set BASELINE=1 turns it off.
+                    - name: VLLM_TPU_BLOCK_MAJOR_KV
+                      value: "1"
+                    # none = keep the image's pinned torch-tpu (the
+                    # default and the supported configuration).
+                    - name: TORCH_TPU_WHEEL
+                      value: "none"
+                    - name: RAIDEN_WHEEL
+                      value: &raiden-wheel "/root/wheels/tpu_raiden_torch-0.0.1.dev20260814125947-1_block_major_5a80132-cp312-cp312-manylinux_2_31_x86_64.whl"
+                    # Small HBM pool on purpose: seed pass must evict into
+                    # the host pool so the revisit pass exercises restore.
+                    - name: NUM_GPU_BLOCKS_OVERRIDE
+                      value: "512"
+                    - name: GPU_MEM_UTIL
+                      value: "0.85"
+                    # 100 GiB host KV pool.
+                    - name: KV_OFFLOAD_BYTES
+                      value: "107374182400"
+                    - name: VLLM_TPU_OFFLOAD_WAIT_POLL_INTERVAL_S
+                      value: "0.0005"
+                    - name: VLLM_LOGGING_LEVEL
+                      value: "INFO"
+                    - name: HF_HUB_DISABLE_XET
+                      value: "1"
+                    - name: TPU_TOPOLOGY
+                      value: "2x2x1"
+                    - name: TPU_CHIPS_PER_HOST_BOUNDS
+                      value: "2,2,1"
+                    - name: TPU_HOST_BOUNDS
+                      value: "1,1,1"
+                    - name: TPU_LIBRARY_PATH
+                      value: ""
+                    - name: MEGASCALE_NUM_SLICES
+                      value: ""
+                    - name: MEGASCALE_SLICE_ID
+                      value: ""
+                    - name: TPU_PROCESS_ADDRESSES
+                      value: ""
+                    - name: TPU_WORKER_HOSTNAMES
+                      value: ""
+                    - name: TPU_PROCESS_PORT
+                      value: ""
+                    - name: MEGASCALE_COORDINATOR_ADDRESS
+                      value: ""
+                    - name: MEGASCALE_PORT
+                      value: ""
+                    - name: TPU_PREMAPPED_BUFFER_SIZE
+                      value: "8589934592"
+                  volumeMounts:
+                    - name: dshm
+                      mountPath: /dev/shm
+                    - name: hf-token-volume
+                      mountPath: /root/.cache/huggingface/token
+                      subPath: token
+                      readOnly: true
+                    - name: huggingface-storage
+                      mountPath: /root/.cache/huggingface
+                    - name: models-nfs
+                      mountPath: /root/models
+                      readOnly: true
+                    - name: torchtpu-vllm-nfs
+                      mountPath: /root/torchtpu-vllm
+                      readOnly: true
+                    - name: wheels-nfs
+                      mountPath: /root/wheels
+                      readOnly: true
+                  ports:
+                    - containerPort: 8000
+                  resources:
+                    limits:
+                      google.com/tpu: "4"
+                      memory: "300Gi"
+                      cpu: "64"
+                    requests:
+                      google.com/tpu: "4"
+                      memory: "200Gi"
+                      cpu: "32"
+              volumes:
+                - name: dshm
+                  emptyDir:
+                    medium: Memory
+                    sizeLimit: "64Gi"
+                - name: hf-token-volume
+                  secret:
+                    secretName: vllm-hf-token
+                    items:
+                      - key: HF_TOKEN
+                        path: token
+                - name: huggingface-storage
+                  ephemeral:
+                    volumeClaimTemplate:
+                      spec:
+                        storageClassName: "premium-rwo"
+                        accessModes: ["ReadWriteOnce"]
+                        resources:
+                          requests:
+                            storage: 300Gi
+                - name: models-nfs
+                  nfs:
+                    server: 10.225.237.178
+                    path: /workspace/models
+                    readOnly: true
+                - name: torchtpu-vllm-nfs
+                  nfs:
+                    server: 10.225.237.178
+                    path: /workspace/vllm-torchtpu/block-major
+                    readOnly: true
+                - name: wheels-nfs
+                  nfs:
+                    server: 10.225.237.178
+                    path: /workspace/wheels
+                    readOnly: true
+
+    # bench: seed then revisit; gate on external-hit evidence + timing.
+    - name: bench
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            spec:
+              restartPolicy: Never
+              containers:
+                - name: bm-bench
+                  image: python:3.12-slim
+                  imagePullPolicy: IfNotPresent
+                  env:
+                    - name: JS_NAME
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                    - name: MODEL
+                      value: "Qwen/Qwen3-32B"
+                    - name: PORT
+                      value: "8000"
+                    - name: NUM_DOCS
+                      value: "24"
+                    - name: DOC_WORDS
+                      value: "5000"
+                  command: ["/bin/bash", "-c"]
+                  args:
+                    - |
+                      set -eo pipefail
+                      export PYTHONUNBUFFERED=1
+                      SERVER="${JS_NAME}-vllm-server-0-0.${JS_NAME}"
+                      export SERVER
+
+                      cat << 'EOF' | sed 's/^[[:space:]]\{22\}//' > /tmp/bm_bench.py
+                      import json
+                      import os
+                      import re
+                      import time
+                      import urllib.request
+
+                      SERVER = os.environ["SERVER"]
+                      PORT = os.environ.get("PORT", "8000")
+                      MODEL = os.environ["MODEL"]
+                      BASE = f"http://{SERVER}:{PORT}"
+                      NUM_DOCS = int(os.environ.get("NUM_DOCS", "24"))
+                      DOC_WORDS = int(os.environ.get("DOC_WORDS", "5000"))
+
+                      def wait_ready(timeout_s=5400):
+                          t0 = time.time()
+                          while time.time() - t0 < timeout_s:
+                              try:
+                                  urllib.request.urlopen(f"{BASE}/health", timeout=5)
+                                  print(f"server ready after {time.time()-t0:.0f}s", flush=True)
+                                  return
+                              except Exception:
+                                  time.sleep(5)
+                          raise SystemExit("RESULT: FAIL (server never became ready)")
+
+                      def doc(i):
+                          # Deterministic per-doc long prefix; word salad keeps
+                          # tokenization stable without needing the tokenizer.
+                          words = [f"doc{i} item{j} value{(7*i + 11*j) % 997}"
+                                   for j in range(DOC_WORDS // 3)]
+                          return ("Summarize the following inventory list. "
+                                  + " ".join(words))
+
+                      def complete(prompt):
+                          body = json.dumps({
+                              "model": MODEL, "prompt": prompt,
+                              "max_tokens": 8, "temperature": 0,
+                          }).encode()
+                          req = urllib.request.Request(
+                              f"{BASE}/v1/completions", data=body,
+                              headers={"Content-Type": "application/json"})
+                          t0 = time.perf_counter()
+                          with urllib.request.urlopen(req, timeout=600) as r:
+                              json.load(r)
+                          return time.perf_counter() - t0
+
+                      def ext_metrics():
+                          # Sum every counter mentioning external+hit so the
+                          # gate survives metric renames; print raw lines for
+                          # the log.
+                          with urllib.request.urlopen(f"{BASE}/metrics",
+                                                      timeout=30) as r:
+                              text = r.read().decode()
+                          total = 0.0
+                          for line in text.splitlines():
+                              if line.startswith("#"):
+                                  continue
+                              if "external" in line and "hit" in line:
+                                  m = re.search(r"\s([0-9.e+-]+)\s*$", line)
+                                  if m:
+                                      total += float(m.group(1))
+                                      print("  metric:", line, flush=True)
+                          return total
+
+                      wait_ready()
+                      print(f"=== pass 1: seed {NUM_DOCS} docs ===", flush=True)
+                      hits_before = ext_metrics()
+                      seed = [complete(doc(i)) for i in range(NUM_DOCS)]
+                      time.sleep(5)
+                      print("=== pass 2: revisit ===", flush=True)
+                      hits_mid = ext_metrics()
+                      revisit = [complete(doc(i)) for i in range(NUM_DOCS)]
+                      time.sleep(5)
+                      hits_after = ext_metrics()
+
+                      seed_mean = sum(seed) / len(seed)
+                      rev_mean = sum(revisit) / len(revisit)
+                      delta = hits_after - hits_mid
+                      print(f"RESULT seed_mean_s={seed_mean:.3f} "
+                            f"revisit_mean_s={rev_mean:.3f} "
+                            f"speedup={seed_mean / max(rev_mean, 1e-9):.2f} "
+                            f"ext_hit_delta={delta:.0f} "
+                            f"ext_hits_total={hits_after:.0f}", flush=True)
+                      # Gate: hit evidence + directional timing, never byte
+                      # equality (TPU serving is nondeterministic).
+                      if delta <= 0:
+                          raise SystemExit(
+                              "RESULT: FAIL (revisit produced no external "
+                              "prefix-cache hits — offload restore never ran)")
+                      if rev_mean >= seed_mean:
+                          raise SystemExit(
+                              "RESULT: FAIL (revisit not faster than seed "
+                              "despite external hits)")
+                      print("RESULT: PASS (offload restore hit + faster revisit)",
+                            flush=True)
+                      EOF
+                      python3 /tmp/bm_bench.py
+                  resources:
+                    limits:
+                      memory: "8Gi"
+                      cpu: "4"
+                    requests:
+                      memory: "4Gi"
+                      cpu: "2"
