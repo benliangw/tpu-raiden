@@ -1,0 +1,98 @@
+Installing torch-tpu: /root/wheels/torch_tpu-0.1.1.dev20260813220221-cp312-cp312-manylinux_2_31_x86_64.whl
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 40ms
+Prepared 1 package in 5.01s
+Uninstalled 1 package in 91ms
+Installed 1 package in 4ms
+ - torch-tpu==0.1.1 (from file:///artifact-source/opt/wheels/torch_tpu-0.1.1-cp312-cp312-manylinux_2_31_x86_64.whl)
+ + torch-tpu==0.1.1.dev20260813220221 (from file:///root/wheels/torch_tpu-0.1.1.dev20260813220221-cp312-cp312-manylinux_2_31_x86_64.whl)
+Installing tpu-raiden: /root/wheels/tpu_raiden_torch-0.0.1.dev20260813185659-1_block_major_5ca767b-cp312-cp312-manylinux_2_31_x86_64.whl
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 28ms
+Prepared 1 package in 3.05s
+Installed 1 package in 3ms
+ + tpu-raiden-torch==0.0.1.dev20260813185659 (from file:///root/wheels/tpu_raiden_torch-0.0.1.dev20260813185659-1_block_major_5ca767b-cp312-cp312-manylinux_2_31_x86_64.whl)
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1786676541.664590     149 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1786676541.678836     149 tpu_profiler_plugin.cc:795] PyTorch PrivateUse1ProfilerRegistry not found. Native TPU profiling will be disabled (this is expected on PyTorch < 2.12).
+I0000 00:00:1786676541.725326     149 device_rt.cc:128] PjRt runtime initialization deferred for tpu
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1786676545.216711       1 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1786676545.229832       1 tpu_profiler_plugin.cc:795] PyTorch PrivateUse1ProfilerRegistry not found. Native TPU profiling will be disabled (this is expected on PyTorch < 2.12).
+I0000 00:00:1786676545.249821       1 device_rt.cc:128] PjRt runtime initialization deferred for tpu
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+[bm-ab] allocating 2 legs: B=1024 F=15 row_bytes=131072 host_blocks=1024 (1.9 GiB host pool per leg)
+I0000 00:00:1786676545.380968       1 pjrt_api.cc:168] The PJRT plugin has PJRT API version 0.103. The framework PJRT API version is 0.114.
+WARNING: Logging before InitGoogle() is written to STDERR
+E0000 00:00:1786676545.383469       1 common_lib.cc:518] INVALID_ARGUMENT: Error: unexpected worker hostname 'WARNING: could not determine TPU worker hostnames or IP addresses' from env var TPU_WORKER_HOSTNAMES. Expecting a valid hostname or IP address without port number, or hostname:port:address triple. (Full TPU workers' addr string: WARNING: could not determine TPU worker hostnames or IP addresses, please set env var `TPU_WORKER_HOSTNAMES` manually, otherwise libtpu.so may not properly initialize.)
+=== Source Location Trace: ===
+learning/45eac/tfrc/runtime/libtpu_init_utils.cc:311
+I0000 00:00:1786676549.019967       1 pjrt_c_api_client.cc:187] PjRtCApiClient created.
+W0000 00:00:1786676549.020017       1 pjrt_state.cc:273] Only using 1 device out of all the 8 addressable devices.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1786676549.333672       1 tpu_utils.cc:518] Detected interface: eth0, BDF: None, MTU: 1460, NUMA: 0, Classification: Control/Fallback Interface
+InitTransportServer: target_numa=0
+InitTransportServer: Local IP: 10.36.40.140
+[bm-ab] frag leg up: arrays=15 transport_port=38085
+I0000 00:00:1786676549.998594       1 tpu_utils.cc:518] Detected interface: eth0, BDF: None, MTU: 1460, NUMA: 0, Classification: Control/Fallback Interface
+InitTransportServer: target_numa=0
+InitTransportServer: Local IP: 10.36.40.140
+[bm-ab] bundle leg up: arrays=1 transport_port=44849
+[bm-ab] frag: full D2h of 1024 rows in 0.036s
+Traceback (most recent call last):
+  File "/root/tpu-raiden/tpu_sync/benchmarks/block_major_ab_benchmark.py", line 398, in <module>
+    main()
+  File "/root/tpu-raiden/tpu_sync/benchmarks/block_major_ab_benchmark.py", line 350, in main
+    leg.verify_host_rows([0, leg.b // 2, leg.b - 1])
+  File "/root/tpu-raiden/tpu_sync/benchmarks/block_major_ab_benchmark.py", line 165, in verify_host_rows
+    assert data == expect, (
+           ^^^^^^^^^^^^^^
+AssertionError: frag: host block 0 (row 0, array 0) does not match the expected pattern
+I0000 00:00:1786676550.331240       1 compilation_cache.cc:346] Compilation cache evicted.
+I0000 00:00:1786676550.331263       1 compilation_cache.cc:210] CompilationCache final stats: num_cache_reqs=0
+num_cache_hits=0 {NA}
+peak_compilation_memory_bytes=unknown
+
+https://symbolize.stripped_domain/r/?trace=7f41ff9d304f,7f41089ed4e0,7f41078bdc99,7f4108a3c623,7f41078f4e90,7f40f2ca98b6,7f40f2492a8c,7f40f244a430,7f40f2495e47,7f40f2450c71,7f40f2447e2d,7f40f2449f3d,7f40f5c651a6,7f41ffdafd26,7f41ffd983f9,7f41ffd9769e,7f41ffd97697,7f41ffd6b7ee,7f41ffdf5a9b,7f41ffe39546,7f41ffe395e2,7f41ffe1d02b,7f41ffe2d54d,7f41ffde4e57,7f41ff9be249&map= 
+*** SIGSEGV (@(nil)), si_code=1, see go/stacktraces#s15 received by PID 1 (TID 1) on cpu 3; stack trace: ***
+    @     0x7f411a2b7d83       1888  FailureSignalHandler()
+    @     0x7f41ff9d3050  (unknown)  (unknown)
+    @     0x7f41089ed4e1         32  tsl::AsyncValue::MakeTypeInfo<>()::{lambda()#1}::__invoke()
+    @     0x7f41078bdc9a         32  tsl::AsyncValue::Destroy()
+    @     0x7f4108a3c624         32  xla::TpuRawBuffer::~TpuRawBuffer()
+    @     0x7f41078f4e91         32  pjrt::PJRT_RawBuffer_Destroy()
+    @     0x7f40f2ca98b7         48  pjrt::PjRtCApiRawBuffer_Destroy()
+    @     0x7f40f2492a8d         16  std::_Sp_counted_ptr_inplace<>::_M_dispose()
+    @     0x7f40f244a431         48  raiden::RaidenBufferHandle::~RaidenBufferHandle()
+    @     0x7f40f2495e48         64  tpu_raiden::kv_cache::KVCacheManagerBase::~KVCacheManagerBase()
+    @     0x7f40f2450c72        128  tpu_raiden::KVCacheManagerWithTransfer::~KVCacheManagerWithTransfer()
+    @     0x7f40f2447e2e         32  tpu_raiden::torch::TorchKVCacheManager::~TorchKVCacheManager()
+    @     0x7f40f2449f3e         48  tpu_raiden::torch::KVCacheManager::~KVCacheManager()
+    @     0x7f40f5c651a7         80  (unknown)
+    @     0x7f41ffdafd27         80  (unknown)
+    @     0x7f41ffd983fa         64  (unknown)
+    @     0x7f41ffd9769f         32  (unknown)
+    @     0x7f41ffd97698         32  (unknown)
+    @     0x7f41ffd6b7ef         96  (unknown)
+    @     0x7f41ffdf5a9c         80  PyDict_SetItemString
+    @     0x7f41ffe39547         48  (unknown)
+    @     0x7f41ffe395e3        144  (unknown)
+    @     0x7f41ffe1d02c        144  Py_FinalizeEx
+    @     0x7f41ffe2d54e        352  Py_RunMain
+    @     0x7f41ffde4e58         64  Py_BytesMain
+    @     0x7f41ff9be24a  (unknown)  (unknown)
+https://symbolize.stripped_domain/r/?trace=7f411a2b7d82,7f41ff9d304f,7f41089ed4e0,7f41078bdc99,7f4108a3c623,7f41078f4e90,7f40f2ca98b6,7f40f2492a8c,7f40f244a430,7f40f2495e47,7f40f2450c71,7f40f2447e2d,7f40f2449f3d,7f40f5c651a6,7f41ffdafd26,7f41ffd983f9,7f41ffd9769e,7f41ffd97697,7f41ffd6b7ee,7f41ffdf5a9b,7f41ffe39546,7f41ffe395e2,7f41ffe1d02b,7f41ffe2d54d,7f41ffde4e57,7f41ff9be249&map= 
+E0814 03:02:32.771766       1 coredump_hook.cc:310] RAW: Remote crash data gathering hook invoked.
+E0814 03:02:32.771790       1 client.cc:261] RAW: Coroner client retries enabled, will retry for up to 30 sec.
+E0814 03:02:32.771793       1 coredump_hook.cc:405] RAW: Sending fingerprint to remote end.
+E0814 03:02:32.771830       1 coredump_hook.cc:415] RAW: Cannot send fingerprint to Coroner: [NOT_FOUND] stat failed on crash reporting socket /var/google/services/logmanagerd/remote_coredump.socket (Is the listener running?): No such file or directory
+E0814 03:02:32.771834       1 coredump_hook.cc:467] RAW: Dumping core locally.
+E0814 03:02:38.513362       1 process_state.cc:704] RAW: Raising signal 11 with default behavior
+

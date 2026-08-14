@@ -1,0 +1,337 @@
+# Block-major Phase 0 A/B microbenchmark (design doc Phase 0, item 2).
+#
+# Two tpu7x hosts run tpu_sync/benchmarks/block_major_ab_benchmark.py from
+# the NFS-mounted tpu-raiden benliangw/block-major worktree: the SAME total
+# device bytes are registered as F block arrays ("frag", today's fragmented
+# layout) and as one [B, F*row_bytes] bundle ("bundle", the proposed
+# block-major layout), then local D2h/H2d and cross-host H2h pull + H2d are
+# timed over Rb={1,4,16,64,256}. This isolates the exact controller-path
+# change the block-major design proposes — fewer futures/DMA segments/wire
+# frames per transfer — without touching attention or needing the torch_tpu
+# donation stack, on stock wheels.
+#
+# Read the numbers off "RESULT op=... leg=frag|bundle rb=..." lines in the
+# consumer log; each line carries the analytic multiplicity
+# (futures/dma_segments/wire_frames). The frag-vs-bundle p50 ratio per op/Rb
+# is G_transfer for that stage. The producer log holds only setup + verify.
+#
+# Prereqs on the VM (10.225.237.178):
+#   - /workspace/tpu-raiden/block-major worktree exists and is synced to
+#     benliangw/block-major (commit with the benchmark).
+#   - /workspace/wheels has a torch_tpu wheel and an ABI-matching
+#     tpu_raiden_torch wheel (stock is fine; no C++ change needed). Override
+#     with RAIDEN_WHEEL/TORCH_TPU_WHEEL if the newest-by-mtime pick is wrong.
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: ttpu-block-major-ab
+  namespace: cloud-devkit-jobs
+spec:
+  successPolicy:
+    operator: All
+    targetReplicatedJobs:
+      - consumer
+  ttlSecondsAfterFinished: 900
+  replicatedJobs:
+    # producer: fills its device rows + host pool, serves the rendezvous
+    # socket and the transport pulls until the consumer reports DONE.
+    - name: producer
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            spec:
+              restartPolicy: Never
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: 2x2x1
+                cloud.google.com/gke-tpu-accelerator: tpu7x
+              initContainers:
+                - name: tpu-node-setup
+                  image: busybox
+                  securityContext:
+                    privileged: true
+                  command: ["/bin/sh", "-c"]
+                  args:
+                    - |
+                      sysctl -w vm.max_map_count=8388608
+                      if [ -f /sys/module/vfio_iommu_type1/parameters/dma_entry_limit ]; then
+                        echo 2000000 > /sys/module/vfio_iommu_type1/parameters/dma_entry_limit
+                      fi
+              containers:
+                - name: bm-ab-producer
+                  image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:latest
+                  imagePullPolicy: Always
+                  command: ["/bin/bash", "-c"]
+                  args:
+                    - |
+                      set -eo pipefail
+                      export PYTHONUNBUFFERED=1
+
+                      if [ -n "${TORCH_TPU_WHEEL:-}" ] && [ "$TORCH_TPU_WHEEL" != "auto" ]; then
+                        TT_WHL="$TORCH_TPU_WHEEL"
+                      else
+                        TT_WHL=$(ls -t /root/wheels/torch_tpu-*.whl 2>/dev/null | head -1 || true)
+                      fi
+                      if [ -n "$TT_WHL" ]; then
+                        echo "Installing torch-tpu: $TT_WHL"
+                        uv pip install --system --no-deps "$TT_WHL"
+                      else
+                        echo "Using image torch-tpu (no wheel in /root/wheels)"
+                      fi
+                      if [ -n "${RAIDEN_WHEEL:-}" ] && [ "$RAIDEN_WHEEL" != "auto" ]; then
+                        RD_WHL="$RAIDEN_WHEEL"
+                      else
+                        RD_WHL=$(ls -t /root/wheels/tpu_raiden_torch-*.whl 2>/dev/null | head -1 || true)
+                      fi
+                      [ -n "$RD_WHL" ] || { echo "RESULT: FAIL (no tpu_raiden_torch wheel in /root/wheels)"; exit 1; }
+                      echo "Installing tpu-raiden: $RD_WHL"
+                      uv pip install --system --no-deps "$RD_WHL"
+                      python3 -c "from tpu_raiden.api.torch.kv_cache_manager import _torch_impl; _torch_impl()" \
+                        || { echo "RESULT: FAIL (raiden torch extension import)"; exit 1; }
+
+                      exec python3 /root/tpu-raiden/tpu_sync/benchmarks/block_major_ab_benchmark.py \
+                        --role producer \
+                        --num_blocks "$NUM_BLOCKS" \
+                        --num_fragments "$NUM_FRAGMENTS" \
+                        --row_bytes "$ROW_BYTES" \
+                        --rb_sweep "$RB_SWEEP" \
+                        --iters "$ITERS" --warmup "$WARMUP" \
+                        --parallelism "$PARALLELISM" \
+                        --rendezvous_port 18845
+                  env:
+                    - name: NUM_BLOCKS
+                      value: "1024"
+                    - name: NUM_FRAGMENTS
+                      value: "15"
+                    # 128 KiB per fragment row -> 1.875 MiB whole block. Set
+                    # to the real serving geometry (bytes_per_kernel_block)
+                    # when calibrating a specific model.
+                    - name: ROW_BYTES
+                      value: "131072"
+                    - name: RB_SWEEP
+                      value: "1,4,16,64,256"
+                    - name: ITERS
+                      value: "10"
+                    - name: WARMUP
+                      value: "3"
+                    - name: PARALLELISM
+                      value: "1"
+                    - name: TORCH_TPU_WHEEL
+                      value: &torch-tpu-wheel "/root/wheels/torch_tpu-0.1.1.dev20260813220221-cp312-cp312-manylinux_2_31_x86_64.whl"
+                    - name: RAIDEN_WHEEL
+                      value: &raiden-wheel "/root/wheels/tpu_raiden_torch-0.0.1.dev20260813185659-1_block_major_5ca767b-cp312-cp312-manylinux_2_31_x86_64.whl"
+                    - name: TPU_TOPOLOGY
+                      value: "2x2x1"
+                    - name: TPU_CHIPS_PER_HOST_BOUNDS
+                      value: "2,2,1"
+                    - name: TPU_HOST_BOUNDS
+                      value: "1,1,1"
+                    - name: TPU_LIBRARY_PATH
+                      value: ""
+                    - name: MEGASCALE_NUM_SLICES
+                      value: ""
+                    - name: MEGASCALE_SLICE_ID
+                      value: ""
+                    - name: TPU_PROCESS_ADDRESSES
+                      value: ""
+                    - name: TPU_WORKER_HOSTNAMES
+                      value: ""
+                    - name: TPU_PROCESS_PORT
+                      value: ""
+                    - name: MEGASCALE_COORDINATOR_ADDRESS
+                      value: ""
+                    - name: MEGASCALE_PORT
+                      value: ""
+                    - name: TPU_PREMAPPED_BUFFER_SIZE
+                      value: "8589934592"
+                  volumeMounts:
+                    - name: dshm
+                      mountPath: /dev/shm
+                    - name: tpu-raiden-nfs
+                      mountPath: /root/tpu-raiden
+                      readOnly: true
+                    - name: wheels-nfs
+                      mountPath: /root/wheels
+                      readOnly: true
+                  ports:
+                    - containerPort: 18845
+                  resources:
+                    limits:
+                      google.com/tpu: "4"
+                      memory: "200Gi"
+                      cpu: "64"
+                    requests:
+                      google.com/tpu: "4"
+                      memory: "128Gi"
+                      cpu: "32"
+              volumes:
+                - name: dshm
+                  emptyDir:
+                    medium: Memory
+                    sizeLimit: "64Gi"
+                - name: tpu-raiden-nfs
+                  nfs:
+                    server: 10.225.237.178
+                    path: /workspace/tpu-raiden/block-major
+                    readOnly: true
+                - name: wheels-nfs
+                  nfs:
+                    server: 10.225.237.178
+                    path: /workspace/wheels
+                    readOnly: true
+
+    # consumer: lands on the second tpu7x host (the producer holds all 4
+    # chips of its own), runs the local sweep on its tensors, then the
+    # remote pulls against the producer.
+    - name: consumer
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            spec:
+              restartPolicy: Never
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: 2x2x1
+                cloud.google.com/gke-tpu-accelerator: tpu7x
+              initContainers:
+                - name: tpu-node-setup
+                  image: busybox
+                  securityContext:
+                    privileged: true
+                  command: ["/bin/sh", "-c"]
+                  args:
+                    - |
+                      sysctl -w vm.max_map_count=8388608
+                      if [ -f /sys/module/vfio_iommu_type1/parameters/dma_entry_limit ]; then
+                        echo 2000000 > /sys/module/vfio_iommu_type1/parameters/dma_entry_limit
+                      fi
+              containers:
+                - name: bm-ab-consumer
+                  image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:latest
+                  imagePullPolicy: Always
+                  command: ["/bin/bash", "-c"]
+                  args:
+                    - |
+                      set -eo pipefail
+                      export PYTHONUNBUFFERED=1
+
+                      if [ -n "${TORCH_TPU_WHEEL:-}" ] && [ "$TORCH_TPU_WHEEL" != "auto" ]; then
+                        TT_WHL="$TORCH_TPU_WHEEL"
+                      else
+                        TT_WHL=$(ls -t /root/wheels/torch_tpu-*.whl 2>/dev/null | head -1 || true)
+                      fi
+                      if [ -n "$TT_WHL" ]; then
+                        echo "Installing torch-tpu: $TT_WHL"
+                        uv pip install --system --no-deps "$TT_WHL"
+                      else
+                        echo "Using image torch-tpu (no wheel in /root/wheels)"
+                      fi
+                      if [ -n "${RAIDEN_WHEEL:-}" ] && [ "$RAIDEN_WHEEL" != "auto" ]; then
+                        RD_WHL="$RAIDEN_WHEEL"
+                      else
+                        RD_WHL=$(ls -t /root/wheels/tpu_raiden_torch-*.whl 2>/dev/null | head -1 || true)
+                      fi
+                      [ -n "$RD_WHL" ] || { echo "RESULT: FAIL (no tpu_raiden_torch wheel in /root/wheels)"; exit 1; }
+                      echo "Installing tpu-raiden: $RD_WHL"
+                      uv pip install --system --no-deps "$RD_WHL"
+                      python3 -c "from tpu_raiden.api.torch.kv_cache_manager import _torch_impl; _torch_impl()" \
+                        || { echo "RESULT: FAIL (raiden torch extension import)"; exit 1; }
+
+                      PRODUCER="${JS_NAME}-producer-0-0.${JS_NAME}"
+                      exec python3 /root/tpu-raiden/tpu_sync/benchmarks/block_major_ab_benchmark.py \
+                        --role consumer \
+                        --peer_host "$PRODUCER" \
+                        --num_blocks "$NUM_BLOCKS" \
+                        --num_fragments "$NUM_FRAGMENTS" \
+                        --row_bytes "$ROW_BYTES" \
+                        --rb_sweep "$RB_SWEEP" \
+                        --iters "$ITERS" --warmup "$WARMUP" \
+                        --parallelism "$PARALLELISM" \
+                        --rendezvous_port 18845 \
+                        --wait_timeout_s 1800
+                  env:
+                    - name: JS_NAME
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                    - name: NUM_BLOCKS
+                      value: "1024"
+                    - name: NUM_FRAGMENTS
+                      value: "15"
+                    - name: ROW_BYTES
+                      value: "131072"
+                    - name: RB_SWEEP
+                      value: "1,4,16,64,256"
+                    - name: ITERS
+                      value: "10"
+                    - name: WARMUP
+                      value: "3"
+                    - name: PARALLELISM
+                      value: "1"
+                    - name: TORCH_TPU_WHEEL
+                      value: *torch-tpu-wheel
+                    - name: RAIDEN_WHEEL
+                      value: *raiden-wheel
+                    - name: TPU_TOPOLOGY
+                      value: "2x2x1"
+                    - name: TPU_CHIPS_PER_HOST_BOUNDS
+                      value: "2,2,1"
+                    - name: TPU_HOST_BOUNDS
+                      value: "1,1,1"
+                    - name: TPU_LIBRARY_PATH
+                      value: ""
+                    - name: MEGASCALE_NUM_SLICES
+                      value: ""
+                    - name: MEGASCALE_SLICE_ID
+                      value: ""
+                    - name: TPU_PROCESS_ADDRESSES
+                      value: ""
+                    - name: TPU_WORKER_HOSTNAMES
+                      value: ""
+                    - name: TPU_PROCESS_PORT
+                      value: ""
+                    - name: MEGASCALE_COORDINATOR_ADDRESS
+                      value: ""
+                    - name: MEGASCALE_PORT
+                      value: ""
+                    - name: TPU_PREMAPPED_BUFFER_SIZE
+                      value: "8589934592"
+                  volumeMounts:
+                    - name: dshm
+                      mountPath: /dev/shm
+                    - name: tpu-raiden-nfs
+                      mountPath: /root/tpu-raiden
+                      readOnly: true
+                    - name: wheels-nfs
+                      mountPath: /root/wheels
+                      readOnly: true
+                  resources:
+                    limits:
+                      google.com/tpu: "4"
+                      memory: "200Gi"
+                      cpu: "64"
+                    requests:
+                      google.com/tpu: "4"
+                      memory: "128Gi"
+                      cpu: "32"
+              volumes:
+                - name: dshm
+                  emptyDir:
+                    medium: Memory
+                    sizeLimit: "64Gi"
+                - name: tpu-raiden-nfs
+                  nfs:
+                    server: 10.225.237.178
+                    path: /workspace/tpu-raiden/block-major
+                    readOnly: true
+                - name: wheels-nfs
+                  nfs:
+                    server: 10.225.237.178
+                    path: /workspace/wheels
+                    readOnly: true
