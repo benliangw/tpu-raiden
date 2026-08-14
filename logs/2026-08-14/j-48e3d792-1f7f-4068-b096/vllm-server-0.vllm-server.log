@@ -1,0 +1,802 @@
+===== Syncing dependencies to pyproject.toml =====
+Using Python 3.12.13 environment at: /usr/local
+Resolved 121 packages in 842ms
+Downloading nvidia-cufile (1.2MiB)
+Downloading nvidia-cuda-runtime (2.1MiB)
+Downloading nvidia-cusparselt-cu13 (162.3MiB)
+Downloading nvidia-nccl-cu13 (196.4MiB)
+Downloading nvidia-cuda-cupti (10.2MiB)
+Downloading nvidia-nvjitlink (38.9MiB)
+Downloading nvidia-cublas (403.5MiB)
+Downloading libtpu (205.6MiB)
+Downloading nvidia-curand (56.8MiB)
+Downloading nvidia-nvshmem-cu13 (57.6MiB)
+Downloading nvidia-cuda-nvrtc (86.0MiB)
+Downloading nvidia-cudnn-cu13 (349.2MiB)
+Downloading nvidia-cusparse (139.2MiB)
+Downloading nvidia-cufft (204.2MiB)
+Downloading nvidia-cusolver (191.6MiB)
+Downloading torch (502.2MiB)
+Downloading jax (3.1MiB)
+Downloading jaxlib (81.5MiB)
+Downloading torchvision (7.3MiB)
+ Downloaded nvidia-cufile
+ Downloaded nvidia-cuda-runtime
+ Downloaded jax
+ Downloaded torchvision
+ Downloaded nvidia-cuda-cupti
+ Downloaded nvidia-nvjitlink
+ Downloaded nvidia-curand
+ Downloaded nvidia-nvshmem-cu13
+ Downloaded jaxlib
+ Downloaded nvidia-cuda-nvrtc
+ Downloaded nvidia-cusparse
+ Downloaded nvidia-cusparselt-cu13
+ Downloaded nvidia-cusolver
+ Downloaded nvidia-nccl-cu13
+ Downloaded libtpu
+ Downloaded nvidia-cufft
+ Downloaded nvidia-cudnn-cu13
+ Downloaded nvidia-cublas
+ Downloaded torch
+Prepared 21 packages in 16.21s
+Uninstalled 7 packages in 3.19s
+Installed 21 packages in 249ms
+ + cuda-toolkit==13.0.3.0
+ - jax==0.10.0
+ + jax==0.10.2
+ - jaxlib==0.10.0
+ + jaxlib==0.10.2
+ - libtpu==0.0.40
+ + libtpu==0.0.44.1
+ + nvidia-cublas==13.1.1.3
+ + nvidia-cuda-cupti==13.0.85
+ - nvidia-cuda-nvrtc==13.3.33
+ + nvidia-cuda-nvrtc==13.0.88
+ - nvidia-cuda-runtime==13.3.29
+ + nvidia-cuda-runtime==13.0.96
+ + nvidia-cudnn-cu13==9.20.0.48
+ + nvidia-cufft==12.0.0.61
+ + nvidia-cufile==1.15.1.6
+ + nvidia-curand==10.4.0.35
+ + nvidia-cusolver==12.0.4.66
+ + nvidia-cusparse==12.6.3.3
+ + nvidia-cusparselt-cu13==0.8.1
+ + nvidia-nccl-cu13==2.29.7
+ + nvidia-nvjitlink==13.3.33
+ + nvidia-nvshmem-cu13==3.4.5
+ + nvidia-nvtx==13.0.85
+ - torch==2.11.0+cpu
+ + torch==2.13.0
+ - torchvision==0.26.0+cpu
+ + torchvision==0.28.0
+Installing pinned vLLM: vllm==0.27.0
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 100ms
+Downloading vllm (298.4MiB)
+ Downloaded vllm
+Prepared 1 package in 2.97s
+Uninstalled 1 package in 4ms
+Installed 1 package in 89ms
+ - vllm==0.23.1rc1.dev927+gc0e8e1f12.d20260708.tpu (from file:///root/cloud-devkit/vllm)
+ + vllm==0.27.0
+Installing torch-tpu: /root/wheels/torch_tpu-0.1.1.dev20260814040152-cp312-cp312-manylinux_2_31_x86_64.whl
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 5ms
+Prepared 1 package in 898ms
+Uninstalled 1 package in 82ms
+Installed 1 package in 3ms
+ - torch-tpu==0.1.1 (from file:///artifact-source/opt/wheels/torch_tpu-0.1.1-cp312-cp312-manylinux_2_31_x86_64.whl)
+ + torch-tpu==0.1.1.dev20260814040152 (from file:///root/wheels/torch_tpu-0.1.1.dev20260814040152-cp312-cp312-manylinux_2_31_x86_64.whl)
+Installing tpu-raiden: /root/wheels/tpu_raiden_torch-0.0.1.dev20260814001303-1_block_major_5a80132-cp312-cp312-manylinux_2_31_x86_64.whl
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 4ms
+Prepared 1 package in 396ms
+Installed 1 package in 2ms
+ + tpu-raiden-torch==0.0.1.dev20260814001303 (from file:///root/wheels/tpu_raiden_torch-0.0.1.dev20260814001303-1_block_major_5a80132-cp312-cp312-manylinux_2_31_x86_64.whl)
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1786693422.785044     323 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1786693422.913452     323 device_rt.cc:128] PjRt runtime initialization deferred for tpu
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+/usr/local/lib/python3.12/site-packages/jax/_src/cloud_tpu_init.py:45: UserWarning: TPU_LIBRARY_PATH is set to a non-existent path: . Falling back to default libtpu path. Please unset TPU_LIBRARY_PATH or set it to a valid path.
+  warnings.warn(warning_message)
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1786693427.696064     388 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+INFO 08-14 07:43:48 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-14 07:43:48 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-14 07:43:48 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 08-14 07:43:48 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-14 07:43:48 [tpu_info.py:26] 
+INFO 08-14 07:43:48 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-14 07:43:48 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 08-14 07:43:48 [tpu_platform.py:1068] Pin memory is not supported on TPU.
+INFO 08-14 07:43:59 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-14 07:43:59 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+block-major preflight OK, donation stack: False
+===== Starting Qwen3-32B (BLOCK_MAJOR=1) =====
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1786693444.703053     647 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1786693444.736507     647 device_rt.cc:128] PjRt runtime initialization deferred for tpu
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+INFO 08-14 07:44:04 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-14 07:44:04 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-14 07:44:04 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 08-14 07:44:05 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-14 07:44:05 [tpu_info.py:26] 
+INFO 08-14 07:44:05 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-14 07:44:05 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 08-14 07:44:05 [tpu_platform.py:1068] Pin memory is not supported on TPU.
+INFO 08-14 07:44:09 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-14 07:44:09 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+(APIServer pid=647) INFO 08-14 07:44:11 [api_utils.py:345] 
+(APIServer pid=647) INFO 08-14 07:44:11 [api_utils.py:345]        █     █     █▄   ▄█
+(APIServer pid=647) INFO 08-14 07:44:11 [api_utils.py:345]  ▄▄ ▄█ █     █     █ ▀▄▀ █  version 0.27.0
+(APIServer pid=647) INFO 08-14 07:44:11 [api_utils.py:345]   █▄█▀ █     █     █     █  model   Qwen/Qwen3-32B
+(APIServer pid=647) INFO 08-14 07:44:11 [api_utils.py:345]    ▀▀  ▀▀▀▀▀ ▀▀▀▀▀ ▀     ▀
+(APIServer pid=647) INFO 08-14 07:44:11 [api_utils.py:345] 
+(APIServer pid=647) INFO 08-14 07:44:11 [api_utils.py:273] non-default args: {'model_tag': 'Qwen/Qwen3-32B', 'model': 'Qwen/Qwen3-32B', 'max_model_len': 16384, 'tensor_parallel_size': 4, 'gpu_memory_utilization': 0.85, 'num_gpu_blocks_override': 512, 'enable_prefix_caching': True, 'max_num_batched_tokens': 4096, 'max_num_seqs': 16, 'async_scheduling': False, 'kv_transfer_config': KVTransferConfig(kv_connector='TPURaidenOffloadingConnector', engine_id='d50e6362-9b5d-4e3d-96c1-6303ddcf3ac9', kv_buffer_device='tpu', kv_buffer_size=1000000000.0, kv_role='kv_both', kv_rank=None, kv_parallel_size=1, kv_ip='127.0.0.1', kv_port=14579, kv_connector_extra_config={'cpu_bytes_to_use': 107374182400}, kv_connector_module_path='vllm_torchtpu.offload.raiden_connector', enable_permute_local_kv=False, kv_load_failure_policy='fail')}
+(APIServer pid=647) WARNING 08-14 07:44:11 [envs.py:2128] Unknown vLLM environment variable detected: VLLM_TPU_OFFLOAD_WAIT_POLL_INTERVAL_S
+(APIServer pid=647) WARNING 08-14 07:44:11 [envs.py:2128] Unknown vLLM environment variable detected: VLLM_TPU_BLOCK_MAJOR_KV
+(APIServer pid=647) INFO 08-14 07:44:22 [model.py:645] Resolved architecture: Qwen3ForCausalLM
+(APIServer pid=647) INFO 08-14 07:44:22 [model.py:1883] Using max model len 16384
+(APIServer pid=647) INFO 08-14 07:44:22 [scheduler.py:242] Chunked prefill is enabled with max_num_batched_tokens=4096.
+(APIServer pid=647) INFO 08-14 07:44:22 [kernel.py:306] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+(APIServer pid=647) INFO 08-14 07:44:23 [__init__.py:43] Applied TPU patch: allow PCP through GPU-specific V2 checks.
+(APIServer pid=647) INFO 08-14 07:44:23 [__init__.py:118] Applied TPU patch: include compiler hash in AOT cache key.
+(APIServer pid=647) INFO 08-14 07:44:23 [__init__.py:168] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold'] from the compile cache key.
+(APIServer pid=647) INFO 08-14 07:44:23 [__init__.py:198] Applied TPU patch: disable vLLM custom collective ops.
+(APIServer pid=647) INFO 08-14 07:44:23 [__init__.py:219] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+(APIServer pid=647) INFO 08-14 07:44:23 [__init__.py:251] Applied TPU patch: use explicit PCP collectives for monolithic MoE.
+(APIServer pid=647) INFO 08-14 07:44:23 [__init__.py:314] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+(APIServer pid=647) INFO 08-14 07:44:23 [__init__.py:453] Applied TPU patch: disable sequence-parallel MoE.
+(APIServer pid=647) INFO 08-14 07:44:23 [__init__.py:522] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+(APIServer pid=647) INFO 08-14 07:44:23 [__init__.py:436] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+(APIServer pid=647) INFO 08-14 07:44:23 [__init__.py:288] Applied TPU patch: host-side expert-map lookup.
+(APIServer pid=647) INFO 08-14 07:44:23 [__init__.py:980] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+(APIServer pid=647) INFO 08-14 07:44:23 [__init__.py:670] Applied TPU patch: PCP-aware OffloadingConfig build.
+(APIServer pid=647) INFO 08-14 07:44:23 [__init__.py:730] Applied TPU patch: OffloadingConnector TPU spec construction.
+(APIServer pid=647) INFO 08-14 07:44:23 [__init__.py:766] Applied TPU patch: accurate layer counts for Kimi-K3 / KDA hybrid models.
+(APIServer pid=647) INFO 08-14 07:44:23 [__init__.py:97] Applied TPU patch: reconcile hybrid producer prefix hits.
+(APIServer pid=647) INFO 08-14 07:44:23 [__init__.py:1052] Applied LIFO free-block patch (pre-vllm#48017 order) to BlockPool
+(APIServer pid=647) INFO 08-14 07:44:23 [__init__.py:469] Applied TPU patch: disable DP microbatching.
+(APIServer pid=647) INFO 08-14 07:44:23 [__init__.py:575] Applied TPU patch: MultiprocExecutor worker binding env.
+(APIServer pid=647) INFO 08-14 07:44:23 [model_loader_patches.py:293] Applied TPU patch: EP-sharded Run:AI weight streaming (fetch only local experts when the EP weight filter is on).
+(APIServer pid=647) INFO 08-14 07:44:23 [tpu_platform.py:178] TorchTPU eager mode configured: DEFER_AND_FUSE (previous=DEFER_NEVER)
+(APIServer pid=647) INFO 08-14 07:44:23 [tpu_platform.py:1164] Using token paddings: [16, 32, 64, 128, 256, 512, 1024, 2048, 4096]
+(APIServer pid=647) INFO 08-14 07:44:23 [tpu_platform.py:937] Force using TpuMultiprocExecutor for TPU on single host with tensor/pipeline/PCP parallelism.
+(APIServer pid=647) WARNING 08-14 07:44:23 [vllm.py:609] Model Runner V2 requires Triton; using the V1 model runner instead.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1786693469.395842    1316 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+INFO 08-14 07:44:29 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-14 07:44:29 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-14 07:44:29 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 08-14 07:44:29 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-14 07:44:29 [tpu_info.py:26] 
+INFO 08-14 07:44:29 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-14 07:44:29 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 08-14 07:44:29 [tpu_platform.py:1068] Pin memory is not supported on TPU.
+INFO 08-14 07:44:33 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-14 07:44:33 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+INFO 08-14 07:44:34 [__init__.py:980] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+INFO 08-14 07:44:34 [__init__.py:670] Applied TPU patch: PCP-aware OffloadingConfig build.
+INFO 08-14 07:44:34 [__init__.py:730] Applied TPU patch: OffloadingConnector TPU spec construction.
+INFO 08-14 07:44:34 [__init__.py:97] Applied TPU patch: reconcile hybrid producer prefix hits.
+(EngineCore pid=1316) INFO 08-14 07:44:34 [core.py:121] Initializing a V1 LLM engine (v0.27.0) with config: model='Qwen/Qwen3-32B', speculative_config=None, tokenizer='Qwen/Qwen3-32B', skip_tokenizer_init=False, tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=False, dtype=torch.bfloat16, max_seq_len=16384, download_dir=None, load_format=auto, tensor_parallel_size=4, pipeline_parallel_size=1, data_parallel_size=1, decode_context_parallel_size=1, dcp_comm_backend=ag_rs, disable_custom_all_reduce=True, quantization=None, quantization_config=None, enforce_eager=False, enable_return_routed_experts=False, kv_cache_dtype=auto, device_config=tpu, structured_outputs_config=StructuredOutputsConfig(backend='auto', disable_any_whitespace=False, disable_additional_properties=False, reasoning_parser='', reasoning_parser_plugin='', enable_in_reasoning=False), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None, kv_cache_metrics=False, kv_cache_metrics_sample=0.01, cudagraph_metrics=False, enable_layerwise_nvtx_tracing=False, enable_mfu_metrics=False, enable_mm_processor_stats=False, enable_logging_iteration_details=False, jit_monitor_mode='warn', jit_monitor_verbose=False), seed=0, served_model_name=Qwen/Qwen3-32B, enable_prefix_caching=True, enable_chunked_prefill=True, pooler_config=None, compilation_config={'mode': <CompilationMode.VLLM_COMPILE: 3>, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'vllm_torchtpu.compilation.tpu_compiler.TpuCompilerAdaptor', 'custom_ops': ['all'], 'ir_enable_torch_wrap': False, 'splitting_ops': [], 'compile_mm_encoder': False, 'cudagraph_mm_encoder': False, 'encoder_cudagraph_token_budgets': [], 'encoder_cudagraph_max_vision_items_per_batch': 0, 'encoder_cudagraph_max_frames_per_batch': None, 'compile_sizes': [16, 32, 64, 128, 256, 512, 1024, 2048, 4096], 'compile_ranges_endpoints': [4096], 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': <CUDAGraphMode.NONE: 0>, 'cudagraph_num_of_warmups': 0, 'cudagraph_capture_sizes': None, 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': False, 'pass_config': {'fuse_norm_quant': False, 'fuse_act_quant': False, 'fuse_attn_quant': False, 'eliminate_noops': False, 'enable_sp': False, 'fuse_gemm_comms': False, 'fuse_allreduce_rms': False, 'enable_qk_norm_rope_fusion': False, 'fuse_rope_kvcache_cat_mla': False, 'fuse_act_padding': False, 'fuse_qk_norm_rope_kvcache': False}, 'max_cudagraph_capture_size': None, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': False, 'static_all_moe_layers': []}, kernel_config=KernelConfig(ir_op_priority=IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native']), enable_flashinfer_autotune=True, enable_cutedsl_warmup=True, enable_jit_warmup=True, enable_bf16x3_router_gemm=False, moe_backend='auto', linear_backend='auto')
+(EngineCore pid=1316) INFO 08-14 07:44:34 [__init__.py:575] Applied TPU patch: MultiprocExecutor worker binding env.
+(EngineCore pid=1316) WARNING 08-14 07:44:34 [multiproc_executor.py:1081] Reducing Torch parallelism from 112 threads to 1 to avoid unnecessary CPU contention. Set OMP_NUM_THREADS in the external environment to tune this value as needed.
+(EngineCore pid=1316) INFO 08-14 07:44:34 [multiproc_executor.py:140] DP group leader: node_rank=0, node_rank_within_dp=0, master_addr=127.0.0.1, mq_connect_ip=10.36.20.71 (local), world_size=4, local_world_size=4
+(EngineCore pid=1316) INFO 08-14 07:44:34 [__init__.py:549] Applied TPU patch: worker spawn env RANK=0 LOCAL_RANK=0 WORLD_SIZE=4 LOCAL_WORLD_SIZE=4 (rank=0 local_rank=0 dp_rank=0 dp_size=1 offset=0 init_local_rank=0)
+(EngineCore pid=1316) INFO 08-14 07:44:34 [__init__.py:549] Applied TPU patch: worker spawn env RANK=1 LOCAL_RANK=1 WORLD_SIZE=4 LOCAL_WORLD_SIZE=4 (rank=1 local_rank=1 dp_rank=0 dp_size=1 offset=0 init_local_rank=1)
+(EngineCore pid=1316) INFO 08-14 07:44:34 [__init__.py:549] Applied TPU patch: worker spawn env RANK=2 LOCAL_RANK=2 WORLD_SIZE=4 LOCAL_WORLD_SIZE=4 (rank=2 local_rank=2 dp_rank=0 dp_size=1 offset=0 init_local_rank=2)
+(EngineCore pid=1316) INFO 08-14 07:44:34 [__init__.py:549] Applied TPU patch: worker spawn env RANK=3 LOCAL_RANK=3 WORLD_SIZE=4 LOCAL_WORLD_SIZE=4 (rank=3 local_rank=3 dp_rank=0 dp_size=1 offset=0 init_local_rank=3)
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1786693477.405898    1585 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1786693477.405898    1588 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1786693477.473769    1586 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1786693477.481390    1587 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+INFO 08-14 07:44:37 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-14 07:44:37 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-14 07:44:37 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-14 07:44:37 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-14 07:44:37 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 08-14 07:44:37 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+INFO 08-14 07:44:37 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-14 07:44:37 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-14 07:44:37 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 08-14 07:44:37 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-14 07:44:37 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-14 07:44:37 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 08-14 07:44:37 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-14 07:44:37 [tpu_info.py:26] 
+ERROR 08-14 07:44:37 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-14 07:44:37 [tpu_info.py:26] 
+INFO 08-14 07:44:37 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-14 07:44:37 [__init__.py:237] Platform plugin torchtpu is activated
+INFO 08-14 07:44:37 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-14 07:44:37 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 08-14 07:44:37 [tpu_platform.py:1068] Pin memory is not supported on TPU.
+WARNING 08-14 07:44:37 [tpu_platform.py:1068] Pin memory is not supported on TPU.
+ERROR 08-14 07:44:38 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-14 07:44:38 [tpu_info.py:26] 
+INFO 08-14 07:44:38 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-14 07:44:38 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 08-14 07:44:38 [tpu_platform.py:1068] Pin memory is not supported on TPU.
+ERROR 08-14 07:44:38 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-14 07:44:38 [tpu_info.py:26] 
+INFO 08-14 07:44:38 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-14 07:44:38 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 08-14 07:44:38 [tpu_platform.py:1068] Pin memory is not supported on TPU.
+INFO 08-14 07:44:40 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-14 07:44:40 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+INFO 08-14 07:44:41 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-14 07:44:41 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+INFO 08-14 07:44:41 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-14 07:44:41 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+INFO 08-14 07:44:41 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-14 07:44:41 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+INFO 08-14 07:44:43 [__init__.py:43] Applied TPU patch: allow PCP through GPU-specific V2 checks.
+INFO 08-14 07:44:43 [__init__.py:43] Applied TPU patch: allow PCP through GPU-specific V2 checks.
+INFO 08-14 07:44:43 [__init__.py:43] Applied TPU patch: allow PCP through GPU-specific V2 checks.
+INFO 08-14 07:44:43 [__init__.py:43] Applied TPU patch: allow PCP through GPU-specific V2 checks.
+INFO 08-14 07:44:43 [__init__.py:118] Applied TPU patch: include compiler hash in AOT cache key.
+INFO 08-14 07:44:43 [__init__.py:168] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold'] from the compile cache key.
+INFO 08-14 07:44:43 [__init__.py:198] Applied TPU patch: disable vLLM custom collective ops.
+INFO 08-14 07:44:43 [__init__.py:219] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+INFO 08-14 07:44:43 [__init__.py:118] Applied TPU patch: include compiler hash in AOT cache key.
+INFO 08-14 07:44:43 [__init__.py:251] Applied TPU patch: use explicit PCP collectives for monolithic MoE.
+INFO 08-14 07:44:43 [__init__.py:314] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+INFO 08-14 07:44:43 [__init__.py:168] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold'] from the compile cache key.
+INFO 08-14 07:44:43 [__init__.py:198] Applied TPU patch: disable vLLM custom collective ops.
+INFO 08-14 07:44:43 [__init__.py:219] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+INFO 08-14 07:44:43 [__init__.py:251] Applied TPU patch: use explicit PCP collectives for monolithic MoE.
+INFO 08-14 07:44:43 [__init__.py:314] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+INFO 08-14 07:44:43 [__init__.py:118] Applied TPU patch: include compiler hash in AOT cache key.
+INFO 08-14 07:44:43 [__init__.py:168] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold'] from the compile cache key.
+INFO 08-14 07:44:43 [__init__.py:198] Applied TPU patch: disable vLLM custom collective ops.
+INFO 08-14 07:44:43 [__init__.py:219] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+INFO 08-14 07:44:43 [__init__.py:251] Applied TPU patch: use explicit PCP collectives for monolithic MoE.
+INFO 08-14 07:44:43 [__init__.py:118] Applied TPU patch: include compiler hash in AOT cache key.
+INFO 08-14 07:44:43 [__init__.py:314] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+INFO 08-14 07:44:43 [__init__.py:168] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold'] from the compile cache key.
+INFO 08-14 07:44:43 [__init__.py:198] Applied TPU patch: disable vLLM custom collective ops.
+INFO 08-14 07:44:43 [__init__.py:219] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+INFO 08-14 07:44:43 [__init__.py:251] Applied TPU patch: use explicit PCP collectives for monolithic MoE.
+INFO 08-14 07:44:43 [__init__.py:314] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+INFO 08-14 07:44:43 [__init__.py:453] Applied TPU patch: disable sequence-parallel MoE.
+INFO 08-14 07:44:43 [__init__.py:522] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+INFO 08-14 07:44:43 [__init__.py:436] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+INFO 08-14 07:44:43 [__init__.py:288] Applied TPU patch: host-side expert-map lookup.
+INFO 08-14 07:44:43 [__init__.py:453] Applied TPU patch: disable sequence-parallel MoE.
+INFO 08-14 07:44:43 [__init__.py:522] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+INFO 08-14 07:44:43 [__init__.py:436] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+INFO 08-14 07:44:43 [__init__.py:288] Applied TPU patch: host-side expert-map lookup.
+INFO 08-14 07:44:43 [__init__.py:453] Applied TPU patch: disable sequence-parallel MoE.
+INFO 08-14 07:44:43 [__init__.py:522] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+INFO 08-14 07:44:43 [__init__.py:436] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+INFO 08-14 07:44:43 [__init__.py:288] Applied TPU patch: host-side expert-map lookup.
+INFO 08-14 07:44:43 [__init__.py:453] Applied TPU patch: disable sequence-parallel MoE.
+INFO 08-14 07:44:43 [__init__.py:522] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+INFO 08-14 07:44:43 [__init__.py:436] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+INFO 08-14 07:44:43 [__init__.py:288] Applied TPU patch: host-side expert-map lookup.
+INFO 08-14 07:44:43 [__init__.py:980] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+INFO 08-14 07:44:43 [__init__.py:670] Applied TPU patch: PCP-aware OffloadingConfig build.
+INFO 08-14 07:44:43 [__init__.py:730] Applied TPU patch: OffloadingConnector TPU spec construction.
+INFO 08-14 07:44:43 [__init__.py:766] Applied TPU patch: accurate layer counts for Kimi-K3 / KDA hybrid models.
+INFO 08-14 07:44:43 [__init__.py:97] Applied TPU patch: reconcile hybrid producer prefix hits.
+INFO 08-14 07:44:43 [__init__.py:1052] Applied LIFO free-block patch (pre-vllm#48017 order) to BlockPool
+INFO 08-14 07:44:43 [__init__.py:469] Applied TPU patch: disable DP microbatching.
+INFO 08-14 07:44:43 [__init__.py:575] Applied TPU patch: MultiprocExecutor worker binding env.
+INFO 08-14 07:44:43 [model_loader_patches.py:293] Applied TPU patch: EP-sharded Run:AI weight streaming (fetch only local experts when the EP weight filter is on).
+INFO 08-14 07:44:43 [tpu_platform.py:178] TorchTPU eager mode configured: DEFER_AND_FUSE (previous=DEFER_NEVER)
+(Worker pid=1585) INFO 08-14 07:44:43 [parallel_state.py:1640] world_size=4 rank=0 local_rank=0 distributed_init_method=tcp://127.0.0.1:53889 backend=tpu_dist
+INFO 08-14 07:44:43 [__init__.py:980] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+INFO 08-14 07:44:43 [__init__.py:670] Applied TPU patch: PCP-aware OffloadingConfig build.
+INFO 08-14 07:44:44 [__init__.py:730] Applied TPU patch: OffloadingConnector TPU spec construction.
+INFO 08-14 07:44:44 [__init__.py:766] Applied TPU patch: accurate layer counts for Kimi-K3 / KDA hybrid models.
+INFO 08-14 07:44:44 [__init__.py:97] Applied TPU patch: reconcile hybrid producer prefix hits.
+INFO 08-14 07:44:44 [__init__.py:1052] Applied LIFO free-block patch (pre-vllm#48017 order) to BlockPool
+INFO 08-14 07:44:44 [__init__.py:469] Applied TPU patch: disable DP microbatching.
+INFO 08-14 07:44:44 [__init__.py:575] Applied TPU patch: MultiprocExecutor worker binding env.
+INFO 08-14 07:44:44 [model_loader_patches.py:293] Applied TPU patch: EP-sharded Run:AI weight streaming (fetch only local experts when the EP weight filter is on).
+INFO 08-14 07:44:44 [tpu_platform.py:178] TorchTPU eager mode configured: DEFER_AND_FUSE (previous=DEFER_NEVER)
+(Worker pid=1588) INFO 08-14 07:44:44 [parallel_state.py:1640] world_size=4 rank=3 local_rank=3 distributed_init_method=tcp://127.0.0.1:53889 backend=tpu_dist
+W0000 00:00:1786693484.010797    1588 environment.cc:83] libtpu_init_args contains --xla_tpu_use_enhanced_launch_barrier=true, this can cause distributed hangs. Rewriting environment variable to false.
+INFO 08-14 07:44:44 [__init__.py:980] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+INFO 08-14 07:44:44 [__init__.py:670] Applied TPU patch: PCP-aware OffloadingConfig build.
+INFO 08-14 07:44:44 [__init__.py:730] Applied TPU patch: OffloadingConnector TPU spec construction.
+INFO 08-14 07:44:44 [__init__.py:766] Applied TPU patch: accurate layer counts for Kimi-K3 / KDA hybrid models.
+INFO 08-14 07:44:44 [__init__.py:97] Applied TPU patch: reconcile hybrid producer prefix hits.
+INFO 08-14 07:44:44 [__init__.py:1052] Applied LIFO free-block patch (pre-vllm#48017 order) to BlockPool
+INFO 08-14 07:44:44 [__init__.py:469] Applied TPU patch: disable DP microbatching.
+INFO 08-14 07:44:44 [__init__.py:575] Applied TPU patch: MultiprocExecutor worker binding env.
+INFO 08-14 07:44:44 [model_loader_patches.py:293] Applied TPU patch: EP-sharded Run:AI weight streaming (fetch only local experts when the EP weight filter is on).
+INFO 08-14 07:44:44 [tpu_platform.py:178] TorchTPU eager mode configured: DEFER_AND_FUSE (previous=DEFER_NEVER)
+(Worker pid=1587) INFO 08-14 07:44:44 [parallel_state.py:1640] world_size=4 rank=2 local_rank=2 distributed_init_method=tcp://127.0.0.1:53889 backend=tpu_dist
+W0000 00:00:1786693484.056896    1587 environment.cc:83] libtpu_init_args contains --xla_tpu_use_enhanced_launch_barrier=true, this can cause distributed hangs. Rewriting environment variable to false.
+INFO 08-14 07:44:44 [__init__.py:980] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+INFO 08-14 07:44:44 [__init__.py:670] Applied TPU patch: PCP-aware OffloadingConfig build.
+INFO 08-14 07:44:44 [__init__.py:730] Applied TPU patch: OffloadingConnector TPU spec construction.
+INFO 08-14 07:44:44 [__init__.py:766] Applied TPU patch: accurate layer counts for Kimi-K3 / KDA hybrid models.
+INFO 08-14 07:44:44 [__init__.py:97] Applied TPU patch: reconcile hybrid producer prefix hits.
+INFO 08-14 07:44:44 [__init__.py:1052] Applied LIFO free-block patch (pre-vllm#48017 order) to BlockPool
+INFO 08-14 07:44:44 [__init__.py:469] Applied TPU patch: disable DP microbatching.
+INFO 08-14 07:44:44 [__init__.py:575] Applied TPU patch: MultiprocExecutor worker binding env.
+INFO 08-14 07:44:44 [model_loader_patches.py:293] Applied TPU patch: EP-sharded Run:AI weight streaming (fetch only local experts when the EP weight filter is on).
+INFO 08-14 07:44:44 [tpu_platform.py:178] TorchTPU eager mode configured: DEFER_AND_FUSE (previous=DEFER_NEVER)
+(Worker pid=1586) INFO 08-14 07:44:44 [parallel_state.py:1640] world_size=4 rank=1 local_rank=1 distributed_init_method=tcp://127.0.0.1:53889 backend=tpu_dist
+W0000 00:00:1786693484.114949    1586 environment.cc:83] libtpu_init_args contains --xla_tpu_use_enhanced_launch_barrier=true, this can cause distributed hangs. Rewriting environment variable to false.
+W0000 00:00:1786693484.121510    1585 environment.cc:83] libtpu_init_args contains --xla_tpu_use_enhanced_launch_barrier=true, this can cause distributed hangs. Rewriting environment variable to false.
+(Worker pid=1585) INFO 08-14 07:44:47 [parallel_state.py:1977] rank 0 in world size 4 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 0, EP rank N/A, EPLB rank N/A
+(Worker pid=1587) INFO 08-14 07:44:47 [tpu_runner.py:5863] Preparing request paddings:
+(Worker pid=1587) INFO 08-14 07:44:47 [tpu_runner.py:5870]     8
+(Worker pid=1587) INFO 08-14 07:44:47 [tpu_runner.py:5870]     16
+(Worker pid=1585) INFO 08-14 07:44:47 [tpu_runner.py:5863] Preparing request paddings:
+(Worker pid=1585) INFO 08-14 07:44:47 [tpu_runner.py:5870]     8
+(Worker pid=1585) INFO 08-14 07:44:47 [tpu_runner.py:5870]     16
+(Worker pid=1586) (Worker pid=1588) INFO 08-14 07:44:47 [tpu_runner.py:5863] Preparing request paddings:
+INFO 08-14 07:44:47 [tpu_runner.py:5863] Preparing request paddings:
+(Worker pid=1588) (Worker pid=1586) INFO 08-14 07:44:47 [tpu_runner.py:5870]     8
+INFO 08-14 07:44:47 [tpu_runner.py:5870]     8
+(Worker pid=1588) INFO 08-14 07:44:47 [tpu_runner.py:5870]     16
+(Worker pid=1586) INFO 08-14 07:44:47 [tpu_runner.py:5870]     16
+(Worker pid=1587) INFO 08-14 07:44:47 [tpu_runner.py:900] Init mesh | tp_size=1 | device_id=2
+(Worker pid=1587) INFO 08-14 07:44:47 [tpu_worker.py:403] Init worker | rank=2 | is_first_rank=True | is_last_rank=True | node_id=0 | is_driver_worker=False | 
+(Worker_TP2 pid=1587) INFO 08-14 07:44:47 [tpu_runner.py:3993] Setting TPU quantization config for: None
+(Worker pid=1585) INFO 08-14 07:44:47 [tpu_runner.py:900] Init mesh | tp_size=1 | device_id=0
+(Worker pid=1585) INFO 08-14 07:44:47 [tpu_worker.py:403] Init worker | rank=0 | is_first_rank=True | is_last_rank=True | node_id=0 | is_driver_worker=True | 
+(Worker_TP0 pid=1585) INFO 08-14 07:44:47 [tpu_runner.py:3993] Setting TPU quantization config for: None
+(Worker pid=1588) INFO 08-14 07:44:47 [tpu_runner.py:900] Init mesh | tp_size=1 | device_id=3
+(Worker pid=1588) INFO 08-14 07:44:47 [tpu_worker.py:403] Init worker | rank=3 | is_first_rank=True | is_last_rank=True | node_id=0 | is_driver_worker=False | 
+(Worker pid=1586) INFO 08-14 07:44:47 [tpu_runner.py:900] Init mesh | tp_size=1 | device_id=1
+(Worker pid=1586) INFO 08-14 07:44:47 [tpu_worker.py:403] Init worker | rank=1 | is_first_rank=True | is_last_rank=True | node_id=0 | is_driver_worker=False | 
+(Worker_TP3 pid=1588) INFO 08-14 07:44:47 [tpu_runner.py:3993] Setting TPU quantization config for: None
+(Worker_TP1 pid=1586) INFO 08-14 07:44:47 [tpu_runner.py:3993] Setting TPU quantization config for: None
+(Worker_TP2 pid=1587) INFO 08-14 07:44:47 [tpu_runner.py:3999] Loading model from scratch...
+(Worker_TP2 pid=1587) INFO 08-14 07:44:47 [tpu_platform.py:690] Cannot use None backend on TPU. Setting to FLASH_ATTN.
+(Worker_TP2 pid=1587) INFO 08-14 07:44:47 [tpu_platform.py:693] Using FLASH_ATTN backend.
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912] WorkerProc failed to start.
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912] Traceback (most recent call last):
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 879, in worker_main
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     worker = WorkerProc(*args, **kwargs)
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     return func(*args, **kwargs)
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 648, in __init__
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     self.worker.load_model()
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/root/torchtpu-vllm/src/vllm_torchtpu/worker/tpu_worker.py", line 609, in load_model
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     self.model_runner.load_model()
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/root/torchtpu-vllm/src/vllm_torchtpu/runner/tpu_runner.py", line 4003, in load_model
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     model = model_loader.load_model(vllm_config=self.vllm_config,
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     return func(*args, **kwargs)
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/model_loader/base_loader.py", line 55, in load_model
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     model = initialize_model(
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]             ^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     return func(*args, **kwargs)
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/model_loader/utils.py", line 62, in initialize_model
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     model = model_class(vllm_config=vllm_config, prefix=prefix)
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen3.py", line 293, in __init__
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     self.model = Qwen3Model(
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]                  ^^^^^^^^^^^
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/decorators.py", line 383, in __init__
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     old_init(self, *args, **kwargs)
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen3.py", line 266, in __init__
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     super().__init__(
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/decorators.py", line 383, in __init__
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     old_init(self, *args, **kwargs)
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen2.py", line 375, in __init__
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     self.start_layer, self.end_layer, self.layers = make_layers(
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]                                                     ^^^^^^^^^^^^
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/utils.py", line 824, in make_layers
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     + get_offloader().wrap_modules(
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/offloader/base.py", line 104, in wrap_modules
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     return list(modules_generator)
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]            ^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/utils.py", line 825, in <genexpr>
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     layer_fn(prefix=f"{prefix}.{idx}") for idx in range(start_layer, end_layer)
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen2.py", line 377, in <lambda>
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     lambda prefix: decoder_layer_type(
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]                    ^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen3.py", line 198, in __init__
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     self.self_attn = Qwen3Attention(
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]                      ^^^^^^^^^^^^^^^
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen3.py", line 133, in __init__
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     self.attn = attn_cls(
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]                 ^^^^^^^^^
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/layers/attention/attention.py", line 421, in __init__
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     self.impl = impl_cls(  # type: ignore[assignment]  # impl_cls always returns an AttentionImpl subclass
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/root/torchtpu-vllm/src/vllm_torchtpu/layers/vllm/attention.py", line 650, in __init__
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     self.rpa_kernel_bundled = self._declare_bundled_op()
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]                               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/root/torchtpu-vllm/src/vllm_torchtpu/layers/vllm/attention.py", line 869, in _declare_bundled_op
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     op_def = pallas.declare_jax_op(
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=1587) ERROR 08-14 07:44:47 [multiproc_executor.py:912] AttributeError: module 'torch_tpu._internal.pallas' has no attribute 'declare_jax_op'
+(EngineCore pid=1316) INFO 08-14 07:44:47 [multiproc_executor.py:440] [shutdown] Executor: waiting for worker exit count=4
+(Worker_TP3 pid=1588) INFO 08-14 07:44:47 [tpu_runner.py:3999] Loading model from scratch...
+(Worker_TP3 pid=1588) INFO 08-14 07:44:47 [tpu_platform.py:690] Cannot use None backend on TPU. Setting to FLASH_ATTN.
+(Worker_TP3 pid=1588) INFO 08-14 07:44:47 [tpu_platform.py:693] Using FLASH_ATTN backend.
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912] WorkerProc failed to start.
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912] Traceback (most recent call last):
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 879, in worker_main
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     worker = WorkerProc(*args, **kwargs)
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     return func(*args, **kwargs)
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 648, in __init__
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     self.worker.load_model()
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/root/torchtpu-vllm/src/vllm_torchtpu/worker/tpu_worker.py", line 609, in load_model
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     self.model_runner.load_model()
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/root/torchtpu-vllm/src/vllm_torchtpu/runner/tpu_runner.py", line 4003, in load_model
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     model = model_loader.load_model(vllm_config=self.vllm_config,
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     return func(*args, **kwargs)
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/model_loader/base_loader.py", line 55, in load_model
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     model = initialize_model(
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]             ^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     return func(*args, **kwargs)
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/model_loader/utils.py", line 62, in initialize_model
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     model = model_class(vllm_config=vllm_config, prefix=prefix)
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen3.py", line 293, in __init__
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     self.model = Qwen3Model(
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]                  ^^^^^^^^^^^
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/decorators.py", line 383, in __init__
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     old_init(self, *args, **kwargs)
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen3.py", line 266, in __init__
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     super().__init__(
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/decorators.py", line 383, in __init__
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     old_init(self, *args, **kwargs)
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen2.py", line 375, in __init__
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     self.start_layer, self.end_layer, self.layers = make_layers(
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]                                                     ^^^^^^^^^^^^
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/utils.py", line 824, in make_layers
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     + get_offloader().wrap_modules(
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/offloader/base.py", line 104, in wrap_modules
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     return list(modules_generator)
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]            ^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/utils.py", line 825, in <genexpr>
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     layer_fn(prefix=f"{prefix}.{idx}") for idx in range(start_layer, end_layer)
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen2.py", line 377, in <lambda>
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     lambda prefix: decoder_layer_type(
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]                    ^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen3.py", line 198, in __init__
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     self.self_attn = Qwen3Attention(
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]                      ^^^^^^^^^^^^^^^
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen3.py", line 133, in __init__
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     self.attn = attn_cls(
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]                 ^^^^^^^^^
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/layers/attention/attention.py", line 421, in __init__
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     self.impl = impl_cls(  # type: ignore[assignment]  # impl_cls always returns an AttentionImpl subclass
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/root/torchtpu-vllm/src/vllm_torchtpu/layers/vllm/attention.py", line 650, in __init__
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     self.rpa_kernel_bundled = self._declare_bundled_op()
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]                               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]   File "/root/torchtpu-vllm/src/vllm_torchtpu/layers/vllm/attention.py", line 869, in _declare_bundled_op
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]     op_def = pallas.declare_jax_op(
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=1588) ERROR 08-14 07:44:47 [multiproc_executor.py:912] AttributeError: module 'torch_tpu._internal.pallas' has no attribute 'declare_jax_op'
+(Worker_TP1 pid=1586) INFO 08-14 07:44:48 [tpu_runner.py:3999] Loading model from scratch...
+(Worker_TP1 pid=1586) INFO 08-14 07:44:48 [tpu_platform.py:690] Cannot use None backend on TPU. Setting to FLASH_ATTN.
+(Worker_TP1 pid=1586) INFO 08-14 07:44:48 [tpu_platform.py:693] Using FLASH_ATTN backend.
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912] WorkerProc failed to start.
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912] Traceback (most recent call last):
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 879, in worker_main
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     worker = WorkerProc(*args, **kwargs)
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     return func(*args, **kwargs)
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 648, in __init__
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     self.worker.load_model()
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/root/torchtpu-vllm/src/vllm_torchtpu/worker/tpu_worker.py", line 609, in load_model
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     self.model_runner.load_model()
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/root/torchtpu-vllm/src/vllm_torchtpu/runner/tpu_runner.py", line 4003, in load_model
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     model = model_loader.load_model(vllm_config=self.vllm_config,
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     return func(*args, **kwargs)
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/model_loader/base_loader.py", line 55, in load_model
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     model = initialize_model(
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]             ^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     return func(*args, **kwargs)
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/model_loader/utils.py", line 62, in initialize_model
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     model = model_class(vllm_config=vllm_config, prefix=prefix)
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen3.py", line 293, in __init__
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     self.model = Qwen3Model(
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]                  ^^^^^^^^^^^
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/decorators.py", line 383, in __init__
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     old_init(self, *args, **kwargs)
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen3.py", line 266, in __init__
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     super().__init__(
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/decorators.py", line 383, in __init__
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     old_init(self, *args, **kwargs)
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen2.py", line 375, in __init__
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     self.start_layer, self.end_layer, self.layers = make_layers(
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]                                                     ^^^^^^^^^^^^
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/utils.py", line 824, in make_layers
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     + get_offloader().wrap_modules(
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/offloader/base.py", line 104, in wrap_modules
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     return list(modules_generator)
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]            ^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/utils.py", line 825, in <genexpr>
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     layer_fn(prefix=f"{prefix}.{idx}") for idx in range(start_layer, end_layer)
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen2.py", line 377, in <lambda>
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     lambda prefix: decoder_layer_type(
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]                    ^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen3.py", line 198, in __init__
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     self.self_attn = Qwen3Attention(
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]                      ^^^^^^^^^^^^^^^
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen3.py", line 133, in __init__
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     self.attn = attn_cls(
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]                 ^^^^^^^^^
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/layers/attention/attention.py", line 421, in __init__
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     self.impl = impl_cls(  # type: ignore[assignment]  # impl_cls always returns an AttentionImpl subclass
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/root/torchtpu-vllm/src/vllm_torchtpu/layers/vllm/attention.py", line 650, in __init__
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     self.rpa_kernel_bundled = self._declare_bundled_op()
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]                               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/root/torchtpu-vllm/src/vllm_torchtpu/layers/vllm/attention.py", line 869, in _declare_bundled_op
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     op_def = pallas.declare_jax_op(
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=1586) ERROR 08-14 07:44:48 [multiproc_executor.py:912] AttributeError: module 'torch_tpu._internal.pallas' has no attribute 'declare_jax_op'
+(Worker_TP0 pid=1585) INFO 08-14 07:44:48 [tpu_runner.py:3999] Loading model from scratch...
+(Worker_TP0 pid=1585) WARNING 08-14 07:44:48 [unquantized.py:112] Using vLLM's unquantized linear method for layer, performance may be affected.
+(Worker_TP0 pid=1585) INFO 08-14 07:44:48 [tpu_platform.py:690] Cannot use None backend on TPU. Setting to FLASH_ATTN.
+(Worker_TP0 pid=1585) INFO 08-14 07:44:48 [tpu_platform.py:693] Using FLASH_ATTN backend.
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912] WorkerProc failed to start.
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912] Traceback (most recent call last):
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 879, in worker_main
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     worker = WorkerProc(*args, **kwargs)
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     return func(*args, **kwargs)
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 648, in __init__
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     self.worker.load_model()
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/root/torchtpu-vllm/src/vllm_torchtpu/worker/tpu_worker.py", line 609, in load_model
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     self.model_runner.load_model()
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/root/torchtpu-vllm/src/vllm_torchtpu/runner/tpu_runner.py", line 4003, in load_model
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     model = model_loader.load_model(vllm_config=self.vllm_config,
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     return func(*args, **kwargs)
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/model_loader/base_loader.py", line 55, in load_model
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     model = initialize_model(
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]             ^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     return func(*args, **kwargs)
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/model_loader/utils.py", line 62, in initialize_model
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     model = model_class(vllm_config=vllm_config, prefix=prefix)
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen3.py", line 293, in __init__
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     self.model = Qwen3Model(
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]                  ^^^^^^^^^^^
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/decorators.py", line 383, in __init__
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     old_init(self, *args, **kwargs)
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen3.py", line 266, in __init__
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     super().__init__(
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/compilation/decorators.py", line 383, in __init__
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     old_init(self, *args, **kwargs)
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen2.py", line 375, in __init__
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     self.start_layer, self.end_layer, self.layers = make_layers(
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]                                                     ^^^^^^^^^^^^
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/utils.py", line 824, in make_layers
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     + get_offloader().wrap_modules(
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/offloader/base.py", line 104, in wrap_modules
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     return list(modules_generator)
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]            ^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/utils.py", line 825, in <genexpr>
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     layer_fn(prefix=f"{prefix}.{idx}") for idx in range(start_layer, end_layer)
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen2.py", line 377, in <lambda>
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     lambda prefix: decoder_layer_type(
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]                    ^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen3.py", line 198, in __init__
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     self.self_attn = Qwen3Attention(
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]                      ^^^^^^^^^^^^^^^
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/models/qwen3.py", line 133, in __init__
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     self.attn = attn_cls(
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]                 ^^^^^^^^^
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/usr/local/lib/python3.12/site-packages/vllm/model_executor/layers/attention/attention.py", line 421, in __init__
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     self.impl = impl_cls(  # type: ignore[assignment]  # impl_cls always returns an AttentionImpl subclass
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/root/torchtpu-vllm/src/vllm_torchtpu/layers/vllm/attention.py", line 650, in __init__
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     self.rpa_kernel_bundled = self._declare_bundled_op()
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]                               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]   File "/root/torchtpu-vllm/src/vllm_torchtpu/layers/vllm/attention.py", line 869, in _declare_bundled_op
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]     op_def = pallas.declare_jax_op(
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=1585) ERROR 08-14 07:44:48 [multiproc_executor.py:912] AttributeError: module 'torch_tpu._internal.pallas' has no attribute 'declare_jax_op'
+(Worker_TP0 pid=1585) /usr/local/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+(Worker_TP0 pid=1585)   return func(*args, **kwargs)
+(EngineCore pid=1316) WARNING 08-14 07:44:52 [multiproc_executor.py:452] [shutdown] Executor: workers still running after grace period; sending SIGTERM count=1
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349] EngineCore failed to start.
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349] Traceback (most recent call last):
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 1318, in run_engine_core
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]     engine_core = EngineCoreProc(*args, engine_index=dp_rank, **kwargs)
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]     return func(*args, **kwargs)
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 1074, in __init__
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]     super().__init__(
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 132, in __init__
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]     self.model_executor = executor_class(vllm_config)
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 108, in __init__
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]     super().__init__(vllm_config)
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]     return func(*args, **kwargs)
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/abstract.py", line 109, in __init__
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]     self._init_executor()
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]   File "/root/torchtpu-vllm/src/vllm_torchtpu/executors/tpu_multiproc_executor.py", line 22, in _init_executor
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]     super()._init_executor()
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 201, in _init_executor
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]     self.workers = WorkerProc.wait_for_ready(unready_workers)
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 776, in wait_for_ready
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349]     raise e from None
+(EngineCore pid=1316) ERROR 08-14 07:44:52 [core.py:1349] Exception: WorkerProc initialization failed due to an exception in a background process. See stack trace for root cause.
+(EngineCore pid=1316) Process EngineCore:
+(EngineCore pid=1316) Traceback (most recent call last):
+(EngineCore pid=1316)   File "/usr/local/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+(EngineCore pid=1316)     self.run()
+(EngineCore pid=1316)   File "/usr/local/lib/python3.12/multiprocessing/process.py", line 108, in run
+(EngineCore pid=1316)     self._target(*self._args, **self._kwargs)
+(EngineCore pid=1316)   File "/root/torchtpu-vllm/src/vllm_torchtpu/__init__.py", line 590, in _run_engine_core_with_tpu_patches
+(EngineCore pid=1316)     return original_run(*args, **kwargs)
+(EngineCore pid=1316)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=1316)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 1353, in run_engine_core
+(EngineCore pid=1316)     raise e
+(EngineCore pid=1316)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 1318, in run_engine_core
+(EngineCore pid=1316)     engine_core = EngineCoreProc(*args, engine_index=dp_rank, **kwargs)
+(EngineCore pid=1316)                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=1316)   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=1316)     return func(*args, **kwargs)
+(EngineCore pid=1316)            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=1316)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 1074, in __init__
+(EngineCore pid=1316)     super().__init__(
+(EngineCore pid=1316)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 132, in __init__
+(EngineCore pid=1316)     self.model_executor = executor_class(vllm_config)
+(EngineCore pid=1316)                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=1316)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 108, in __init__
+(EngineCore pid=1316)     super().__init__(vllm_config)
+(EngineCore pid=1316)   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=1316)     return func(*args, **kwargs)
+(EngineCore pid=1316)            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=1316)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/abstract.py", line 109, in __init__
+(EngineCore pid=1316)     self._init_executor()
+(EngineCore pid=1316)   File "/root/torchtpu-vllm/src/vllm_torchtpu/executors/tpu_multiproc_executor.py", line 22, in _init_executor
+(EngineCore pid=1316)     super()._init_executor()
+(EngineCore pid=1316)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 201, in _init_executor
+(EngineCore pid=1316)     self.workers = WorkerProc.wait_for_ready(unready_workers)
+(EngineCore pid=1316)                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=1316)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/executor/multiproc_executor.py", line 776, in wait_for_ready
+(EngineCore pid=1316)     raise e from None
+(EngineCore pid=1316) Exception: WorkerProc initialization failed due to an exception in a background process. See stack trace for root cause.
+(APIServer pid=647) Traceback (most recent call last):
+(APIServer pid=647)   File "/usr/local/bin/vllm", line 10, in <module>
+(APIServer pid=647)     sys.exit(main())
+(APIServer pid=647)              ^^^^^^
+(APIServer pid=647)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/cli/main.py", line 97, in main
+(APIServer pid=647)     args.dispatch_function(args)
+(APIServer pid=647)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/cli/serve.py", line 152, in cmd
+(APIServer pid=647)     uvloop.run(run_server(args))
+(APIServer pid=647)   File "/usr/local/lib/python3.12/site-packages/uvloop/__init__.py", line 96, in run
+(APIServer pid=647)     return __asyncio.run(
+(APIServer pid=647)            ^^^^^^^^^^^^^^
+(APIServer pid=647)   File "/usr/local/lib/python3.12/asyncio/runners.py", line 195, in run
+(APIServer pid=647)     return runner.run(main)
+(APIServer pid=647)            ^^^^^^^^^^^^^^^^
+(APIServer pid=647)   File "/usr/local/lib/python3.12/asyncio/runners.py", line 118, in run
+(APIServer pid=647)     return self._loop.run_until_complete(task)
+(APIServer pid=647)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=647)   File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+(APIServer pid=647)   File "/usr/local/lib/python3.12/site-packages/uvloop/__init__.py", line 48, in wrapper
+(APIServer pid=647)     return await main
+(APIServer pid=647)            ^^^^^^^^^^
+(APIServer pid=647)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 764, in run_server
+(APIServer pid=647)     await run_server_worker(listen_address, sock, args, **uvicorn_kwargs)
+(APIServer pid=647)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 778, in run_server_worker
+(APIServer pid=647)     async with build_async_engine_client(
+(APIServer pid=647)                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=647)   File "/usr/local/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=647)     return await anext(self.gen)
+(APIServer pid=647)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=647)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 132, in build_async_engine_client
+(APIServer pid=647)     async with build_async_engine_client_from_engine_args(
+(APIServer pid=647)                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=647)   File "/usr/local/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=647)     return await anext(self.gen)
+(APIServer pid=647)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=647)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 168, in build_async_engine_client_from_engine_args
+(APIServer pid=647)     async_llm = AsyncLLM.from_vllm_config(
+(APIServer pid=647)                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=647)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/async_llm.py", line 220, in from_vllm_config
+(APIServer pid=647)     return cls(
+(APIServer pid=647)            ^^^^
+(APIServer pid=647)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/async_llm.py", line 149, in __init__
+(APIServer pid=647)     self.engine_core = EngineCoreClient.make_async_mp_client(
+(APIServer pid=647)                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=647)   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(APIServer pid=647)     return func(*args, **kwargs)
+(APIServer pid=647)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=647)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/core_client.py", line 139, in make_async_mp_client
+(APIServer pid=647)     return AsyncMPClient(*client_args)
+(APIServer pid=647)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=647)   File "/usr/local/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(APIServer pid=647)     return func(*args, **kwargs)
+(APIServer pid=647)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=647)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/core_client.py", line 987, in __init__
+(APIServer pid=647)     super().__init__(
+(APIServer pid=647)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/core_client.py", line 609, in __init__
+(APIServer pid=647)     with launch_core_engines(
+(APIServer pid=647)          ^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=647)   File "/usr/local/lib/python3.12/contextlib.py", line 144, in __exit__
+(APIServer pid=647)     next(self.gen)
+(APIServer pid=647)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/utils.py", line 1194, in launch_core_engines
+(APIServer pid=647)     wait_for_engine_startup(
+(APIServer pid=647)   File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/utils.py", line 1253, in wait_for_engine_startup
+(APIServer pid=647)     raise RuntimeError(
+(APIServer pid=647) RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+

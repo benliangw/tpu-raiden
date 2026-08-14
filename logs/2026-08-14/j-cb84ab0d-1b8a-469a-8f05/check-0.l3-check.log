@@ -1,0 +1,49 @@
+Waiting for prefill up (http://j-cb84ab0d-1b8a-469a-8f05-prefill-0-0.j-cb84ab0d-1b8a-469a-8f05:8000/health, up to 5400s)
+prefill is up (830s)
+Waiting for decode up (http://j-cb84ab0d-1b8a-469a-8f05-decode-0-0.j-cb84ab0d-1b8a-469a-8f05:7200/health, up to 5400s)
+decode is up (0s)
+Waiting for proxy up (http://j-cb84ab0d-1b8a-469a-8f05-prefill-0-0.j-cb84ab0d-1b8a-469a-8f05:10000/healthcheck, up to 600s)
+proxy is up (0s)
+Waiting for engine readiness (first compile, up to 60 min)...
+Engines are ready.
+status: {'pool_blocks': 6, 'l3_enabled': 1, 'spill_launched': 0, 'peer_held': 0, 'backoffs': 0}
+pool=6 blocks -> seeding 24 docs (watermark 0.75, margin 8, HBM floor 24)
+seed doc0: 6.12s ids=[271, 2, 220, 16, 24, 24, 22, 220]
+seed doc1: 5.65s ids=[7, 7, 7, 7, 7, 7, 271, 2]
+seed doc2: 5.64s ids=[271, 2, 220, 16, 24, 24, 23, 220]
+seed doc3: 5.64s ids=[7, 7, 7, 7, 7, 271, 2, 220]
+seed doc4: 5.63s ids=[7, 7, 7, 7, 7, 7, 7, 318]
+seed doc5: 5.65s ids=[7, 7, 7, 271, 2, 220, 16, 24]
+seed doc6: 5.63s ids=[7, 7, 7, 7, 318, 318, 318, 318]
+seed doc7: 5.63s ids=[7, 7, 7, 7, 7, 7, 7, 7]
+seed doc8: 5.62s ids=[7, 7, 7, 7, 271, 2, 220, 16]
+seed doc9: 5.90s ids=[7, 7, 7, 7, 7, 271, 2, 220]
+seed doc10: 5.66s ids=[7, 7, 7, 7, 271, 2, 220, 16]
+seed doc11: 5.62s ids=[7, 7, 7, 7, 7, 271, 2, 220]
+seed doc12: 5.61s ids=[7, 7, 7, 7, 7, 7, 7, 7]
+seed doc13: 5.83s ids=[7, 7, 7, 318, 318, 318, 318, 318]
+seed doc14: 5.61s ids=[7, 7, 7, 7, 318, 318, 318, 318]
+seed doc15: 5.62s ids=[7, 7, 7, 7, 271, 2, 220, 16]
+seed doc16: 5.61s ids=[7, 7, 7, 7, 271, 2, 220, 16]
+seed doc17: 5.61s ids=[7, 271, 2, 220, 16, 13, 27416, 271]
+seed doc18: 5.60s ids=[7, 7, 7, 7, 7, 271, 2, 220]
+seed doc19: 5.61s ids=[7, 271, 2, 220, 16, 24, 24, 22]
+seed doc20: 5.61s ids=[7, 7, 7, 7, 7, 271, 2, 220]
+seed doc21: 5.60s ids=[7, 7, 7, 7, 7, 271, 2, 220]
+seed doc22: 5.60s ids=[7, 7, 7, 7, 7, 271, 2, 220]
+seed doc23: 5.62s ids=[7, 7, 7, 7, 7, 7, 7, 7]
+spill status: {'pool_blocks': 6, 'l3_enabled': 1, 'spill_launched': 0, 'peer_held': 608, 'backoffs': 14}
+[l3:spill] peer_held=608 launched=0 backoffs=14 PASS
+revisit doc0: 2.93s ids=[271, 2, 220, 16, 24, 24, 22, 220] match
+revisit doc1: 2.94s ids=[7, 7, 7, 7, 7, 7, 271, 2] match
+revisit doc2: 2.93s ids=[271, 2, 220, 16, 24, 24, 23, 220] match
+revisit doc3: 2.94s ids=[7, 7, 7, 7, 7, 271, 2, 220] match
+revisit doc4: 2.93s ids=[7, 7, 7, 7, 7, 7, 7, 318] match
+revisit doc5: 2.92s ids=[7, 7, 7, 271, 2, 220, 16, 24] match
+revisit doc6: 2.92s ids=[7, 7, 7, 7, 318, 318, 318, 318] match
+revisit doc7: 2.93s ids=[7, 7, 7, 7, 7, 7, 7, 7] match
+[l3:restore] external_prefix_cache_hits_total 0.0 -> 0.0 (delta 0.0) FAIL
+[l3:early-divergence] 0/8 diverged PASS
+l3 summary: {"l3-enabled": true, "spill": true, "restore": false, "early-divergence": true}
+RESULT: FAIL (see gates above)
+
