@@ -1560,42 +1560,82 @@ absl::Status KVCacheStore::WriteRemoteInternal(
   });
 
   std::vector<int32_t> src_host_block_ids;
-  {
+  std::vector<std::string> to_send;
+  if (l3_spill) {
+    // A spill batch is advisory: the candidates were LRU-cold when they were
+    // picked, and any of them can have been evicted or claimed by another
+    // write since. The chain lookup below would truncate the answer at the
+    // first casualty, so each hash is resolved -- and pinned, atomically
+    // under the backend's lock -- on its own, and casualties are skipped
+    // rather than failing the whole batch.
     absl::MutexLock lock(mutex_);
-    auto lookup_or = backend->Lookup(block_hashes);
-    if (!lookup_or.ok()) return lookup_or.status();
-    const auto& slices = lookup_or.value();
-    if (slices.size() < block_hashes.size()) {
-      return absl::NotFoundError(
-          absl::StrCat("Block hash not found: ", block_hashes[slices.size()]));
-    }
-    src_host_block_ids.reserve(slices.size());
-    for (size_t i = 0; i < slices.size(); ++i) {
-      const auto& [hash, slice] = slices[i];
+    for (const auto& hash : block_hashes) {
+      if (!writing_hashes_.insert(hash).second) {
+        continue;
+      }
+      auto one_or = backend->Lookup(
+          absl::MakeSpan(&hash, 1),
+          {.enable_global = false, .pin_found = true});
+      if (!one_or.ok() || one_or.value().empty()) {
+        writing_hashes_.erase(hash);
+        continue;
+      }
+      const auto& slice = one_or.value().front().second;
       if (slice.status != BlockStatus::HOST &&
           slice.status != BlockStatus::HOST_AND_HBM) {
-        return absl::FailedPreconditionError(absl::StrCat(
-            "Block is not resident in host DRAM, so there is nothing to "
-            "offer: ",
-            absl::BytesToHexString(hash)));
-      }
-      if (!writing_hashes_.insert(hash).second) {
-        return absl::FailedPreconditionError(
-            absl::StrCat("Block is already being written remotely: ",
-                         absl::BytesToHexString(hash)));
+        backend->Release(absl::MakeSpan(&hash, 1));
+        writing_hashes_.erase(hash);
+        continue;
       }
       marked.push_back(hash);
+      pinned.push_back(hash);
+      to_send.push_back(hash);
       src_host_block_ids.push_back(slice.host_block_id);
     }
-  }
+    if (to_send.empty()) {
+      return absl::NotFoundError(
+          "No offered block is still host-resident and unclaimed");
+    }
+  } else {
+    {
+      absl::MutexLock lock(mutex_);
+      auto lookup_or = backend->Lookup(block_hashes);
+      if (!lookup_or.ok()) return lookup_or.status();
+      const auto& slices = lookup_or.value();
+      if (slices.size() < block_hashes.size()) {
+        return absl::NotFoundError(absl::StrCat(
+            "Block hash not found: ", block_hashes[slices.size()]));
+      }
+      src_host_block_ids.reserve(slices.size());
+      for (size_t i = 0; i < slices.size(); ++i) {
+        const auto& [hash, slice] = slices[i];
+        if (slice.status != BlockStatus::HOST &&
+            slice.status != BlockStatus::HOST_AND_HBM) {
+          return absl::FailedPreconditionError(absl::StrCat(
+              "Block is not resident in host DRAM, so there is nothing to "
+              "offer: ",
+              absl::BytesToHexString(hash)));
+        }
+        if (!writing_hashes_.insert(hash).second) {
+          return absl::FailedPreconditionError(
+              absl::StrCat("Block is already being written remotely: ",
+                           absl::BytesToHexString(hash)));
+        }
+        marked.push_back(hash);
+        src_host_block_ids.push_back(slice.host_block_id);
+      }
+    }
 
-  // The INTERNAL pin, separate from whatever the caller holds. The block ids
-  // we are about to send are only authoritative for as long as this holds.
-  if (!backend->Pin(block_hashes)) {
-    return absl::ResourceExhaustedError(
-        "Failed to pin host blocks for a remote write");
+    // The INTERNAL pin, separate from whatever the caller holds. The block
+    // ids we are about to send are only authoritative for as long as this
+    // holds.
+    if (!backend->Pin(block_hashes)) {
+      return absl::ResourceExhaustedError(
+          "Failed to pin host blocks for a remote write");
+    }
+    pinned = block_hashes;
+    to_send = block_hashes;
   }
-  pinned = block_hashes;
 
   const absl::Duration hold = RemoteWriteHold();
   if (hold <= kRemoteWriteMargin) {
@@ -1611,14 +1651,14 @@ absl::Status KVCacheStore::WriteRemoteInternal(
 
   ASSIGN_OR_RETURN(
       HostOffloadBackend::RemoteWriteAck ack,
-      backend->BeginWriteRemote(dst_raiden_id, block_hashes, src_host_block_ids,
+      backend->BeginWriteRemote(dst_raiden_id, to_send, src_host_block_ids,
                                 hold - kRemoteWriteMargin));
 
   if (ack.all_exist) {
     // SUCCESS with nothing to wait for.
     std::move(rollback).Cancel();
     FinishRemoteWrite({.dst_raiden_id = dst_raiden_id,
-                       .block_hashes = block_hashes,
+                       .block_hashes = to_send,
                        .hold_expiry = hold_expiry,
                        .l3_spill = l3_spill},
                       /*succeeded=*/true, {});
@@ -1629,7 +1669,7 @@ absl::Status KVCacheStore::WriteRemoteInternal(
     // the list and decides.
     std::move(rollback).Cancel();
     FinishRemoteWrite({.dst_raiden_id = dst_raiden_id,
-                       .block_hashes = block_hashes,
+                       .block_hashes = to_send,
                        .hold_expiry = hold_expiry,
                        .l3_spill = l3_spill},
                       /*succeeded=*/false, std::move(ack.existing_hashes));
@@ -1654,7 +1694,7 @@ absl::Status KVCacheStore::WriteRemoteInternal(
     active_remote_writes_.push_back(RemoteWriteState{
         .dst_raiden_id = dst_raiden_id,
         .operation_id = ack.operation_id,
-        .block_hashes = block_hashes,
+        .block_hashes = to_send,
         .hold_expiry =
             std::max(hold_expiry, absl::Now() + ack.granted_deadline),
         .l3_spill = l3_spill,
