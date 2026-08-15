@@ -14,6 +14,7 @@
 
 #include "tpu_raiden/kv_cache/kv_cache_store_client.h"
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -141,6 +142,12 @@ tsl::Future<proto::WriteRemoteResponse> KVCacheStoreClient::WriteRemote(
 
   auto [promise, future] = tsl::MakePromise<proto::WriteRemoteResponse>();
   auto context = std::make_shared<grpc::ClientContext>();
+  // The ack arms the destination's pull and returns well before the pull
+  // budget elapses, so the budget bounds the RPC too: a channel that cannot
+  // even ack within it is dead, and without a deadline a hung peer would
+  // block the caller forever.
+  context->set_deadline(std::chrono::system_clock::now() +
+                        std::chrono::milliseconds(deadline_ms));
   auto response = std::make_shared<proto::WriteRemoteResponse>();
 
   stub_->async()->WriteRemote(
@@ -172,6 +179,10 @@ tsl::Future<proto::PollWriteRemoteResponse> KVCacheStoreClient::PollWriteRemote(
 
   auto [promise, future] = tsl::MakePromise<proto::PollWriteRemoteResponse>();
   auto context = std::make_shared<grpc::ClientContext>();
+  // A status query answers from memory; ten seconds is generous. Without a
+  // deadline a hung peer wedges every poller that asks after an operation.
+  context->set_deadline(std::chrono::system_clock::now() +
+                        std::chrono::seconds(10));
   auto response = std::make_shared<proto::PollWriteRemoteResponse>();
 
   stub_->async()->PollWriteRemote(

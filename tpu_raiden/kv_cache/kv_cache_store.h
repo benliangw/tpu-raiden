@@ -663,13 +663,16 @@ class KVCacheStore {
   absl::flat_hash_set<std::string> writing_hashes_ ABSL_GUARDED_BY(mutex_);
 
   // L3 spill policy state; nullopt disables the spill entirely. One batch
-  // in flight at a time, launched and consumed on the poller thread.
+  // in flight at a time, launched and consumed on the spill's own thread
+  // (started by ConfigureL3Spill) so a slow or hung peer can never stall
+  // the completion poller that save/load/read_remote depend on.
   std::optional<L3SpillOptions> l3_spill_options_ ABSL_GUARDED_BY(mutex_);
   bool l3_spill_in_flight_ ABSL_GUARDED_BY(mutex_) = false;
   absl::Time l3_next_spill_ ABSL_GUARDED_BY(mutex_) = absl::InfinitePast();
   L3SpillStats l3_spill_stats_ ABSL_GUARDED_BY(mutex_);
 
   std::unique_ptr<std::thread> poller_thread_;
+  std::unique_ptr<std::thread> l3_spill_thread_;
   std::unique_ptr<tpu_raiden::NumaThreadPool> write_through_pool_;
   std::atomic<bool> stop_poller_{false};
 
@@ -677,10 +680,11 @@ class KVCacheStore {
   void DeallocateBlockIds(absl::Span<const int> block_ids);
 
   // Asks the destination what became of each accepted offer, and gives up on
-  // any whose HOLD has expired. Runs on the store's own poller, at the same
-  // cadence as the save/load pollers, so remote writes do not introduce a
-  // second one.
-  void PollRemoteWritesInternal();
+  // any whose HOLD has expired. Polls only operations whose l3_spill flag
+  // matches: the completion poller consumes the public WriteRemote
+  // operations, the L3 spill thread consumes its own, and neither can stall
+  // the other on a slow peer.
+  void PollRemoteWritesInternal(bool l3_spill);
 
   // Releases this store's internal pin and clears writing_hashes_. Called once
   // per operation, whichever way it ends.
@@ -694,12 +698,15 @@ class KVCacheStore {
                                    const RaidenId& dst_raiden_id,
                                    bool l3_spill);
 
-  // One L3 spill step, run from the poller thread: launches at most one
+  // One L3 spill step, run from the spill thread: launches at most one
   // WriteRemote batch of the coldest active host-resident entries when
   // occupancy is at or above the watermark.
   void MaybeSpillL3();
 
   void PollerLoop();
+  // The L3 spill thread body: launches spill batches and polls their
+  // outcomes. Kept off PollerLoop because both steps block on peer RPCs.
+  void L3SpillLoop();
   void PollSavesInternal(std::vector<SaveState> ready_saves);
   void PollLoadsInternal(std::vector<LoadState> ready_loads);
   void PollRemoteReadsInternal(

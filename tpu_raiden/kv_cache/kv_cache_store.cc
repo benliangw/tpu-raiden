@@ -18,6 +18,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <string>
@@ -665,10 +666,13 @@ KVCacheStore::~KVCacheStore() {
     ShutdownBackendStoreServers(/*already_shut=*/nullptr);
   }
 
-  if (poller_thread_) {
+  if (poller_thread_ || l3_spill_thread_) {
     stop_poller_.store(true);
-    if (poller_thread_->joinable()) {
+    if (poller_thread_ && poller_thread_->joinable()) {
       poller_thread_->join();
+    }
+    if (l3_spill_thread_ && l3_spill_thread_->joinable()) {
+      l3_spill_thread_->join();
     }
   }
   std::vector<tsl::Future<>> futures_to_await;
@@ -1433,13 +1437,10 @@ size_t KVCacheStore::Evict(const std::vector<std::string>& block_hashes) {
     return 0;
   }
 
-  if (registry_client_) {
-    auto status = registry_client_->Unregister(block_hashes, raiden_id_);
-    if (!status.ok()) {
-      LOG(WARNING) << "Failed to unregister proactively evicted blocks: "
-                   << status.message();
-    }
-  }
+  // No registry unregister here: the backend already unregistered exactly
+  // the hashes it evicted. Unregistering the full input again would also
+  // drop the entries of blocks the backend SKIPPED (pinned by a concurrent
+  // load), leaving them resident but unfindable by peers.
 
   DeallocateBlockIds(host_ids_to_deallocate);
 
@@ -1784,10 +1785,20 @@ absl::Status KVCacheStore::ConfigureL3Spill(L3SpillOptions options) {
         "it, and spilled blocks are only findable once published there");
   }
   const size_t capacity = this->capacity();
-  absl::MutexLock lock(mutex_);
-  l3_spill_options_ = options;
-  l3_next_spill_ = absl::InfinitePast();
-  l3_spill_stats_.enabled = true;
+  {
+    absl::MutexLock lock(mutex_);
+    l3_spill_options_ = options;
+    l3_next_spill_ = absl::InfinitePast();
+    l3_spill_stats_.enabled = true;
+  }
+  // The spill runs on its own thread: every step blocks on peer RPCs, and
+  // the completion poller must stay responsive whatever the peer does.
+  // Configure is called once during construction, before any concurrent
+  // caller exists, so the unguarded thread-handle check is safe.
+  if (l3_spill_thread_ == nullptr) {
+    l3_spill_thread_ =
+        std::make_unique<std::thread>(&KVCacheStore::L3SpillLoop, this);
+  }
   LOG(INFO) << "L3 spill enabled to peer store '"
             << options.dst_raiden_id.job_name << "': watermark "
             << static_cast<size_t>(options.watermark * capacity) << " of "
@@ -1857,12 +1868,16 @@ KVCacheStore::L3SpillStats KVCacheStore::GetL3SpillStats() const {
   return l3_spill_stats_;
 }
 
-void KVCacheStore::PollRemoteWritesInternal() {
+void KVCacheStore::PollRemoteWritesInternal(bool l3_spill) {
   std::vector<RemoteWriteState> still_active;
   std::vector<RemoteWriteState> to_poll;
   {
     absl::MutexLock lock(mutex_);
-    to_poll.swap(active_remote_writes_);
+    auto mine = std::partition(
+        active_remote_writes_.begin(), active_remote_writes_.end(),
+        [l3_spill](const RemoteWriteState& s) { return s.l3_spill != l3_spill; });
+    std::move(mine, active_remote_writes_.end(), std::back_inserter(to_poll));
+    active_remote_writes_.erase(mine, active_remote_writes_.end());
   }
   if (to_poll.empty()) {
     return;
@@ -1962,8 +1977,18 @@ KVCacheStore::PollRemoteWriteStatus() {
 void KVCacheStore::PollerLoop() {
   while (!stop_poller_.load()) {
     PollFuturesInternal();
-    MaybeSpillL3();
     absl::SleepFor(absl::Milliseconds(10));
+  }
+}
+
+void KVCacheStore::L3SpillLoop() {
+  // Everything here blocks on peer RPCs (launch, resolve, poll), which is
+  // exactly why it does not run on PollerLoop: a hung or slow L3 peer must
+  // never stall save/load/read_remote completion handling.
+  while (!stop_poller_.load()) {
+    MaybeSpillL3();
+    PollRemoteWritesInternal(/*l3_spill=*/true);
+    absl::SleepFor(absl::Milliseconds(50));
   }
 }
 
@@ -2229,8 +2254,9 @@ void KVCacheStore::PollFuturesInternal() {
   PollLoadsInternal(std::move(ready_loads));
   PollRemoteReadsInternal(std::move(ready_remote_reads));
   // Unlike the three above, a remote write has no local future to become
-  // ready: the work is happening on the destination, so this asks.
-  PollRemoteWritesInternal();
+  // ready: the work is happening on the destination, so this asks. The L3
+  // spill's operations are polled by its own thread, not here.
+  PollRemoteWritesInternal(/*l3_spill=*/false);
 }
 
 }  // namespace kv_cache

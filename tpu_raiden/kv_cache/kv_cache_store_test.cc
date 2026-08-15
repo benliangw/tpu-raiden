@@ -1198,6 +1198,42 @@ TEST(KVCacheStoreTest, EvictClearsMetadataEntries) {
               ElementsAre(::testing::FieldsAre(1, "host_2", 1)));
 }
 
+TEST(KVCacheStoreTest, EvictKeepsPinnedBlocksRegistered) {
+  auto reg_server = global_registry::CreateTestGlobalRegistryServer();
+  auto& registry_client = *reg_server->client;
+
+  MetadataRegion region(2);
+  auto metadata_or = KVCacheMetadata::Format(region.span(), 2);
+  ASSERT_TRUE(metadata_or.ok());
+
+  RaidenId rid{"local_job", "0", "kv_cache", 0};
+  KVCacheStore store(2, MakeRecoveryController(rid, 2),
+                     reg_server->server_address, rid, *metadata_or,
+                     /*store_server_ip=*/"127.0.0.1");
+
+  ASSERT_TRUE(store
+                  .Insert({"evictable", "pinned"},
+                          {RaidenBlockID(rid, 0, BlockStatus::HOST),
+                           RaidenBlockID(rid, 1, BlockStatus::HOST)},
+                          true)
+                  .first);
+  ASSERT_TRUE(store.Pin({"pinned"}));
+
+  // Only the unpinned block goes; the pinned one is skipped.
+  EXPECT_EQ(KVCacheStoreTest::Evict(store, {"evictable", "pinned"}), 1);
+
+  // Eviction must only unregister what it actually removed: the skipped
+  // block is still resident here, so peers must still find it. (The L3
+  // spill's evict-on-confirm leans on this when a concurrent load pins a
+  // just-confirmed block.)
+  auto still_there = registry_client.Lookup({"pinned"});
+  ASSERT_TRUE(still_there.ok());
+  ASSERT_EQ(still_there->size(), 1);
+  auto gone = registry_client.Lookup({"evictable"});
+  ASSERT_TRUE(gone.ok());
+  EXPECT_TRUE(gone->empty());
+}
+
 class KVCacheStoreEmbeddedControllerTest : public ::testing::Test {
  protected:
   void SetUp() override {
