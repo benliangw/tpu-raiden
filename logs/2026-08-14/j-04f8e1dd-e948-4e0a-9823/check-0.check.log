@@ -1,0 +1,12 @@
+server ready after 816s
+=== pass 1: seed 24 docs ===
+  metric: vllm:external_prefix_cache_hits_total{engine="0",model_name="Qwen/Qwen3-32B"} 0.0
+  metric: vllm:external_prefix_cache_hits_created{engine="0",model_name="Qwen/Qwen3-32B"} 1.7867656891817262e+09
+=== pass 2: revisit ===
+  metric: vllm:external_prefix_cache_hits_total{engine="0",model_name="Qwen/Qwen3-32B"} 0.0
+  metric: vllm:external_prefix_cache_hits_created{engine="0",model_name="Qwen/Qwen3-32B"} 1.7867656891817262e+09
+  metric: vllm:external_prefix_cache_hits_total{engine="0",model_name="Qwen/Qwen3-32B"} 198576.0
+  metric: vllm:external_prefix_cache_hits_created{engine="0",model_name="Qwen/Qwen3-32B"} 1.7867656891817262e+09
+RESULT seed_mean_s=0.852 revisit_mean_s=0.633 speedup=1.35 ext_hit_delta=198576 ext_hits_total=1786964265
+RESULT: PASS (offload restore hit + faster revisit)
+
