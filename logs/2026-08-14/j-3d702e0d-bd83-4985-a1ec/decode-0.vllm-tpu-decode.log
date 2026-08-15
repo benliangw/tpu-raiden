@@ -1,0 +1,101 @@
+===== Syncing dependencies to pyproject.toml =====
+Using Python 3.12.13 environment at: /usr/local
+Resolved 121 packages in 741ms
+Downloading nvidia-cufile (1.2MiB)
+Downloading nvidia-cuda-runtime (2.1MiB)
+Downloading torchvision (7.3MiB)
+Downloading nvidia-cuda-cupti (10.2MiB)
+Downloading nvidia-cuda-nvrtc (86.0MiB)
+Downloading nvidia-cusolver (191.6MiB)
+Downloading nvidia-cusparse (139.2MiB)
+Downloading nvidia-curand (56.8MiB)
+Downloading nvidia-nvjitlink (38.9MiB)
+Downloading nvidia-cufft (204.2MiB)
+Downloading nvidia-cusparselt-cu13 (162.3MiB)
+Downloading nvidia-nccl-cu13 (196.4MiB)
+Downloading nvidia-cublas (403.5MiB)
+Downloading nvidia-nvshmem-cu13 (57.6MiB)
+Downloading torch (502.2MiB)
+Downloading libtpu (205.6MiB)
+Downloading jaxlib (81.5MiB)
+Downloading nvidia-cudnn-cu13 (349.2MiB)
+Downloading jax (3.1MiB)
+ Downloaded nvidia-cufile
+ Downloaded nvidia-cuda-runtime
+ Downloaded torchvision
+ Downloaded jax
+ Downloaded nvidia-cuda-cupti
+ Downloaded nvidia-nvjitlink
+ Downloaded nvidia-curand
+ Downloaded nvidia-nvshmem-cu13
+ Downloaded jaxlib
+ Downloaded nvidia-cuda-nvrtc
+ Downloaded nvidia-cusparse
+ Downloaded nvidia-cusparselt-cu13
+ Downloaded nvidia-cusolver
+ Downloaded nvidia-nccl-cu13
+ Downloaded nvidia-cufft
+ Downloaded libtpu
+ Downloaded nvidia-cudnn-cu13
+ Downloaded nvidia-cublas
+ Downloaded torch
+Prepared 21 packages in 21.23s
+Uninstalled 7 packages in 3.19s
+Installed 21 packages in 291ms
+ + cuda-toolkit==13.0.3.0
+ - jax==0.10.0
+ + jax==0.10.2
+ - jaxlib==0.10.0
+ + jaxlib==0.10.2
+ - libtpu==0.0.40
+ + libtpu==0.0.44.1
+ + nvidia-cublas==13.1.1.3
+ + nvidia-cuda-cupti==13.0.85
+ - nvidia-cuda-nvrtc==13.3.33
+ + nvidia-cuda-nvrtc==13.0.88
+ - nvidia-cuda-runtime==13.3.29
+ + nvidia-cuda-runtime==13.0.96
+ + nvidia-cudnn-cu13==9.20.0.48
+ + nvidia-cufft==12.0.0.61
+ + nvidia-cufile==1.15.1.6
+ + nvidia-curand==10.4.0.35
+ + nvidia-cusolver==12.0.4.66
+ + nvidia-cusparse==12.6.3.3
+ + nvidia-cusparselt-cu13==0.8.1
+ + nvidia-nccl-cu13==2.29.7
+ + nvidia-nvjitlink==13.3.33
+ + nvidia-nvshmem-cu13==3.4.5
+ + nvidia-nvtx==13.0.85
+ - torch==2.11.0+cpu
+ + torch==2.13.0
+ - torchvision==0.26.0+cpu
+ + torchvision==0.28.0
+Installing pinned vLLM from active worktree: vllm==0.27.0
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 79ms
+Downloading vllm (298.4MiB)
+ Downloaded vllm
+Prepared 1 package in 3.19s
+Uninstalled 1 package in 5ms
+Installed 1 package in 140ms
+ - vllm==0.23.1rc1.dev927+gc0e8e1f12.d20260708.tpu (from file:///root/cloud-devkit/vllm)
+ + vllm==0.27.0
+Installing pinned torch-tpu: /root/wheels/torch_tpu-0.1.1.dev20260815010203-cp312-cp312-manylinux_2_31_x86_64.whl
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 4ms
+Prepared 1 package in 3.68s
+Uninstalled 1 package in 87ms
+Installed 1 package in 3ms
+ - torch-tpu==0.1.1 (from file:///artifact-source/opt/wheels/torch_tpu-0.1.1-cp312-cp312-manylinux_2_31_x86_64.whl)
+ + torch-tpu==0.1.1.dev20260815010203 (from file:///root/wheels/torch_tpu-0.1.1.dev20260815010203-cp312-cp312-manylinux_2_31_x86_64.whl)
+raiden wheel: /root/wheels/tpu_raiden_torch-0.0.1.dev20260814203702-1_main_7dc7e55_7dc7e55-cp312-cp312-manylinux_2_31_x86_64.whl
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 25ms
+Prepared 1 package in 3.38s
+Installed 1 package in 3ms
+ + tpu-raiden-torch==0.0.1.dev20260814203702 (from file:///root/wheels/tpu_raiden_torch-0.0.1.dev20260814203702-1_main_7dc7e55_7dc7e55-cp312-cp312-manylinux_2_31_x86_64.whl)
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+ModuleNotFoundError: No module named 'tpu_raiden.rpc'
+RESULT: FAIL (raiden import)
+
