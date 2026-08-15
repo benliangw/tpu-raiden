@@ -1,0 +1,1073 @@
+===== Syncing dependencies to pyproject.toml =====
+Using Python 3.12.13 environment at: /usr/local
+Resolved 121 packages in 586ms
+Downloading torchvision (7.3MiB)
+Downloading nvidia-cublas (403.5MiB)
+Downloading nvidia-cufile (1.2MiB)
+Downloading nvidia-cuda-cupti (10.2MiB)
+Downloading nvidia-cuda-runtime (2.1MiB)
+Downloading nvidia-cudnn-cu13 (349.2MiB)
+Downloading torch (502.2MiB)
+Downloading nvidia-cusolver (191.6MiB)
+Downloading libtpu (205.6MiB)
+Downloading nvidia-cufft (204.2MiB)
+Downloading nvidia-nvjitlink (38.9MiB)
+Downloading nvidia-cuda-nvrtc (86.0MiB)
+Downloading nvidia-cusparselt-cu13 (162.3MiB)
+Downloading jaxlib (81.5MiB)
+Downloading nvidia-nccl-cu13 (196.4MiB)
+Downloading nvidia-curand (56.8MiB)
+Downloading nvidia-nvshmem-cu13 (57.6MiB)
+Downloading nvidia-cusparse (139.2MiB)
+Downloading jax (3.1MiB)
+ Downloaded nvidia-cufile
+ Downloaded nvidia-cuda-runtime
+ Downloaded jax
+ Downloaded torchvision
+ Downloaded nvidia-cuda-cupti
+ Downloaded nvidia-nvjitlink
+ Downloaded nvidia-curand
+ Downloaded nvidia-nvshmem-cu13
+ Downloaded jaxlib
+ Downloaded nvidia-cuda-nvrtc
+ Downloaded nvidia-cusparse
+ Downloaded nvidia-cusparselt-cu13
+ Downloaded nvidia-cusolver
+ Downloaded nvidia-nccl-cu13
+ Downloaded nvidia-cufft
+ Downloaded libtpu
+ Downloaded nvidia-cudnn-cu13
+ Downloaded nvidia-cublas
+ Downloaded torch
+Prepared 21 packages in 32.71s
+Uninstalled 7 packages in 6.34s
+Installed 21 packages in 224ms
+ + cuda-toolkit==13.0.3.0
+ - jax==0.10.0
+ + jax==0.10.2
+ - jaxlib==0.10.0
+ + jaxlib==0.10.2
+ - libtpu==0.0.40
+ + libtpu==0.0.44.1
+ + nvidia-cublas==13.1.1.3
+ + nvidia-cuda-cupti==13.0.85
+ - nvidia-cuda-nvrtc==13.3.33
+ + nvidia-cuda-nvrtc==13.0.88
+ - nvidia-cuda-runtime==13.3.29
+ + nvidia-cuda-runtime==13.0.96
+ + nvidia-cudnn-cu13==9.20.0.48
+ + nvidia-cufft==12.0.0.61
+ + nvidia-cufile==1.15.1.6
+ + nvidia-curand==10.4.0.35
+ + nvidia-cusolver==12.0.4.66
+ + nvidia-cusparse==12.6.3.3
+ + nvidia-cusparselt-cu13==0.8.1
+ + nvidia-nccl-cu13==2.29.7
+ + nvidia-nvjitlink==13.3.33
+ + nvidia-nvshmem-cu13==3.4.5
+ + nvidia-nvtx==13.0.85
+ - torch==2.11.0+cpu
+ + torch==2.13.0
+ - torchvision==0.26.0+cpu
+ + torchvision==0.28.0
+Installing pinned vLLM: vllm==0.27.0
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 92ms
+Downloading vllm (298.4MiB)
+ Downloaded vllm
+Prepared 1 package in 3.81s
+Uninstalled 1 package in 5ms
+Installed 1 package in 88ms
+ - vllm==0.23.1rc1.dev927+gc0e8e1f12.d20260708.tpu (from file:///root/cloud-devkit/vllm)
+ + vllm==0.27.0
+Installing torch-tpu: /root/wheels/torch_tpu-0.1.1.dev20260813160135-cp312-cp312-manylinux_2_31_x86_64.whl
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 4ms
+Prepared 1 package in 885ms
+Uninstalled 1 package in 133ms
+Installed 1 package in 3ms
+ - torch-tpu==0.1.1 (from file:///artifact-source/opt/wheels/torch_tpu-0.1.1-cp312-cp312-manylinux_2_31_x86_64.whl)
+ + torch-tpu==0.1.1.dev20260813160135 (from file:///root/wheels/torch_tpu-0.1.1.dev20260813160135-cp312-cp312-manylinux_2_31_x86_64.whl)
+Installing tpu-raiden: /root/wheels/tpu_raiden_torch-0.0.1.dev20260814125947-1_block_major_5a80132-cp312-cp312-manylinux_2_31_x86_64.whl
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 20ms
+Prepared 1 package in 2.80s
+Installed 1 package in 4ms
+ + tpu-raiden-torch==0.0.1.dev20260814125947 (from file:///root/wheels/tpu_raiden_torch-0.0.1.dev20260814125947-1_block_major_5a80132-cp312-cp312-manylinux_2_31_x86_64.whl)
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1786761017.312315     331 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1786761017.369932     331 device_rt.cc:128] PjRt runtime initialization deferred for tpu
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+/usr/local/lib/python3.12/site-packages/jax/_src/cloud_tpu_init.py:45: UserWarning: TPU_LIBRARY_PATH is set to a non-existent path: . Falling back to default libtpu path. Please unset TPU_LIBRARY_PATH or set it to a valid path.
+  warnings.warn(warning_message)
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1786761022.512771     396 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+INFO 08-15 02:30:22 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-15 02:30:22 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-15 02:30:22 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 08-15 02:30:23 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-15 02:30:23 [tpu_info.py:26] 
+INFO 08-15 02:30:23 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-15 02:30:23 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 08-15 02:30:23 [tpu_platform.py:1047] Pin memory is not supported on TPU.
+INFO 08-15 02:30:31 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-15 02:30:31 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+block-major preflight OK, donation stack: True
+===== Starting Qwen3-32B (BLOCK_MAJOR=1) =====
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1786761038.277113     655 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1786761038.306990     655 device_rt.cc:128] PjRt runtime initialization deferred for tpu
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+INFO 08-15 02:30:38 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-15 02:30:38 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-15 02:30:38 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 08-15 02:30:38 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-15 02:30:38 [tpu_info.py:26] 
+INFO 08-15 02:30:38 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-15 02:30:38 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 08-15 02:30:38 [tpu_platform.py:1047] Pin memory is not supported on TPU.
+INFO 08-15 02:30:42 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-15 02:30:42 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+(APIServer pid=655) INFO 08-15 02:30:45 [api_utils.py:345] 
+(APIServer pid=655) INFO 08-15 02:30:45 [api_utils.py:345]        █     █     █▄   ▄█
+(APIServer pid=655) INFO 08-15 02:30:45 [api_utils.py:345]  ▄▄ ▄█ █     █     █ ▀▄▀ █  version 0.27.0
+(APIServer pid=655) INFO 08-15 02:30:45 [api_utils.py:345]   █▄█▀ █     █     █     █  model   Qwen/Qwen3-32B
+(APIServer pid=655) INFO 08-15 02:30:45 [api_utils.py:345]    ▀▀  ▀▀▀▀▀ ▀▀▀▀▀ ▀     ▀
+(APIServer pid=655) INFO 08-15 02:30:45 [api_utils.py:345] 
+(APIServer pid=655) INFO 08-15 02:30:45 [api_utils.py:273] non-default args: {'model_tag': 'Qwen/Qwen3-32B', 'model': 'Qwen/Qwen3-32B', 'max_model_len': 16384, 'tensor_parallel_size': 4, 'gpu_memory_utilization': 0.85, 'num_gpu_blocks_override': 2048, 'enable_prefix_caching': True, 'max_num_batched_tokens': 4096, 'max_num_seqs': 16, 'async_scheduling': False, 'kv_transfer_config': KVTransferConfig(kv_connector='TPURaidenOffloadingConnector', engine_id='78bbbbaa-743a-4fb7-8c95-a99684c2bfda', kv_buffer_device='tpu', kv_buffer_size=1000000000.0, kv_role='kv_both', kv_rank=None, kv_parallel_size=1, kv_ip='127.0.0.1', kv_port=14579, kv_connector_extra_config={'cpu_bytes_to_use': 107374182400}, kv_connector_module_path='vllm_torchtpu.offload.raiden_connector', enable_permute_local_kv=False, kv_load_failure_policy='fail')}
+(APIServer pid=655) WARNING 08-15 02:30:45 [envs.py:2128] Unknown vLLM environment variable detected: VLLM_TPU_BLOCK_MAJOR_KV
+(APIServer pid=655) INFO 08-15 02:30:55 [model.py:645] Resolved architecture: Qwen3ForCausalLM
+(APIServer pid=655) INFO 08-15 02:30:55 [model.py:1883] Using max model len 16384
+(APIServer pid=655) INFO 08-15 02:30:55 [scheduler.py:242] Chunked prefill is enabled with max_num_batched_tokens=4096.
+(APIServer pid=655) INFO 08-15 02:30:55 [kernel.py:306] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+(APIServer pid=655) INFO 08-15 02:30:57 [__init__.py:43] Applied TPU patch: allow PCP through GPU-specific V2 checks.
+(APIServer pid=655) INFO 08-15 02:30:57 [__init__.py:118] Applied TPU patch: include compiler hash in AOT cache key.
+(APIServer pid=655) INFO 08-15 02:30:57 [__init__.py:168] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold'] from the compile cache key.
+(APIServer pid=655) INFO 08-15 02:30:57 [__init__.py:198] Applied TPU patch: disable vLLM custom collective ops.
+(APIServer pid=655) INFO 08-15 02:30:57 [__init__.py:219] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+(APIServer pid=655) INFO 08-15 02:30:57 [__init__.py:251] Applied TPU patch: use explicit PCP collectives for monolithic MoE.
+(APIServer pid=655) INFO 08-15 02:30:57 [__init__.py:314] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+(APIServer pid=655) INFO 08-15 02:30:57 [__init__.py:380] Applied TPU patch: compile_all_ranges.
+(APIServer pid=655) INFO 08-15 02:30:57 [__init__.py:453] Applied TPU patch: disable sequence-parallel MoE.
+(APIServer pid=655) INFO 08-15 02:30:57 [__init__.py:522] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+(APIServer pid=655) INFO 08-15 02:30:57 [__init__.py:436] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+(APIServer pid=655) INFO 08-15 02:30:57 [__init__.py:288] Applied TPU patch: host-side expert-map lookup.
+(APIServer pid=655) INFO 08-15 02:30:57 [__init__.py:980] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+(APIServer pid=655) INFO 08-15 02:30:57 [__init__.py:670] Applied TPU patch: PCP-aware OffloadingConfig build.
+(APIServer pid=655) INFO 08-15 02:30:57 [__init__.py:730] Applied TPU patch: OffloadingConnector TPU spec construction.
+(APIServer pid=655) INFO 08-15 02:30:57 [__init__.py:766] Applied TPU patch: accurate layer counts for Kimi-K3 / KDA hybrid models.
+(APIServer pid=655) INFO 08-15 02:30:57 [__init__.py:97] Applied TPU patch: reconcile hybrid producer prefix hits.
+(APIServer pid=655) INFO 08-15 02:30:57 [__init__.py:1052] Applied LIFO free-block patch (pre-vllm#48017 order) to BlockPool
+(APIServer pid=655) INFO 08-15 02:30:57 [__init__.py:469] Applied TPU patch: disable DP microbatching.
+(APIServer pid=655) INFO 08-15 02:30:57 [__init__.py:575] Applied TPU patch: MultiprocExecutor worker binding env.
+(APIServer pid=655) INFO 08-15 02:30:57 [model_loader_patches.py:293] Applied TPU patch: EP-sharded Run:AI weight streaming (fetch only local experts when the EP weight filter is on).
+(APIServer pid=655) INFO 08-15 02:30:57 [tpu_platform.py:171] TorchTPU eager mode configured: DEFER_AND_FUSE (previous=DEFER_NEVER)
+(APIServer pid=655) INFO 08-15 02:30:57 [tpu_platform.py:1143] Using token paddings: [16, 32, 64, 128, 256, 512, 1024, 2048, 4096]
+(APIServer pid=655) INFO 08-15 02:30:57 [tpu_platform.py:930] Force using TpuMultiprocExecutor for TPU on single host with tensor/pipeline/PCP parallelism.
+(APIServer pid=655) WARNING 08-15 02:30:57 [vllm.py:609] Model Runner V2 requires Triton; using the V1 model runner instead.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1786761063.511315    1323 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+INFO 08-15 02:31:03 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-15 02:31:03 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-15 02:31:03 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 08-15 02:31:04 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-15 02:31:04 [tpu_info.py:26] 
+INFO 08-15 02:31:04 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-15 02:31:04 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 08-15 02:31:04 [tpu_platform.py:1047] Pin memory is not supported on TPU.
+INFO 08-15 02:31:07 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-15 02:31:07 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+INFO 08-15 02:31:08 [__init__.py:980] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+INFO 08-15 02:31:08 [__init__.py:670] Applied TPU patch: PCP-aware OffloadingConfig build.
+INFO 08-15 02:31:08 [__init__.py:730] Applied TPU patch: OffloadingConnector TPU spec construction.
+INFO 08-15 02:31:08 [__init__.py:97] Applied TPU patch: reconcile hybrid producer prefix hits.
+(EngineCore pid=1323) INFO 08-15 02:31:08 [core.py:121] Initializing a V1 LLM engine (v0.27.0) with config: model='Qwen/Qwen3-32B', speculative_config=None, tokenizer='Qwen/Qwen3-32B', skip_tokenizer_init=False, tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=False, dtype=torch.bfloat16, max_seq_len=16384, download_dir=None, load_format=auto, tensor_parallel_size=4, pipeline_parallel_size=1, data_parallel_size=1, decode_context_parallel_size=1, dcp_comm_backend=ag_rs, disable_custom_all_reduce=True, quantization=None, quantization_config=None, enforce_eager=False, enable_return_routed_experts=False, kv_cache_dtype=auto, device_config=tpu, structured_outputs_config=StructuredOutputsConfig(backend='auto', disable_any_whitespace=False, disable_additional_properties=False, reasoning_parser='', reasoning_parser_plugin='', enable_in_reasoning=False), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None, kv_cache_metrics=False, kv_cache_metrics_sample=0.01, cudagraph_metrics=False, enable_layerwise_nvtx_tracing=False, enable_mfu_metrics=False, enable_mm_processor_stats=False, enable_logging_iteration_details=False, jit_monitor_mode='warn', jit_monitor_verbose=False), seed=0, served_model_name=Qwen/Qwen3-32B, enable_prefix_caching=True, enable_chunked_prefill=True, pooler_config=None, compilation_config={'mode': <CompilationMode.VLLM_COMPILE: 3>, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'vllm_torchtpu.compilation.tpu_compiler.TpuCompilerAdaptor', 'custom_ops': ['all'], 'ir_enable_torch_wrap': False, 'splitting_ops': [], 'compile_mm_encoder': False, 'cudagraph_mm_encoder': False, 'encoder_cudagraph_token_budgets': [], 'encoder_cudagraph_max_vision_items_per_batch': 0, 'encoder_cudagraph_max_frames_per_batch': None, 'compile_sizes': [16, 32, 64, 128, 256, 512, 1024, 2048, 4096], 'compile_ranges_endpoints': [4096], 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': <CUDAGraphMode.NONE: 0>, 'cudagraph_num_of_warmups': 0, 'cudagraph_capture_sizes': None, 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': False, 'pass_config': {'fuse_norm_quant': False, 'fuse_act_quant': False, 'fuse_attn_quant': False, 'eliminate_noops': False, 'enable_sp': False, 'fuse_gemm_comms': False, 'fuse_allreduce_rms': False, 'enable_qk_norm_rope_fusion': False, 'fuse_rope_kvcache_cat_mla': False, 'fuse_act_padding': False, 'fuse_qk_norm_rope_kvcache': False}, 'max_cudagraph_capture_size': None, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': False, 'static_all_moe_layers': []}, kernel_config=KernelConfig(ir_op_priority=IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native']), enable_flashinfer_autotune=True, enable_cutedsl_warmup=True, enable_jit_warmup=True, enable_bf16x3_router_gemm=False, moe_backend='auto', linear_backend='auto')
+(EngineCore pid=1323) INFO 08-15 02:31:08 [__init__.py:575] Applied TPU patch: MultiprocExecutor worker binding env.
+(EngineCore pid=1323) WARNING 08-15 02:31:08 [multiproc_executor.py:1081] Reducing Torch parallelism from 112 threads to 1 to avoid unnecessary CPU contention. Set OMP_NUM_THREADS in the external environment to tune this value as needed.
+(EngineCore pid=1323) INFO 08-15 02:31:08 [multiproc_executor.py:140] DP group leader: node_rank=0, node_rank_within_dp=0, master_addr=127.0.0.1, mq_connect_ip=10.36.37.213 (local), world_size=4, local_world_size=4
+(EngineCore pid=1323) INFO 08-15 02:31:08 [__init__.py:549] Applied TPU patch: worker spawn env RANK=0 LOCAL_RANK=0 WORLD_SIZE=4 LOCAL_WORLD_SIZE=4 (rank=0 local_rank=0 dp_rank=0 dp_size=1 offset=0 init_local_rank=0)
+(EngineCore pid=1323) INFO 08-15 02:31:08 [__init__.py:549] Applied TPU patch: worker spawn env RANK=1 LOCAL_RANK=1 WORLD_SIZE=4 LOCAL_WORLD_SIZE=4 (rank=1 local_rank=1 dp_rank=0 dp_size=1 offset=0 init_local_rank=1)
+(EngineCore pid=1323) INFO 08-15 02:31:08 [__init__.py:549] Applied TPU patch: worker spawn env RANK=2 LOCAL_RANK=2 WORLD_SIZE=4 LOCAL_WORLD_SIZE=4 (rank=2 local_rank=2 dp_rank=0 dp_size=1 offset=0 init_local_rank=2)
+(EngineCore pid=1323) INFO 08-15 02:31:08 [__init__.py:549] Applied TPU patch: worker spawn env RANK=3 LOCAL_RANK=3 WORLD_SIZE=4 LOCAL_WORLD_SIZE=4 (rank=3 local_rank=3 dp_rank=0 dp_size=1 offset=0 init_local_rank=3)
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1786761071.312368    1593 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1786761071.312368    1592 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+
+Registered Python module for 'tpu'.
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: defaultDevice type: tpu, Device index: default
+
+Initializing TPU distributed runtime
+Initializing TPU distributed runtime
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1786761071.411722    1594 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1786761071.411720    1595 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+INFO 08-15 02:31:11 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-15 02:31:11 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-15 02:31:11 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-15 02:31:11 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-15 02:31:11 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 08-15 02:31:11 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Registered Python module for 'tpu'.Initializing TPU distributed runtime
+
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+INFO 08-15 02:31:11 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-15 02:31:11 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-15 02:31:11 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 08-15 02:31:11 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-15 02:31:11 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-15 02:31:11 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 08-15 02:31:11 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-15 02:31:11 [tpu_info.py:26] 
+INFO 08-15 02:31:11 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-15 02:31:11 [__init__.py:237] Platform plugin torchtpu is activated
+ERROR 08-15 02:31:11 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-15 02:31:11 [tpu_info.py:26] 
+INFO 08-15 02:31:11 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-15 02:31:11 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 08-15 02:31:11 [tpu_platform.py:1047] Pin memory is not supported on TPU.
+WARNING 08-15 02:31:11 [tpu_platform.py:1047] Pin memory is not supported on TPU.
+ERROR 08-15 02:31:11 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-15 02:31:11 [tpu_info.py:26] 
+ERROR 08-15 02:31:11 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-15 02:31:11 [tpu_info.py:26] 
+INFO 08-15 02:31:11 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-15 02:31:11 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-15 02:31:11 [__init__.py:237] Platform plugin torchtpu is activated
+INFO 08-15 02:31:11 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 08-15 02:31:11 [tpu_platform.py:1047] Pin memory is not supported on TPU.
+WARNING 08-15 02:31:11 [tpu_platform.py:1047] Pin memory is not supported on TPU.
+INFO 08-15 02:31:15 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-15 02:31:15 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+INFO 08-15 02:31:15 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-15 02:31:15 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+INFO 08-15 02:31:15 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-15 02:31:15 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+INFO 08-15 02:31:15 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-15 02:31:15 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+INFO 08-15 02:31:18 [__init__.py:43] Applied TPU patch: allow PCP through GPU-specific V2 checks.
+INFO 08-15 02:31:18 [__init__.py:43] Applied TPU patch: allow PCP through GPU-specific V2 checks.
+INFO 08-15 02:31:18 [__init__.py:43] Applied TPU patch: allow PCP through GPU-specific V2 checks.
+INFO 08-15 02:31:18 [__init__.py:43] Applied TPU patch: allow PCP through GPU-specific V2 checks.
+INFO 08-15 02:31:18 [__init__.py:118] Applied TPU patch: include compiler hash in AOT cache key.
+INFO 08-15 02:31:18 [__init__.py:168] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold'] from the compile cache key.
+INFO 08-15 02:31:18 [__init__.py:118] Applied TPU patch: include compiler hash in AOT cache key.
+INFO 08-15 02:31:18 [__init__.py:118] Applied TPU patch: include compiler hash in AOT cache key.
+INFO 08-15 02:31:18 [__init__.py:198] Applied TPU patch: disable vLLM custom collective ops.
+INFO 08-15 02:31:18 [__init__.py:168] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold'] from the compile cache key.
+INFO 08-15 02:31:18 [__init__.py:219] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+INFO 08-15 02:31:18 [__init__.py:168] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold'] from the compile cache key.
+INFO 08-15 02:31:18 [__init__.py:251] Applied TPU patch: use explicit PCP collectives for monolithic MoE.
+INFO 08-15 02:31:18 [__init__.py:198] Applied TPU patch: disable vLLM custom collective ops.
+INFO 08-15 02:31:18 [__init__.py:198] Applied TPU patch: disable vLLM custom collective ops.
+INFO 08-15 02:31:18 [__init__.py:314] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+INFO 08-15 02:31:18 [__init__.py:219] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+INFO 08-15 02:31:18 [__init__.py:219] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+INFO 08-15 02:31:18 [__init__.py:251] Applied TPU patch: use explicit PCP collectives for monolithic MoE.
+INFO 08-15 02:31:18 [__init__.py:251] Applied TPU patch: use explicit PCP collectives for monolithic MoE.
+INFO 08-15 02:31:18 [__init__.py:314] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+INFO 08-15 02:31:18 [__init__.py:314] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+INFO 08-15 02:31:18 [__init__.py:118] Applied TPU patch: include compiler hash in AOT cache key.
+INFO 08-15 02:31:18 [__init__.py:168] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold'] from the compile cache key.
+INFO 08-15 02:31:18 [__init__.py:198] Applied TPU patch: disable vLLM custom collective ops.
+INFO 08-15 02:31:18 [__init__.py:219] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+INFO 08-15 02:31:18 [__init__.py:251] Applied TPU patch: use explicit PCP collectives for monolithic MoE.
+INFO 08-15 02:31:18 [__init__.py:314] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+INFO 08-15 02:31:18 [__init__.py:380] Applied TPU patch: compile_all_ranges.
+INFO 08-15 02:31:18 [__init__.py:380] Applied TPU patch: compile_all_ranges.
+INFO 08-15 02:31:18 [__init__.py:453] Applied TPU patch: disable sequence-parallel MoE.
+INFO 08-15 02:31:18 [__init__.py:453] Applied TPU patch: disable sequence-parallel MoE.
+INFO 08-15 02:31:18 [__init__.py:522] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+INFO 08-15 02:31:18 [__init__.py:380] Applied TPU patch: compile_all_ranges.
+INFO 08-15 02:31:18 [__init__.py:522] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+INFO 08-15 02:31:18 [__init__.py:436] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+INFO 08-15 02:31:18 [__init__.py:436] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+INFO 08-15 02:31:18 [__init__.py:453] Applied TPU patch: disable sequence-parallel MoE.
+INFO 08-15 02:31:18 [__init__.py:288] Applied TPU patch: host-side expert-map lookup.
+INFO 08-15 02:31:18 [__init__.py:288] Applied TPU patch: host-side expert-map lookup.
+INFO 08-15 02:31:18 [__init__.py:522] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+INFO 08-15 02:31:18 [__init__.py:436] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+INFO 08-15 02:31:18 [__init__.py:288] Applied TPU patch: host-side expert-map lookup.
+INFO 08-15 02:31:18 [__init__.py:380] Applied TPU patch: compile_all_ranges.
+INFO 08-15 02:31:18 [__init__.py:453] Applied TPU patch: disable sequence-parallel MoE.
+INFO 08-15 02:31:18 [__init__.py:522] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+INFO 08-15 02:31:18 [__init__.py:436] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+INFO 08-15 02:31:18 [__init__.py:288] Applied TPU patch: host-side expert-map lookup.
+INFO 08-15 02:31:18 [__init__.py:980] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+INFO 08-15 02:31:18 [__init__.py:670] Applied TPU patch: PCP-aware OffloadingConfig build.
+INFO 08-15 02:31:18 [__init__.py:730] Applied TPU patch: OffloadingConnector TPU spec construction.
+INFO 08-15 02:31:18 [__init__.py:766] Applied TPU patch: accurate layer counts for Kimi-K3 / KDA hybrid models.
+INFO 08-15 02:31:18 [__init__.py:97] Applied TPU patch: reconcile hybrid producer prefix hits.
+INFO 08-15 02:31:18 [__init__.py:1052] Applied LIFO free-block patch (pre-vllm#48017 order) to BlockPool
+INFO 08-15 02:31:18 [__init__.py:469] Applied TPU patch: disable DP microbatching.
+INFO 08-15 02:31:18 [__init__.py:575] Applied TPU patch: MultiprocExecutor worker binding env.
+INFO 08-15 02:31:18 [model_loader_patches.py:293] Applied TPU patch: EP-sharded Run:AI weight streaming (fetch only local experts when the EP weight filter is on).
+INFO 08-15 02:31:18 [tpu_platform.py:171] TorchTPU eager mode configured: DEFER_AND_FUSE (previous=DEFER_NEVER)
+(Worker pid=1595) INFO 08-15 02:31:18 [parallel_state.py:1640] world_size=4 rank=3 local_rank=3 distributed_init_method=tcp://127.0.0.1:57675 backend=tpu_dist
+INFO 08-15 02:31:18 [__init__.py:980] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+INFO 08-15 02:31:18 [__init__.py:670] Applied TPU patch: PCP-aware OffloadingConfig build.
+INFO 08-15 02:31:18 [__init__.py:730] Applied TPU patch: OffloadingConnector TPU spec construction.
+INFO 08-15 02:31:18 [__init__.py:766] Applied TPU patch: accurate layer counts for Kimi-K3 / KDA hybrid models.
+INFO 08-15 02:31:18 [__init__.py:97] Applied TPU patch: reconcile hybrid producer prefix hits.
+INFO 08-15 02:31:18 [__init__.py:1052] Applied LIFO free-block patch (pre-vllm#48017 order) to BlockPool
+INFO 08-15 02:31:18 [__init__.py:469] Applied TPU patch: disable DP microbatching.
+INFO 08-15 02:31:18 [__init__.py:575] Applied TPU patch: MultiprocExecutor worker binding env.
+INFO 08-15 02:31:18 [model_loader_patches.py:293] Applied TPU patch: EP-sharded Run:AI weight streaming (fetch only local experts when the EP weight filter is on).
+INFO 08-15 02:31:18 [tpu_platform.py:171] TorchTPU eager mode configured: DEFER_AND_FUSE (previous=DEFER_NEVER)
+(Worker pid=1594) INFO 08-15 02:31:18 [parallel_state.py:1640] world_size=4 rank=2 local_rank=2 distributed_init_method=tcp://127.0.0.1:57675 backend=tpu_dist
+INFO 08-15 02:31:18 [__init__.py:980] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+INFO 08-15 02:31:18 [__init__.py:670] Applied TPU patch: PCP-aware OffloadingConfig build.
+INFO 08-15 02:31:18 [__init__.py:730] Applied TPU patch: OffloadingConnector TPU spec construction.
+INFO 08-15 02:31:18 [__init__.py:766] Applied TPU patch: accurate layer counts for Kimi-K3 / KDA hybrid models.
+INFO 08-15 02:31:18 [__init__.py:97] Applied TPU patch: reconcile hybrid producer prefix hits.
+INFO 08-15 02:31:18 [__init__.py:1052] Applied LIFO free-block patch (pre-vllm#48017 order) to BlockPool
+INFO 08-15 02:31:18 [__init__.py:469] Applied TPU patch: disable DP microbatching.
+INFO 08-15 02:31:18 [__init__.py:575] Applied TPU patch: MultiprocExecutor worker binding env.
+INFO 08-15 02:31:18 [model_loader_patches.py:293] Applied TPU patch: EP-sharded Run:AI weight streaming (fetch only local experts when the EP weight filter is on).
+INFO 08-15 02:31:18 [tpu_platform.py:171] TorchTPU eager mode configured: DEFER_AND_FUSE (previous=DEFER_NEVER)
+(Worker pid=1593) INFO 08-15 02:31:18 [parallel_state.py:1640] world_size=4 rank=1 local_rank=1 distributed_init_method=tcp://127.0.0.1:57675 backend=tpu_dist
+INFO 08-15 02:31:18 [__init__.py:980] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+INFO 08-15 02:31:18 [__init__.py:670] Applied TPU patch: PCP-aware OffloadingConfig build.
+INFO 08-15 02:31:18 [__init__.py:730] Applied TPU patch: OffloadingConnector TPU spec construction.
+INFO 08-15 02:31:18 [__init__.py:766] Applied TPU patch: accurate layer counts for Kimi-K3 / KDA hybrid models.
+INFO 08-15 02:31:18 [__init__.py:97] Applied TPU patch: reconcile hybrid producer prefix hits.
+INFO 08-15 02:31:18 [__init__.py:1052] Applied LIFO free-block patch (pre-vllm#48017 order) to BlockPool
+INFO 08-15 02:31:18 [__init__.py:469] Applied TPU patch: disable DP microbatching.
+INFO 08-15 02:31:18 [__init__.py:575] Applied TPU patch: MultiprocExecutor worker binding env.
+INFO 08-15 02:31:18 [model_loader_patches.py:293] Applied TPU patch: EP-sharded Run:AI weight streaming (fetch only local experts when the EP weight filter is on).
+INFO 08-15 02:31:18 [tpu_platform.py:171] TorchTPU eager mode configured: DEFER_AND_FUSE (previous=DEFER_NEVER)
+(Worker pid=1592) INFO 08-15 02:31:18 [parallel_state.py:1640] world_size=4 rank=0 local_rank=0 distributed_init_method=tcp://127.0.0.1:57675 backend=tpu_dist
+W0000 00:00:1786761079.050215    1595 environment.cc:83] libtpu_init_args contains --xla_tpu_use_enhanced_launch_barrier=true, this can cause distributed hangs. Rewriting environment variable to false.
+W0000 00:00:1786761079.163192    1594 environment.cc:83] libtpu_init_args contains --xla_tpu_use_enhanced_launch_barrier=true, this can cause distributed hangs. Rewriting environment variable to false.
+W0000 00:00:1786761079.536399    1593 environment.cc:83] libtpu_init_args contains --xla_tpu_use_enhanced_launch_barrier=true, this can cause distributed hangs. Rewriting environment variable to false.
+W0000 00:00:1786761079.542332    1592 environment.cc:83] libtpu_init_args contains --xla_tpu_use_enhanced_launch_barrier=true, this can cause distributed hangs. Rewriting environment variable to false.
+(Worker pid=1592) INFO 08-15 02:31:22 [parallel_state.py:1977] rank 0 in world size 4 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 0, EP rank N/A, EPLB rank N/A
+(Worker pid=1594) INFO 08-15 02:31:22 [tpu_runner.py:5868] Preparing request paddings:
+(Worker pid=1592) INFO 08-15 02:31:22 [tpu_runner.py:5868] Preparing request paddings:
+(Worker pid=1594) INFO 08-15 02:31:22 [tpu_runner.py:5875]     8
+(Worker pid=1594) INFO 08-15 02:31:22 [tpu_runner.py:5875]     16
+(Worker pid=1592) INFO 08-15 02:31:22 [tpu_runner.py:5875]     8
+(Worker pid=1592) INFO 08-15 02:31:22 [tpu_runner.py:5875]     16
+(Worker pid=1595) INFO 08-15 02:31:22 [tpu_runner.py:5868] Preparing request paddings:
+(Worker pid=1595) INFO 08-15 02:31:22 [tpu_runner.py:5875]     8
+(Worker pid=1595) INFO 08-15 02:31:22 [tpu_runner.py:5875]     16
+(Worker pid=1593) INFO 08-15 02:31:22 [tpu_runner.py:5868] Preparing request paddings:
+(Worker pid=1593) INFO 08-15 02:31:22 [tpu_runner.py:5875]     8
+(Worker pid=1593) INFO 08-15 02:31:22 [tpu_runner.py:5875]     16
+(Worker pid=1594) INFO 08-15 02:31:22 [tpu_runner.py:900] Init mesh | tp_size=1 | device_id=2
+(Worker pid=1594) INFO 08-15 02:31:22 [tpu_worker.py:403] Init worker | rank=2 | is_first_rank=True | is_last_rank=True | node_id=0 | is_driver_worker=False | 
+(Worker pid=1592) INFO 08-15 02:31:22 [tpu_runner.py:900] Init mesh | tp_size=1 | device_id=0
+(Worker pid=1592) INFO 08-15 02:31:22 [tpu_worker.py:403] Init worker | rank=0 | is_first_rank=True | is_last_rank=True | node_id=0 | is_driver_worker=True | 
+(Worker_TP2 pid=1594) INFO 08-15 02:31:22 [tpu_runner.py:3999] Setting TPU quantization config for: None
+(Worker_TP0 pid=1592) INFO 08-15 02:31:22 [tpu_runner.py:3999] Setting TPU quantization config for: None
+(Worker pid=1595) INFO 08-15 02:31:22 [tpu_runner.py:900] Init mesh | tp_size=1 | device_id=3
+(Worker pid=1595) INFO 08-15 02:31:22 [tpu_worker.py:403] Init worker | rank=3 | is_first_rank=True | is_last_rank=True | node_id=0 | is_driver_worker=False | 
+(Worker_TP3 pid=1595) INFO 08-15 02:31:22 [tpu_runner.py:3999] Setting TPU quantization config for: None
+(Worker pid=1593) INFO 08-15 02:31:22 [tpu_runner.py:900] Init mesh | tp_size=1 | device_id=1
+(Worker pid=1593) INFO 08-15 02:31:22 [tpu_worker.py:403] Init worker | rank=1 | is_first_rank=True | is_last_rank=True | node_id=0 | is_driver_worker=False | 
+(Worker_TP1 pid=1593) INFO 08-15 02:31:22 [tpu_runner.py:3999] Setting TPU quantization config for: None
+(Worker_TP3 pid=1595) INFO 08-15 02:31:22 [tpu_runner.py:4005] Loading model from scratch...
+(Worker_TP3 pid=1595) INFO 08-15 02:31:22 [tpu_platform.py:683] Cannot use None backend on TPU. Setting to FLASH_ATTN.
+(Worker_TP3 pid=1595) INFO 08-15 02:31:22 [tpu_platform.py:686] Using FLASH_ATTN backend.
+(Worker_TP3 pid=1595) INFO 08-15 02:31:22 [compilation.py:1100] Using OOT custom backend for compilation.
+(Worker_TP2 pid=1594) INFO 08-15 02:31:22 [tpu_runner.py:4005] Loading model from scratch...
+(Worker_TP2 pid=1594) INFO 08-15 02:31:22 [tpu_platform.py:683] Cannot use None backend on TPU. Setting to FLASH_ATTN.
+(Worker_TP2 pid=1594) INFO 08-15 02:31:22 [tpu_platform.py:686] Using FLASH_ATTN backend.
+(Worker_TP3 pid=1595) INFO 08-15 02:31:23 [compilation.py:1100] Using OOT custom backend for compilation.
+(Worker_TP2 pid=1594) INFO 08-15 02:31:23 [compilation.py:1100] Using OOT custom backend for compilation.
+(Worker_TP0 pid=1592) INFO 08-15 02:31:23 [tpu_runner.py:4005] Loading model from scratch...
+(Worker_TP0 pid=1592) WARNING 08-15 02:31:23 [unquantized.py:112] Using vLLM's unquantized linear method for layer, performance may be affected.
+(Worker_TP0 pid=1592) INFO 08-15 02:31:23 [tpu_platform.py:683] Cannot use None backend on TPU. Setting to FLASH_ATTN.
+(Worker_TP0 pid=1592) INFO 08-15 02:31:23 [tpu_platform.py:686] Using FLASH_ATTN backend.
+(Worker_TP2 pid=1594) INFO 08-15 02:31:23 [compilation.py:1100] Using OOT custom backend for compilation.
+(Worker_TP0 pid=1592) INFO 08-15 02:31:23 [compilation.py:1100] Using OOT custom backend for compilation.
+(Worker_TP1 pid=1593) INFO 08-15 02:31:23 [tpu_runner.py:4005] Loading model from scratch...
+(Worker_TP1 pid=1593) INFO 08-15 02:31:23 [tpu_platform.py:683] Cannot use None backend on TPU. Setting to FLASH_ATTN.
+(Worker_TP1 pid=1593) INFO 08-15 02:31:23 [tpu_platform.py:686] Using FLASH_ATTN backend.
+(Worker_TP0 pid=1592) INFO 08-15 02:31:23 [compilation.py:1100] Using OOT custom backend for compilation.
+(Worker_TP1 pid=1593) INFO 08-15 02:31:23 [compilation.py:1100] Using OOT custom backend for compilation.
+(Worker_TP1 pid=1593) INFO 08-15 02:31:23 [compilation.py:1100] Using OOT custom backend for compilation.
+(Worker_TP3 pid=1595) INFO 08-15 02:34:49 [weight_utils.py:530] Time spent downloading weights for Qwen/Qwen3-32B: 206.466112 seconds
+(Worker_TP0 pid=1592) INFO 08-15 02:34:50 [weight_utils.py:867] Filesystem type for checkpoints: EXT4. Checkpoint size: 61.02 GiB. Available RAM: 190.82 GiB.
+(Worker_TP0 pid=1592) INFO 08-15 02:34:50 [weight_utils.py:890] Auto-prefetch is disabled because the filesystem (EXT4) is not a recognized network FS (NFS/Lustre). If you want to force prefetching, start vLLM with --safetensors-load-strategy=prefetch.
+(Worker_TP0 pid=1592) Loading safetensors checkpoint shards:   0% Completed | 0/17 [00:00<?, ?it/s]
+(Worker_TP0 pid=1592) Loading safetensors checkpoint shards:   6% Completed | 1/17 [00:00<00:03,  4.51it/s]
+(Worker_TP0 pid=1592) Loading safetensors checkpoint shards:  12% Completed | 2/17 [00:00<00:03,  3.80it/s]
+(Worker_TP0 pid=1592) Loading safetensors checkpoint shards:  18% Completed | 3/17 [00:00<00:03,  3.60it/s]
+(Worker_TP0 pid=1592) Loading safetensors checkpoint shards:  24% Completed | 4/17 [00:01<00:03,  3.50it/s]
+(Worker_TP0 pid=1592) Loading safetensors checkpoint shards:  29% Completed | 5/17 [00:01<00:03,  3.29it/s]
+(Worker_TP0 pid=1592) Loading safetensors checkpoint shards:  35% Completed | 6/17 [00:01<00:03,  3.09it/s]
+(Worker_TP0 pid=1592) Loading safetensors checkpoint shards:  41% Completed | 7/17 [00:02<00:03,  2.99it/s]
+(Worker_TP0 pid=1592) Loading safetensors checkpoint shards:  47% Completed | 8/17 [00:02<00:03,  2.90it/s]
+(Worker_TP0 pid=1592) Loading safetensors checkpoint shards:  53% Completed | 9/17 [00:02<00:02,  2.88it/s]
+(Worker_TP0 pid=1592) Loading safetensors checkpoint shards:  59% Completed | 10/17 [00:03<00:02,  2.88it/s]
+(Worker_TP0 pid=1592) Loading safetensors checkpoint shards:  65% Completed | 11/17 [00:03<00:02,  2.88it/s]
+(Worker_TP0 pid=1592) Loading safetensors checkpoint shards:  71% Completed | 12/17 [00:03<00:01,  2.90it/s]
+(Worker_TP0 pid=1592) Loading safetensors checkpoint shards:  76% Completed | 13/17 [00:04<00:01,  2.89it/s]
+(Worker_TP0 pid=1592) Loading safetensors checkpoint shards:  82% Completed | 14/17 [00:04<00:01,  2.90it/s]
+(Worker_TP3 pid=1595) INFO 08-15 02:34:54 [tpu_runner.py:4104] Pre-built attention/indexing kernels for 64 layers/modules.
+(Worker_TP3 pid=1595) INFO 08-15 02:34:54 [tpu_platform.py:1043] Using KV cache block size: 16
+(Worker_TP0 pid=1592) Loading safetensors checkpoint shards:  88% Completed | 15/17 [00:04<00:00,  2.93it/s]
+(Worker_TP0 pid=1592) Loading safetensors checkpoint shards:  94% Completed | 16/17 [00:05<00:00,  2.89it/s]
+(Worker_TP0 pid=1592) Loading safetensors checkpoint shards: 100% Completed | 17/17 [00:05<00:00,  3.01it/s]
+(Worker_TP0 pid=1592) Loading safetensors checkpoint shards: 100% Completed | 17/17 [00:05<00:00,  3.04it/s]
+(Worker_TP0 pid=1592) 
+(Worker_TP0 pid=1592) INFO 08-15 02:34:56 [default_loader.py:430] Loading weights took 5.65 seconds
+(Worker_TP2 pid=1594) INFO 08-15 02:34:56 [tpu_runner.py:4104] Pre-built attention/indexing kernels for 64 layers/modules.
+(Worker_TP1 pid=1593) INFO 08-15 02:34:56 [tpu_runner.py:4104] Pre-built attention/indexing kernels for 64 layers/modules.
+(Worker_TP0 pid=1592) INFO 08-15 02:34:56 [tpu_runner.py:4104] Pre-built attention/indexing kernels for 64 layers/modules.
+(Worker_TP2 pid=1594) INFO 08-15 02:34:56 [tpu_platform.py:1043] Using KV cache block size: 16
+(Worker_TP1 pid=1593) INFO 08-15 02:34:56 [tpu_platform.py:1043] Using KV cache block size: 16
+(Worker_TP0 pid=1592) INFO 08-15 02:34:56 [tpu_platform.py:1043] Using KV cache block size: 16
+(Worker_TP0 pid=1592) INFO 08-15 02:35:17 [backends.py:1094] Using cache directory: /root/.cache/vllm/profile_cache/88b38ee747/rank_0_0/backbone for vLLM's torch.compile
+(Worker_TP0 pid=1592) INFO 08-15 02:35:17 [backends.py:1155] Dynamo bytecode transform time: 15.20 s
+(Worker_TP2 pid=1594) INFO 08-15 02:35:17 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (4096, 4096)
+(Worker_TP0 pid=1592) INFO 08-15 02:35:17 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (4096, 4096)
+(Worker_TP3 pid=1595) INFO 08-15 02:35:17 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (4096, 4096)
+(Worker_TP1 pid=1593) INFO 08-15 02:35:17 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (4096, 4096)
+(Worker_TP2 pid=1594) INFO 08-15 02:35:32 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/profile_cache/88b38ee747/rank_2_0/backbone/artifact_compile_range_4096_4096_subgraph_0
+(Worker_TP0 pid=1592) INFO 08-15 02:35:32 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/profile_cache/88b38ee747/rank_0_0/backbone/artifact_compile_range_4096_4096_subgraph_0
+(Worker_TP0 pid=1592) INFO 08-15 02:35:32 [backends.py:378] Cache the graph of compile range (4096, 4096) for later use
+(Worker_TP0 pid=1592) INFO 08-15 02:35:32 [backends.py:393] Compiling a graph for compile range (4096, 4096) takes 14.96 s
+(Worker_TP3 pid=1595) INFO 08-15 02:35:32 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/profile_cache/88b38ee747/rank_3_0/backbone/artifact_compile_range_4096_4096_subgraph_0
+(Worker_TP1 pid=1593) INFO 08-15 02:35:33 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/profile_cache/88b38ee747/rank_1_0/backbone/artifact_compile_range_4096_4096_subgraph_0
+(Worker_TP2 pid=1594) INFO 08-15 02:35:39 [backends.py:920] collected artifacts: 1 entries, 1 artifacts, 27256843 bytes total
+(Worker_TP0 pid=1592) INFO 08-15 02:35:39 [backends.py:920] collected artifacts: 1 entries, 1 artifacts, 27250309 bytes total
+(Worker_TP0 pid=1592) INFO 08-15 02:35:39 [decorators.py:708] saved AOT compiled function to /root/.cache/vllm/torch_compile_cache/torch_aot_compile/bc5c40a840a0f6ec71903691923d7cfc10ac7ad0facacad8ae4995d06dc1933d/rank_0_0/model
+(Worker_TP0 pid=1592) INFO 08-15 02:35:39 [monitor.py:53] torch.compile took 37.53 s in total
+(Worker_TP0 pid=1592) INFO 08-15 02:35:39 [monitor.py:81] Initial profiling/warmup run took 0.00 s
+(Worker_TP3 pid=1595) INFO 08-15 02:35:39 [backends.py:920] collected artifacts: 1 entries, 1 artifacts, 27254159 bytes total
+(Worker_TP1 pid=1593) INFO 08-15 02:35:40 [backends.py:920] collected artifacts: 1 entries, 1 artifacts, 27256041 bytes total
+(Worker_TP1 pid=1593) INFO 08-15 02:35:40 [compilation.py:1100] Using OOT custom backend for compilation.
+(Worker_TP0 pid=1592) INFO 08-15 02:35:40 [compilation.py:1100] Using OOT custom backend for compilation.
+(Worker_TP3 pid=1595) INFO 08-15 02:35:40 [compilation.py:1100] Using OOT custom backend for compilation.
+(Worker_TP2 pid=1594) INFO 08-15 02:35:40 [compilation.py:1100] Using OOT custom backend for compilation.
+(Worker_TP0 pid=1592) INFO 08-15 02:35:40 [tpu_runner.py:4264] Compiling compute_selected_logits with different input shapes.
+(Worker_TP1 pid=1593) INFO 08-15 02:35:40 [tpu_runner.py:4264] Compiling compute_selected_logits with different input shapes.
+(Worker_TP3 pid=1595) INFO 08-15 02:35:40 [tpu_runner.py:4264] Compiling compute_selected_logits with different input shapes.
+(Worker_TP2 pid=1594) INFO 08-15 02:35:40 [tpu_runner.py:4264] Compiling compute_selected_logits with different input shapes.
+(Worker_TP0 pid=1592) INFO 08-15 02:35:41 [tpu_runner.py:4289]   -- num_tokens: 16, num_seqs: 8
+(Worker_TP2 pid=1594) INFO 08-15 02:35:41 [tpu_runner.py:4289]   -- num_tokens: 16, num_seqs: 8
+(Worker_TP1 pid=1593) INFO 08-15 02:35:41 [tpu_runner.py:4289]   -- num_tokens: 16, num_seqs: 8
+(Worker_TP3 pid=1595) INFO 08-15 02:35:41 [tpu_runner.py:4289]   -- num_tokens: 16, num_seqs: 8
+(Worker_TP0 pid=1592) INFO 08-15 02:35:42 [tpu_runner.py:4289]   -- num_tokens: 16, num_seqs: 16
+(Worker_TP3 pid=1595) INFO 08-15 02:35:42 [tpu_runner.py:4289]   -- num_tokens: 16, num_seqs: 16
+(Worker_TP2 pid=1594) INFO 08-15 02:35:42 [tpu_runner.py:4289]   -- num_tokens: 16, num_seqs: 16
+(Worker_TP1 pid=1593) INFO 08-15 02:35:42 [tpu_runner.py:4289]   -- num_tokens: 16, num_seqs: 16
+(Worker_TP3 pid=1595) INFO 08-15 02:35:43 [tpu_runner.py:4289]   -- num_tokens: 32, num_seqs: 8
+(Worker_TP0 pid=1592) INFO 08-15 02:35:43 [tpu_runner.py:4289]   -- num_tokens: 32, num_seqs: 8
+(Worker_TP1 pid=1593) INFO 08-15 02:35:43 [tpu_runner.py:4289]   -- num_tokens: 32, num_seqs: 8
+(Worker_TP2 pid=1594) INFO 08-15 02:35:43 [tpu_runner.py:4289]   -- num_tokens: 32, num_seqs: 8
+(Worker_TP1 pid=1593) INFO 08-15 02:35:44 [tpu_runner.py:4289]   -- num_tokens: 32, num_seqs: 16
+(Worker_TP0 pid=1592) INFO 08-15 02:35:44 [tpu_runner.py:4289]   -- num_tokens: 32, num_seqs: 16
+(Worker_TP3 pid=1595) INFO 08-15 02:35:44 [tpu_runner.py:4289]   -- num_tokens: 32, num_seqs: 16
+(Worker_TP2 pid=1594) INFO 08-15 02:35:44 [tpu_runner.py:4289]   -- num_tokens: 32, num_seqs: 16
+(Worker_TP1 pid=1593) INFO 08-15 02:35:45 [tpu_runner.py:4289]   -- num_tokens: 64, num_seqs: 8
+(Worker_TP3 pid=1595) INFO 08-15 02:35:45 [tpu_runner.py:4289]   -- num_tokens: 64, num_seqs: 8
+(Worker_TP2 pid=1594) INFO 08-15 02:35:45 [tpu_runner.py:4289]   -- num_tokens: 64, num_seqs: 8
+(Worker_TP0 pid=1592) INFO 08-15 02:35:45 [tpu_runner.py:4289]   -- num_tokens: 64, num_seqs: 8
+(Worker_TP0 pid=1592) INFO 08-15 02:35:46 [tpu_runner.py:4289]   -- num_tokens: 64, num_seqs: 16
+(Worker_TP3 pid=1595) INFO 08-15 02:35:46 [tpu_runner.py:4289]   -- num_tokens: 64, num_seqs: 16
+(Worker_TP2 pid=1594) INFO 08-15 02:35:46 [tpu_runner.py:4289]   -- num_tokens: 64, num_seqs: 16
+(Worker_TP1 pid=1593) INFO 08-15 02:35:46 [tpu_runner.py:4289]   -- num_tokens: 64, num_seqs: 16
+(Worker_TP1 pid=1593) INFO 08-15 02:35:48 [tpu_runner.py:4289]   -- num_tokens: 128, num_seqs: 8
+(Worker_TP2 pid=1594) INFO 08-15 02:35:48 [tpu_runner.py:4289]   -- num_tokens: 128, num_seqs: 8
+(Worker_TP0 pid=1592) INFO 08-15 02:35:48 [tpu_runner.py:4289]   -- num_tokens: 128, num_seqs: 8
+(Worker_TP3 pid=1595) INFO 08-15 02:35:48 [tpu_runner.py:4289]   -- num_tokens: 128, num_seqs: 8
+(Worker_TP3 pid=1595) INFO 08-15 02:35:49 [tpu_runner.py:4289]   -- num_tokens: 128, num_seqs: 16
+(Worker_TP0 pid=1592) INFO 08-15 02:35:49 [tpu_runner.py:4289]   -- num_tokens: 128, num_seqs: 16
+(Worker_TP2 pid=1594) INFO 08-15 02:35:49 [tpu_runner.py:4289]   -- num_tokens: 128, num_seqs: 16
+(Worker_TP1 pid=1593) INFO 08-15 02:35:49 [tpu_runner.py:4289]   -- num_tokens: 128, num_seqs: 16
+(Worker_TP3 pid=1595) (Worker_TP0 pid=1592) INFO 08-15 02:35:50 [tpu_runner.py:4289]   -- num_tokens: 256, num_seqs: 8
+INFO 08-15 02:35:50 [tpu_runner.py:4289]   -- num_tokens: 256, num_seqs: 8
+(Worker_TP2 pid=1594) INFO 08-15 02:35:50 [tpu_runner.py:4289]   -- num_tokens: 256, num_seqs: 8
+(Worker_TP1 pid=1593) INFO 08-15 02:35:50 [tpu_runner.py:4289]   -- num_tokens: 256, num_seqs: 8
+(Worker_TP1 pid=1593) INFO 08-15 02:35:51 [tpu_runner.py:4289]   -- num_tokens: 256, num_seqs: 16
+(Worker_TP3 pid=1595) INFO 08-15 02:35:51 [tpu_runner.py:4289]   -- num_tokens: 256, num_seqs: 16
+(Worker_TP0 pid=1592) INFO 08-15 02:35:51 [tpu_runner.py:4289]   -- num_tokens: 256, num_seqs: 16
+(Worker_TP2 pid=1594) INFO 08-15 02:35:51 [tpu_runner.py:4289]   -- num_tokens: 256, num_seqs: 16
+(Worker_TP2 pid=1594) (Worker_TP1 pid=1593) INFO 08-15 02:35:52 [tpu_runner.py:4289]   -- num_tokens: 512, num_seqs: 8
+INFO 08-15 02:35:52 [tpu_runner.py:4289]   -- num_tokens: 512, num_seqs: 8
+(Worker_TP0 pid=1592) INFO 08-15 02:35:52 [tpu_runner.py:4289]   -- num_tokens: 512, num_seqs: 8
+(Worker_TP3 pid=1595) INFO 08-15 02:35:52 [tpu_runner.py:4289]   -- num_tokens: 512, num_seqs: 8
+(Worker_TP3 pid=1595) INFO 08-15 02:35:53 [tpu_runner.py:4289]   -- num_tokens: 512, num_seqs: 16
+(Worker_TP0 pid=1592) INFO 08-15 02:35:53 [tpu_runner.py:4289]   -- num_tokens: 512, num_seqs: 16
+(Worker_TP1 pid=1593) INFO 08-15 02:35:53 [tpu_runner.py:4289]   -- num_tokens: 512, num_seqs: 16
+(Worker_TP2 pid=1594) INFO 08-15 02:35:53 [tpu_runner.py:4289]   -- num_tokens: 512, num_seqs: 16
+(Worker_TP3 pid=1595) INFO 08-15 02:35:54 [tpu_runner.py:4289]   -- num_tokens: 1024, num_seqs: 8
+(Worker_TP1 pid=1593) INFO 08-15 02:35:54 [tpu_runner.py:4289]   -- num_tokens: 1024, num_seqs: 8
+(Worker_TP2 pid=1594) (Worker_TP0 pid=1592) INFO 08-15 02:35:54 [tpu_runner.py:4289]   -- num_tokens: 1024, num_seqs: 8
+INFO 08-15 02:35:54 [tpu_runner.py:4289]   -- num_tokens: 1024, num_seqs: 8
+(Worker_TP1 pid=1593) INFO 08-15 02:35:55 [tpu_runner.py:4289]   -- num_tokens: 1024, num_seqs: 16
+(Worker_TP0 pid=1592) (Worker_TP2 pid=1594) INFO 08-15 02:35:55 [tpu_runner.py:4289]   -- num_tokens: 1024, num_seqs: 16
+INFO 08-15 02:35:55 [tpu_runner.py:4289]   -- num_tokens: 1024, num_seqs: 16
+(Worker_TP3 pid=1595) INFO 08-15 02:35:55 [tpu_runner.py:4289]   -- num_tokens: 1024, num_seqs: 16
+(Worker_TP1 pid=1593) INFO 08-15 02:35:56 [tpu_runner.py:4289]   -- num_tokens: 2048, num_seqs: 8
+(Worker_TP3 pid=1595) INFO 08-15 02:35:56 [tpu_runner.py:4289]   -- num_tokens: 2048, num_seqs: 8
+(Worker_TP0 pid=1592) INFO 08-15 02:35:56 [tpu_runner.py:4289]   -- num_tokens: 2048, num_seqs: 8
+(Worker_TP2 pid=1594) INFO 08-15 02:35:56 [tpu_runner.py:4289]   -- num_tokens: 2048, num_seqs: 8
+(EngineCore pid=1323) INFO 08-15 02:35:57 [shm_broadcast.py:802] No available shared memory broadcast block found in 60 seconds. This typically happens when some processes are hanging or doing some time-consuming work (e.g. compilation, weight/kv cache quantization).
+(Worker_TP1 pid=1593) INFO 08-15 02:35:57 [tpu_runner.py:4289]   -- num_tokens: 2048, num_seqs: 16
+(Worker_TP3 pid=1595) INFO 08-15 02:35:57 [tpu_runner.py:4289]   -- num_tokens: 2048, num_seqs: 16
+(Worker_TP2 pid=1594) (Worker_TP0 pid=1592) INFO 08-15 02:35:57 [tpu_runner.py:4289]   -- num_tokens: 2048, num_seqs: 16
+INFO 08-15 02:35:57 [tpu_runner.py:4289]   -- num_tokens: 2048, num_seqs: 16
+(Worker_TP0 pid=1592) (Worker_TP3 pid=1595) INFO 08-15 02:35:58 [tpu_runner.py:4289]   -- num_tokens: 4096, num_seqs: 8
+INFO 08-15 02:35:58 [tpu_runner.py:4289]   -- num_tokens: 4096, num_seqs: 8
+(Worker_TP2 pid=1594) INFO 08-15 02:35:58 [tpu_runner.py:4289]   -- num_tokens: 4096, num_seqs: 8
+(Worker_TP1 pid=1593) INFO 08-15 02:35:58 [tpu_runner.py:4289]   -- num_tokens: 4096, num_seqs: 8
+(Worker_TP3 pid=1595) (Worker_TP1 pid=1593) INFO 08-15 02:35:59 [tpu_runner.py:4289]   -- num_tokens: 4096, num_seqs: 16
+INFO 08-15 02:35:59 [tpu_runner.py:4289]   -- num_tokens: 4096, num_seqs: 16
+(Worker_TP2 pid=1594) INFO 08-15 02:35:59 [tpu_runner.py:4289]   -- num_tokens: 4096, num_seqs: 16
+(Worker_TP0 pid=1592) INFO 08-15 02:35:59 [tpu_runner.py:4289]   -- num_tokens: 4096, num_seqs: 16
+(Worker_TP0 pid=1592) INFO 08-15 02:35:59 [tpu_runner.py:4267] Compilation finished in 18.68 [secs].
+(Worker_TP0 pid=1592) INFO 08-15 02:35:59 [tpu_runner.py:4264] Compiling structured_decoding with different input shapes.
+(Worker_TP1 pid=1593) INFO 08-15 02:35:59 [tpu_runner.py:4267] Compilation finished in 18.68 [secs].
+(Worker_TP3 pid=1595) INFO 08-15 02:35:59 [tpu_runner.py:4267] Compilation finished in 18.68 [secs].
+(Worker_TP2 pid=1594) INFO 08-15 02:35:59 [tpu_runner.py:4267] Compilation finished in 18.68 [secs].
+(Worker_TP1 pid=1593) INFO 08-15 02:35:59 [tpu_runner.py:4264] Compiling structured_decoding with different input shapes.
+(Worker_TP3 pid=1595) INFO 08-15 02:35:59 [tpu_runner.py:4264] Compiling structured_decoding with different input shapes.
+(Worker_TP2 pid=1594) INFO 08-15 02:35:59 [tpu_runner.py:4264] Compiling structured_decoding with different input shapes.
+(Worker_TP2 pid=1594) INFO 08-15 02:36:00 [tpu_runner.py:4319]   -- num_seqs: 8
+(Worker_TP1 pid=1593) INFO 08-15 02:36:00 [tpu_runner.py:4319]   -- num_seqs: 8
+(Worker_TP0 pid=1592) INFO 08-15 02:36:00 [tpu_runner.py:4319]   -- num_seqs: 8
+(Worker_TP3 pid=1595) INFO 08-15 02:36:00 [tpu_runner.py:4319]   -- num_seqs: 8
+(Worker_TP2 pid=1594) INFO 08-15 02:36:01 [tpu_runner.py:4319]   -- num_seqs: 16
+(Worker_TP2 pid=1594) INFO 08-15 02:36:01 [tpu_runner.py:4267] Compilation finished in 2.70 [secs].
+(Worker_TP2 pid=1594) INFO 08-15 02:36:01 [tpu_runner.py:4264] Compiling sample_from_logits with different input shapes.
+(Worker_TP0 pid=1592) INFO 08-15 02:36:01 [tpu_runner.py:4319]   -- num_seqs: 16
+(Worker_TP0 pid=1592) INFO 08-15 02:36:01 [tpu_runner.py:4267] Compilation finished in 2.70 [secs].
+(Worker_TP0 pid=1592) INFO 08-15 02:36:01 [tpu_runner.py:4264] Compiling sample_from_logits with different input shapes.
+(Worker_TP1 pid=1593) INFO 08-15 02:36:01 [tpu_runner.py:4319]   -- num_seqs: 16
+(Worker_TP1 pid=1593) INFO 08-15 02:36:01 [tpu_runner.py:4267] Compilation finished in 2.70 [secs].
+(Worker_TP1 pid=1593) INFO 08-15 02:36:01 [tpu_runner.py:4264] Compiling sample_from_logits with different input shapes.
+(Worker_TP3 pid=1595) INFO 08-15 02:36:01 [tpu_runner.py:4319]   -- num_seqs: 16
+(Worker_TP3 pid=1595) INFO 08-15 02:36:01 [tpu_runner.py:4267] Compilation finished in 2.70 [secs].
+(Worker_TP3 pid=1595) INFO 08-15 02:36:01 [tpu_runner.py:4264] Compiling sample_from_logits with different input shapes.
+(Worker_TP2 pid=1594) INFO 08-15 02:36:08 [tpu_runner.py:4344]   -- num_seqs: 8
+(Worker_TP0 pid=1592) INFO 08-15 02:36:08 [tpu_runner.py:4344]   -- num_seqs: 8
+(Worker_TP3 pid=1595) INFO 08-15 02:36:08 [tpu_runner.py:4344]   -- num_seqs: 8
+(Worker_TP1 pid=1593) INFO 08-15 02:36:08 [tpu_runner.py:4344]   -- num_seqs: 8
+(Worker_TP2 pid=1594) INFO 08-15 02:36:14 [tpu_runner.py:4344]   -- num_seqs: 16
+(Worker_TP2 pid=1594) INFO 08-15 02:36:14 [tpu_runner.py:4267] Compilation finished in 12.94 [secs].
+(Worker_TP2 pid=1594) INFO 08-15 02:36:14 [tpu_runner.py:4264] Compiling gather_logprobs with different input shapes.
+(Worker_TP0 pid=1592) INFO 08-15 02:36:14 [tpu_runner.py:4344]   -- num_seqs: 16
+(Worker_TP0 pid=1592) INFO 08-15 02:36:14 [tpu_runner.py:4267] Compilation finished in 12.94 [secs].
+(Worker_TP0 pid=1592) INFO 08-15 02:36:14 [tpu_runner.py:4264] Compiling gather_logprobs with different input shapes.
+(Worker_TP1 pid=1593) INFO 08-15 02:36:14 [tpu_runner.py:4344]   -- num_seqs: 16
+(Worker_TP1 pid=1593) INFO 08-15 02:36:14 [tpu_runner.py:4267] Compilation finished in 12.94 [secs].
+(Worker_TP1 pid=1593) INFO 08-15 02:36:14 [tpu_runner.py:4264] Compiling gather_logprobs with different input shapes.
+(Worker_TP3 pid=1595) INFO 08-15 02:36:14 [tpu_runner.py:4344]   -- num_seqs: 16
+(Worker_TP3 pid=1595) INFO 08-15 02:36:14 [tpu_runner.py:4267] Compilation finished in 12.94 [secs].
+(Worker_TP3 pid=1595) INFO 08-15 02:36:14 [tpu_runner.py:4264] Compiling gather_logprobs with different input shapes.
+(Worker_TP2 pid=1594) INFO 08-15 02:36:20 [tpu_runner.py:4355]   -- num_seqs: 8
+(Worker_TP1 pid=1593) INFO 08-15 02:36:20 [tpu_runner.py:4355]   -- num_seqs: 8
+(Worker_TP0 pid=1592) INFO 08-15 02:36:20 [tpu_runner.py:4355]   -- num_seqs: 8
+(Worker_TP3 pid=1595) INFO 08-15 02:36:20 [tpu_runner.py:4355]   -- num_seqs: 8
+(Worker_TP2 pid=1594) INFO 08-15 02:36:26 [tpu_runner.py:4355]   -- num_seqs: 16
+(Worker_TP2 pid=1594) INFO 08-15 02:36:26 [tpu_runner.py:4267] Compilation finished in 11.87 [secs].
+(Worker_TP2 pid=1594) INFO 08-15 02:36:26 [tpu_worker.py:455] Memory statistics | total_hbm_limit_gb=94.74GiB | total_hbm_limit_cap_gb=80.53GiB | total_hbm_used_gb=15.36GiB | kv_connector_hbm_reserve_gb=0.0GiB | total_hbm_avail_gb=65.17GiB
+(Worker_TP1 pid=1593) INFO 08-15 02:36:26 [tpu_runner.py:4355]   -- num_seqs: 16
+(Worker_TP1 pid=1593) INFO 08-15 02:36:26 [tpu_runner.py:4267] Compilation finished in 11.88 [secs].
+(Worker_TP1 pid=1593) INFO 08-15 02:36:26 [tpu_worker.py:455] Memory statistics | total_hbm_limit_gb=94.74GiB | total_hbm_limit_cap_gb=80.53GiB | total_hbm_used_gb=15.36GiB | kv_connector_hbm_reserve_gb=0.0GiB | total_hbm_avail_gb=65.17GiB
+(Worker_TP0 pid=1592) INFO 08-15 02:36:26 [tpu_runner.py:4355]   -- num_seqs: 16
+(Worker_TP0 pid=1592) INFO 08-15 02:36:26 [tpu_runner.py:4267] Compilation finished in 11.89 [secs].
+(Worker_TP0 pid=1592) INFO 08-15 02:36:26 [tpu_worker.py:455] Memory statistics | total_hbm_limit_gb=94.74GiB | total_hbm_limit_cap_gb=80.53GiB | total_hbm_used_gb=15.36GiB | kv_connector_hbm_reserve_gb=0.0GiB | total_hbm_avail_gb=65.17GiB
+(Worker_TP3 pid=1595) INFO 08-15 02:36:26 [tpu_runner.py:4355]   -- num_seqs: 16
+(Worker_TP3 pid=1595) INFO 08-15 02:36:26 [tpu_runner.py:4267] Compilation finished in 11.89 [secs].
+(Worker_TP3 pid=1595) INFO 08-15 02:36:26 [tpu_worker.py:455] Memory statistics | total_hbm_limit_gb=94.74GiB | total_hbm_limit_cap_gb=80.53GiB | total_hbm_used_gb=15.36GiB | kv_connector_hbm_reserve_gb=0.0GiB | total_hbm_avail_gb=65.17GiB
+(EngineCore pid=1323) INFO 08-15 02:36:26 [kv_cache_utils.py:2173] Overriding num_gpu_blocks=66731 with num_gpu_blocks_override=2048
+(EngineCore pid=1323) INFO 08-15 02:36:26 [kv_cache_utils.py:2173] Overriding num_gpu_blocks=66731 with num_gpu_blocks_override=2048
+(EngineCore pid=1323) INFO 08-15 02:36:26 [kv_cache_utils.py:2173] Overriding num_gpu_blocks=66731 with num_gpu_blocks_override=2048
+(EngineCore pid=1323) INFO 08-15 02:36:26 [kv_cache_utils.py:2173] Overriding num_gpu_blocks=66731 with num_gpu_blocks_override=2048
+(EngineCore pid=1323) INFO 08-15 02:36:26 [kv_cache_utils.py:2235] GPU KV cache size: 32,768 tokens
+(EngineCore pid=1323) INFO 08-15 02:36:26 [kv_cache_utils.py:2236] Maximum concurrency for 16,384 tokens per request: 2.00x
+(Worker_TP3 pid=1595) INFO 08-15 02:36:26 [factory.py:62] Creating v1 connector with name: TPURaidenOffloadingConnector and engine_id: 78bbbbaa-743a-4fb7-8c95-a99684c2bfda
+(Worker_TP3 pid=1595) WARNING 08-15 02:36:26 [base.py:202] Initializing KVConnectorBase_V1. This API is experimental and subject to change in the future as we iterate the design.
+(Worker_TP0 pid=1592) INFO 08-15 02:36:26 [factory.py:62] Creating v1 connector with name: TPURaidenOffloadingConnector and engine_id: 78bbbbaa-743a-4fb7-8c95-a99684c2bfda
+(Worker_TP0 pid=1592) WARNING 08-15 02:36:26 [base.py:202] Initializing KVConnectorBase_V1. This API is experimental and subject to change in the future as we iterate the design.
+(Worker_TP3 pid=1595) INFO 08-15 02:36:26 [block_major_layout.py:202] Block-major contract: F=64 fragments x 16384 B kernel rows (bundle row 1048576 B, kernel_block_size=16, factor=1), logical_fingerprint=1f3e826aac758ac54a974ce58321150d9b5f778986c0b06f2af9b6a76c3dc680
+(Worker_TP2 pid=1594) INFO 08-15 02:36:26 [factory.py:62] Creating v1 connector with name: TPURaidenOffloadingConnector and engine_id: 78bbbbaa-743a-4fb7-8c95-a99684c2bfda
+(Worker_TP2 pid=1594) WARNING 08-15 02:36:26 [base.py:202] Initializing KVConnectorBase_V1. This API is experimental and subject to change in the future as we iterate the design.
+(Worker_TP3 pid=1595) INFO 08-15 02:36:26 [block_major_layout.py:202] Block-major contract: F=64 fragments x 16384 B kernel rows (bundle row 1048576 B, kernel_block_size=16, factor=1), logical_fingerprint=1f3e826aac758ac54a974ce58321150d9b5f778986c0b06f2af9b6a76c3dc680
+(Worker_TP1 pid=1593) INFO 08-15 02:36:26 [factory.py:62] Creating v1 connector with name: TPURaidenOffloadingConnector and engine_id: 78bbbbaa-743a-4fb7-8c95-a99684c2bfda
+(Worker_TP0 pid=1592) INFO 08-15 02:36:26 [block_major_layout.py:202] Block-major contract: F=64 fragments x 16384 B kernel rows (bundle row 1048576 B, kernel_block_size=16, factor=1), logical_fingerprint=1f3e826aac758ac54a974ce58321150d9b5f778986c0b06f2af9b6a76c3dc680
+(Worker_TP1 pid=1593) WARNING 08-15 02:36:26 [base.py:202] Initializing KVConnectorBase_V1. This API is experimental and subject to change in the future as we iterate the design.
+(Worker_TP0 pid=1592) WARNING 08-15 02:36:26 [vllm.py:609] Model Runner V2 requires Triton; using the V1 model runner instead.
+(Worker_TP2 pid=1594) INFO 08-15 02:36:26 [block_major_layout.py:202] Block-major contract: F=64 fragments x 16384 B kernel rows (bundle row 1048576 B, kernel_block_size=16, factor=1), logical_fingerprint=1f3e826aac758ac54a974ce58321150d9b5f778986c0b06f2af9b6a76c3dc680
+(Worker_TP0 pid=1592) INFO 08-15 02:36:26 [block_major_layout.py:202] Block-major contract: F=64 fragments x 16384 B kernel rows (bundle row 1048576 B, kernel_block_size=16, factor=1), logical_fingerprint=1f3e826aac758ac54a974ce58321150d9b5f778986c0b06f2af9b6a76c3dc680
+(Worker_TP1 pid=1593) INFO 08-15 02:36:26 [block_major_layout.py:202] Block-major contract: F=64 fragments x 16384 B kernel rows (bundle row 1048576 B, kernel_block_size=16, factor=1), logical_fingerprint=1f3e826aac758ac54a974ce58321150d9b5f778986c0b06f2af9b6a76c3dc680
+(Worker_TP2 pid=1594) INFO 08-15 02:36:26 [block_major_layout.py:202] Block-major contract: F=64 fragments x 16384 B kernel rows (bundle row 1048576 B, kernel_block_size=16, factor=1), logical_fingerprint=1f3e826aac758ac54a974ce58321150d9b5f778986c0b06f2af9b6a76c3dc680
+(Worker_TP1 pid=1593) INFO 08-15 02:36:26 [block_major_layout.py:202] Block-major contract: F=64 fragments x 16384 B kernel rows (bundle row 1048576 B, kernel_block_size=16, factor=1), logical_fingerprint=1f3e826aac758ac54a974ce58321150d9b5f778986c0b06f2af9b6a76c3dc680
+(Worker_TP3 pid=1595) INFO 08-15 02:36:26 [tpu_runner.py:5463] Block-major KV cache: allocating bundle of shape (2048, 64, 16, 2, 2, 128) dtype=torch.bfloat16 (64 attention layers, 2048 blocks); attention routes through the bundled RPA kernel with dynamic layer_idx.
+(Worker_TP0 pid=1592) INFO 08-15 02:36:26 [tpu_runner.py:5463] Block-major KV cache: allocating bundle of shape (2048, 64, 16, 2, 2, 128) dtype=torch.bfloat16 (64 attention layers, 2048 blocks); attention routes through the bundled RPA kernel with dynamic layer_idx.
+(Worker_TP2 pid=1594) INFO 08-15 02:36:26 [tpu_runner.py:5463] Block-major KV cache: allocating bundle of shape (2048, 64, 16, 2, 2, 128) dtype=torch.bfloat16 (64 attention layers, 2048 blocks); attention routes through the bundled RPA kernel with dynamic layer_idx.
+(Worker_TP1 pid=1593) INFO 08-15 02:36:26 [tpu_runner.py:5463] Block-major KV cache: allocating bundle of shape (2048, 64, 16, 2, 2, 128) dtype=torch.bfloat16 (64 attention layers, 2048 blocks); attention routes through the bundled RPA kernel with dynamic layer_idx.
+(Worker_TP2 pid=1594) INFO 08-15 02:36:26 [tpu_runner.py:4104] Pre-built attention/indexing kernels for 64 layers/modules.
+(Worker_TP3 pid=1595) INFO 08-15 02:36:26 [tpu_runner.py:4104] Pre-built attention/indexing kernels for 64 layers/modules.
+(Worker_TP0 pid=1592) INFO 08-15 02:36:26 [tpu_runner.py:4104] Pre-built attention/indexing kernels for 64 layers/modules.
+(Worker_TP1 pid=1593) INFO 08-15 02:36:26 [tpu_runner.py:4104] Pre-built attention/indexing kernels for 64 layers/modules.
+(Worker_TP0 pid=1592) (Worker_TP2 pid=1594) INFO 08-15 02:36:26 [tpu_runner.py:4264] Compiling model backbone with different input shapes.
+INFO 08-15 02:36:26 [tpu_runner.py:4264] Compiling model backbone with different input shapes.
+(Worker_TP3 pid=1595) (Worker_TP1 pid=1593) INFO 08-15 02:36:26 [tpu_runner.py:4264] Compiling model backbone with different input shapes.
+INFO 08-15 02:36:26 [tpu_runner.py:4264] Compiling model backbone with different input shapes.
+(Worker_TP0 pid=1592) (Worker_TP2 pid=1594) INFO 08-15 02:36:26 [tpu_runner.py:4527]   -- num_tokens: 16
+INFO 08-15 02:36:26 [tpu_runner.py:4527]   -- num_tokens: 16
+(Worker_TP1 pid=1593) INFO 08-15 02:36:26 [tpu_runner.py:4527]   -- num_tokens: 16
+(Worker_TP3 pid=1595) INFO 08-15 02:36:26 [tpu_runner.py:4527]   -- num_tokens: 16
+(Worker_TP0 pid=1592) INFO 08-15 02:36:44 [backends.py:1094] Using cache directory: /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_0_0/backbone for vLLM's torch.compile
+(Worker_TP0 pid=1592) INFO 08-15 02:36:44 [backends.py:1155] Dynamo bytecode transform time: 17.20 s
+(Worker_TP0 pid=1592) INFO 08-15 02:36:44 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (16, 16)
+(Worker_TP1 pid=1593) INFO 08-15 02:36:44 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (32, 32)
+(Worker_TP3 pid=1595) INFO 08-15 02:36:44 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (128, 128)
+(Worker_TP2 pid=1594) INFO 08-15 02:36:45 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (64, 64)
+(Worker_TP0 pid=1592) WARNING 08-15 02:36:59 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 0: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP1 pid=1593) WARNING 08-15 02:36:59 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 1: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP3 pid=1595) WARNING 08-15 02:37:00 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 3: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP2 pid=1594) WARNING 08-15 02:37:00 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 2: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP1 pid=1593) INFO 08-15 02:37:09 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_1_0/backbone/artifact_compile_range_32_32_subgraph_0
+(Worker_TP0 pid=1592) INFO 08-15 02:37:09 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_0_0/backbone/artifact_compile_range_16_16_subgraph_0
+(Worker_TP0 pid=1592) INFO 08-15 02:37:09 [backends.py:378] Cache the graph of compile range (16, 16) for later use
+(Worker_TP0 pid=1592) INFO 08-15 02:37:09 [backends.py:393] Compiling a graph for compile range (16, 16) takes 24.66 s
+(Worker_TP1 pid=1593) INFO 08-15 02:37:09 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (64, 64)
+(Worker_TP0 pid=1592) INFO 08-15 02:37:09 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (4096, 4096)
+(Worker_TP3 pid=1595) INFO 08-15 02:37:09 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_3_0/backbone/artifact_compile_range_128_128_subgraph_0
+(Worker_TP3 pid=1595) INFO 08-15 02:37:09 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (256, 256)
+(Worker_TP2 pid=1594) INFO 08-15 02:37:10 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_2_0/backbone/artifact_compile_range_64_64_subgraph_0
+(Worker_TP2 pid=1594) INFO 08-15 02:37:10 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (128, 128)
+(EngineCore pid=1323) INFO 08-15 02:37:27 [shm_broadcast.py:802] No available shared memory broadcast block found in 60 seconds. This typically happens when some processes are hanging or doing some time-consuming work (e.g. compilation, weight/kv cache quantization).
+(Worker_TP1 pid=1593) WARNING 08-15 02:37:32 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 1: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP3 pid=1595) WARNING 08-15 02:37:33 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 3: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP1 pid=1593) INFO 08-15 02:37:33 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_1_0/backbone/artifact_compile_range_64_64_subgraph_0
+(Worker_TP1 pid=1593) INFO 08-15 02:37:33 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (128, 128)
+(Worker_TP3 pid=1595) INFO 08-15 02:37:34 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_3_0/backbone/artifact_compile_range_256_256_subgraph_0
+(Worker_TP3 pid=1595) INFO 08-15 02:37:34 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (512, 512)
+(Worker_TP2 pid=1594) WARNING 08-15 02:37:34 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 2: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP2 pid=1594) INFO 08-15 02:37:35 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_2_0/backbone/artifact_compile_range_128_128_subgraph_0
+(Worker_TP2 pid=1594) INFO 08-15 02:37:35 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (256, 256)
+(Worker_TP0 pid=1592) WARNING 08-15 02:37:36 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 0: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP0 pid=1592) INFO 08-15 02:37:36 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_0_0/backbone/artifact_compile_range_4096_4096_subgraph_0
+(Worker_TP0 pid=1592) INFO 08-15 02:37:36 [backends.py:393] Compiling a graph for compile range (4096, 4096) takes 27.62 s
+(Worker_TP0 pid=1592) INFO 08-15 02:37:37 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (32, 32)
+(Worker_TP1 pid=1593) INFO 08-15 02:37:57 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_1_0/backbone/artifact_compile_range_128_128_subgraph_0
+(Worker_TP1 pid=1593) INFO 08-15 02:37:57 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (256, 256)
+(Worker_TP3 pid=1595) INFO 08-15 02:37:58 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_3_0/backbone/artifact_compile_range_512_512_subgraph_0
+(Worker_TP3 pid=1595) INFO 08-15 02:37:58 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (1024, 1024)
+(Worker_TP2 pid=1594) INFO 08-15 02:37:59 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_2_0/backbone/artifact_compile_range_256_256_subgraph_0
+(Worker_TP2 pid=1594) INFO 08-15 02:37:59 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (512, 512)
+(Worker_TP0 pid=1592) INFO 08-15 02:38:02 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_0_0/backbone/artifact_compile_range_32_32_subgraph_0
+(Worker_TP0 pid=1592) INFO 08-15 02:38:02 [backends.py:378] Cache the graph of compile range (32, 32) for later use
+(Worker_TP0 pid=1592) INFO 08-15 02:38:02 [backends.py:393] Compiling a graph for compile range (32, 32) takes 25.43 s
+(Worker_TP0 pid=1592) INFO 08-15 02:38:02 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (64, 64)
+(Worker_TP0 pid=1592) WARNING 08-15 02:38:06 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 0: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP1 pid=1593) WARNING 08-15 02:38:06 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 1: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP3 pid=1595) WARNING 08-15 02:38:08 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 3: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP2 pid=1594) WARNING 08-15 02:38:09 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 2: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP1 pid=1593) INFO 08-15 02:38:21 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_1_0/backbone/artifact_compile_range_256_256_subgraph_0
+(Worker_TP1 pid=1593) INFO 08-15 02:38:22 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (512, 512)
+(Worker_TP2 pid=1594) INFO 08-15 02:38:25 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_2_0/backbone/artifact_compile_range_512_512_subgraph_0
+(Worker_TP2 pid=1594) INFO 08-15 02:38:25 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (1024, 1024)
+(Worker_TP3 pid=1595) INFO 08-15 02:38:26 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_3_0/backbone/artifact_compile_range_1024_1024_subgraph_0
+(Worker_TP3 pid=1595) INFO 08-15 02:38:26 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (2048, 2048)
+(Worker_TP0 pid=1592) INFO 08-15 02:38:27 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_0_0/backbone/artifact_compile_range_64_64_subgraph_0
+(Worker_TP0 pid=1592) INFO 08-15 02:38:27 [backends.py:378] Cache the graph of compile range (64, 64) for later use
+(Worker_TP0 pid=1592) INFO 08-15 02:38:27 [backends.py:393] Compiling a graph for compile range (64, 64) takes 24.91 s
+(Worker_TP0 pid=1592) INFO 08-15 02:38:27 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (128, 128)
+(EngineCore pid=1323) INFO 08-15 02:38:28 [shm_broadcast.py:802] No available shared memory broadcast block found in 60 seconds. This typically happens when some processes are hanging or doing some time-consuming work (e.g. compilation, weight/kv cache quantization).
+(Worker_TP0 pid=1592) WARNING 08-15 02:38:36 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 0: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP2 pid=1594) WARNING 08-15 02:38:39 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 2: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP3 pid=1595) WARNING 08-15 02:38:40 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 3: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP1 pid=1593) WARNING 08-15 02:38:44 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 1: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP1 pid=1593) INFO 08-15 02:38:45 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_1_0/backbone/artifact_compile_range_512_512_subgraph_0
+(Worker_TP1 pid=1593) INFO 08-15 02:38:45 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (1024, 1024)
+(Worker_TP0 pid=1592) INFO 08-15 02:38:51 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_0_0/backbone/artifact_compile_range_128_128_subgraph_0
+(Worker_TP0 pid=1592) INFO 08-15 02:38:51 [backends.py:378] Cache the graph of compile range (128, 128) for later use
+(Worker_TP0 pid=1592) INFO 08-15 02:38:51 [backends.py:393] Compiling a graph for compile range (128, 128) takes 24.02 s
+(Worker_TP0 pid=1592) INFO 08-15 02:38:51 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (256, 256)
+(Worker_TP2 pid=1594) INFO 08-15 02:38:51 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_2_0/backbone/artifact_compile_range_1024_1024_subgraph_0
+(Worker_TP3 pid=1595) INFO 08-15 02:38:51 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_3_0/backbone/artifact_compile_range_2048_2048_subgraph_0
+(Worker_TP2 pid=1594) INFO 08-15 02:38:51 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (2048, 2048)
+(Worker_TP3 pid=1595) INFO 08-15 02:38:51 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (16, 16)
+(Worker_TP1 pid=1593) INFO 08-15 02:39:12 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_1_0/backbone/artifact_compile_range_1024_1024_subgraph_0
+(Worker_TP1 pid=1593) INFO 08-15 02:39:12 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (2048, 2048)
+(Worker_TP3 pid=1595) WARNING 08-15 02:39:15 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 3: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP0 pid=1592) WARNING 08-15 02:39:16 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 0: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP1 pid=1593) WARNING 08-15 02:39:16 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 1: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP3 pid=1595) INFO 08-15 02:39:16 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_3_0/backbone/artifact_compile_range_16_16_subgraph_0
+(Worker_TP0 pid=1592) INFO 08-15 02:39:16 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_0_0/backbone/artifact_compile_range_256_256_subgraph_0
+(Worker_TP0 pid=1592) INFO 08-15 02:39:16 [backends.py:378] Cache the graph of compile range (256, 256) for later use
+(Worker_TP0 pid=1592) INFO 08-15 02:39:16 [backends.py:393] Compiling a graph for compile range (256, 256) takes 25.18 s
+(Worker_TP3 pid=1595) INFO 08-15 02:39:16 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (4096, 4096)
+(Worker_TP0 pid=1592) INFO 08-15 02:39:16 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (512, 512)
+(Worker_TP2 pid=1594) WARNING 08-15 02:39:18 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 2: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP2 pid=1594) INFO 08-15 02:39:19 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_2_0/backbone/artifact_compile_range_2048_2048_subgraph_0
+(Worker_TP2 pid=1594) INFO 08-15 02:39:19 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (16, 16)
+(EngineCore pid=1323) INFO 08-15 02:39:28 [shm_broadcast.py:802] No available shared memory broadcast block found in 60 seconds. This typically happens when some processes are hanging or doing some time-consuming work (e.g. compilation, weight/kv cache quantization).
+(Worker_TP1 pid=1593) INFO 08-15 02:39:38 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_1_0/backbone/artifact_compile_range_2048_2048_subgraph_0
+(Worker_TP1 pid=1593) INFO 08-15 02:39:38 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (16, 16)
+(Worker_TP0 pid=1592) INFO 08-15 02:39:42 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_0_0/backbone/artifact_compile_range_512_512_subgraph_0
+(Worker_TP0 pid=1592) INFO 08-15 02:39:42 [backends.py:378] Cache the graph of compile range (512, 512) for later use
+(Worker_TP0 pid=1592) INFO 08-15 02:39:42 [backends.py:393] Compiling a graph for compile range (512, 512) takes 25.90 s
+(Worker_TP0 pid=1592) INFO 08-15 02:39:42 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (1024, 1024)
+(Worker_TP2 pid=1594) INFO 08-15 02:39:44 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_2_0/backbone/artifact_compile_range_16_16_subgraph_0
+(Worker_TP3 pid=1595) INFO 08-15 02:39:44 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_3_0/backbone/artifact_compile_range_4096_4096_subgraph_0
+(Worker_TP2 pid=1594) INFO 08-15 02:39:44 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (4096, 4096)
+(Worker_TP3 pid=1595) INFO 08-15 02:39:44 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (32, 32)
+(Worker_TP0 pid=1592) WARNING 08-15 02:39:46 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 0: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP1 pid=1593) WARNING 08-15 02:39:47 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 1: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP3 pid=1595) WARNING 08-15 02:39:48 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 3: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP2 pid=1594) WARNING 08-15 02:39:48 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 2: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP1 pid=1593) INFO 08-15 02:40:03 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_1_0/backbone/artifact_compile_range_16_16_subgraph_0
+(Worker_TP1 pid=1593) INFO 08-15 02:40:03 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (4096, 4096)
+(Worker_TP3 pid=1595) INFO 08-15 02:40:09 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_3_0/backbone/artifact_compile_range_32_32_subgraph_0
+(Worker_TP3 pid=1595) INFO 08-15 02:40:09 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (64, 64)
+(Worker_TP0 pid=1592) INFO 08-15 02:40:10 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_0_0/backbone/artifact_compile_range_1024_1024_subgraph_0
+(Worker_TP0 pid=1592) INFO 08-15 02:40:10 [backends.py:378] Cache the graph of compile range (1024, 1024) for later use
+(Worker_TP0 pid=1592) INFO 08-15 02:40:10 [backends.py:393] Compiling a graph for compile range (1024, 1024) takes 27.75 s
+(Worker_TP0 pid=1592) INFO 08-15 02:40:10 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (2048, 2048)
+(Worker_TP2 pid=1594) INFO 08-15 02:40:12 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_2_0/backbone/artifact_compile_range_4096_4096_subgraph_0
+(Worker_TP2 pid=1594) INFO 08-15 02:40:12 [tpu_compiler.py:287] [TpuCompilerAdaptor] Compiling FX graph for range (32, 32)
+(Worker_TP0 pid=1592) WARNING 08-15 02:40:19 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 0: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP2 pid=1594) WARNING 08-15 02:40:22 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 2: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP3 pid=1595) WARNING 08-15 02:40:23 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 3: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(EngineCore pid=1323) INFO 08-15 02:40:28 [shm_broadcast.py:802] No available shared memory broadcast block found in 60 seconds. This typically happens when some processes are hanging or doing some time-consuming work (e.g. compilation, weight/kv cache quantization).
+(Worker_TP1 pid=1593) WARNING 08-15 02:40:28 [raiden_store.py:1199] TPURaidenOffloadingConnector: rank 1: offload controller at 127.0.0.1:51515 not reachable yet; still probing (the scheduler's registration barrier will fail engine startup if registration does not succeed in time)
+(Worker_TP1 pid=1593) INFO 08-15 02:40:29 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_1_0/backbone/artifact_compile_range_4096_4096_subgraph_0
+(Worker_TP3 pid=1595) INFO 08-15 02:40:32 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_3_0/backbone/artifact_compile_range_64_64_subgraph_0
+(Worker_TP0 pid=1592) INFO 08-15 02:40:36 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_0_0/backbone/artifact_compile_range_2048_2048_subgraph_0
+(Worker_TP0 pid=1592) INFO 08-15 02:40:36 [backends.py:378] Cache the graph of compile range (2048, 2048) for later use
+(Worker_TP0 pid=1592) INFO 08-15 02:40:36 [backends.py:393] Compiling a graph for compile range (2048, 2048) takes 25.84 s
+(Worker_TP2 pid=1594) INFO 08-15 02:40:36 [tpu_compiler.py:353] [TpuCompilerAdaptor] Saved compiled executable metadata to /root/.cache/vllm/torch_compile_cache/6ca7b518b6/rank_2_0/backbone/artifact_compile_range_32_32_subgraph_0
+(Worker_TP1 pid=1593) INFO 08-15 02:40:39 [backends.py:920] collected artifacts: 9 entries, 9 artifacts, 231847398 bytes total
+(Worker_TP3 pid=1595) INFO 08-15 02:40:42 [backends.py:920] collected artifacts: 9 entries, 9 artifacts, 231826655 bytes total
+(Worker_TP0 pid=1592) INFO 08-15 02:40:46 [backends.py:920] collected artifacts: 9 entries, 9 artifacts, 231803932 bytes total
+(Worker_TP0 pid=1592) INFO 08-15 02:40:46 [decorators.py:708] saved AOT compiled function to /root/.cache/vllm/torch_compile_cache/torch_aot_compile/3cb7ca30a5d8e046d85aea0407f7d30005216fd819823d3e51840feb70ded956/rank_0_0/model
+(Worker_TP0 pid=1592) INFO 08-15 02:40:46 [monitor.py:53] torch.compile took 259.65 s in total
+(Worker_TP0 pid=1592) INFO 08-15 02:40:46 [monitor.py:81] Initial profiling/warmup run took 0.00 s
+(Worker_TP2 pid=1594) INFO 08-15 02:40:47 [backends.py:920] collected artifacts: 9 entries, 9 artifacts, 231851714 bytes total
+(Worker_TP0 pid=1592) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 32
+(Worker_TP2 pid=1594) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 32
+(Worker_TP1 pid=1593) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 32
+(Worker_TP3 pid=1595) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 32
+(Worker_TP0 pid=1592) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 64
+(Worker_TP1 pid=1593) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 64
+(Worker_TP3 pid=1595) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 64
+(Worker_TP2 pid=1594) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 64
+(Worker_TP0 pid=1592) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 128
+(Worker_TP2 pid=1594) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 128
+(Worker_TP1 pid=1593) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 128
+(Worker_TP3 pid=1595) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 128
+(Worker_TP0 pid=1592) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 256
+(Worker_TP1 pid=1593) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 256
+(Worker_TP2 pid=1594) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 256
+(Worker_TP3 pid=1595) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 256
+(Worker_TP2 pid=1594) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 512
+(Worker_TP0 pid=1592) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 512
+(Worker_TP1 pid=1593) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 512
+(Worker_TP3 pid=1595) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 512
+(Worker_TP0 pid=1592) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 1024
+(Worker_TP1 pid=1593) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 1024
+(Worker_TP2 pid=1594) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 1024
+(Worker_TP3 pid=1595) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 1024
+(Worker_TP0 pid=1592) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 2048
+(Worker_TP2 pid=1594) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 2048
+(Worker_TP1 pid=1593) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 2048
+(Worker_TP3 pid=1595) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 2048
+(Worker_TP0 pid=1592) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 4096
+(Worker_TP3 pid=1595) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 4096
+(Worker_TP1 pid=1593) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 4096
+(Worker_TP2 pid=1594) INFO 08-15 02:40:47 [tpu_runner.py:4527]   -- num_tokens: 4096
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4267] Compilation finished in 261.23 [secs].
+(Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4267] Compilation finished in 261.23 [secs].
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4264] Compiling compute_selected_logits with different input shapes.
+(Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4264] Compiling compute_selected_logits with different input shapes.
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4267] Compilation finished in 261.23 [secs].
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4267] Compilation finished in 261.23 [secs].
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4264] Compiling compute_selected_logits with different input shapes.
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4264] Compiling compute_selected_logits with different input shapes.
+(Worker_TP0 pid=1592) (Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 16, num_seqs: 8
+INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 16, num_seqs: 8
+(Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 16, num_seqs: 8
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 16, num_seqs: 8
+(Worker_TP2 pid=1594) (Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 16, num_seqs: 16
+INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 16, num_seqs: 16
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 16, num_seqs: 16
+(Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 16, num_seqs: 16
+(Worker_TP2 pid=1594) (Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 32, num_seqs: 8
+INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 32, num_seqs: 8
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 32, num_seqs: 8
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 32, num_seqs: 8
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 32, num_seqs: 16
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 32, num_seqs: 16
+(Worker_TP3 pid=1595) (Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 32, num_seqs: 16
+INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 32, num_seqs: 16
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 64, num_seqs: 8
+(Worker_TP0 pid=1592) (Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 64, num_seqs: 8
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 64, num_seqs: 8
+INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 64, num_seqs: 8
+(Worker_TP3 pid=1595) (Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 64, num_seqs: 16
+(Worker_TP2 pid=1594) (Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 64, num_seqs: 16
+INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 64, num_seqs: 16
+INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 64, num_seqs: 16
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 128, num_seqs: 8
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 128, num_seqs: 8
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 128, num_seqs: 8
+(Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 128, num_seqs: 8
+(Worker_TP1 pid=1593) (Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 128, num_seqs: 16
+INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 128, num_seqs: 16
+(Worker_TP2 pid=1594) (Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 128, num_seqs: 16
+INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 128, num_seqs: 16
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 256, num_seqs: 8
+(Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 256, num_seqs: 8
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 256, num_seqs: 8
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 256, num_seqs: 8
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 256, num_seqs: 16
+(Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 256, num_seqs: 16
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 256, num_seqs: 16
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 256, num_seqs: 16
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 512, num_seqs: 8
+(Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 512, num_seqs: 8
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 512, num_seqs: 8
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 512, num_seqs: 8
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 512, num_seqs: 16
+(Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 512, num_seqs: 16
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 512, num_seqs: 16
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 512, num_seqs: 16
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 1024, num_seqs: 8
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 1024, num_seqs: 8
+(Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 1024, num_seqs: 8
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 1024, num_seqs: 8
+(Worker_TP2 pid=1594) (Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 1024, num_seqs: 16
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 1024, num_seqs: 16
+INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 1024, num_seqs: 16
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 1024, num_seqs: 16
+(Worker_TP1 pid=1593) (Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 2048, num_seqs: 8
+INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 2048, num_seqs: 8
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 2048, num_seqs: 8
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 2048, num_seqs: 8
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 2048, num_seqs: 16
+(Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 2048, num_seqs: 16
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 2048, num_seqs: 16
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 2048, num_seqs: 16
+(Worker_TP3 pid=1595) (Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 4096, num_seqs: 8
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 4096, num_seqs: 8
+INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 4096, num_seqs: 8
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 4096, num_seqs: 8
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 4096, num_seqs: 16
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 4096, num_seqs: 16
+(Worker_TP0 pid=1592) (Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 4096, num_seqs: 16
+INFO 08-15 02:40:48 [tpu_runner.py:4289]   -- num_tokens: 4096, num_seqs: 16
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4267] Compilation finished in 0.02 [secs].
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4267] Compilation finished in 0.02 [secs].
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4267] Compilation finished in 0.02 [secs].
+(Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4267] Compilation finished in 0.02 [secs].
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4264] Compiling structured_decoding with different input shapes.
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4264] Compiling structured_decoding with different input shapes.
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4264] Compiling structured_decoding with different input shapes.
+(Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4264] Compiling structured_decoding with different input shapes.
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4319]   -- num_seqs: 8
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4319]   -- num_seqs: 8
+(Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4319]   -- num_seqs: 8
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4319]   -- num_seqs: 8
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4319]   -- num_seqs: 16
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4267] Compilation finished in 0.00 [secs].
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4264] Compiling sample_from_logits with different input shapes.
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4319]   -- num_seqs: 16
+(Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4319]   -- num_seqs: 16
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4267] Compilation finished in 0.00 [secs].
+(Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4267] Compilation finished in 0.00 [secs].
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4264] Compiling sample_from_logits with different input shapes.
+(Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4264] Compiling sample_from_logits with different input shapes.
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4319]   -- num_seqs: 16
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4267] Compilation finished in 0.00 [secs].
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4264] Compiling sample_from_logits with different input shapes.
+(Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4344]   -- num_seqs: 8
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4344]   -- num_seqs: 8
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4344]   -- num_seqs: 8
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4344]   -- num_seqs: 8
+(Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4344]   -- num_seqs: 16
+(Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4267] Compilation finished in 0.26 [secs].
+(Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4264] Compiling gather_logprobs with different input shapes.
+(Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4355]   -- num_seqs: 8
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4344]   -- num_seqs: 16
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4267] Compilation finished in 0.26 [secs].
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4264] Compiling gather_logprobs with different input shapes.
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4344]   -- num_seqs: 16
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4267] Compilation finished in 0.26 [secs].
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4264] Compiling gather_logprobs with different input shapes.
+(Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4355]   -- num_seqs: 16
+(Worker_TP3 pid=1595) INFO 08-15 02:40:48 [tpu_runner.py:4267] Compilation finished in 0.01 [secs].
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4355]   -- num_seqs: 8
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4344]   -- num_seqs: 16
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4267] Compilation finished in 0.27 [secs].
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4264] Compiling gather_logprobs with different input shapes.
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4355]   -- num_seqs: 8
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4355]   -- num_seqs: 16
+(Worker_TP2 pid=1594) INFO 08-15 02:40:48 [tpu_runner.py:4267] Compilation finished in 0.01 [secs].
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4355]   -- num_seqs: 8
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4355]   -- num_seqs: 16
+(Worker_TP0 pid=1592) INFO 08-15 02:40:48 [tpu_runner.py:4267] Compilation finished in 0.01 [secs].
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4355]   -- num_seqs: 16
+(Worker_TP1 pid=1593) INFO 08-15 02:40:48 [tpu_runner.py:4267] Compilation finished in 0.01 [secs].
+(EngineCore pid=1323) INFO 08-15 02:40:48 [core.py:348] init engine (profile, create kv cache, warmup model) took 352.37 s (compilation: 261.52 s)
+(EngineCore pid=1323) INFO 08-15 02:40:49 [factory.py:62] Creating v1 connector with name: TPURaidenOffloadingConnector and engine_id: 78bbbbaa-743a-4fb7-8c95-a99684c2bfda
+(EngineCore pid=1323) WARNING 08-15 02:40:49 [base.py:202] Initializing KVConnectorBase_V1. This API is experimental and subject to change in the future as we iterate the design.
+(EngineCore pid=1323) INFO 08-15 02:40:49 [tpu_platform.py:683] Cannot use None backend on TPU. Setting to FLASH_ATTN.
+(EngineCore pid=1323) INFO 08-15 02:40:49 [tpu_platform.py:686] Using FLASH_ATTN backend.
+(EngineCore pid=1323) INFO 08-15 02:40:49 [block_major_layout.py:202] Block-major contract: F=64 fragments x 16384 B kernel rows (bundle row 1048576 B, kernel_block_size=16, factor=1), logical_fingerprint=0d8acfdb0d6f13c7e1964e0ecd754b29920cf71fc688e41593d8b6f0c933206c
+(EngineCore pid=1323) WARNING 08-15 02:40:49 [vllm.py:609] Model Runner V2 requires Triton; using the V1 model runner instead.
+(EngineCore pid=1323) INFO 08-15 02:40:49 [block_major_layout.py:202] Block-major contract: F=64 fragments x 16384 B kernel rows (bundle row 1048576 B, kernel_block_size=16, factor=1), logical_fingerprint=0d8acfdb0d6f13c7e1964e0ecd754b29920cf71fc688e41593d8b6f0c933206c
+(EngineCore pid=1323) INFO 08-15 02:40:49 [raiden_store.py:225] TPURaidenOffloadingConnector: blocking KVCacheStore construction until 4 worker(s) register
+InitTransportServer: target_numa=0
+InitTransportServer: Local IP: 10.36.37.213
+InitTransportServer: target_numa=0
+InitTransportServer: Local IP: 10.36.37.213
+InitTransportServer: target_numa=0
+InitTransportServer: Local IP: 10.36.37.213
+(Worker_TP1 pid=1593) INFO 08-15 02:40:53 [raiden_store.py:1180] TPURaidenOffloadingConnector: rank 1 registered with offload controller at 127.0.0.1:51515 (25600 host kernel blocks)
+InitTransportServer: target_numa=0
+InitTransportServer: Local IP: 10.36.37.213
+(Worker_TP0 pid=1592) INFO 08-15 02:40:55 [raiden_store.py:1180] TPURaidenOffloadingConnector: rank 0 registered with offload controller at 127.0.0.1:51515 (25600 host kernel blocks)
+(Worker_TP2 pid=1594) INFO 08-15 02:40:55 [raiden_store.py:1180] TPURaidenOffloadingConnector: rank 2 registered with offload controller at 127.0.0.1:51515 (25600 host kernel blocks)
+(Worker_TP3 pid=1595) INFO 08-15 02:40:56 [raiden_store.py:1180] TPURaidenOffloadingConnector: rank 3 registered with offload controller at 127.0.0.1:51515 (25600 host kernel blocks)
+(EngineCore pid=1323) INFO 08-15 02:40:56 [raiden_store.py:244] TPURaidenOffloadingConnector: KVCacheStore up: capacity=25600 kernel blocks (25600 offloaded blocks x 1), namespace=1a9c8e8301da800964a903d436b480db, controller at 127.0.0.1:51515, all 4 workers registered
+(EngineCore pid=1323) INFO 08-15 02:40:57 [kernel.py:306] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+(EngineCore pid=1323) INFO 08-15 02:40:57 [__init__.py:43] Applied TPU patch: allow PCP through GPU-specific V2 checks.
+(EngineCore pid=1323) INFO 08-15 02:40:57 [__init__.py:118] Applied TPU patch: include compiler hash in AOT cache key.
+(EngineCore pid=1323) INFO 08-15 02:40:57 [__init__.py:168] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold'] from the compile cache key.
+(EngineCore pid=1323) INFO 08-15 02:40:57 [__init__.py:198] Applied TPU patch: disable vLLM custom collective ops.
+(EngineCore pid=1323) INFO 08-15 02:40:57 [__init__.py:219] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+(EngineCore pid=1323) INFO 08-15 02:40:57 [__init__.py:251] Applied TPU patch: use explicit PCP collectives for monolithic MoE.
+(EngineCore pid=1323) INFO 08-15 02:40:57 [__init__.py:314] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+(EngineCore pid=1323) INFO 08-15 02:40:57 [__init__.py:380] Applied TPU patch: compile_all_ranges.
+(EngineCore pid=1323) INFO 08-15 02:40:57 [__init__.py:453] Applied TPU patch: disable sequence-parallel MoE.
+(EngineCore pid=1323) INFO 08-15 02:40:57 [__init__.py:522] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+(EngineCore pid=1323) INFO 08-15 02:40:57 [__init__.py:436] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+(EngineCore pid=1323) INFO 08-15 02:40:57 [__init__.py:288] Applied TPU patch: host-side expert-map lookup.
+(EngineCore pid=1323) INFO 08-15 02:40:57 [__init__.py:766] Applied TPU patch: accurate layer counts for Kimi-K3 / KDA hybrid models.
+(EngineCore pid=1323) INFO 08-15 02:40:57 [__init__.py:1052] Applied LIFO free-block patch (pre-vllm#48017 order) to BlockPool
+(EngineCore pid=1323) INFO 08-15 02:40:57 [__init__.py:469] Applied TPU patch: disable DP microbatching.
+(EngineCore pid=1323) INFO 08-15 02:40:57 [model_loader_patches.py:293] Applied TPU patch: EP-sharded Run:AI weight streaming (fetch only local experts when the EP weight filter is on).
+(EngineCore pid=1323) INFO 08-15 02:40:57 [tpu_platform.py:171] TorchTPU eager mode configured: DEFER_AND_FUSE (previous=DEFER_NEVER)
+(EngineCore pid=1323) INFO 08-15 02:40:57 [tpu_platform.py:930] Force using TpuMultiprocExecutor for TPU on single host with tensor/pipeline/PCP parallelism.
+(APIServer pid=655) INFO 08-15 02:40:57 [api_server.py:678] Supported tasks: ['generate']
+(APIServer pid=655) INFO 08-15 02:40:59 [hf.py:540] Detected the chat template content format to be 'string'. You can set `--chat-template-content-format` to override this.
+(APIServer pid=655) WARNING 08-15 02:40:59 [model.py:1637] Default vLLM sampling parameters have been overridden by the model's `generation_config.json`: `{'temperature': 0.6, 'top_k': 20, 'top_p': 0.95}`. If this is not intended, please relaunch vLLM instance with `--generation-config vllm`.
+(APIServer pid=655) INFO 08-15 02:40:59 [api_server.py:682] Starting vLLM server on http://0.0.0.0:8000
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:37] Available routes are:
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /openapi.json, Methods: HEAD, GET
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /docs, Methods: HEAD, GET
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /docs/oauth2-redirect, Methods: HEAD, GET
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /redoc, Methods: HEAD, GET
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /load, Methods: GET
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /version, Methods: GET
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /health, Methods: GET
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /metrics, Methods: GET
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /tokenize, Methods: POST
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /detokenize, Methods: POST
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /v1/models, Methods: GET
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /ping, Methods: GET
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /ping, Methods: POST
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /invocations, Methods: POST
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /v1/chat/completions, Methods: POST
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /v1/chat/completions/batch, Methods: POST
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /v1/responses, Methods: POST
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /v1/responses/{response_id}, Methods: GET
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /v1/responses/{response_id}/cancel, Methods: POST
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /v1/completions, Methods: POST
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /v1/messages, Methods: POST
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /v1/messages/count_tokens, Methods: POST
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /generative_scoring, Methods: POST
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /scale_elastic_ep, Methods: POST
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /is_scaling_elastic_ep, Methods: POST
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /v1/chat/completions/render, Methods: POST
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /v1/completions/render, Methods: POST
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /v1/chat/completions/derender, Methods: POST
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /v1/completions/derender, Methods: POST
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:46] Route: /inference/v1/generate, Methods: POST
+(APIServer pid=655) INFO 08-15 02:40:59 [launcher.py:99] API server: waiting for HTTP server to start
+(APIServer pid=655) INFO:     Started server process [655]
+(APIServer pid=655) INFO:     Waiting for application startup.
+(APIServer pid=655) INFO:     Application startup complete.
+(APIServer pid=655) INFO 08-15 02:41:00 [launcher.py:105] API server: HTTP server started
+(APIServer pid=655) INFO:     10.36.24.205:49792 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:49798 - "GET /metrics HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:49812 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:49816 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:49818 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:49824 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:49840 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:49852 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:49868 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:49870 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:49882 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:49884 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:49890 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:37832 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:37842 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:37852 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO 08-15 02:41:10 [loggers.py:310] Engine 000: Avg prompt throughput: 8615.2 tokens/s, Avg generation throughput: 8.6 tokens/s, Running: 0 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.0%, Prefix cache hit rate: 0.0%, External prefix cache hit rate: 0.0%
+(APIServer pid=655) INFO 08-15 02:41:10 [metrics.py:103] KV Transfer metrics: vllm:kv_offload_lookup_sync_delay_seconds_count=14, vllm:kv_offload_lookup_sync_delay_seconds_sum=0.0003151451237499714
+(APIServer pid=655) INFO:     10.36.24.205:37854 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:37864 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:37870 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:37878 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:37890 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:37894 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:37896 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:37904 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:37920 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:37924 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO 08-15 02:41:20 [loggers.py:310] Engine 000: Avg prompt throughput: 8617.8 tokens/s, Avg generation throughput: 8.0 tokens/s, Running: 0 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.0%, Prefix cache hit rate: 0.0%, External prefix cache hit rate: 0.0%
+(APIServer pid=655) INFO 08-15 02:41:20 [metrics.py:103] KV Transfer metrics: vllm:kv_offload_lookup_sync_delay_seconds_count=10, vllm:kv_offload_lookup_sync_delay_seconds_sum=0.00018983811605721712
+(APIServer pid=655) INFO:     10.36.24.205:40024 - "GET /metrics HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:40032 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:40036 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:40038 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:40048 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:40054 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:40062 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:40078 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:40092 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:40098 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:40112 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:40128 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:40132 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:40134 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:40136 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:40152 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:40168 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:40172 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:40186 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:40194 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:40204 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:40220 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:40232 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:40238 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO:     10.36.24.205:40248 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=655) INFO 08-15 02:41:30 [loggers.py:310] Engine 000: Avg prompt throughput: 17.7 tokens/s, Avg generation throughput: 19.2 tokens/s, Running: 0 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.0%, Prefix cache hit rate: 0.0%, External prefix cache hit rate: 50.0%
+(APIServer pid=655) INFO 08-15 02:41:30 [metrics.py:103] KV Transfer metrics: vllm:kv_offload_lookup_sync_delay_seconds_count=24, vllm:kv_offload_lookup_sync_delay_seconds_sum=0.018635989166796207
+(APIServer pid=655) INFO:     10.36.24.205:59506 - "GET /metrics HTTP/1.1" 200 OK
+(APIServer pid=655) INFO 08-15 02:41:40 [loggers.py:310] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 0.0 tokens/s, Running: 0 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.0%, Prefix cache hit rate: 0.0%, External prefix cache hit rate: 50.0%
+
