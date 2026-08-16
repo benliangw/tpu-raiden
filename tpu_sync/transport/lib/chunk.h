@@ -47,8 +47,8 @@ struct ChunkMetadata {
   // LINT.IfChange
   uint32_t layer_idx;
   uint32_t dst_shard_idx;
-  uint32_t dst_offset_bytes;
-  uint32_t size_bytes;
+  uint64_t dst_offset_bytes;
+  uint64_t size_bytes;
   // LINT.ThenChange(chunk.fbs)
 
   bool operator==(const ChunkMetadata&) const = default;

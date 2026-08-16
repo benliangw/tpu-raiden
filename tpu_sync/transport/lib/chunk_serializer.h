@@ -28,7 +28,7 @@
 namespace tpu_raiden::transport::lib {
 
 inline constexpr size_t kChunkHeaderSize = 64;
-inline constexpr size_t kMaxMetadataSize = 16;
+inline constexpr size_t kMaxMetadataSize = 24;
 
 inline constexpr uint16_t kRaidenMagic =
     static_cast<uint16_t>(flatbuf::Constant_MAGIC);
@@ -40,7 +40,7 @@ static_assert(sizeof(flatbuf::ChunkHeader) == kChunkHeaderSize);
 constexpr size_t GetChunkMetadataSize(uint16_t ver) {
   switch (ver) {
     case 1:
-      return 16;
+      return 24;
     default:
       return 0;
   }

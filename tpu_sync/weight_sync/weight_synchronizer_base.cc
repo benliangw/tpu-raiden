@@ -326,9 +326,17 @@ absl::StatusOr<raiden::PjRtCopyFuture> WeightSynchronizerBase::H2dLayer(
       xla_layout = &shard_hold.shape.layout();
     }
     bool is_tiled = xla_layout && !xla_layout->tiles().empty();
-    if (layer_idx < active_skip.size() && active_skip[layer_idx]) {
+    bool skip_flag = layer_idx < active_skip.size() && active_skip[layer_idx];
+    if (skip_flag) {
       is_tiled = false;
     }
+    VLOG(1) << "[WeightSynchronizerBase] H2dLayer " << layer_idx << " shard "
+            << i << " (layer: "
+            << (layer_idx < layer_names_.size() ? layer_names_[layer_idx]
+                                                : "unknown")
+            << ", is_tiled=" << is_tiled << ", skip_flag=" << skip_flag
+            << ", shape=" << shard_hold.shape.ToString()
+            << ", size=" << layer_size << " bytes)";
 
     std::vector<xla::Future<>> shard_futures;
     if (is_tiled) {
@@ -378,6 +386,8 @@ absl::StatusOr<raiden::PjRtCopyFuture> WeightSynchronizerBase::H2d(
   if (buffer_holds_.empty()) {
     return raiden::PjRtCopyFuture(std::vector<raiden::BufferHolder>{});
   }
+  VLOG(1) << "Starting H2d across " << num_layers_ << " layers (uuid=" << uuid
+          << ")...";
   {
     absl::MutexLock lock(metrics_mu_);
     metrics_.last_tiling_time_ms = 0.0;
@@ -390,6 +400,8 @@ absl::StatusOr<raiden::PjRtCopyFuture> WeightSynchronizerBase::H2d(
                         H2dLayer(layer_idx, uuid));
     layer_futures.push_back(std::move(layer_future));
   }
+  VLOG(1) << "Done with scheduling H2d across " << num_layers_
+          << " layers (uuid=" << uuid << ").";
   return raiden::JoinPjRtCopyFutures(layer_futures);
 }
 
@@ -431,9 +443,17 @@ absl::StatusOr<raiden::PjRtCopyFuture> WeightSynchronizerBase::D2hLayer(
       xla_layout = &shard_hold.shape.layout();
     }
     bool is_tiled = xla_layout && !xla_layout->tiles().empty();
-    if (layer_idx < active_skip.size() && active_skip[layer_idx]) {
+    bool skip_flag = layer_idx < active_skip.size() && active_skip[layer_idx];
+    if (skip_flag) {
       is_tiled = false;
     }
+    VLOG(1) << "[WeightSynchronizerBase] D2hLayer " << layer_idx << " shard "
+            << i << " (layer: "
+            << (layer_idx < layer_names_.size() ? layer_names_[layer_idx]
+                                                : "unknown")
+            << ", is_tiled=" << is_tiled << ", skip_flag=" << skip_flag
+            << ", shape=" << shard_hold.shape.ToString()
+            << ", size=" << layer_size << " bytes)";
 
     std::vector<xla::Future<>> shard_futures;
     if (is_tiled) {
@@ -487,6 +507,8 @@ absl::StatusOr<raiden::PjRtCopyFuture> WeightSynchronizerBase::D2h(
   if (buffer_holds_.empty()) {
     return raiden::PjRtCopyFuture(std::vector<raiden::BufferHolder>{});
   }
+  VLOG(1) << "Starting D2h across " << num_layers_ << " layers (uuid=" << uuid
+          << ")...";
   {
     absl::MutexLock lock(metrics_mu_);
     metrics_.last_detiling_time_ms = 0.0;
@@ -498,6 +520,8 @@ absl::StatusOr<raiden::PjRtCopyFuture> WeightSynchronizerBase::D2h(
     TF_ASSIGN_OR_RETURN(raiden::PjRtCopyFuture f, D2hLayer(layer_idx, uuid));
     layer_futures.push_back(std::move(f));
   }
+  VLOG(1) << "Done with scheduling D2h across " << num_layers_
+          << " layers (uuid=" << uuid << ").";
   return raiden::JoinPjRtCopyFutures(layer_futures);
 }
 
@@ -520,6 +544,9 @@ absl::Status WeightSynchronizerBase::PushWeights(
 
 absl::Status WeightSynchronizerBase::PushWeightsResharded(
     const tpu_sync::rpc::StartTransferRequest& request) {
+  VLOG(1) << "Starting PushWeightsResharded for uuid=" << request.uuid()
+          << " across " << num_layers_
+          << " layers (skip_d2h=" << request.skip_d2h() << ")...";
   StoreSkipTiling(request.uuid(), request);
   int fallback_layer_idx = -1;
   bool checked_fallback = false;
@@ -640,8 +667,9 @@ absl::Status WeightSynchronizerBase::PushWeightsResharded(
       already_completed = !completed_d2h_uuids_.insert(uuid).second;
     }
     if (!already_completed) {
-      VLOG(1) << "PushWeightsResharded: Executing pipelined D2H copies for uuid "
-              << uuid;
+      VLOG(1)
+          << "PushWeightsResharded: Executing pipelined D2H copies for uuid "
+          << uuid;
       for (size_t l = 0; l < num_layers_; ++l) {
         TF_ASSIGN_OR_RETURN(raiden::PjRtCopyFuture f, D2hLayer(l, uuid));
         d2h_layer_futures.push_back(std::move(f));
@@ -682,9 +710,11 @@ absl::Status WeightSynchronizerBase::PushWeightsResharded(
       for (const auto& t : layer_tasks) {
         total_h2h_bytes += t.size_bytes;
       }
-      push_futures.push_back(
-          push_pool_->Schedule([this, layer_tasks, uuid = request.uuid()]() {
-            return PushWeightsChunks(layer_tasks, /*parallelism=*/1, uuid);
+      int push_parallelism =
+          request.parallelism() > 0 ? request.parallelism() : parallelism_;
+      push_futures.push_back(push_pool_->Schedule(
+          [this, layer_tasks, push_parallelism, uuid = request.uuid()]() {
+            return PushWeightsChunks(layer_tasks, push_parallelism, uuid);
           }));
     }
   }
@@ -710,6 +740,9 @@ absl::Status WeightSynchronizerBase::PushWeightsResharded(
     metrics_.last_total_push_resharded_time_ms = total_push_time_ms;
     metrics_.push_resharded_call_count++;
   }
+  VLOG(1) << "Done with PushWeightsResharded (uuid=" << request.uuid()
+          << ", total_push_time=" << total_push_time_ms
+          << " ms, h2h_time=" << h2h_time_ms << " ms).";
   return absl::OkStatus();
 }
 
@@ -802,6 +835,7 @@ absl::Status WeightSynchronizerBase::OnDataReceived(uint64_t uuid) {
   if (!auto_h2d_) {
     return absl::OkStatus();
   }
+  VLOG(1) << "Starting OnDataReceived (auto_h2d for uuid=" << uuid << ")...";
   auto h2d_start = absl::Now();
   absl::flat_hash_map<size_t,
                       std::future<absl::StatusOr<raiden::PjRtCopyFuture>>>
@@ -850,6 +884,8 @@ absl::Status WeightSynchronizerBase::OnDataReceived(uint64_t uuid) {
     metrics_.last_h2d_time_ms = h2d_time_ms;
     metrics_.total_h2d_time_ms += h2d_time_ms;
   }
+  VLOG(1) << "Done with OnDataReceived (auto_h2d for uuid=" << uuid
+          << ", h2d_time=" << h2d_time_ms << " ms).";
   return absl::OkStatus();
 }
 
@@ -861,6 +897,9 @@ void WeightSynchronizerBase::StoreSkipTiling(
       skip[layer_idx] = skip_val;
     }
   }
+  VLOG(1) << "[WeightSynchronizerBase] StoreSkipTiling uuid=" << uuid
+          << " with " << request.skip_tiling_size()
+          << " entries in StartTransferRequest";
   absl::MutexLock lock(skip_tiling_mu_);
   latest_skip_tiling_ = skip;
   uuid_to_skip_tiling_[uuid] = std::move(skip);

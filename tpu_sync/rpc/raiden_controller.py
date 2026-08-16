@@ -18,7 +18,6 @@ import asyncio
 import dataclasses
 import enum
 import functools
-import json
 import logging
 import math
 import os
@@ -46,6 +45,7 @@ class _VariableMetadata:
 
 
 def to_physical(logical_shape, logical_mesh_shape, minor_to_major):
+  """Maps logical tensor and mesh shapes to physical memory layout."""
   logical_shape = list(logical_shape)
   logical_mesh_shape = list(logical_mesh_shape)
   minor_to_major = list(minor_to_major)
@@ -169,6 +169,19 @@ def _get_global_indices(
       for axis_name in sharding_spec:
         if not axis_name:
           tensor_coords.append(0)
+        elif "," in axis_name:
+          sub_axes = [a.strip() for a in axis_name.split(",") if a.strip()]
+          coord = 0
+          for sub_a in sub_axes:
+            try:
+              phys_axis_idx = mesh_axes.index(sub_a)
+              sub_size = physical_mesh_shape[phys_axis_idx]
+              coord = coord * sub_size + phys_coords[phys_axis_idx]
+            except ValueError:
+              logging.warning(
+                  "Sub-spec axis %s not found in mesh axes %s", sub_a, mesh_axes
+              )
+          tensor_coords.append(coord)
         else:
           try:
             phys_axis_idx = mesh_axes.index(axis_name)
@@ -633,14 +646,17 @@ class WorkerRpcClient:
             if num_src_shards == 1:
               key_idx = transfer_plan.src_schedule_keys.get(src_unit)
               if key_idx is None:
-                if len(transfer_plan.src_units) != 1:
-                  raise ValueError(
-                      "A schedule key is required for every source in a "
-                      "many-to-one transfer"
-                  )
-                key_idx = 0
+                if src_unit in transfer_plan.src_units:
+                  key_idx = transfer_plan.src_units.index(src_unit)
+                else:
+                  key_idx = 0
             else:
-              key_idx = shard_idx
+              src_base = (
+                  transfer_plan.src_units.index(src_unit)
+                  if src_unit in transfer_plan.src_units
+                  else 0
+              )
+              key_idx = src_base * num_src_shards + shard_idx
             schedule_proto = self._proto_module.ShardPushScheduleProto()
             for entry_tuple in schedule:
               (
@@ -954,8 +970,8 @@ def generate_strided_copy_chunks(
       dst_idx = dst_local_int_slice[d][0] + multi_index[d]
       dst_offset_items += dst_idx * dst_strides[d]
 
-    # For merged dimensions (and the stride dim), we use the start of the intersection
-    # as the base offset for this chunk
+    # For merged dimensions (and the stride dim), we use the start of the
+    # intersection as the base offset for this chunk.
     start_d = len(outer_shape)
     for d in range(start_d, rank):
       src_offset_items += src_local_int_slice[d][0] * src_strides[d]
@@ -1018,13 +1034,13 @@ def generate_strided_copy_chunks_tile_aware(
   if rank == 0:
     return [(0, 0, itemsize, 0, 0, 1)]
   if rank == 1:
-    s_s, s_e = src_shard_slice[0]
-    d_s, d_e = dst_shard_slice[0]
+    s_s, _ = src_shard_slice[0]
+    d_s, _ = dst_shard_slice[0]
     i_s, i_e = intersection_slice[0]
     size = (i_e - i_s) * itemsize
     return [((i_s - s_s) * itemsize, (i_s - d_s) * itemsize, size, 0, 0, 1)]
 
-  t_row, t_col = tile_shape
+  t_row, _ = tile_shape
   s_row_s, s_row_e = src_shard_slice[-2]
   s_col_s, s_col_e = src_shard_slice[-1]
   d_row_s, d_row_e = dst_shard_slice[-2]
@@ -1152,9 +1168,14 @@ class RaidenController:
       port: int,
       worker_rpc_client: Optional[WorkerRpcClient] = None,
       request_registry_ttl_s: float = 600.0,
+      broadcast_k: Optional[int] = None,
   ):
     self.port = port
-    self.broadcast_k = int(os.environ.get("RAIDEN_BROADCAST_K", "2"))
+    self.broadcast_k = (
+        broadcast_k
+        if broadcast_k is not None
+        else int(os.environ.get("RAIDEN_BROADCAST_K", "64"))
+    )
     self._active_transfers: dict[str, TransferPlan] = {}
     self._active_tasks: dict[str, RaidenFuture] = {}
     self._task_units: dict[str, list[RaidenId]] = {}
@@ -1877,6 +1898,7 @@ class RaidenController:
           expected_block_count=expected_block_count,
           req_id=req_id,
           skip_d2h=skip_d2h,
+          parallelism=parallelism or 1,
       )
       with self._lock:
         self._active_transfers[req_id] = plan
@@ -1905,7 +1927,8 @@ class RaidenController:
           # 2. Build rpc_addresses for local destination workers
           rpc_addresses = self.worker_rpc_client.get_worker_endpoints()
 
-          # 3. Construct a lightweight TransferPlan containing receiver parameters
+          # 3. Construct a lightweight TransferPlan containing receiver
+          # parameters
           receiver_plan = TransferPlan(
               src_units=src_units,
               dst_units=dst_units,
@@ -1923,6 +1946,7 @@ class RaidenController:
               req_id=req_id,
               skip_d2h=skip_d2h,
               skip_tiling=skip_tiling or {},
+              parallelism=parallelism or 1,
           )
 
           # 4. Trigger COMMAND_START_TRANSFER (is_sender=False) on local workers
@@ -1939,8 +1963,8 @@ class RaidenController:
             ])
           else:
             logging.info(
-                "Skipping preparation RPCs on local destination workers because "
-                "expected_block_count is 0"
+                "Skipping preparation RPCs on local destination workers"
+                " because expected_block_count is 0"
             )
           logging.info(
               "Symmetric preparation complete on all local destination workers."
@@ -1954,7 +1978,8 @@ class RaidenController:
               uuid,
           )
 
-          # 1. Retrieve destination metadata (either from remote dst_controller or local)
+          # 1. Retrieve destination metadata (either from remote dst_controller
+          # or local)
           dst_metadata = []
           if dst_controller_address:
             logging.info(
@@ -2399,6 +2424,7 @@ class RaidenController:
               req_id=req_id,
               skip_d2h=skip_d2h,
               skip_tiling=local_skip_tiling,
+              parallelism=parallelism or 1,
           )
           with self._lock:
             self._active_transfers[req_id] = final_plan
@@ -2631,14 +2657,18 @@ class RaidenController:
                   is_sender=True,
                   expected_block_count=expected_block_count,
                   dst_expected_layer_chunk_counts=dst_unit_layer_counts,
+                  src_schedule_keys={
+                      u: i for i, u in enumerate(direct_schedules.keys())
+                  },
                   req_id=req_id,
                   skip_d2h=skip_d2h,
                   skip_tiling=local_skip_tiling,
+                  parallelism=final_plan.parallelism,
               )
 
               direct_dsts = []
-              for src, scheds in direct_schedules.items():
-                for sh, entries in scheds.items():
+              for scheds in direct_schedules.values():
+                for entries in scheds.values():
                   for entry in entries:
                     dst_peer = entry[0]
                     d_node = data_address_to_unit.get(dst_peer)

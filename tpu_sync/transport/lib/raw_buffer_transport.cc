@@ -739,8 +739,8 @@ absl::Status RawBufferTransport::PushBatch(
     ChunkMetadata meta = {
         .layer_idx = static_cast<uint32_t>(task.buffer_id),
         .dst_shard_idx = static_cast<uint32_t>(task.dst_shard_idx),
-        .dst_offset_bytes = static_cast<uint32_t>(task.dst_offset_bytes),
-        .size_bytes = static_cast<uint32_t>(task.size_bytes),
+        .dst_offset_bytes = static_cast<uint64_t>(task.dst_offset_bytes),
+        .size_bytes = static_cast<uint64_t>(task.size_bytes),
     };
     const auto s_meta = SerializeChunkMetadata(meta);
     DCHECK_EQ(s_meta.size(), header.metadata_size);
