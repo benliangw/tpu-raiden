@@ -370,6 +370,7 @@ absl::Status BlockTransport::HandleIncomingPush(
     RETURN_IF_ERROR(WriteExact(client_fd, &ack, 1));
   }
 
+  uint64_t total_received_bytes = 0;
   RETURN_IF_ERROR(ForEachPayload(
       major_order, target_layers, block_delegate_->num_shards(),
       header.count_or_size, [&](size_t l, size_t sh, size_t k) -> absl::Status {
@@ -416,13 +417,17 @@ absl::Status BlockTransport::HandleIncomingPush(
 
         if (expected_size > 0) {
           RETURN_IF_ERROR(ReadVExact(client_fd, ToIovec(chunks)));
-          // TODO: Add interface name (e.g. eth0, lo) using
-          // GetSocketLocalNic(client_fd) as a label key.
-          RaidenMetricStore::GetGlobalMetricStore().IncrementCounter(
-              metric_names::kReceivedBytesTotal, kPushLabels, expected_size);
+          total_received_bytes += expected_size;
         }
         return absl::OkStatus();
       }));
+
+  if (total_received_bytes > 0) {
+    // TODO: Add interface name (e.g. eth0, lo) using
+    // GetSocketLocalNic(client_fd) as a label key.
+    RaidenMetricStore::GetGlobalMetricStore().IncrementCounter(
+        metric_names::kReceivedBytesTotal, kPushLabels, total_received_bytes);
+  }
 
   // Unified receive accounting: one progress map and one increment path for
   // both contracts; only the expectation source and the completion callback
@@ -970,6 +975,7 @@ void BlockTransport::H2hWriteWorker(int stream_idx, absl::string_view peer,
     target_layers = {layer_idx};
   }
 
+  uint64_t stream_bytes_sent = 0;
   s = ForEachPayload(
       major_order, target_layers, block_delegate_->num_shards(), block_count,
       [&](size_t l, size_t sh, size_t k) -> absl::Status {
@@ -1000,16 +1006,20 @@ void BlockTransport::H2hWriteWorker(int stream_idx, absl::string_view peer,
         RETURN_IF_ERROR(WriteExact(fd, &total_size, sizeof(total_size)));
         if (total_size > 0) {
           RETURN_IF_ERROR(WriteVExact(fd, ToIovec(chunks)));
-          // TODO: Add interface name (e.g.
-          // eth0, lo) using GetSocketLocalNic(fd) as a label key.
-          RaidenMetricStore::GetGlobalMetricStore().IncrementCounter(
-              metric_names::kSentBytesTotal, kPushLabels, total_size);
+          stream_bytes_sent += total_size;
         }
         return absl::OkStatus();
       });
   if (!s.ok()) {
     statuses[stream_idx] = s;
     return;
+  }
+
+  if (stream_bytes_sent > 0) {
+    // TODO: Add interface name (e.g.
+    // eth0, lo) using GetSocketLocalNic(fd) as a label key.
+    RaidenMetricStore::GetGlobalMetricStore().IncrementCounter(
+        metric_names::kSentBytesTotal, kPushLabels, stream_bytes_sent);
   }
 
   uint8_t ack = 0;
@@ -1086,6 +1096,7 @@ void BlockTransport::H2hReadWorker(
                       curr_local_count * SF});
   }
 
+  uint64_t stream_bytes_received = 0;
   for (const auto& chunk : chunks) {
     const int remote_read_block_id =
         block_delegate_->GetRemoteReadBlockId(chunk.base_remote_id, 0);
@@ -1205,11 +1216,7 @@ void BlockTransport::H2hReadWorker(
 
           if (expected_size > 0) {
             RETURN_IF_ERROR(ReadVExact(fd, ToIovec(chunks)));
-            // TODO: Add interface name (e.g. eth0, lo) using
-            // GetSocketLocalNic(fd) as a label key.
-            RaidenMetricStore::GetGlobalMetricStore().IncrementCounter(
-                metric_names::kReceivedBytesTotal, kPullResponseLabels,
-                expected_size);
+            stream_bytes_received += expected_size;
           }
 
           if (on_block_received != nullptr) {
@@ -1222,6 +1229,15 @@ void BlockTransport::H2hReadWorker(
       return;
     }
   }
+
+  if (stream_bytes_received > 0) {
+    // TODO: Add interface name (e.g. eth0, lo) using
+    // GetSocketLocalNic(fd) as a label key.
+    RaidenMetricStore::GetGlobalMetricStore().IncrementCounter(
+        metric_names::kReceivedBytesTotal, kPullResponseLabels,
+        stream_bytes_received);
+  }
+
   ok_to_pool = true;
 }
 
