@@ -2103,6 +2103,80 @@ class RaidenController:
                     slices,
                 )
 
+            # Compute skip_tiling if not provided
+            local_skip_tiling = skip_tiling
+            if local_skip_tiling is None:
+              local_skip_tiling = {}
+              if src_units and dst_units:
+                reference_src_unit = src_units[0]
+                with self._lock:
+                  reference_src_vars = self._registered_variables.get(
+                      reference_src_unit
+                  )
+                if not reference_src_vars:
+                  with self._lock:
+                    global_shape = self._registered_global_shapes.get(
+                        reference_src_unit
+                    )
+                    mesh_shape = self._registered_mesh_shapes.get(
+                        reference_src_unit
+                    )
+                    layout = self._registered_layouts.get(reference_src_unit)
+                    itemsize = (
+                        self._registered_itemsizes.get(reference_src_unit) or 4
+                    )
+                  if global_shape and mesh_shape and layout:
+                    reference_src_vars = [
+                        _VariableMetadata(
+                            name=reference_src_unit.data_name,
+                            shape=global_shape,
+                            mesh_shape=mesh_shape,
+                            layout=layout,
+                            item_size=itemsize,
+                            layer_idx=0,
+                        )
+                    ]
+                  else:
+                    reference_src_vars = []
+
+                reference_dst_unit = dst_units[0]
+                reference_dst_vars = dst_vars_by_unit.get(
+                    reference_dst_unit, []
+                )
+
+                for src_var in reference_src_vars:
+                  layer_idx = src_var.layer_idx
+                  dst_var = next(
+                      (
+                          v
+                          for v in reference_dst_vars
+                          if v.layer_idx == layer_idx
+                      ),
+                      None,
+                  )
+                  if dst_var:
+                    s_slices = computed_slices.get(reference_src_unit, {}).get(
+                        src_var.name, []
+                    )
+                    d_slices = computed_slices.get(reference_dst_unit, {}).get(
+                        dst_var.name, []
+                    )
+                    all_aligned = True
+                    for s_proto in s_slices:
+                      s_sl = _proto_to_nd_slice(s_proto)
+                      for d_proto in d_slices:
+                        d_sl = _proto_to_nd_slice(d_proto)
+                        inter = intersect_nd_slices(s_sl, d_sl)
+                        if inter:
+                          if not is_nd_slice_tile_aligned(
+                              s_sl, d_sl, inter, tile_shape=(8, 128)
+                          ):
+                            all_aligned = False
+                            break
+                      if not all_aligned:
+                        break
+                    local_skip_tiling[layer_idx] = all_aligned
+
             # 3. Generate plan (Intersection)
             for src_unit in src_units:
               with self._lock:
@@ -2254,12 +2328,17 @@ class RaidenController:
 
                       intersection = intersect_nd_slices(src_slice, dst_slice)
                       if intersection:
-                        if is_nd_slice_tile_aligned(
+                        is_tile_aware = (
+                            local_skip_tiling.get(layer_idx, False)
+                            if local_skip_tiling
+                            else False
+                        ) and is_nd_slice_tile_aligned(
                             src_slice,
                             dst_slice,
                             intersection,
                             tile_shape=(8, 128),
-                        ):
+                        )
+                        if is_tile_aware:
                           chunks = generate_strided_copy_chunks_tile_aware(
                               src_slice,
                               dst_slice,
@@ -2337,74 +2416,6 @@ class RaidenController:
             unit = _raiden_id_from_proto(meta.unit)
             if unit in data_addresses:
               data_addresses[unit] = list(meta.shards)
-
-          # Compute skip_tiling if not provided
-          local_skip_tiling = skip_tiling
-          if local_skip_tiling is None:
-            local_skip_tiling = {}
-            if src_units and dst_units:
-              reference_src_unit = src_units[0]
-              with self._lock:
-                reference_src_vars = self._registered_variables.get(
-                    reference_src_unit
-                )
-              if not reference_src_vars:
-                with self._lock:
-                  global_shape = self._registered_global_shapes.get(
-                      reference_src_unit
-                  )
-                  mesh_shape = self._registered_mesh_shapes.get(
-                      reference_src_unit
-                  )
-                  layout = self._registered_layouts.get(reference_src_unit)
-                  itemsize = (
-                      self._registered_itemsizes.get(reference_src_unit) or 4
-                  )
-                if global_shape and mesh_shape and layout:
-                  reference_src_vars = [
-                      _VariableMetadata(
-                          name=reference_src_unit.data_name,
-                          shape=global_shape,
-                          mesh_shape=mesh_shape,
-                          layout=layout,
-                          item_size=itemsize,
-                          layer_idx=0,
-                      )
-                  ]
-                else:
-                  reference_src_vars = []
-
-              reference_dst_unit = dst_units[0]
-              reference_dst_vars = dst_vars_by_unit.get(reference_dst_unit, [])
-
-              for src_var in reference_src_vars:
-                layer_idx = src_var.layer_idx
-                dst_var = next(
-                    (v for v in reference_dst_vars if v.layer_idx == layer_idx),
-                    None,
-                )
-                if dst_var:
-                  s_slices = computed_slices.get(reference_src_unit, {}).get(
-                      src_var.name, []
-                  )
-                  d_slices = computed_slices.get(reference_dst_unit, {}).get(
-                      dst_var.name, []
-                  )
-                  all_aligned = True
-                  for s_proto in s_slices:
-                    s_sl = _proto_to_nd_slice(s_proto)
-                    for d_proto in d_slices:
-                      d_sl = _proto_to_nd_slice(d_proto)
-                      inter = intersect_nd_slices(s_sl, d_sl)
-                      if inter:
-                        if not is_nd_slice_tile_aligned(
-                            s_sl, d_sl, inter, tile_shape=(8, 128)
-                        ):
-                          all_aligned = False
-                          break
-                    if not all_aligned:
-                      break
-                  local_skip_tiling[layer_idx] = all_aligned
 
           # Build final plan and replace the partial plan
           final_plan = TransferPlan(
