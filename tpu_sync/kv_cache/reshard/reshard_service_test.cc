@@ -183,6 +183,50 @@ class ReshardStackTest : public ::testing::Test {
     ASSERT_TRUE(resp.success()) << resp.message();
   }
 
+  // One rank's v1 (request-global destination space) declaration with an
+  // arbitrary span set over its own source blocks.
+  struct GlobalSpan {
+    int64_t src_ordinal;
+    int64_t src_offset;
+    int64_t dst_global_offset;
+    int64_t size;
+  };
+  void RegisterGlobalSpans(int rank, const std::string& req_id, int64_t uuid,
+                           const std::vector<int64_t>& src_blocks,
+                           const std::vector<GlobalSpan>& spans) {
+    tpu_sync::rpc::ControllerRequest req;
+    req.set_command(
+        tpu_sync::rpc::ControllerRequest::COMMAND_REGISTER_REQUEST_BLOCKS);
+    auto* block_req = req.mutable_register_request_blocks_request();
+    block_req->set_req_id(req_id);
+    block_req->set_uuid(uuid);
+    *block_req->mutable_unit() = RaidenIdToProto(Unit(rank));
+    for (int64_t block : src_blocks) {
+      block_req->add_block_ids(block);
+    }
+    auto* entry = block_req->add_pool_spans();
+    entry->set_tag("fa");
+    for (int64_t block : src_blocks) {
+      entry->add_block_ids(block);
+    }
+    int64_t declared = 0;
+    for (const GlobalSpan& span : spans) {
+      auto* out = entry->add_spans();
+      out->set_src_block_ordinal(span.src_ordinal);
+      out->set_src_offset_bytes(span.src_offset);
+      out->set_dst_block_index(0);
+      out->set_dst_offset_bytes(span.dst_global_offset);
+      out->set_size_bytes(span.size);
+      out->set_count(1);
+      declared += span.size;
+    }
+    entry->set_declared_bytes(declared);
+    entry->set_dst_space_version(1);
+    tpu_sync::rpc::ControllerResponse resp;
+    resp.ParseFromString(service_->HandleFrame(req.SerializeAsString()));
+    ASSERT_TRUE(resp.success()) << resp.message();
+  }
+
   tpu_sync::rpc::ControlResponse Handle(const std::string& bytes) {
     tpu_sync::rpc::ControlResponse resp;
     resp.ParseFromString(service_->HandleFrame(bytes));
@@ -197,7 +241,8 @@ class ReshardStackTest : public ::testing::Test {
 
   tpu_sync::rpc::ControllerResponse Coordinate(
       const std::string& req_id, int64_t uuid, int num_src,
-      std::vector<int64_t> dst_blocks) {
+      std::vector<int64_t> dst_blocks,
+      std::vector<int64_t> dst_skip = {}) {
     tpu_sync::rpc::ControllerRequest req;
     req.set_command(
         tpu_sync::rpc::ControllerRequest::COMMAND_COORDINATE_TRANSFER);
@@ -215,6 +260,9 @@ class ReshardStackTest : public ::testing::Test {
       coord->add_dst_device_block_ids(block);
     }
     coord->add_transfer_pool_tags("fa");
+    for (int64_t skip : dst_skip) {
+      coord->add_dst_skip_bytes(skip);
+    }
     return HandleController(req.SerializeAsString());
   }
 
@@ -329,6 +377,113 @@ TEST_F(ReshardStackTest, GlobalSpaceSpansSplitAtPageBoundaries) {
   EXPECT_EQ(schedule.entries(1).dst_block_id(), 9);
   EXPECT_EQ(schedule.entries(1).dst_offset_bytes(), 0);
   EXPECT_EQ(schedule.entries(1).size_bytes(), 512);
+}
+
+TEST_F(ReshardStackTest, ClipDropsTrimsAndRebasesGlobalSpans) {
+  RegisterAllUnits(/*num_src=*/2, /*live=*/1024, /*stride=*/1024,
+                   /*num_blocks=*/16);
+  // Full global space is [0, 2048): rank 1 owns [0,512) and [1536,2048),
+  // rank 0 owns the straddling middle [512,1536). A one-page clip
+  // (dst_skip_bytes=1024) must drop rank 1's first span entirely, trim
+  // rank 0's span to [1024,1536), and re-base survivors onto the single
+  // suffix destination page.
+  RegisterGlobalSpans(0, "req-clip", 50, {3},
+                      {{/*src_ordinal=*/0, /*src_offset=*/0,
+                        /*dst_global_offset=*/512, /*size=*/1024}});
+  RegisterGlobalSpans(1, "req-clip", 50, {5, 6},
+                      {{0, 0, /*dst_global_offset=*/0, 512},
+                       {1, 0, /*dst_global_offset=*/1536, 512}});
+  tpu_sync::rpc::ControllerResponse resp =
+      Coordinate("req-clip", 50, 2, {9}, /*dst_skip=*/{1024});
+  ASSERT_TRUE(resp.success()) << resp.message();
+
+  ASSERT_EQ(transport_.calls_.size(), 3u);
+  tpu_sync::rpc::ControlRequest arm;
+  ASSERT_TRUE(arm.ParseFromString(transport_.calls_[0].second));
+  const auto& group = arm.start_transfer_request().pool_groups(0);
+  EXPECT_EQ(group.expected_pushes(), 2);
+  ASSERT_EQ(group.dst_expected_extent_bytes_size(), 1);
+  EXPECT_EQ(group.dst_expected_extent_bytes(0), 1024);
+
+  bool found_rank0 = false;
+  bool found_rank1 = false;
+  for (size_t i = 1; i < transport_.calls_.size(); ++i) {
+    tpu_sync::rpc::ControlRequest dispatch;
+    ASSERT_TRUE(dispatch.ParseFromString(transport_.calls_[i].second));
+    const auto& schedule =
+        dispatch.start_transfer_request().shard_push_schedules().at(0);
+    ASSERT_EQ(schedule.entries_size(), 1);
+    const auto& entry = schedule.entries(0);
+    if (transport_.calls_[i].first == "10.0.0.1:9100") {
+      // Rank 0's trimmed straddler: source advanced past the clipped 512
+      // bytes, destination re-based to the suffix page's origin.
+      found_rank0 = true;
+      EXPECT_EQ(entry.src_block_id(), 3);
+      EXPECT_EQ(entry.src_offset_bytes(), 512);
+      EXPECT_EQ(entry.dst_block_id(), 9);
+      EXPECT_EQ(entry.dst_offset_bytes(), 0);
+      EXPECT_EQ(entry.size_bytes(), 512);
+    } else if (transport_.calls_[i].first == "10.0.0.1:9102") {
+      // Rank 1's surviving tail span, from its second source block.
+      found_rank1 = true;
+      EXPECT_EQ(entry.src_block_id(), 6);
+      EXPECT_EQ(entry.src_offset_bytes(), 0);
+      EXPECT_EQ(entry.dst_block_id(), 9);
+      EXPECT_EQ(entry.dst_offset_bytes(), 512);
+      EXPECT_EQ(entry.size_bytes(), 512);
+    }
+  }
+  EXPECT_TRUE(found_rank0);
+  EXPECT_TRUE(found_rank1);
+}
+
+TEST_F(ReshardStackTest, ClipValidationFailsClosed) {
+  RegisterAllUnits(/*num_src=*/1, /*live=*/1024, /*stride=*/1024,
+                   /*num_blocks=*/16);
+  RegisterGlobalSpans(0, "req-clipv", 52, {3},
+                      {{0, 0, /*dst_global_offset=*/0, 1024}});
+
+  // Not a page multiple: rejected before any claim.
+  tpu_sync::rpc::ControllerResponse unaligned =
+      Coordinate("req-clipv", 52, 1, {9}, /*dst_skip=*/{512});
+  EXPECT_FALSE(unaligned.success());
+  EXPECT_NE(unaligned.message().find("whole multiple"), std::string::npos)
+      << unaligned.message();
+
+  // Wrong arity: one tag, two skips.
+  tpu_sync::rpc::ControllerResponse arity =
+      Coordinate("req-clipv", 52, 1, {9}, /*dst_skip=*/{1024, 0});
+  EXPECT_FALSE(arity.success());
+  EXPECT_NE(arity.message().find("align 1:1"), std::string::npos)
+      << arity.message();
+
+  // Clip covering the whole declared extent: a full local hit must never
+  // reach the planner.
+  tpu_sync::rpc::ControllerResponse whole =
+      Coordinate("req-clipv", 52, 1, {9}, /*dst_skip=*/{1024});
+  EXPECT_FALSE(whole.success());
+  EXPECT_NE(whole.message().find("removes the entire tag"), std::string::npos)
+      << whole.message();
+
+  // The registration survives the failed attempts (claims abandoned),
+  // and an explicit zero clip on the wire is accepted as "no clip".
+  tpu_sync::rpc::ControllerResponse ok =
+      Coordinate("req-clipv", 52, 1, {9}, /*dst_skip=*/{0});
+  EXPECT_TRUE(ok.success()) << ok.message();
+}
+
+TEST_F(ReshardStackTest, ClipRejectsPageIndexedDeclarations) {
+  RegisterAllUnits(/*num_src=*/1, /*live=*/1024, /*stride=*/1024,
+                   /*num_blocks=*/16);
+  // v0 (page-indexed) declaration: a nonzero clip has no defined meaning.
+  RegisterSpans(0, "req-clipv0", 53, 1024, /*src_block=*/3, /*dst_index=*/0,
+                /*dst_offset=*/0, /*size=*/1024);
+  tpu_sync::rpc::ControllerResponse resp =
+      Coordinate("req-clipv0", 53, 1, {9}, /*dst_skip=*/{1024});
+  EXPECT_FALSE(resp.success());
+  EXPECT_NE(resp.message().find("destination-page-agnostic"),
+            std::string::npos)
+      << resp.message();
 }
 
 TEST_F(ReshardStackTest, MissingRegistrationKeepsContractString) {

@@ -226,6 +226,11 @@ tpu_sync::rpc::ControllerRequest ReshardClient::BuildStartTransfer(
   for (int64_t count : args.dst_block_counts) {
     coord->add_dst_block_counts(static_cast<int32_t>(count));
   }
+  // `if dst_skip_bytes:` — truthy; empty (all-zero clip) is absent, which
+  // keeps skip-free requests byte-identical to pre-clip encodings.
+  for (int64_t skip : args.dst_skip_bytes) {
+    coord->add_dst_skip_bytes(skip);
+  }
   return req;
 }
 

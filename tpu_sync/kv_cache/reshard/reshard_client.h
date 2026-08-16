@@ -127,6 +127,9 @@ struct StartTransferArgs {
   std::vector<std::string> transfer_pool_tags;
   // Python: `if dst_block_counts:` — truthy, so empty is absent.
   std::vector<int64_t> dst_block_counts;
+  // Per-tag destination clip; `if dst_skip_bytes:` — truthy, so empty
+  // (no clip) is absent and skip-free encodings stay byte-identical.
+  std::vector<int64_t> dst_skip_bytes;
   // num_tokens is accepted by the shim for caller compatibility and
   // dropped, exactly like the facade (retired from the wire).
 };

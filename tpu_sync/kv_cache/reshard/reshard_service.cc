@@ -169,6 +169,8 @@ std::string ReshardService::HandleControllerCommand(
       args.has_transfer_pool_tags = coord_req.transfer_pool_tags_size() > 0;
       args.dst_block_counts.assign(coord_req.dst_block_counts().begin(),
                                    coord_req.dst_block_counts().end());
+      args.dst_skip_bytes.assign(coord_req.dst_skip_bytes().begin(),
+                                 coord_req.dst_skip_bytes().end());
       // Wire carries no parallelism (planner derives it from admission);
       // dst_device_block_ids emptiness surfaces in the coordinator as the
       // Python path would report it.

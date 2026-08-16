@@ -318,6 +318,24 @@ absl::StatusOr<PoolReshardPlan> BuildPoolReshardPlan(
       split_cursor += static_cast<size_t>(count);
     }
   }
+  std::vector<int64_t> tag_skips(requested_tags.size(), 0);
+  if (!request.dst_skip_bytes.empty()) {
+    if (request.dst_skip_bytes.size() != requested_tags.size()) {
+      return absl::InvalidArgumentError(absl::StrCat(
+          "dst_skip_bytes must align 1:1 with transfer_pool_tags: ",
+          request.dst_skip_bytes.size(), " skips for ", requested_tags.size(),
+          " tags"));
+    }
+    for (size_t i = 0; i < request.dst_skip_bytes.size(); ++i) {
+      if (request.dst_skip_bytes[i] < 0) {
+        return absl::InvalidArgumentError(
+            absl::StrCat("dst_skip_bytes must be non-negative; tag ",
+                         PyStrRepr(requested_tags[i]), " requested ",
+                         request.dst_skip_bytes[i]));
+      }
+      tag_skips[i] = request.dst_skip_bytes[i];
+    }
+  }
 
   {
     std::set<std::string> available_tags;
@@ -446,6 +464,13 @@ absl::StatusOr<PoolReshardPlan> BuildPoolReshardPlan(
     }
     precheck.src_live = *src_live_values.begin();
     precheck.dst_live = *dst_live_values.begin();
+    if (tag_skips[group_idx] % precheck.dst_live != 0) {
+      return absl::InvalidArgumentError(absl::StrCat(
+          "dst_skip_bytes must be a whole multiple of the destination page "
+          "live bytes for tag ",
+          PyStrRepr(plan_tag), ": skip=", tag_skips[group_idx],
+          ", page_live_bytes=", precheck.dst_live));
+    }
     precheck.src_segments = std::move(src_segment_maps[0]);
     precheck.dst_segments = std::move(dst_segment_maps[0]);
     tag_precheck.push_back(std::move(precheck));
@@ -475,6 +500,7 @@ absl::StatusOr<PoolReshardPlan> BuildPoolReshardPlan(
     const TagPrecheck& precheck = tag_precheck[group_idx];
     const int64_t src_live = precheck.src_live;
     const int64_t dst_live = precheck.dst_live;
+    const int64_t tag_skip = tag_skips[group_idx];
 
     std::vector<std::pair<RaidenId, const PoolSpanRegistration*>> declared;
     for (const RaidenId& unit : request.src_units) {
@@ -494,12 +520,24 @@ absl::StatusOr<PoolReshardPlan> BuildPoolReshardPlan(
 
     // T3.4: destination-page-agnostic declarations (dst_space_version=1)
     // split at destination page boundaries here, where the destination
-    // geometry is known.
+    // geometry is known. A page-aligned dst_skip_bytes clip applies in the
+    // same pass: spans wholly below the cut are dropped (their source bytes
+    // are never read), the straddling span is trimmed, and survivors
+    // re-base into the clipped space — skip is a dst_live multiple, so
+    // in-page offsets are unchanged and only page indices shift.
     std::vector<PoolSpanRegistration> converted_storage;
     converted_storage.reserve(declared.size());
     std::vector<std::pair<RaidenId, const PoolSpanRegistration*>> converted;
+    int64_t tag_clipped_bytes = 0;
+    int64_t tag_global_end = 0;
     for (const auto& [unit, entry] : declared) {
       if (entry->dst_space_version == 0) {
+        if (tag_skip > 0) {
+          return absl::InvalidArgumentError(absl::StrCat(
+              "dst_skip_bytes requires destination-page-agnostic "
+              "(dst_space_version=1) declarations for tag ",
+              PyStrRepr(plan_tag), " (declared by ", PythonRepr(unit), ")"));
+        }
         converted.emplace_back(unit, entry);
         continue;
       }
@@ -520,9 +558,21 @@ absl::StatusOr<PoolReshardPlan> BuildPoolReshardPlan(
               "(declared by ",
               PythonRepr(unit), ")"));
         }
-        int64_t remaining = span.size_bytes;
-        int64_t global_offset = span.dst_offset_bytes;
-        int64_t src_offset = span.src_offset_bytes;
+        tag_global_end =
+            std::max(tag_global_end, span.dst_offset_bytes + span.size_bytes);
+        int64_t clip_advance = 0;
+        if (span.dst_offset_bytes + span.size_bytes <= tag_skip) {
+          tag_clipped_bytes += span.size_bytes;
+          continue;
+        }
+        if (span.dst_offset_bytes < tag_skip) {
+          clip_advance = tag_skip - span.dst_offset_bytes;
+          tag_clipped_bytes += clip_advance;
+        }
+        int64_t remaining = span.size_bytes - clip_advance;
+        int64_t global_offset =
+            span.dst_offset_bytes + clip_advance - tag_skip;
+        int64_t src_offset = span.src_offset_bytes + clip_advance;
         while (remaining > 0) {
           const int64_t page_index = global_offset / dst_live;
           const int64_t in_page = global_offset % dst_live;
@@ -541,6 +591,12 @@ absl::StatusOr<PoolReshardPlan> BuildPoolReshardPlan(
       }
       converted_storage.push_back(std::move(split_entry));
       converted.emplace_back(unit, &converted_storage.back());
+    }
+    if (tag_skip > 0 && tag_skip >= tag_global_end) {
+      return absl::InvalidArgumentError(absl::StrCat(
+          "dst_skip_bytes removes the entire tag ", PyStrRepr(plan_tag),
+          ": skip=", tag_skip, ", declared_extent=", tag_global_end,
+          "; a full local hit must not reach the planner"));
     }
     declared = std::move(converted);
 
@@ -643,10 +699,16 @@ absl::StatusOr<PoolReshardPlan> BuildPoolReshardPlan(
       }
       extents.push_back(covered_until);
     }
-    if (declared_total != covered_total) {
-      return absl::InvalidArgumentError(
-          absl::StrCat("Declared byte totals disagree with coverage: declared=",
-                       declared_total, ", covered=", covered_total));
+    if (declared_total != covered_total + tag_clipped_bytes) {
+      if (tag_clipped_bytes == 0) {
+        return absl::InvalidArgumentError(absl::StrCat(
+            "Declared byte totals disagree with coverage: declared=",
+            declared_total, ", covered=", covered_total));
+      }
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Declared byte totals disagree with coverage: declared=",
+          declared_total, ", covered=", covered_total,
+          ", clipped=", tag_clipped_bytes));
     }
     {
       int64_t extent_sum = 0;

@@ -43,6 +43,13 @@ _impl = torch_abi.load_extension(
 )
 # pylint: enable=g-import-not-at-top
 
+# Capability probe for the vLLM connector: True iff this client (and the
+# native extension behind it) accepts the per-tag dst_skip_bytes clip on
+# coordinate_transfer. Absent on older shims, so consumers must getattr.
+SUPPORTS_DST_SKIP_BYTES = bool(
+    getattr(_impl, "reshard_client_supports_dst_skip_bytes", False))
+
+
 
 def _unit_tuple(unit: Any) -> tuple:
   """Duck-typed: accepts the rpc dataclass, the bound RaidenId, or alikes."""
@@ -195,6 +202,7 @@ class ReshardClient:
       num_tokens: Optional[int] = None,
       transfer_pool_tags: Optional[typing.Sequence[str]] = None,
       dst_block_counts: Optional[typing.Sequence[int]] = None,
+      dst_skip_bytes: Optional[typing.Sequence[int]] = None,
   ) -> bool:
     # num_tokens accepted for caller compatibility, retired from the wire
     # (facade parity); shard_push_schedules is a legacy-relay parameter the
@@ -226,6 +234,9 @@ class ReshardClient:
             [str(t) for t in (transfer_pool_tags or ())],
             [int(c) for c in (dst_block_counts or ())]
             if dst_block_counts else [],
+            [int(s) for s in (dst_skip_bytes or ())]
+            if dst_skip_bytes and any(int(s) != 0 for s in dst_skip_bytes)
+            else [],
         ))
 
   def start_transfer(self, *args, **kwargs) -> bool:

@@ -81,6 +81,8 @@ struct PoolReshardArgs {
   std::optional<int32_t> parallelism;
   bool skip_d2h = false;
   std::vector<int64_t> dst_block_counts;
+  // Per-tag destination clip (empty = all zeros); see PlanRequest.
+  std::vector<int64_t> dst_skip_bytes;
 };
 
 // Port of _start_pool_reshard_transfer + _execute_pool_reshard, executed

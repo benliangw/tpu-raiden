@@ -337,6 +337,7 @@ absl::Status ReshardCoordinator::ExecutePoolReshard(
   plan_request.transfer_pool_tags = args.transfer_pool_tags;
   plan_request.parallelism = args.parallelism;
   plan_request.dst_block_counts = args.dst_block_counts;
+  plan_request.dst_skip_bytes = args.dst_skip_bytes;
 
   // _build_pool_reshard_plan: claim under a unique owner; abandon on any
   // planning failure.

@@ -103,6 +103,10 @@ struct PlanRequest {
   std::vector<std::string> transfer_pool_tags;
   std::optional<int32_t> parallelism;
   std::vector<int64_t> dst_block_counts;
+  // Per-tag destination clip (empty = all zeros): plan only bytes >=
+  // dst_skip_bytes[i] of tag i's global destination byte space, re-based
+  // onto that tag's destination block list. Page-multiple, v1-only.
+  std::vector<int64_t> dst_skip_bytes;
 };
 
 // _build_byte_span_plan_claimed: validates, claims the registration
