@@ -118,11 +118,13 @@ class BlockTransport final {
   }
 
   // Registers the per-layer expected number of chunks for the given `uuid`.
-  // When all chunks for a layer arrive, it triggers `OnLayerDataReceived(layer_idx, uuid)`.
+  // When all chunks for a layer arrive, it triggers
+  // `OnLayerDataReceived(layer_idx, uuid)`.
   absl::Status RegisterExpectedLayerChunks(
       uint64_t uuid,
       const absl::flat_hash_map<size_t, uint32_t>& expected_layer_chunks) {
-    return raw_transport_.RegisterExpectedLayerChunks(uuid, expected_layer_chunks);
+    return raw_transport_.RegisterExpectedLayerChunks(uuid,
+                                                      expected_layer_chunks);
   }
 
  private:

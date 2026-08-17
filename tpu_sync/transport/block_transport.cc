@@ -48,6 +48,7 @@
 #include "absl/types/span.h"
 #include "tpu_sync/core/status_macros.h"
 #include "tpu_sync/telemetry/metrics_api.h"
+#include "tpu_sync/telemetry/metrics_backend.h"
 #include "tpu_sync/transport/block_transport_delegate.h"
 #include "tpu_sync/transport/buffer_push_task.h"
 #include "tpu_sync/transport/lib/chunk.h"
