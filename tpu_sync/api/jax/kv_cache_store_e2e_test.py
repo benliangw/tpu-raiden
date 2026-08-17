@@ -316,19 +316,16 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     # print(f"DEBUG: np.asarray(tpu_cache) after overwrite with zeros: {np.asarray(tpu_cache)[0, 0, 0, 0, 0:5]}")
 
     # 8. Load from host DRAM back to device HBM
-    self.assertTrue(store.pin(hashes))
     if use_slices:
-      # Hand the store the entries the caller already has instead of letting
-      # it resolve the hashes again. Resolved AFTER the pin above, so nothing
-      # can evict them out from under the slices -- that ordering is the whole
-      # safety contract of this form, since it performs no lookup of its own.
+      # lookup() pins the returned entries; load(..., slices=...) consumes the pin on success.
       load_slices = [entry for _, entry in store.lookup(hashes)]
-      store.release(hashes)
       self.assertLen(load_slices, 2)
       for entry in load_slices:
         self.assertEqual(entry.status, kv_cache_store.BlockStatus.HOST_AND_HBM)
       self.assertTrue(store.load(hashes, [0, 1], slices=load_slices))
     else:
+      # lookup() pins the returned entries; load() consumes the pin on success.
+      self.assertLen(store.lookup(hashes), 2)
       self.assertTrue(store.load(hashes, [0, 1]))
 
     # Wait for load completion
@@ -341,9 +338,6 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
         done = True
       if not done:
         time.sleep(0.01)
-
-    # Release at the very end
-    store.release(hashes)
 
     # 9. Verify device memory contains the original random data
     np.testing.assert_array_equal(np.asarray(tpu_cache), expected_ref)
@@ -762,7 +756,6 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     # --- Job B: discover the blocks as REMOTE. -----------------------------
     time.sleep(0.5)
     lookup_b = store_b.lookup(hashes, enable_global=True)
-    store_b.release(hashes)
     self.assertLen(lookup_b, 2)
     for _, blk in lookup_b:
       self.assertEqual(blk.status, kv_cache_store.BlockStatus.REMOTE)
@@ -1040,13 +1033,11 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
       # Nothing was transferred, so there is nothing of Job A's to compare.
       return
 
-    # 4. Prove the bytes are real. Landed blocks arrive UNPINNED -- a remote
-    #    write leaves ordinary evictable entries -- and load() refuses a block
-    #    nothing is holding.
-    self.assertTrue(store_b.pin(hashes))
+    # 4. Prove the bytes are real. lookup() resolves and pins the landed
+    #    host blocks; load() consumes the pin on success.
+    self.assertLen(store_b.lookup(hashes), num_blocks)
     self.assertTrue(store_b.load(hashes, list(range(num_blocks))))
     self._await_terminal(store_b.poll_load_status, len(hashes), "Job B load")
-    store_b.release(hashes)
 
     np.testing.assert_array_equal(
         self._reread_device(tpu_cache_b),

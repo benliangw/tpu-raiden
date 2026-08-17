@@ -182,8 +182,8 @@ def _phase_b(expect_recovery: bool):
   del rid
 
   lookup_res = store.lookup(_HASHES)
-  store.release(_HASHES)
   if not expect_recovery:
+    store.release(_HASHES)
     assert not lookup_res, f"expected a cold start, got hits: {lookup_res}"
     print(_PHASE_B_COLD_MARKER, flush=True)
     return
@@ -199,10 +199,9 @@ def _phase_b(expect_recovery: bool):
     assert blk.host_block_id == i, (i, blk.host_block_id)
   print(_PHASE_B_RECOVERED_MARKER, flush=True)
 
-  assert store.pin(_HASHES)
+  # lookup() already resolved and pinned the recovered blocks; load() consumes the pin on success.
   store.load(_HASHES, list(range(_NUM_BLOCKS)))
   _poll(store.poll_load_status, _NUM_BLOCKS, "load")
-  store.release(_HASHES)
 
   np.testing.assert_array_equal(tpu_cache.cpu().numpy(), host_data)
   print(_PHASE_B_BYTES_MARKER, flush=True)

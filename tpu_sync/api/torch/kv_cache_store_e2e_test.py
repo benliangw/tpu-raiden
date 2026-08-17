@@ -274,19 +274,16 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
 
     # 7. Load from host DRAM into device HBM blocks [2, 3]
     print("=== [Step 7/8] Loading checkpoint from Host DRAM into TPU HBM blocks [2, 3] (store.load) ===")
-    self.assertTrue(store.pin(hashes))
     if use_slices:
-      # Hand the store the entries the caller already has instead of letting
-      # it resolve the hashes again. Resolved AFTER the pin above, so nothing
-      # can evict them out from under the slices -- that ordering is the whole
-      # safety contract of this form, since it performs no lookup of its own.
+      # lookup() pins the returned entries; load(..., slices=...) consumes the pin on success.
       load_slices = [entry for _, entry in store.lookup(hashes)]
-      store.release(hashes)
       self.assertLen(load_slices, 2)
       for entry in load_slices:
         self.assertEqual(entry.status, kv_cache_store.BlockStatus.HOST_AND_HBM)
       self.assertTrue(store.load(hashes, [2, 3], slices=load_slices))
     else:
+      # lookup() pins the returned entries; load() consumes the pin on success.
+      self.assertLen(store.lookup(hashes), 2)
       self.assertTrue(store.load(hashes, [2, 3]))
 
     # Wait for load completion
@@ -299,9 +296,6 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
         done = True
       if not done:
         time.sleep(0.01)
-
-    # Release at the very end
-    store.release(hashes)
 
     try:
       torch.tpu.synchronize()
@@ -664,17 +658,14 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
       self.assertEmpty(existing)
       store_a.release(hashes)
 
-      # 3. Job B holds them locally, host-resident, as its own.
+      # 3. Job B holds them locally, host-resident, as its own. lookup() resolves
+      #    and pins the landed entries.
       lookup_b = store_b.lookup(hashes, enable_global=False)
-      store_b.release(hashes)
       self.assertLen(lookup_b, len(hashes))
       for _, slice_b in lookup_b:
         self.assertEqual(slice_b.status, kv_cache_store.BlockStatus.HOST)
 
-      # 4. Prove the bytes are real. Landed blocks arrive UNPINNED -- a remote
-      #    write leaves ordinary evictable entries -- and load() refuses a
-      #    block nothing is holding.
-      self.assertTrue(store_b.pin(hashes))
+      # 4. Prove the bytes are real. load() consumes the pin on success.
       self.assertTrue(store_b.load(hashes, [0, 1]))
       deadline = time.time() + 120
       while True:
@@ -686,7 +677,6 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
         if time.time() > deadline:
           raise RuntimeError("Job B load did not complete in time")
         time.sleep(0.01)
-      store_b.release(hashes)
 
       try:
         torch.tpu.synchronize()

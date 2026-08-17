@@ -268,13 +268,8 @@ def _worker_save_load_main(argv):
 
     if rank == 0:
       print("=== [Rank 0] Loading checkpoint from Host DRAM into TPU HBM blocks [2, 3] (store.load) ===")
-      assert store.pin(hashes), "Failed to pin hashes before load"
       if FLAGS.use_slices:
-        # Hand the store the entries this rank already has instead of letting
-        # it resolve the hashes again. Resolved AFTER the pin above, so
-        # nothing can evict them out from under the slices -- that ordering is
-        # the whole safety contract of this form, since it performs no lookup
-        # of its own.
+        # lookup() pins the returned entries; load(..., slices=...) consumes the pin on success.
         load_slices = [entry for _, entry in store.lookup(hashes)]
         assert len(load_slices) == len(hashes), (
             f"expected {len(hashes)} entries, got {load_slices}"
@@ -287,6 +282,8 @@ def _worker_save_load_main(argv):
             "load with slices failed"
         )
       else:
+        # lookup() pins the returned entries; load() consumes the pin on success.
+        assert len(store.lookup(hashes)) == len(hashes)
         assert store.load(hashes, [2, 3]), "load failed"
       done = False
       while not done:
@@ -297,7 +294,6 @@ def _worker_save_load_main(argv):
           done = True
         if not done:
           time.sleep(0.01)
-      store.release(hashes)
 
     dist.barrier()
     try:
@@ -502,7 +498,9 @@ def _worker_read_remote_main(argv):
         assert not store_b.lookup(hashes), "read_remote must record nothing"
 
       if use_slices:
-        store_b.release_and_delete(hashes)
+        # A load from a peer records nothing locally: no host copy was kept, so
+        # the cache is a miss for these hashes.
+        assert not store_b.lookup(hashes), "peer load must record nothing locally"
 
     dist.barrier()
     try:
@@ -686,15 +684,13 @@ def _worker_write_remote_main(argv):
       assert done, "Job A WriteRemote timed out"
       store_a.release(hashes)
 
-      # Destination holds blocks locally on host DRAM
+      # Destination holds blocks locally on host DRAM. lookup() pins the landed entries.
       lookup_res_b = store_b.lookup(hashes, enable_global=False)
       assert (
           len(lookup_res_b) == 2
       ), f"Expected 2 blocks on store_b, got {len(lookup_res_b)}"
-      store_b.release(hashes)
 
-      # Load blocks [0, 1] from Job B's host pool into TPU HBM
-      assert store_b.pin(hashes), "pin failed on store_b"
+      # Load blocks [0, 1] from Job B's host pool into TPU HBM (consumes the pin)
       assert store_b.load(hashes, [0, 1]), "load failed on store_b"
       deadline = time.time() + 120
       done = False
@@ -707,8 +703,6 @@ def _worker_write_remote_main(argv):
           break
         time.sleep(0.01)
       assert done, "Job B Load timed out"
-
-      store_b.release_and_delete(hashes)
 
     dist.barrier()
     try:

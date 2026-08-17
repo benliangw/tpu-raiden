@@ -546,9 +546,10 @@ class KVCacheStoreTest(absltest.TestCase):
     ]
     self.assertTrue(store.insert([b"hash2"], slices_2, True)[0])
 
-    self.assertTrue(store.pin([b"hash1", b"hash2"]))
+    lookup_res = store.lookup([b"hash1", b"hash2"])
+    self.assertLen(lookup_res, 2)
 
-    # 6. Trigger Load to HBM block 5 and 6
+    # 6. Trigger Load to HBM block 5 and 6 (consumes the pin granted by lookup)
     self.assertTrue(store.load([b"hash1", b"hash2"], [5, 6]))
 
     # Wait for completion
@@ -664,13 +665,9 @@ class KVCacheStoreTest(absltest.TestCase):
         )[0]
     )
 
-    # Pin BEFORE resolving, so the entries cannot be evicted out from under
-    # the slices between the lookup and the load. This is the ordering the
-    # slices form depends on.
-    self.assertTrue(store.pin(hashes))
-
+    # lookup() pins the returned entries; load(..., slices=slices) consumes
+    # the pin on success.
     looked_up = store.lookup(hashes)
-    store.release(hashes)
     self.assertLen(looked_up, 2)
     slices = [entry for _, entry in looked_up]
     self.assertEqual(slices[0].host_block_id, 3)
@@ -851,7 +848,8 @@ class KVCacheStoreTest(absltest.TestCase):
     self.assertTrue(global_verified, "Global registration lookup failed")
 
     # 7. Trigger Load (H2D) to DIFFERENT HBM blocks (5 and 6) to verify DRAM
-    # content
+    # content. lookup() resolves and pins the entries; load() consumes the pins.
+    self.assertLen(store.lookup([b"hash1", b"hash2"]), 2)
     self.assertTrue(store.load([b"hash1", b"hash2"], [5, 6]))
 
     # Wait for load completion
