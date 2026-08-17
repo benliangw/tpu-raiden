@@ -38,6 +38,7 @@
 #include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
@@ -68,6 +69,50 @@
 namespace tpu_raiden {
 namespace kv_cache {
 namespace {
+
+// Reads a positive integer from an env var. Returns `fallback` if unset,
+// unparseable, or non-positive.
+int IntFromEnv(const char* name, int fallback) {
+  const char* raw = std::getenv(name);
+  if (raw == nullptr) return fallback;
+  int value = 0;
+  if (!absl::SimpleAtoi(raw, &value) || value <= 0) {
+    LOG(ERROR) << name << "=\"" << raw
+               << "\" is not a positive integer; using " << fallback;
+    return fallback;
+  }
+  return value;
+}
+
+// Remote-pull concurrency, read once per process. The two knobs multiply:
+// H2dRead splits its chunks into PullBatchCount() batches that run
+// concurrently on pull_pool_, and each batch's SyncPull opens
+// PullParallelism() connections of its own, so the peak stream count to a
+// peer is their product. Both are env-tunable so a sweep needs one build
+// rather than one per value.
+int PullBatchCount() {
+  static const int value = IntFromEnv("RAIDEN_PULL_BATCH_COUNT", 4);
+  return value;
+}
+
+int PullParallelism() {
+  static const int value = IntFromEnv("RAIDEN_PULL_PARALLELISM", 1);
+  return value;
+}
+
+// Sized to at least the batch count: a pool smaller than that queues batches
+// behind busy threads, which reads as a bogus throughput plateau in a sweep.
+size_t PullPoolSize() {
+  static const size_t value = std::max<size_t>(
+      IntFromEnv("RAIDEN_PULL_POOL_SIZE", 4), PullBatchCount());
+  return value;
+}
+
+void LogPullKnobs() {
+  LOG(INFO) << "KVCacheManagerBase remote-pull knobs: pool_size="
+            << PullPoolSize() << " batch_count=" << PullBatchCount()
+            << " parallelism=" << PullParallelism();
+}
 
 absl::Status ValidateOffsetsAndSizes(const std::vector<int64_t>& src_offsets,
                                      const std::vector<int64_t>& dst_offsets,
@@ -366,7 +411,8 @@ KVCacheManagerBase::KVCacheManagerBase(
   constexpr size_t kPoolSize = 4;
   dma_pool_ = std::make_unique<NumaThreadPool>(kPoolSize);
   push_pool_ = std::make_shared<NumaThreadPool>(kPoolSize);
-  pull_pool_ = std::make_unique<NumaThreadPool>(kPoolSize);
+  pull_pool_ = std::make_unique<NumaThreadPool>(PullPoolSize());
+  LogPullKnobs();
   InitBackgroundWorker();
   UpdateAllocatedOccupancyMetric();
 }
@@ -443,7 +489,8 @@ KVCacheManagerBase::KVCacheManagerBase(
   constexpr size_t kPoolSize = 4;
   dma_pool_ = std::make_unique<NumaThreadPool>(kPoolSize);
   push_pool_ = std::make_shared<NumaThreadPool>(kPoolSize);
-  pull_pool_ = std::make_unique<NumaThreadPool>(kPoolSize);
+  pull_pool_ = std::make_unique<NumaThreadPool>(PullPoolSize());
+  LogPullKnobs();
   InitTransportServer();
   InitBackgroundWorker();
   UpdateAllocatedOccupancyMetric();
@@ -901,7 +948,7 @@ absl::StatusOr<raiden::PjRtCopyFuture> KVCacheManagerBase::H2dRead(
     ASSIGN_OR_RETURN(
         auto h2h_fut,
         H2hReadExplicit(std::string(peer), src_block_ids, staging_block_ids,
-                        /*explicit_dst_ptrs=*/{}));
+                        /*explicit_dst_ptrs=*/{}, PullParallelism()));
     RETURN_IF_ERROR(h2h_fut.Await());
 
     return H2dSyncDispatch(dst_host_offsets_major_dim,
@@ -920,10 +967,10 @@ absl::StatusOr<raiden::PjRtCopyFuture> KVCacheManagerBase::H2dRead(
   // One pull per chunk pays one full request-response round trip to the peer
   // per chunk; SyncPull streams a whole batch of blocks over one connection.
   // Batch the chunks into one pull per pool thread, so the wire cost is
-  // kPullBatchCount round trips instead of num_chunks, while one batch's H2D
+  // PullBatchCount() round trips instead of num_chunks, while one batch's H2D
   // still overlaps another batch's network pull.
-  constexpr size_t kPullBatchCount = 4;  // pull_pool_ thread count
-  const size_t num_batches = std::min(num_chunks, kPullBatchCount);
+  const size_t num_batches =
+      std::min(num_chunks, static_cast<size_t>(PullBatchCount()));
 
   auto state = std::make_shared<TransferPipelinedState>(
       num_batches, std::move(promise), std::move(all_holds));
@@ -963,7 +1010,8 @@ absl::StatusOr<raiden::PjRtCopyFuture> KVCacheManagerBase::H2dRead(
 
           auto h2h_fut_or = H2hReadExplicit(peer_str, batch_src_ids,
                                             batch_staging_ids,
-                                            /*explicit_dst_ptrs=*/{});
+                                            /*explicit_dst_ptrs=*/{},
+                                            PullParallelism());
           if (!h2h_fut_or.ok()) {
             state->SetError(h2h_fut_or.status());
             state->MarkChunkComplete();
