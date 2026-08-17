@@ -50,9 +50,6 @@ tpu_raiden::NumaThreadPool* GetThreadPool() {
 
 bool IsStandardRowMajorTiled(const xla::Shape& shape,
                              const xla::Layout& layout) {
-  if (layout.tiles().size() != 1) return false;
-  if (layout.tiles(0).dimensions().size() != 2) return false;
-
   const int R = shape.dimensions().size();
   if (R < 1) return false;
 
@@ -61,7 +58,38 @@ bool IsStandardRowMajorTiled(const xla::Shape& shape,
       return false;
     }
   }
-  return true;
+
+  if (layout.tiles().size() == 1) {
+    return layout.tiles(0).dimensions().size() == 2;
+  }
+
+  if (layout.tiles().size() == 2) {
+    const auto& t0 = layout.tiles(0);
+    const auto& t1 = layout.tiles(1);
+    if (t0.dimensions().size() != 2 || t1.dimensions().size() != 2) {
+      return false;
+    }
+    int64_t tile_H = t0.dimension(0);
+    int64_t P = t1.dimension(0);
+    int64_t sub_W = t1.dimension(1);
+    return (sub_W == 1 && (P == 2 || P == 4) && tile_H % P == 0);
+  }
+
+  return false;
+}
+
+template <typename F>
+decltype(auto) DispatchByPackingFactor(int64_t packing_factor, F&& f) {
+  switch (packing_factor) {
+    case 1:
+      return f(std::integral_constant<int64_t, 1>{});
+    case 2:
+      return f(std::integral_constant<int64_t, 2>{});
+    case 4:
+      return f(std::integral_constant<int64_t, 4>{});
+    default:
+      return f(std::integral_constant<int64_t, 1>{});
+  }
 }
 
 // Dispatches row copy operations to compile-time specialized fixed-width
@@ -86,29 +114,6 @@ decltype(auto) DispatchByRowBytes(int64_t row_bytes, F&& f) {
       return f(std::integral_constant<size_t, 512>{});
     default:
       return f(std::integral_constant<size_t, 0>{});
-  }
-}
-
-// Copies a single tile from the source batch pointer to the destination tile
-// pointer when no padding is needed. Template-specialized on compile-time row
-// byte width to enable fully inlined SIMD load/store vector instructions.
-template <size_t kRowBytes>
-void CopyTileNoPadding(const uint8_t* src_batch_ptr, uint8_t* dst_tile_ptr,
-                       int64_t tile_row, int64_t tile_col, int64_t tile_H,
-                       int64_t tile_W, int64_t W, int64_t itemsize) {
-  int64_t logical_col_start = tile_col * tile_W;
-  int64_t row_stride = (kRowBytes > 0) ? kRowBytes : (tile_W * itemsize);
-  for (int64_t r = 0; r < tile_H; ++r) {
-    int64_t logical_row = tile_row * tile_H + r;
-    const uint8_t* src_row_ptr =
-        src_batch_ptr + (logical_row * W + logical_col_start) * itemsize;
-    uint8_t* dst_row_ptr = dst_tile_ptr + r * row_stride;
-
-    if constexpr (kRowBytes > 0) {
-      std::memcpy(dst_row_ptr, src_row_ptr, kRowBytes);
-    } else {
-      std::memcpy(dst_row_ptr, src_row_ptr, row_stride);
-    }
   }
 }
 
@@ -184,12 +189,97 @@ inline void ZeroRowHighway(uint8_t* dst, size_t total_row_bytes) {
 }
 
 // Copies a single tile from the source batch pointer to the destination tile
+// pointer when no padding is needed. Template-specialized on compile-time
+// packing factor and row byte width to enable inlined SIMD load/store vector
+// instructions.
+template <int64_t kPackingFactor, size_t kRowBytes>
+void CopyTilePackedNoPadding(const uint8_t* src_batch_ptr,
+                             uint8_t* dst_tile_ptr, int64_t tile_row,
+                             int64_t tile_col, int64_t tile_H, int64_t tile_W,
+                             int64_t W, int64_t itemsize) {
+  int64_t logical_col_start = tile_col * tile_W;
+  if constexpr (kPackingFactor == 1) {
+    int64_t row_stride = (kRowBytes > 0) ? kRowBytes : (tile_W * itemsize);
+    for (int64_t r = 0; r < tile_H; ++r) {
+      int64_t logical_row = tile_row * tile_H + r;
+      const uint8_t* src_row_ptr =
+          src_batch_ptr + (logical_row * W + logical_col_start) * itemsize;
+      uint8_t* dst_row_ptr = dst_tile_ptr + r * row_stride;
+
+      if constexpr (kRowBytes > 0) {
+        std::memcpy(dst_row_ptr, src_row_ptr, kRowBytes);
+      } else {
+        std::memcpy(dst_row_ptr, src_row_ptr, row_stride);
+      }
+    }
+  } else if constexpr (kPackingFactor == 2) {
+    int64_t num_groups = tile_H / 2;
+    int64_t group_stride_bytes = tile_W * 2 * sizeof(uint16_t);
+    const hn::ScalableTag<uint16_t> d;
+    const size_t N = hn::Lanes(d);
+
+    for (int64_t g = 0; g < num_groups; ++g) {
+      int64_t r0 = tile_row * tile_H + g * 2;
+      int64_t r1 = r0 + 1;
+      const uint16_t* src0 = reinterpret_cast<const uint16_t*>(
+          src_batch_ptr + (r0 * W + logical_col_start) * sizeof(uint16_t));
+      const uint16_t* src1 = reinterpret_cast<const uint16_t*>(
+          src_batch_ptr + (r1 * W + logical_col_start) * sizeof(uint16_t));
+      uint16_t* dst_group =
+          reinterpret_cast<uint16_t*>(dst_tile_ptr + g * group_stride_bytes);
+
+      size_t c = 0;
+      for (; c + N <= static_cast<size_t>(tile_W); c += N) {
+        auto v0 = hn::LoadU(d, src0 + c);
+        auto v1 = hn::LoadU(d, src1 + c);
+        hn::StoreInterleaved2(v0, v1, d, dst_group + c * 2);
+      }
+      for (; c < static_cast<size_t>(tile_W); ++c) {
+        dst_group[2 * c + 0] = src0[c];
+        dst_group[2 * c + 1] = src1[c];
+      }
+    }
+  } else if constexpr (kPackingFactor == 4) {
+    int64_t num_groups = tile_H / 4;
+    int64_t group_stride_bytes = tile_W * 4 * sizeof(uint8_t);
+    const hn::ScalableTag<uint8_t> d;
+    const size_t N = hn::Lanes(d);
+
+    for (int64_t g = 0; g < num_groups; ++g) {
+      int64_t r0 = tile_row * tile_H + g * 4;
+      const uint8_t* src0 = src_batch_ptr + (r0 * W + logical_col_start);
+      const uint8_t* src1 = src_batch_ptr + ((r0 + 1) * W + logical_col_start);
+      const uint8_t* src2 = src_batch_ptr + ((r0 + 2) * W + logical_col_start);
+      const uint8_t* src3 = src_batch_ptr + ((r0 + 3) * W + logical_col_start);
+      uint8_t* dst_group = dst_tile_ptr + g * group_stride_bytes;
+
+      size_t c = 0;
+      for (; c + N <= static_cast<size_t>(tile_W); c += N) {
+        auto v0 = hn::LoadU(d, src0 + c);
+        auto v1 = hn::LoadU(d, src1 + c);
+        auto v2 = hn::LoadU(d, src2 + c);
+        auto v3 = hn::LoadU(d, src3 + c);
+        hn::StoreInterleaved4(v0, v1, v2, v3, d, dst_group + c * 4);
+      }
+      for (; c < static_cast<size_t>(tile_W); ++c) {
+        dst_group[4 * c + 0] = src0[c];
+        dst_group[4 * c + 1] = src1[c];
+        dst_group[4 * c + 2] = src2[c];
+        dst_group[4 * c + 3] = src3[c];
+      }
+    }
+  }
+}
+
+// Copies a single tile from the source batch pointer to the destination tile
 // pointer, handling padding if the tile is partially or fully out of bounds.
 // Out-of-bounds elements in the destination tile are zero-initialized.
-void CopyTileWithPadding(const uint8_t* src_batch_ptr, uint8_t* dst_tile_ptr,
-                         int64_t tile_row, int64_t tile_col, int64_t tile_H,
-                         int64_t tile_W, int64_t H, int64_t W, int64_t itemsize,
-                         int64_t tile_size_bytes) {
+template <int64_t kPackingFactor>
+void CopyTilePackedWithPadding(const uint8_t* src_batch_ptr,
+                               uint8_t* dst_tile_ptr, int64_t tile_row,
+                               int64_t tile_col, int64_t tile_H, int64_t tile_W,
+                               int64_t H, int64_t W, int64_t itemsize,
+                               int64_t tile_size_bytes) {
   int64_t logical_col_start = tile_col * tile_W;
   int64_t valid_elements = std::min(tile_W, W - logical_col_start);
   if (valid_elements <= 0) {
@@ -197,69 +287,255 @@ void CopyTileWithPadding(const uint8_t* src_batch_ptr, uint8_t* dst_tile_ptr,
     return;
   }
 
-  size_t valid_bytes = static_cast<size_t>(valid_elements * itemsize);
-  size_t total_row_bytes = static_cast<size_t>(tile_W * itemsize);
+  if constexpr (kPackingFactor == 1) {
+    size_t valid_bytes = static_cast<size_t>(valid_elements * itemsize);
+    size_t total_row_bytes = static_cast<size_t>(tile_W * itemsize);
 
-  for (int64_t r = 0; r < tile_H; ++r) {
-    int64_t logical_row = tile_row * tile_H + r;
-    uint8_t* dst_row_ptr = dst_tile_ptr + r * total_row_bytes;
-    if (logical_row >= H) {
-      ZeroRowHighway(dst_row_ptr, total_row_bytes);
-      continue;
+    for (int64_t r = 0; r < tile_H; ++r) {
+      int64_t logical_row = tile_row * tile_H + r;
+      uint8_t* dst_row_ptr = dst_tile_ptr + r * total_row_bytes;
+      if (logical_row >= H) {
+        ZeroRowHighway(dst_row_ptr, total_row_bytes);
+        continue;
+      }
+      const uint8_t* src_row_ptr =
+          src_batch_ptr + (logical_row * W + logical_col_start) * itemsize;
+
+      CopyRowWithPaddingHighway(src_row_ptr, dst_row_ptr, valid_bytes,
+                                total_row_bytes);
     }
-    const uint8_t* src_row_ptr =
-        src_batch_ptr + (logical_row * W + logical_col_start) * itemsize;
+  } else if constexpr (kPackingFactor == 2) {
+    int64_t num_groups = tile_H / 2;
+    int64_t group_stride_bytes = tile_W * 2 * sizeof(uint16_t);
 
-    CopyRowWithPaddingHighway(src_row_ptr, dst_row_ptr, valid_bytes,
-                              total_row_bytes);
+    for (int64_t g = 0; g < num_groups; ++g) {
+      int64_t r0 = tile_row * tile_H + g * 2;
+      int64_t r1 = r0 + 1;
+      uint16_t* dst_group =
+          reinterpret_cast<uint16_t*>(dst_tile_ptr + g * group_stride_bytes);
+
+      if (r0 >= H && r1 >= H) {
+        ZeroRowHighway(reinterpret_cast<uint8_t*>(dst_group),
+                       static_cast<size_t>(group_stride_bytes));
+        continue;
+      }
+
+      const uint16_t* src0 =
+          (r0 < H) ? reinterpret_cast<const uint16_t*>(
+                         src_batch_ptr +
+                         (r0 * W + logical_col_start) * sizeof(uint16_t))
+                   : nullptr;
+      const uint16_t* src1 =
+          (r1 < H) ? reinterpret_cast<const uint16_t*>(
+                         src_batch_ptr +
+                         (r1 * W + logical_col_start) * sizeof(uint16_t))
+                   : nullptr;
+
+      for (int64_t c = 0; c < tile_W; ++c) {
+        if (c < valid_elements) {
+          dst_group[2 * c + 0] = src0 ? src0[c] : 0;
+          dst_group[2 * c + 1] = src1 ? src1[c] : 0;
+        } else {
+          dst_group[2 * c + 0] = 0;
+          dst_group[2 * c + 1] = 0;
+        }
+      }
+    }
+  } else if constexpr (kPackingFactor == 4) {
+    int64_t num_groups = tile_H / 4;
+    int64_t group_stride_bytes = tile_W * 4 * sizeof(uint8_t);
+
+    for (int64_t g = 0; g < num_groups; ++g) {
+      int64_t r0 = tile_row * tile_H + g * 4;
+      uint8_t* dst_group = dst_tile_ptr + g * group_stride_bytes;
+
+      if (r0 >= H) {
+        ZeroRowHighway(dst_group, static_cast<size_t>(group_stride_bytes));
+        continue;
+      }
+
+      const uint8_t* src[4];
+      for (int p = 0; p < 4; ++p) {
+        src[p] = (r0 + p < H)
+                     ? (src_batch_ptr + ((r0 + p) * W + logical_col_start))
+                     : nullptr;
+      }
+
+      for (int64_t c = 0; c < tile_W; ++c) {
+        if (c < valid_elements) {
+          for (int p = 0; p < 4; ++p) {
+            dst_group[4 * c + p] = src[p] ? src[p][c] : 0;
+          }
+        } else {
+          for (int p = 0; p < 4; ++p) {
+            dst_group[4 * c + p] = 0;
+          }
+        }
+      }
+    }
   }
 }
 
-template <size_t kRowBytes>
-void DetileSingleTileNoPadding(const uint8_t* src_tile_ptr,
-                               uint8_t* dst_batch_ptr, int64_t tile_row,
-                               int64_t tile_col, int64_t tile_H, int64_t tile_W,
-                               int64_t W, int64_t itemsize) {
+template <int64_t kPackingFactor, size_t kRowBytes>
+void DetileSingleTilePackedNoPadding(const uint8_t* src_tile_ptr,
+                                     uint8_t* dst_batch_ptr, int64_t tile_row,
+                                     int64_t tile_col, int64_t tile_H,
+                                     int64_t tile_W, int64_t W,
+                                     int64_t itemsize) {
   int64_t logical_col_start = tile_col * tile_W;
-  int64_t row_stride = (kRowBytes > 0) ? kRowBytes : (tile_W * itemsize);
-  for (int64_t r = 0; r < tile_H; ++r) {
-    int64_t logical_row = tile_row * tile_H + r;
-    uint8_t* dst_row_ptr =
-        dst_batch_ptr + (logical_row * W + logical_col_start) * itemsize;
-    const uint8_t* src_row_ptr = src_tile_ptr + r * row_stride;
+  if constexpr (kPackingFactor == 1) {
+    int64_t row_stride = (kRowBytes > 0) ? kRowBytes : (tile_W * itemsize);
+    for (int64_t r = 0; r < tile_H; ++r) {
+      int64_t logical_row = tile_row * tile_H + r;
+      uint8_t* dst_row_ptr =
+          dst_batch_ptr + (logical_row * W + logical_col_start) * itemsize;
+      const uint8_t* src_row_ptr = src_tile_ptr + r * row_stride;
 
-    if constexpr (kRowBytes > 0) {
-      std::memcpy(dst_row_ptr, src_row_ptr, kRowBytes);
-    } else {
-      std::memcpy(dst_row_ptr, src_row_ptr, row_stride);
+      if constexpr (kRowBytes > 0) {
+        std::memcpy(dst_row_ptr, src_row_ptr, kRowBytes);
+      } else {
+        std::memcpy(dst_row_ptr, src_row_ptr, row_stride);
+      }
+    }
+  } else if constexpr (kPackingFactor == 2) {
+    int64_t num_groups = tile_H / 2;
+    int64_t group_stride_bytes = tile_W * 2 * sizeof(uint16_t);
+    const hn::ScalableTag<uint16_t> d;
+    const size_t N = hn::Lanes(d);
+
+    for (int64_t g = 0; g < num_groups; ++g) {
+      int64_t r0 = tile_row * tile_H + g * 2;
+      int64_t r1 = r0 + 1;
+      uint16_t* dst0 = reinterpret_cast<uint16_t*>(
+          dst_batch_ptr + (r0 * W + logical_col_start) * sizeof(uint16_t));
+      uint16_t* dst1 = reinterpret_cast<uint16_t*>(
+          dst_batch_ptr + (r1 * W + logical_col_start) * sizeof(uint16_t));
+      const uint16_t* src_group = reinterpret_cast<const uint16_t*>(
+          src_tile_ptr + g * group_stride_bytes);
+
+      size_t c = 0;
+      for (; c + N <= static_cast<size_t>(tile_W); c += N) {
+        hn::Vec<decltype(d)> v0, v1;
+        hn::LoadInterleaved2(d, src_group + c * 2, v0, v1);
+        hn::StoreU(v0, d, dst0 + c);
+        hn::StoreU(v1, d, dst1 + c);
+      }
+      for (; c < static_cast<size_t>(tile_W); ++c) {
+        dst0[c] = src_group[2 * c + 0];
+        dst1[c] = src_group[2 * c + 1];
+      }
+    }
+  } else if constexpr (kPackingFactor == 4) {
+    int64_t num_groups = tile_H / 4;
+    int64_t group_stride_bytes = tile_W * 4 * sizeof(uint8_t);
+    const hn::ScalableTag<uint8_t> d;
+    const size_t N = hn::Lanes(d);
+
+    for (int64_t g = 0; g < num_groups; ++g) {
+      int64_t r0 = tile_row * tile_H + g * 4;
+      uint8_t* dst0 = dst_batch_ptr + (r0 * W + logical_col_start);
+      uint8_t* dst1 = dst_batch_ptr + ((r0 + 1) * W + logical_col_start);
+      uint8_t* dst2 = dst_batch_ptr + ((r0 + 2) * W + logical_col_start);
+      uint8_t* dst3 = dst_batch_ptr + ((r0 + 3) * W + logical_col_start);
+      const uint8_t* src_group = src_tile_ptr + g * group_stride_bytes;
+
+      size_t c = 0;
+      for (; c + N <= static_cast<size_t>(tile_W); c += N) {
+        hn::Vec<decltype(d)> v0, v1, v2, v3;
+        hn::LoadInterleaved4(d, src_group + c * 4, v0, v1, v2, v3);
+        hn::StoreU(v0, d, dst0 + c);
+        hn::StoreU(v1, d, dst1 + c);
+        hn::StoreU(v2, d, dst2 + c);
+        hn::StoreU(v3, d, dst3 + c);
+      }
+      for (; c < static_cast<size_t>(tile_W); ++c) {
+        dst0[c] = src_group[4 * c + 0];
+        dst1[c] = src_group[4 * c + 1];
+        dst2[c] = src_group[4 * c + 2];
+        dst3[c] = src_group[4 * c + 3];
+      }
     }
   }
 }
 
-void DetileSingleTileWithPadding(const uint8_t* src_tile_ptr,
-                                 uint8_t* dst_batch_ptr, int64_t tile_row,
-                                 int64_t tile_col, int64_t tile_H,
-                                 int64_t tile_W, int64_t H, int64_t W,
-                                 int64_t itemsize) {
+template <int64_t kPackingFactor>
+void DetileSingleTilePackedWithPadding(const uint8_t* src_tile_ptr,
+                                       uint8_t* dst_batch_ptr, int64_t tile_row,
+                                       int64_t tile_col, int64_t tile_H,
+                                       int64_t tile_W, int64_t H, int64_t W,
+                                       int64_t itemsize) {
   int64_t logical_col_start = tile_col * tile_W;
   int64_t valid_elements = std::min(tile_W, W - logical_col_start);
   if (valid_elements <= 0) {
     return;
   }
 
-  size_t valid_bytes = static_cast<size_t>(valid_elements * itemsize);
-  size_t total_row_bytes = static_cast<size_t>(tile_W * itemsize);
+  if constexpr (kPackingFactor == 1) {
+    size_t valid_bytes = static_cast<size_t>(valid_elements * itemsize);
+    size_t total_row_bytes = static_cast<size_t>(tile_W * itemsize);
 
-  for (int64_t r = 0; r < tile_H; ++r) {
-    int64_t logical_row = tile_row * tile_H + r;
-    if (logical_row >= H) {
-      continue;
+    for (int64_t r = 0; r < tile_H; ++r) {
+      int64_t logical_row = tile_row * tile_H + r;
+      if (logical_row >= H) {
+        continue;
+      }
+      uint8_t* dst_row_ptr =
+          dst_batch_ptr + (logical_row * W + logical_col_start) * itemsize;
+      const uint8_t* src_row_ptr = src_tile_ptr + r * total_row_bytes;
+
+      DetileRowWithPaddingHighway(src_row_ptr, dst_row_ptr, valid_bytes);
     }
-    uint8_t* dst_row_ptr =
-        dst_batch_ptr + (logical_row * W + logical_col_start) * itemsize;
-    const uint8_t* src_row_ptr = src_tile_ptr + r * total_row_bytes;
+  } else if constexpr (kPackingFactor == 2) {
+    int64_t num_groups = tile_H / 2;
+    int64_t group_stride_bytes = tile_W * 2 * sizeof(uint16_t);
 
-    DetileRowWithPaddingHighway(src_row_ptr, dst_row_ptr, valid_bytes);
+    for (int64_t g = 0; g < num_groups; ++g) {
+      int64_t r0 = tile_row * tile_H + g * 2;
+      int64_t r1 = r0 + 1;
+      if (r0 >= H && r1 >= H) {
+        continue;
+      }
+      uint16_t* dst0 = (r0 < H)
+                           ? reinterpret_cast<uint16_t*>(
+                                 dst_batch_ptr + (r0 * W + logical_col_start) *
+                                                     sizeof(uint16_t))
+                           : nullptr;
+      uint16_t* dst1 = (r1 < H)
+                           ? reinterpret_cast<uint16_t*>(
+                                 dst_batch_ptr + (r1 * W + logical_col_start) *
+                                                     sizeof(uint16_t))
+                           : nullptr;
+      const uint16_t* src_group = reinterpret_cast<const uint16_t*>(
+          src_tile_ptr + g * group_stride_bytes);
+
+      for (int64_t c = 0; c < valid_elements; ++c) {
+        if (dst0) dst0[c] = src_group[2 * c + 0];
+        if (dst1) dst1[c] = src_group[2 * c + 1];
+      }
+    }
+  } else if constexpr (kPackingFactor == 4) {
+    int64_t num_groups = tile_H / 4;
+    int64_t group_stride_bytes = tile_W * 4 * sizeof(uint8_t);
+
+    for (int64_t g = 0; g < num_groups; ++g) {
+      int64_t r0 = tile_row * tile_H + g * 4;
+      if (r0 >= H) {
+        continue;
+      }
+      uint8_t* dst[4];
+      for (int p = 0; p < 4; ++p) {
+        dst[p] = (r0 + p < H)
+                     ? (dst_batch_ptr + ((r0 + p) * W + logical_col_start))
+                     : nullptr;
+      }
+      const uint8_t* src_group = src_tile_ptr + g * group_stride_bytes;
+
+      for (int64_t c = 0; c < valid_elements; ++c) {
+        for (int p = 0; p < 4; ++p) {
+          if (dst[p]) dst[p][c] = src_group[4 * c + p];
+        }
+      }
+    }
   }
 }
 
@@ -278,6 +554,10 @@ absl::Status TileBufferNDOptimized(const uint8_t* src_linear,
   const xla::Tile& tile = layout.tiles(0);
   int64_t tile_H = tile.dimension(0);
   int64_t tile_W = tile.dimension(1);
+  int64_t packing_factor = 1;
+  if (layout.tiles().size() >= 2) {
+    packing_factor = layout.tiles(1).dimension(0);
+  }
 
   int64_t num_tiles_0 = xla::CeilOfRatio(H, tile_H);
   int64_t num_tiles_1 = xla::CeilOfRatio(W, tile_W);
@@ -295,14 +575,16 @@ absl::Status TileBufferNDOptimized(const uint8_t* src_linear,
 
   // Fast-path: When the tiled layout is byte-for-byte identical to the linear
   // layout (e.g. single column of tiles W == tile_W with no vertical padding
-  // H % tile_H == 0, or 1D tensor with tile_H == 1 and no padding).
-  if (!has_padding && (W == tile_W || (H == 1 && tile_H == 1))) {
+  // H % tile_H == 0, or 1D tensor with tile_H == 1 and no padding) AND
+  // packing_factor == 1.
+  if (packing_factor == 1 && !has_padding &&
+      (W == tile_W || (H == 1 && tile_H == 1))) {
     std::memcpy(dst_tiled, src_linear, batch_size * matrix_size_bytes);
     return absl::OkStatus();
   }
 
-  // Fast-path for 1D tensors (H == 1) with arbitrary tile dimensions.
-  if (H == 1) {
+  // Fast-path for 1D tensors (H == 1) with packing_factor == 1.
+  if (packing_factor == 1 && H == 1) {
     for (int64_t b = 0; b < batch_size; ++b) {
       const uint8_t* src_batch_ptr = src_linear + b * matrix_size_bytes;
       uint8_t* dst_batch_ptr = dst_tiled + b * tiled_matrix_size_bytes;
@@ -332,31 +614,70 @@ absl::Status TileBufferNDOptimized(const uint8_t* src_linear,
 
   int64_t total_tasks = batch_size * num_tiles_0;
   int64_t total_bytes = batch_size * H * W * itemsize;
-  int64_t row_bytes = tile_W * itemsize;
+  int64_t row_bytes = (packing_factor == 1) ? (tile_W * itemsize) : 0;
 
-  if (total_bytes < kParallelizationThresholdBytes || total_tasks <= 1) {
-    DispatchByRowBytes(row_bytes, [&](auto kRowBytesTag) {
-      constexpr size_t kRowBytes = decltype(kRowBytesTag)::value;
-      if (!has_padding) {
-        for (int64_t b = 0; b < batch_size; ++b) {
+  DispatchByPackingFactor(packing_factor, [&](auto kPackingFactorTag) {
+    constexpr int64_t kPackingFactor = decltype(kPackingFactorTag)::value;
+    if (total_bytes < kParallelizationThresholdBytes || total_tasks <= 1) {
+      DispatchByRowBytes(row_bytes, [&](auto kRowBytesTag) {
+        constexpr size_t kRowBytes = decltype(kRowBytesTag)::value;
+        if (!has_padding) {
+          for (int64_t b = 0; b < batch_size; ++b) {
+            const uint8_t* src_batch_ptr = src_linear + b * matrix_size_bytes;
+            uint8_t* dst_batch_ptr = dst_tiled + b * tiled_matrix_size_bytes;
+            for (int64_t tile_row = 0; tile_row < num_tiles_0; ++tile_row) {
+              for (int64_t tile_col = 0; tile_col < num_tiles_1; ++tile_col) {
+                int64_t tile_index = tile_row * num_tiles_1 + tile_col;
+                uint8_t* dst_tile_ptr =
+                    dst_batch_ptr + tile_index * tile_size_bytes;
+                CopyTilePackedNoPadding<kPackingFactor, kRowBytes>(
+                    src_batch_ptr, dst_tile_ptr, tile_row, tile_col, tile_H,
+                    tile_W, W, itemsize);
+              }
+            }
+          }
+        } else {
+          for (int64_t b = 0; b < batch_size; ++b) {
+            const uint8_t* src_batch_ptr = src_linear + b * matrix_size_bytes;
+            uint8_t* dst_batch_ptr = dst_tiled + b * tiled_matrix_size_bytes;
+            for (int64_t tile_row = 0; tile_row < num_tiles_0; ++tile_row) {
+              bool is_row_interior = (tile_row * tile_H + tile_H <= H);
+              for (int64_t tile_col = 0; tile_col < num_tiles_1; ++tile_col) {
+                int64_t tile_index = tile_row * num_tiles_1 + tile_col;
+                uint8_t* dst_tile_ptr =
+                    dst_batch_ptr + tile_index * tile_size_bytes;
+                bool is_col_interior = (tile_col * tile_W + tile_W <= W);
+                if (is_row_interior && is_col_interior) {
+                  CopyTilePackedNoPadding<kPackingFactor, kRowBytes>(
+                      src_batch_ptr, dst_tile_ptr, tile_row, tile_col, tile_H,
+                      tile_W, W, itemsize);
+                } else {
+                  CopyTilePackedWithPadding<kPackingFactor>(
+                      src_batch_ptr, dst_tile_ptr, tile_row, tile_col, tile_H,
+                      tile_W, H, W, itemsize, tile_size_bytes);
+                }
+              }
+            }
+          }
+        }
+      });
+    } else {
+      DispatchByRowBytes(row_bytes, [&](auto kRowBytesTag) {
+        constexpr size_t kRowBytes = decltype(kRowBytesTag)::value;
+        auto run_task = [&](int64_t b, int64_t tile_row) {
           const uint8_t* src_batch_ptr = src_linear + b * matrix_size_bytes;
           uint8_t* dst_batch_ptr = dst_tiled + b * tiled_matrix_size_bytes;
-          for (int64_t tile_row = 0; tile_row < num_tiles_0; ++tile_row) {
+
+          if (!has_padding) {
             for (int64_t tile_col = 0; tile_col < num_tiles_1; ++tile_col) {
               int64_t tile_index = tile_row * num_tiles_1 + tile_col;
               uint8_t* dst_tile_ptr =
                   dst_batch_ptr + tile_index * tile_size_bytes;
-              CopyTileNoPadding<kRowBytes>(src_batch_ptr, dst_tile_ptr,
-                                           tile_row, tile_col, tile_H, tile_W,
-                                           W, itemsize);
+              CopyTilePackedNoPadding<kPackingFactor, kRowBytes>(
+                  src_batch_ptr, dst_tile_ptr, tile_row, tile_col, tile_H,
+                  tile_W, W, itemsize);
             }
-          }
-        }
-      } else {
-        for (int64_t b = 0; b < batch_size; ++b) {
-          const uint8_t* src_batch_ptr = src_linear + b * matrix_size_bytes;
-          uint8_t* dst_batch_ptr = dst_tiled + b * tiled_matrix_size_bytes;
-          for (int64_t tile_row = 0; tile_row < num_tiles_0; ++tile_row) {
+          } else {
             bool is_row_interior = (tile_row * tile_H + tile_H <= H);
             for (int64_t tile_col = 0; tile_col < num_tiles_1; ++tile_col) {
               int64_t tile_index = tile_row * num_tiles_1 + tile_col;
@@ -364,75 +685,41 @@ absl::Status TileBufferNDOptimized(const uint8_t* src_linear,
                   dst_batch_ptr + tile_index * tile_size_bytes;
               bool is_col_interior = (tile_col * tile_W + tile_W <= W);
               if (is_row_interior && is_col_interior) {
-                CopyTileNoPadding<kRowBytes>(src_batch_ptr, dst_tile_ptr,
-                                             tile_row, tile_col, tile_H, tile_W,
-                                             W, itemsize);
+                CopyTilePackedNoPadding<kPackingFactor, kRowBytes>(
+                    src_batch_ptr, dst_tile_ptr, tile_row, tile_col, tile_H,
+                    tile_W, W, itemsize);
               } else {
-                CopyTileWithPadding(src_batch_ptr, dst_tile_ptr, tile_row,
-                                    tile_col, tile_H, tile_W, H, W, itemsize,
-                                    tile_size_bytes);
+                CopyTilePackedWithPadding<kPackingFactor>(
+                    src_batch_ptr, dst_tile_ptr, tile_row, tile_col, tile_H,
+                    tile_W, H, W, itemsize, tile_size_bytes);
               }
             }
           }
-        }
-      }
-    });
-  } else {
-    DispatchByRowBytes(row_bytes, [&](auto kRowBytesTag) {
-      constexpr size_t kRowBytes = decltype(kRowBytesTag)::value;
-      auto run_task = [&](int64_t b, int64_t tile_row) {
-        const uint8_t* src_batch_ptr = src_linear + b * matrix_size_bytes;
-        uint8_t* dst_batch_ptr = dst_tiled + b * tiled_matrix_size_bytes;
+        };
 
-        if (!has_padding) {
-          for (int64_t tile_col = 0; tile_col < num_tiles_1; ++tile_col) {
-            int64_t tile_index = tile_row * num_tiles_1 + tile_col;
-            uint8_t* dst_tile_ptr =
-                dst_batch_ptr + tile_index * tile_size_bytes;
-            CopyTileNoPadding<kRowBytes>(src_batch_ptr, dst_tile_ptr, tile_row,
-                                         tile_col, tile_H, tile_W, W, itemsize);
-          }
-        } else {
-          bool is_row_interior = (tile_row * tile_H + tile_H <= H);
-          for (int64_t tile_col = 0; tile_col < num_tiles_1; ++tile_col) {
-            int64_t tile_index = tile_row * num_tiles_1 + tile_col;
-            uint8_t* dst_tile_ptr =
-                dst_batch_ptr + tile_index * tile_size_bytes;
-            bool is_col_interior = (tile_col * tile_W + tile_W <= W);
-            if (is_row_interior && is_col_interior) {
-              CopyTileNoPadding<kRowBytes>(src_batch_ptr, dst_tile_ptr,
-                                           tile_row, tile_col, tile_H, tile_W,
-                                           W, itemsize);
-            } else {
-              CopyTileWithPadding(src_batch_ptr, dst_tile_ptr, tile_row,
-                                  tile_col, tile_H, tile_W, H, W, itemsize,
-                                  tile_size_bytes);
+        tpu_raiden::NumaThreadPool* pool = GetThreadPool();
+        int64_t chunk_size =
+            (total_tasks + kMaxNumThreads - 1) / kMaxNumThreads;
+        int64_t num_chunks = (total_tasks + chunk_size - 1) / chunk_size;
+        absl::BlockingCounter counter(num_chunks);
+
+        for (int64_t t = 0; t < kMaxNumThreads; ++t) {
+          int64_t begin = t * chunk_size;
+          int64_t end = std::min(begin + chunk_size, total_tasks);
+          if (begin >= end) break;
+          pool->Schedule([&, begin, end]() {
+            for (int64_t i = begin; i < end; ++i) {
+              int64_t b = i / num_tiles_0;
+              int64_t tile_row = i % num_tiles_0;
+              run_task(b, tile_row);
             }
-          }
+            counter.DecrementCount();
+          });
         }
-      };
-
-      tpu_raiden::NumaThreadPool* pool = GetThreadPool();
-      int64_t chunk_size = (total_tasks + kMaxNumThreads - 1) / kMaxNumThreads;
-      int64_t num_chunks = (total_tasks + chunk_size - 1) / chunk_size;
-      absl::BlockingCounter counter(num_chunks);
-
-      for (int64_t t = 0; t < kMaxNumThreads; ++t) {
-        int64_t begin = t * chunk_size;
-        int64_t end = std::min(begin + chunk_size, total_tasks);
-        if (begin >= end) break;
-        pool->Schedule([&, begin, end]() {
-          for (int64_t i = begin; i < end; ++i) {
-            int64_t b = i / num_tiles_0;
-            int64_t tile_row = i % num_tiles_0;
-            run_task(b, tile_row);
-          }
-          counter.DecrementCount();
-        });
-      }
-      counter.Wait();
-    });
-  }
+        counter.Wait();
+      });
+    }
+  });
 
   return absl::OkStatus();
 }
@@ -450,6 +737,10 @@ absl::Status DetileBufferNDOptimized(const uint8_t* src_tiled,
   const xla::Tile& tile = layout.tiles(0);
   int64_t tile_H = tile.dimension(0);
   int64_t tile_W = tile.dimension(1);
+  int64_t packing_factor = 1;
+  if (layout.tiles().size() >= 2) {
+    packing_factor = layout.tiles(1).dimension(0);
+  }
 
   int64_t num_tiles_0 = xla::CeilOfRatio(H, tile_H);
   int64_t num_tiles_1 = xla::CeilOfRatio(W, tile_W);
@@ -467,14 +758,16 @@ absl::Status DetileBufferNDOptimized(const uint8_t* src_tiled,
 
   // Fast-path: When the tiled layout is byte-for-byte identical to the linear
   // layout (e.g. single column of tiles W == tile_W with no vertical padding
-  // H % tile_H == 0, or 1D tensor with tile_H == 1 and no padding).
-  if (!has_padding && (W == tile_W || (H == 1 && tile_H == 1))) {
+  // H % tile_H == 0, or 1D tensor with tile_H == 1 and no padding) AND
+  // packing_factor == 1.
+  if (packing_factor == 1 && !has_padding &&
+      (W == tile_W || (H == 1 && tile_H == 1))) {
     std::memcpy(dst_linear, src_tiled, batch_size * matrix_size_bytes);
     return absl::OkStatus();
   }
 
-  // Fast-path for 1D tensors (H == 1) with arbitrary tile dimensions.
-  if (H == 1) {
+  // Fast-path for 1D tensors (H == 1) with packing_factor == 1.
+  if (packing_factor == 1 && H == 1) {
     for (int64_t b = 0; b < batch_size; ++b) {
       const uint8_t* src_batch_ptr = src_tiled + b * tiled_matrix_size_bytes;
       uint8_t* dst_batch_ptr = dst_linear + b * matrix_size_bytes;
@@ -494,33 +787,73 @@ absl::Status DetileBufferNDOptimized(const uint8_t* src_tiled,
 
   int64_t total_tasks = batch_size * num_tiles_0;
   int64_t total_bytes = batch_size * H * W * itemsize;
-  int64_t row_bytes = tile_W * itemsize;
+  int64_t row_bytes = (packing_factor == 1) ? (tile_W * itemsize) : 0;
 
-  if (total_bytes < kParallelizationThresholdBytes || total_tasks <= 1) {
-    DispatchByRowBytes(row_bytes, [&](auto kRowBytesTag) {
-      constexpr size_t kRowBytes = decltype(kRowBytesTag)::value;
-      if (!has_padding) {
-        for (int64_t b = 0; b < batch_size; ++b) {
+  DispatchByPackingFactor(packing_factor, [&](auto kPackingFactorTag) {
+    constexpr int64_t kPackingFactor = decltype(kPackingFactorTag)::value;
+    if (total_bytes < kParallelizationThresholdBytes || total_tasks <= 1) {
+      DispatchByRowBytes(row_bytes, [&](auto kRowBytesTag) {
+        constexpr size_t kRowBytes = decltype(kRowBytesTag)::value;
+        if (!has_padding) {
+          for (int64_t b = 0; b < batch_size; ++b) {
+            const uint8_t* src_batch_ptr =
+                src_tiled + b * tiled_matrix_size_bytes;
+            uint8_t* dst_batch_ptr = dst_linear + b * matrix_size_bytes;
+            for (int64_t tile_row = 0; tile_row < num_tiles_0; ++tile_row) {
+              for (int64_t tile_col = 0; tile_col < num_tiles_1; ++tile_col) {
+                int64_t tile_index = tile_row * num_tiles_1 + tile_col;
+                const uint8_t* src_tile_ptr =
+                    src_batch_ptr + tile_index * tile_size_bytes;
+                DetileSingleTilePackedNoPadding<kPackingFactor, kRowBytes>(
+                    src_tile_ptr, dst_batch_ptr, tile_row, tile_col, tile_H,
+                    tile_W, W, itemsize);
+              }
+            }
+          }
+        } else {
+          for (int64_t b = 0; b < batch_size; ++b) {
+            const uint8_t* src_batch_ptr =
+                src_tiled + b * tiled_matrix_size_bytes;
+            uint8_t* dst_batch_ptr = dst_linear + b * matrix_size_bytes;
+            for (int64_t tile_row = 0; tile_row < num_tiles_0; ++tile_row) {
+              bool is_row_interior = (tile_row * tile_H + tile_H <= H);
+              for (int64_t tile_col = 0; tile_col < num_tiles_1; ++tile_col) {
+                int64_t tile_index = tile_row * num_tiles_1 + tile_col;
+                const uint8_t* src_tile_ptr =
+                    src_batch_ptr + tile_index * tile_size_bytes;
+                bool is_col_interior = (tile_col * tile_W + tile_W <= W);
+                if (is_row_interior && is_col_interior) {
+                  DetileSingleTilePackedNoPadding<kPackingFactor, kRowBytes>(
+                      src_tile_ptr, dst_batch_ptr, tile_row, tile_col, tile_H,
+                      tile_W, W, itemsize);
+                } else {
+                  DetileSingleTilePackedWithPadding<kPackingFactor>(
+                      src_tile_ptr, dst_batch_ptr, tile_row, tile_col, tile_H,
+                      tile_W, H, W, itemsize);
+                }
+              }
+            }
+          }
+        }
+      });
+    } else {
+      DispatchByRowBytes(row_bytes, [&](auto kRowBytesTag) {
+        constexpr size_t kRowBytes = decltype(kRowBytesTag)::value;
+        auto run_detile_task = [&](int64_t b, int64_t tile_row) {
           const uint8_t* src_batch_ptr =
               src_tiled + b * tiled_matrix_size_bytes;
           uint8_t* dst_batch_ptr = dst_linear + b * matrix_size_bytes;
-          for (int64_t tile_row = 0; tile_row < num_tiles_0; ++tile_row) {
+
+          if (!has_padding) {
             for (int64_t tile_col = 0; tile_col < num_tiles_1; ++tile_col) {
               int64_t tile_index = tile_row * num_tiles_1 + tile_col;
               const uint8_t* src_tile_ptr =
                   src_batch_ptr + tile_index * tile_size_bytes;
-              DetileSingleTileNoPadding<kRowBytes>(
+              DetileSingleTilePackedNoPadding<kPackingFactor, kRowBytes>(
                   src_tile_ptr, dst_batch_ptr, tile_row, tile_col, tile_H,
                   tile_W, W, itemsize);
             }
-          }
-        }
-      } else {
-        for (int64_t b = 0; b < batch_size; ++b) {
-          const uint8_t* src_batch_ptr =
-              src_tiled + b * tiled_matrix_size_bytes;
-          uint8_t* dst_batch_ptr = dst_linear + b * matrix_size_bytes;
-          for (int64_t tile_row = 0; tile_row < num_tiles_0; ++tile_row) {
+          } else {
             bool is_row_interior = (tile_row * tile_H + tile_H <= H);
             for (int64_t tile_col = 0; tile_col < num_tiles_1; ++tile_col) {
               int64_t tile_index = tile_row * num_tiles_1 + tile_col;
@@ -528,76 +861,41 @@ absl::Status DetileBufferNDOptimized(const uint8_t* src_tiled,
                   src_batch_ptr + tile_index * tile_size_bytes;
               bool is_col_interior = (tile_col * tile_W + tile_W <= W);
               if (is_row_interior && is_col_interior) {
-                DetileSingleTileNoPadding<kRowBytes>(
+                DetileSingleTilePackedNoPadding<kPackingFactor, kRowBytes>(
                     src_tile_ptr, dst_batch_ptr, tile_row, tile_col, tile_H,
                     tile_W, W, itemsize);
               } else {
-                DetileSingleTileWithPadding(src_tile_ptr, dst_batch_ptr,
-                                            tile_row, tile_col, tile_H, tile_W,
-                                            H, W, itemsize);
+                DetileSingleTilePackedWithPadding<kPackingFactor>(
+                    src_tile_ptr, dst_batch_ptr, tile_row, tile_col, tile_H,
+                    tile_W, H, W, itemsize);
               }
             }
           }
-        }
-      }
-    });
-  } else {
-    DispatchByRowBytes(row_bytes, [&](auto kRowBytesTag) {
-      constexpr size_t kRowBytes = decltype(kRowBytesTag)::value;
-      auto run_detile_task = [&](int64_t b, int64_t tile_row) {
-        const uint8_t* src_batch_ptr = src_tiled + b * tiled_matrix_size_bytes;
-        uint8_t* dst_batch_ptr = dst_linear + b * matrix_size_bytes;
+        };
 
-        if (!has_padding) {
-          for (int64_t tile_col = 0; tile_col < num_tiles_1; ++tile_col) {
-            int64_t tile_index = tile_row * num_tiles_1 + tile_col;
-            const uint8_t* src_tile_ptr =
-                src_batch_ptr + tile_index * tile_size_bytes;
-            DetileSingleTileNoPadding<kRowBytes>(
-                src_tile_ptr, dst_batch_ptr, tile_row, tile_col, tile_H,
-                tile_W, W, itemsize);
-          }
-        } else {
-          bool is_row_interior = (tile_row * tile_H + tile_H <= H);
-          for (int64_t tile_col = 0; tile_col < num_tiles_1; ++tile_col) {
-            int64_t tile_index = tile_row * num_tiles_1 + tile_col;
-            const uint8_t* src_tile_ptr =
-                src_batch_ptr + tile_index * tile_size_bytes;
-            bool is_col_interior = (tile_col * tile_W + tile_W <= W);
-            if (is_row_interior && is_col_interior) {
-              DetileSingleTileNoPadding<kRowBytes>(src_tile_ptr, dst_batch_ptr,
-                                                   tile_row, tile_col, tile_H,
-                                                   tile_W, W, itemsize);
-            } else {
-              DetileSingleTileWithPadding(src_tile_ptr, dst_batch_ptr, tile_row,
-                                          tile_col, tile_H, tile_W, H, W,
-                                          itemsize);
+        tpu_raiden::NumaThreadPool* pool = GetThreadPool();
+        int64_t chunk_size =
+            (total_tasks + kMaxNumThreads - 1) / kMaxNumThreads;
+        int64_t num_chunks = (total_tasks + chunk_size - 1) / chunk_size;
+        absl::BlockingCounter counter(num_chunks);
+
+        for (int64_t t = 0; t < kMaxNumThreads; ++t) {
+          int64_t begin = t * chunk_size;
+          int64_t end = std::min(begin + chunk_size, total_tasks);
+          if (begin >= end) break;
+          pool->Schedule([&, begin, end]() {
+            for (int64_t i = begin; i < end; ++i) {
+              int64_t b = i / num_tiles_0;
+              int64_t tile_row = i % num_tiles_0;
+              run_detile_task(b, tile_row);
             }
-          }
+            counter.DecrementCount();
+          });
         }
-      };
-
-      tpu_raiden::NumaThreadPool* pool = GetThreadPool();
-      int64_t chunk_size = (total_tasks + kMaxNumThreads - 1) / kMaxNumThreads;
-      int64_t num_chunks = (total_tasks + chunk_size - 1) / chunk_size;
-      absl::BlockingCounter counter(num_chunks);
-
-      for (int64_t t = 0; t < kMaxNumThreads; ++t) {
-        int64_t begin = t * chunk_size;
-        int64_t end = std::min(begin + chunk_size, total_tasks);
-        if (begin >= end) break;
-        pool->Schedule([&, begin, end]() {
-          for (int64_t i = begin; i < end; ++i) {
-            int64_t b = i / num_tiles_0;
-            int64_t tile_row = i % num_tiles_0;
-            run_detile_task(b, tile_row);
-          }
-          counter.DecrementCount();
-        });
-      }
-      counter.Wait();
-    });
-  }
+        counter.Wait();
+      });
+    }
+  });
 
   return absl::OkStatus();
 }

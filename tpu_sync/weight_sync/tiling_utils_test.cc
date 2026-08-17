@@ -19,7 +19,10 @@
 
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/types/span.h"
+#include "xla/index_util.h"
 #include "xla/layout.h"
+#include "xla/layout_util.h"
 #include "xla/shape.h"
 #include "xla/shape_util.h"
 
@@ -778,6 +781,227 @@ TEST(TilingUtilsTest, SpecializedRowBytes_MultiBatch_AllTypes) {
                              shape, shape.layout()).ok());
     EXPECT_EQ(dst_linear, src_linear);
   }
+}
+
+TEST(TilingUtilsTest, NestedPacked_BF16_ExactTiles2D) {
+  // Shape [64, 256] with nested layout {1, 0 : T(8, 128)(2, 1)}
+  const int64_t H = 64;
+  const int64_t W = 256;
+  xla::Shape shape = xla::ShapeUtil::MakeShapeWithDenseLayout(
+      xla::PrimitiveType::BF16, {H, W}, {1, 0},
+      {xla::Tile({8, 128}), xla::Tile({2, 1})});
+
+  const int64_t num_elements = H * W;
+  std::vector<uint16_t> src_linear(num_elements);
+  for (int i = 0; i < num_elements; ++i) {
+    src_linear[i] = static_cast<uint16_t>(i * 5 + 1);
+  }
+
+  int64_t total_physical_elements = GetTiledBufferElements(shape);
+  EXPECT_EQ(total_physical_elements, num_elements);
+
+  std::vector<uint8_t> dst_tiled(total_physical_elements * sizeof(uint16_t));
+  ASSERT_TRUE(TileBuffer(reinterpret_cast<const uint8_t*>(src_linear.data()),
+                         dst_tiled.data(), shape, shape.layout())
+                  .ok());
+
+  // Verify against XLA canonical LinearIndexForNestedTiling
+  xla::Shape standard_shape =
+      xla::ShapeUtil::MakeShape(shape.element_type(), shape.dimensions());
+  const uint16_t* tiled_u16 =
+      reinterpret_cast<const uint16_t*>(dst_tiled.data());
+  xla::ShapeUtil::ForEachIndexNoStatus(
+      shape, [&](absl::Span<const int64_t> indices) -> bool {
+        int64_t linear_idx = xla::IndexUtil::MultidimensionalIndexToLinearIndex(
+            standard_shape, indices);
+        int64_t physical_idx =
+            xla::LayoutUtil::LinearIndexForNestedTiling(shape, indices);
+        EXPECT_EQ(tiled_u16[physical_idx], src_linear[linear_idx])
+            << "Mismatch at (" << indices[0] << ", " << indices[1] << ")";
+        return true;
+      });
+
+  std::vector<uint16_t> dst_linear(num_elements, 0);
+  ASSERT_TRUE(DetileBuffer(dst_tiled.data(),
+                           reinterpret_cast<uint8_t*>(dst_linear.data()), shape,
+                           shape.layout())
+                  .ok());
+  EXPECT_EQ(dst_linear, src_linear);
+}
+
+TEST(TilingUtilsTest, NestedPacked_BF16_WithPadding2D) {
+  // Shape [53, 175] with nested layout {1, 0 : T(8, 128)(2, 1)} (has padding in
+  // H and W)
+  const int64_t H = 53;
+  const int64_t W = 175;
+  xla::Shape shape = xla::ShapeUtil::MakeShapeWithDenseLayout(
+      xla::PrimitiveType::BF16, {H, W}, {1, 0},
+      {xla::Tile({8, 128}), xla::Tile({2, 1})});
+
+  const int64_t num_elements = H * W;
+  std::vector<uint16_t> src_linear(num_elements);
+  for (int i = 0; i < num_elements; ++i) {
+    src_linear[i] = static_cast<uint16_t>(i * 3 + 7);
+  }
+
+  int64_t total_physical_elements = GetTiledBufferElements(shape);
+  // CeilOfRatio(53, 8) = 7, CeilOfRatio(175, 128) = 2 => 7 * 2 * 1024 = 14336
+  EXPECT_EQ(total_physical_elements, 7 * 2 * 1024);
+
+  std::vector<uint8_t> dst_tiled(total_physical_elements * sizeof(uint16_t), 0);
+  ASSERT_TRUE(TileBuffer(reinterpret_cast<const uint8_t*>(src_linear.data()),
+                         dst_tiled.data(), shape, shape.layout())
+                  .ok());
+
+  // Verify against XLA canonical LinearIndexForNestedTiling for all valid
+  // elements
+  xla::Shape standard_shape =
+      xla::ShapeUtil::MakeShape(shape.element_type(), shape.dimensions());
+  const uint16_t* tiled_u16 =
+      reinterpret_cast<const uint16_t*>(dst_tiled.data());
+  xla::ShapeUtil::ForEachIndexNoStatus(
+      shape, [&](absl::Span<const int64_t> indices) -> bool {
+        int64_t linear_idx = xla::IndexUtil::MultidimensionalIndexToLinearIndex(
+            standard_shape, indices);
+        int64_t physical_idx =
+            xla::LayoutUtil::LinearIndexForNestedTiling(shape, indices);
+        EXPECT_EQ(tiled_u16[physical_idx], src_linear[linear_idx])
+            << "Mismatch at (" << indices[0] << ", " << indices[1] << ")";
+        return true;
+      });
+
+  std::vector<uint16_t> dst_linear(num_elements, 0);
+  ASSERT_TRUE(DetileBuffer(dst_tiled.data(),
+                           reinterpret_cast<uint8_t*>(dst_linear.data()), shape,
+                           shape.layout())
+                  .ok());
+  EXPECT_EQ(dst_linear, src_linear);
+}
+
+TEST(TilingUtilsTest, NestedPacked_BF16_1DTensor) {
+  // Shape [2304] with nested layout {0 : T(8, 128)(2, 1)}
+  const int64_t W = 2304;
+  xla::Shape shape = xla::ShapeUtil::MakeShapeWithDenseLayout(
+      xla::PrimitiveType::BF16, {W}, {0},
+      {xla::Tile({8, 128}), xla::Tile({2, 1})});
+
+  std::vector<uint16_t> src_linear(W);
+  for (int i = 0; i < W; ++i) {
+    src_linear[i] = static_cast<uint16_t>(i + 42);
+  }
+
+  int64_t total_physical_elements = GetTiledBufferElements(shape);
+  std::vector<uint8_t> dst_tiled(total_physical_elements * sizeof(uint16_t), 0);
+  ASSERT_TRUE(TileBuffer(reinterpret_cast<const uint8_t*>(src_linear.data()),
+                         dst_tiled.data(), shape, shape.layout())
+                  .ok());
+
+  xla::Shape standard_shape =
+      xla::ShapeUtil::MakeShape(shape.element_type(), shape.dimensions());
+  const uint16_t* tiled_u16 =
+      reinterpret_cast<const uint16_t*>(dst_tiled.data());
+  xla::ShapeUtil::ForEachIndexNoStatus(
+      shape, [&](absl::Span<const int64_t> indices) -> bool {
+        int64_t linear_idx = xla::IndexUtil::MultidimensionalIndexToLinearIndex(
+            standard_shape, indices);
+        int64_t physical_idx =
+            xla::LayoutUtil::LinearIndexForNestedTiling(shape, indices);
+        EXPECT_EQ(tiled_u16[physical_idx], src_linear[linear_idx])
+            << "Mismatch at index " << indices[0];
+        return true;
+      });
+
+  std::vector<uint16_t> dst_linear(W, 0);
+  ASSERT_TRUE(DetileBuffer(dst_tiled.data(),
+                           reinterpret_cast<uint8_t*>(dst_linear.data()), shape,
+                           shape.layout())
+                  .ok());
+  EXPECT_EQ(dst_linear, src_linear);
+}
+
+TEST(TilingUtilsTest, NestedPacked_BF16_MultiBatch3D) {
+  // Shape [3, 40, 300] with nested layout {2, 1, 0 : T(8, 128)(2, 1)}
+  const int64_t B = 3;
+  const int64_t H = 40;
+  const int64_t W = 300;
+  xla::Shape shape = xla::ShapeUtil::MakeShapeWithDenseLayout(
+      xla::PrimitiveType::BF16, {B, H, W}, {2, 1, 0},
+      {xla::Tile({8, 128}), xla::Tile({2, 1})});
+
+  const int64_t num_elements = B * H * W;
+  std::vector<uint16_t> src_linear(num_elements);
+  for (int i = 0; i < num_elements; ++i) {
+    src_linear[i] = static_cast<uint16_t>(i % 65535);
+  }
+
+  int64_t total_physical_elements = GetTiledBufferElements(shape);
+  std::vector<uint8_t> dst_tiled(total_physical_elements * sizeof(uint16_t), 0);
+  ASSERT_TRUE(TileBuffer(reinterpret_cast<const uint8_t*>(src_linear.data()),
+                         dst_tiled.data(), shape, shape.layout())
+                  .ok());
+
+  xla::Shape standard_shape =
+      xla::ShapeUtil::MakeShape(shape.element_type(), shape.dimensions());
+  const uint16_t* tiled_u16 =
+      reinterpret_cast<const uint16_t*>(dst_tiled.data());
+  xla::ShapeUtil::ForEachIndexNoStatus(
+      shape, [&](absl::Span<const int64_t> indices) -> bool {
+        int64_t linear_idx = xla::IndexUtil::MultidimensionalIndexToLinearIndex(
+            standard_shape, indices);
+        int64_t physical_idx =
+            xla::LayoutUtil::LinearIndexForNestedTiling(shape, indices);
+        EXPECT_EQ(tiled_u16[physical_idx], src_linear[linear_idx]);
+        return true;
+      });
+
+  std::vector<uint16_t> dst_linear(num_elements, 0);
+  ASSERT_TRUE(DetileBuffer(dst_tiled.data(),
+                           reinterpret_cast<uint8_t*>(dst_linear.data()), shape,
+                           shape.layout())
+                  .ok());
+  EXPECT_EQ(dst_linear, src_linear);
+}
+
+TEST(TilingUtilsTest, NestedPacked_S8_PackingFactor4) {
+  // Shape [32, 256] with nested layout {1, 0 : T(8, 128)(4, 1)} (FP8/INT8 4-row
+  // packing)
+  const int64_t H = 32;
+  const int64_t W = 256;
+  xla::Shape shape = xla::ShapeUtil::MakeShapeWithDenseLayout(
+      xla::PrimitiveType::S8, {H, W}, {1, 0},
+      {xla::Tile({8, 128}), xla::Tile({4, 1})});
+
+  const int64_t num_elements = H * W;
+  std::vector<int8_t> src_linear(num_elements);
+  for (int i = 0; i < num_elements; ++i) {
+    src_linear[i] = static_cast<int8_t>(i % 127);
+  }
+
+  int64_t total_physical_elements = GetTiledBufferElements(shape);
+  std::vector<uint8_t> dst_tiled(total_physical_elements * sizeof(int8_t), 0);
+  ASSERT_TRUE(TileBuffer(reinterpret_cast<const uint8_t*>(src_linear.data()),
+                         dst_tiled.data(), shape, shape.layout())
+                  .ok());
+
+  xla::Shape standard_shape =
+      xla::ShapeUtil::MakeShape(shape.element_type(), shape.dimensions());
+  const int8_t* tiled_s8 = reinterpret_cast<const int8_t*>(dst_tiled.data());
+  xla::ShapeUtil::ForEachIndexNoStatus(
+      shape, [&](absl::Span<const int64_t> indices) -> bool {
+        int64_t linear_idx = xla::IndexUtil::MultidimensionalIndexToLinearIndex(
+            standard_shape, indices);
+        int64_t physical_idx =
+            xla::LayoutUtil::LinearIndexForNestedTiling(shape, indices);
+        EXPECT_EQ(tiled_s8[physical_idx], src_linear[linear_idx]);
+        return true;
+      });
+
+  std::vector<int8_t> dst_linear(num_elements, 0);
+  ASSERT_TRUE(DetileBuffer(dst_tiled.data(),
+                           reinterpret_cast<uint8_t*>(dst_linear.data()), shape,
+                           shape.layout())
+                  .ok());
+  EXPECT_EQ(dst_linear, src_linear);
 }
 
 }  // namespace

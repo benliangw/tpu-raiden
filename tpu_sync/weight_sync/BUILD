@@ -131,6 +131,7 @@ cc_test(
     deps = [
         ":tiling_utils",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/types:span",
         "@com_google_googletest//:gtest_main",
         "@xla//xla:shape_util",
     ],
