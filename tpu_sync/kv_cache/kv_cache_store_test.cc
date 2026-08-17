@@ -4325,6 +4325,125 @@ TEST_F(RemoteWriteSourceTest, TheOfferAsksForLessThanTheSourceWillHold) {
             absl::ToInt64Milliseconds(absl::Seconds(25)));
 }
 
+// Polling a remote write means asking the destination, which cannot be done
+// holding the store's lock. Every public poll entry point drives that ask, and
+// so does the background loop, so several can be in it at once. If the poller
+// works off a copy of the active list rather than claiming entries, two of
+// them settle the same operation: the internal pin is released twice -- the
+// second release landing on whatever now owns that block -- and every hash is
+// reported to the caller twice.
+TEST_F(RemoteWriteSourceTest, ConcurrentPollsSettleAnOfferExactlyOnce) {
+  RaidenId src{"rw_src_race", "0", "kv", 0};
+  RaidenId dst{"rw_dst_race", "0", "kv", 0};
+  auto src_store = MakeStore(src);
+  Populate(*src_store, src, {"a", "b"});
+  StartFakeDestination(dst);
+
+  proto::PollWriteRemoteResponse verdict;
+  verdict.set_state(proto::PollWriteRemoteResponse::COMMITTED);
+  verdict.add_committed_hashes("a");
+  verdict.add_committed_hashes("b");
+  fake_destination_.SetPollResponse(verdict);
+
+  ASSERT_TRUE(src_store->WriteRemote({"a", "b"}, dst).ok());
+
+  // PollSaveStatus drives the write poller as a side effect (they share
+  // PollFuturesInternal), so these four threads plus the background loop are
+  // five callers racing into it.
+  std::atomic<bool> stop{false};
+  std::vector<std::thread> drivers;
+  for (int t = 0; t < 4; ++t) {
+    drivers.emplace_back([&]() {
+      while (!stop.load(std::memory_order_relaxed)) {
+        (void)src_store->PollSaveStatus();
+      }
+    });
+  }
+
+  std::vector<std::string> settled;
+  const auto drain = [&]() {
+    auto [done, failed, pending, existing, unregistered] =
+        src_store->PollRemoteWriteStatus();
+    settled.insert(settled.end(), done.begin(), done.end());
+    settled.insert(settled.end(), failed.begin(), failed.end());
+  };
+  for (int i = 0; i < 300 && settled.size() < 2; ++i) {
+    drain();
+    absl::SleepFor(absl::Milliseconds(10));
+  }
+  // Keep draining after both arrive: a duplicate settle shows up late, and
+  // stopping at the first two hashes would never see it.
+  absl::SleepFor(absl::Milliseconds(200));
+  drain();
+
+  stop.store(true, std::memory_order_relaxed);
+  for (auto& driver : drivers) driver.join();
+
+  EXPECT_THAT(settled, ::testing::UnorderedElementsAre("a", "b"))
+      << "the offer was settled more than once";
+  // The caller's own pin survives; only the internal one was released, once.
+  EXPECT_EQ(src_store->GetPinCount("a"), 1);
+  EXPECT_EQ(src_store->GetPinCount("b"), 1);
+}
+
+// A store destroyed with an offer still outstanding must not leave its
+// internal pin behind. Backends are shared_ptrs and can outlive the store that
+// pinned into them, and nothing else knows to release that pin -- the block
+// would sit unreclaimable for the life of the backend.
+TEST_F(RemoteWriteSourceTest, DestroyingAStoreMidOfferReleasesItsInternalPin) {
+  RaidenId src{"rw_src_dtor_pin", "0", "kv", 0};
+  RaidenId dst{"rw_dst_dtor_pin", "0", "kv", 0};
+  auto src_store = MakeStore(src);
+  Populate(*src_store, src, {"a"});
+  StartFakeDestination(dst);
+
+  // The destination never reaches a verdict, so the offer stays outstanding.
+  proto::PollWriteRemoteResponse verdict;
+  verdict.set_state(proto::PollWriteRemoteResponse::PENDING);
+  fake_destination_.SetPollResponse(verdict);
+
+  ASSERT_TRUE(src_store->WriteRemote({"a"}, dst).ok());
+  // Populate's pin plus the offer's internal one.
+  EXPECT_EQ(src_store->GetPinCount("a"), 2);
+
+  // Outlive the store, exactly as a caller sharing a backend would.
+  std::shared_ptr<KVCacheStoreBackend> backend = src_store->backend();
+  src_store.reset();
+
+  EXPECT_EQ(backend->GetPinCount("a"), 1)
+      << "the offer's internal pin outlived the store that took it";
+}
+
+// The same drain must not WAIT for those offers. An offer goes terminal only
+// when the destination answers or the ~30s HOLD expires, so waiting would turn
+// destroying a store behind a dead peer into a half-minute stall.
+TEST_F(RemoteWriteSourceTest, DestroyingAStoreMidOfferDoesNotWaitForTheHold) {
+  RaidenId src{"rw_src_dtor_fast", "0", "kv", 0};
+  RaidenId dst{"rw_dst_dtor_fast", "0", "kv", 0};
+  auto src_store = MakeStore(src);
+  Populate(*src_store, src, {"a"});
+  StartFakeDestination(dst);
+
+  proto::PollWriteRemoteResponse verdict;
+  verdict.set_state(proto::PollWriteRemoteResponse::PENDING);
+  fake_destination_.SetPollResponse(verdict);
+
+  ASSERT_TRUE(src_store->WriteRemote({"a"}, dst).ok());
+  {
+    auto [done, failed, pending, existing, unregistered] =
+        src_store->PollRemoteWriteStatus();
+    ASSERT_THAT(pending, ::testing::ElementsAre("a"));
+  }
+
+  const absl::Time before = absl::Now();
+  src_store.reset();
+  const absl::Duration took = absl::Now() - before;
+
+  // The HOLD is 30s; anything near it means the drain waited.
+  EXPECT_LT(took, absl::Seconds(10))
+      << "destruction blocked on the remote write's hold window";
+}
+
 // A destination that vanished after registering. The source must get a prompt
 // error rather than waiting, and must drop the cached client so a restarted
 // peer is reachable.

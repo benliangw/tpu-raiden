@@ -585,6 +585,12 @@ class KVCacheStore {
       active_remote_reads_ ABSL_GUARDED_BY(mutex_);
 
   std::vector<RemoteWriteState> active_remote_writes_ ABSL_GUARDED_BY(mutex_);
+  // Operations a poller has claimed and is currently asking the destination
+  // about. Polling drops mutex_ to make that RPC, so without a claim two
+  // concurrent pollers both see the same operation as committed, both call
+  // FinishRemoteWrite, and the internal pin is released twice while the hashes
+  // are reported twice.
+  absl::flat_hash_set<uint64_t> polling_remote_writes_ ABSL_GUARDED_BY(mutex_);
   std::vector<std::string> done_remote_writes_ ABSL_GUARDED_BY(mutex_);
   std::vector<std::string> failed_remote_writes_ ABSL_GUARDED_BY(mutex_);
   std::vector<std::string> existing_remote_writes_ ABSL_GUARDED_BY(mutex_);

@@ -755,6 +755,30 @@ KVCacheStore::~KVCacheStore() {
       poller_thread_->join();
     }
   }
+
+  // Abandon any remote write still outstanding, now that no poller can race
+  // us. This does NOT wait for them: a remote write goes terminal only when
+  // the destination answers or the HOLD (~30s) expires, so waiting would make
+  // destroying a store block for half a minute behind a slow or dead peer.
+  //
+  // Releasing the internal pin is the part that has to happen. `backends_`
+  // holds shared_ptrs, so a backend can outlive the store that pinned into it;
+  // a pin left behind there is a host block nothing can ever reclaim.
+  {
+    std::vector<RemoteWriteState> abandoned;
+    {
+      absl::MutexLock lock(mutex_);
+      abandoned.swap(active_remote_writes_);
+      polling_remote_writes_.clear();
+    }
+    for (const auto& state : abandoned) {
+      LOG(WARNING) << "Store destroyed with remote write " << state.operation_id
+                   << " still outstanding; releasing its source pin without "
+                      "waiting for the destination's verdict.";
+      FinishRemoteWrite(state, /*succeeded=*/false, {});
+    }
+  }
+
   std::vector<tsl::Future<>> futures_to_await;
   {
     absl::MutexLock lock(mutex_);
@@ -1751,14 +1775,33 @@ void KVCacheStore::FinishRemoteWrite(const RemoteWriteState& state,
 }
 
 void KVCacheStore::PollRemoteWritesInternal() {
+  // CLAIM the operations rather than copying the list. The poll below makes an
+  // RPC per operation and cannot hold mutex_ across it, so a plain copy lets
+  // two concurrent pollers observe the same operation as committed and both
+  // finish it -- releasing the internal pin twice (freeing blocks a later
+  // operation now owns) and reporting every hash twice.
   std::vector<RemoteWriteState> to_poll;
   {
     absl::MutexLock lock(mutex_);
-    to_poll = active_remote_writes_;
+    for (const auto& state : active_remote_writes_) {
+      if (polling_remote_writes_.insert(state.operation_id).second) {
+        to_poll.push_back(state);
+      }
+    }
   }
   if (to_poll.empty()) {
     return;
   }
+
+  // Every claim must come back, including on the paths that `continue` past a
+  // poll failure. A claim left behind is an operation no poller ever looks at
+  // again: it stays pending forever and its pin is never released.
+  auto release_claims = absl::MakeCleanup([this, &to_poll]() {
+    absl::MutexLock lock(mutex_);
+    for (const auto& state : to_poll) {
+      polling_remote_writes_.erase(state.operation_id);
+    }
+  });
 
   auto* backend = dynamic_cast<HostOffloadBackend*>(this->backend().get());
   const absl::Time now = absl::Now();
