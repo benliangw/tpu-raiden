@@ -252,14 +252,17 @@ class KVCacheStore:
       self,
       block_hashes: list[bytes],
       enable_global: bool = False,
+      pin_found: bool = True,
   ) -> list[tuple[bytes, RaidenBlockID]]:
     """Checks the LRU directory for cached block hashes.
 
-    PINS every hash it returns, one pin each, so the answer cannot be evicted
-    between being given and being used. The operation the caller goes on to
-    perform consumes that pin: load() drops it on a successful local load, and
-    save() drops it on success. A caller that does neither -- one that only
-    wanted to know what is resident -- must release() what it was given.
+    By default PINS every hash it returns, one pin each, so the answer cannot
+    be evicted between being given and being used. The operation the caller
+    goes on to perform consumes that pin: load() drops it on a successful
+    local load, and save() drops it on success. A caller that does neither --
+    one that only wanted to know what is resident -- must release() what it
+    was given, or pass pin_found=False to observe without acquiring (a pure
+    peek: no pin, no recency perturbation).
 
     Locally cached hits are pinned. Hashes resolved only through the global
     registry are not: they name a block on another node, and there is nothing
@@ -269,12 +272,13 @@ class KVCacheStore:
       block_hashes: Incoming block hashes to check.
       enable_global: Whether to fallback to global registry on miss. Defaults
         to False; the fallback is a blocking RPC.
+      pin_found: Whether to pin local hits. Defaults to True.
 
     Returns:
       A list of tuples containing the block hash and the matching
       RaidenBlockID replica, halting immediately upon the first cache miss.
     """
-    raw_res = self._impl.lookup(block_hashes, enable_global)
+    raw_res = self._impl.lookup(block_hashes, enable_global, pin_found)
     final_res = []
     for hash_val, raw_slice in raw_res:
       final_res.append((hash_val, RaidenBlockID(impl=raw_slice)))
