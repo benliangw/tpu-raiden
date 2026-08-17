@@ -138,7 +138,36 @@ class RaidenBlockID:
 
 
 class KVCacheStore:
-  """Wrapper around compiled C++ KVCacheStore."""
+  """Wrapper around compiled C++ KVCacheStore.
+
+  THE THREE WORKFLOWS
+
+  The surface exists to serve exactly three flows. Every pin is granted by one
+  call and consumed by one call, so you never balance pins by hand:
+
+    1. Read what is cached:     lookup() -> load()
+         lookup() pins each hash it returns; a successful LOCAL load() spends
+         that pin. A REMOTE hit is not pinned and a remote load() spends
+         nothing -- a registry-only hit never entered the local cache, and a
+         peer load records nothing locally either.
+
+    2. Cache something new:     insert() -> save()
+         insert() pins what it takes; a successful save() spends it.
+
+    3. Hand a block to a peer:  lookup() -> save(dst)
+         The block must already be host-resident here, so lookup() finds it
+         locally and pins it, and the successful remote save() spends that pin.
+
+  Flows 1 and 2 never collide over a hash: lookup() returns hits, insert()
+  takes the misses, so the sets are disjoint and nothing is pinned twice.
+
+  A FAILED operation does not spend the pin. Retrying, or giving up with
+  release(), is your decision -- unpinning under a retry would leave the block
+  evictable while you still believed you held it.
+
+  Eviction is not part of any of this. The store reclaims space itself when an
+  operation needs a host block; there is no caller-driven removal.
+  """
 
   def __init__(
       self,
@@ -276,41 +305,11 @@ class KVCacheStore:
     return self._impl.insert(block_hashes, raw_slices, on_host)
 
 
-  def release_and_delete(
-      self,
-      block_hashes: list[bytes],
-  ) -> int:
-    """Reverts an insert operation.
 
-    Unpins all block_hashes in the LRU cache, deletes any block_hash in REMOTE
-    status whose pin count is 0.
-
-    Args:
-      block_hashes: Incoming block hashes to unpin and check for deletion.
-
-    Returns:
-      int: number of remote blocks deleted.
-    """
-    return self._impl.release_and_delete(block_hashes)
-
-  def delete(
-      self,
-      block_hashes: list[bytes],
-      slices: list[RaidenBlockID],
-  ) -> None:
-    raw_slices = []
-    for s in slices:
-      if isinstance(s, RaidenId):
-        s = RaidenBlockID(raiden_id=s)
-      raw_slices.append(s._impl)  # pylint: disable=protected-access
-    self._impl.delete(block_hashes, raw_slices)
 
   def capacity(self) -> int:
     return self._impl.capacity()
 
-  def pin(self, block_hashes: list[bytes]) -> bool:
-    """Pins cached block hashes in memory, protecting them against LRU eviction while in active use."""
-    return self._impl.pin(block_hashes)
 
   def release(self, block_hashes: list[bytes]) -> None:
     """Releases previously pinned block hashes, making them eligible for LRU eviction when capacity is exceeded."""

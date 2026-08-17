@@ -878,69 +878,6 @@ bool KVCacheStore::Insert(const std::vector<std::string>& block_hashes,
   return true;
 }
 
-size_t KVCacheStore::ReleaseAndDelete(
-    const std::vector<std::string>& block_hashes) {
-  size_t total_deleted = 0;
-  for (auto& backend : backends_) {
-    if (backend) {
-      total_deleted += backend->ReleaseAndDelete(block_hashes);
-    }
-  }
-  return total_deleted;
-}
-
-void KVCacheStore::Delete(const std::vector<std::string>& block_hashes,
-                          const std::vector<RaidenBlockID>& slices) {
-  for (auto& backend : backends_) {
-    if (backend) {
-      backend->Delete(block_hashes, slices);
-    }
-  }
-}
-
-bool KVCacheStore::Pin(const std::vector<std::string>& block_hashes) {
-  if (backends_.empty()) return false;
-  if (backends_.size() == 1) return backends_[0]->Pin(block_hashes);
-
-  if (backends_[0]->Pin(block_hashes)) {
-    return true;
-  }
-
-  std::vector<std::vector<std::string>> backend_hashes(backends_.size());
-  std::vector<std::string> remaining = block_hashes;
-
-  for (size_t i = 0; i < backends_.size() && !remaining.empty(); ++i) {
-    if (!backends_[i]) continue;
-    auto lookup_or = backends_[i]->Lookup(remaining, LookupOptions{});
-    if (lookup_or.ok()) {
-      const auto& matched = lookup_or.value();
-      for (const auto& pair : matched) {
-        backend_hashes[i].push_back(pair.first);
-      }
-      remaining.erase(remaining.begin(), remaining.begin() + matched.size());
-    }
-  }
-
-  if (!remaining.empty()) {
-    return false;
-  }
-
-  std::vector<size_t> pinned_backends;
-  for (size_t i = 0; i < backends_.size(); ++i) {
-    if (!backend_hashes[i].empty()) {
-      if (!backends_[i]->Pin(backend_hashes[i])) {
-        for (size_t pb : pinned_backends) {
-          backends_[pb]->Release(backend_hashes[pb]);
-        }
-        return false;
-      }
-      pinned_backends.push_back(i);
-    }
-  }
-
-  return true;
-}
-
 void KVCacheStore::Release(const std::vector<std::string>& block_hashes) {
   for (auto& backend : backends_) {
     if (backend) backend->Release(block_hashes);

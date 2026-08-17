@@ -980,7 +980,6 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     ]
     inserted = store.insert(hashes, slices, on_host=False)
     self.assertTrue(inserted)
-    self.assertTrue(store.pin(hashes))
     self.assertTrue(store.save(hashes))
 
     deadline = time.time() + 60

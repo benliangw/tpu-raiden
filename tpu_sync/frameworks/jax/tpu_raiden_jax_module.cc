@@ -555,35 +555,10 @@ NB_MODULE(_tpu_raiden_jax, m) {
             return self->Insert(hashes, slices, on_host);
           },
           nb::arg("block_hashes"), nb::arg("slices"), nb::arg("on_host"))
-      .def(
-          "release_and_delete",
-          [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self,
-             const std::vector<nb::bytes>& block_hashes) {
-            auto hashes = ToStdStringVector(block_hashes);
-            return self->ReleaseAndDelete(hashes);
-          },
-          nb::arg("block_hashes"))
-      .def(
-          "delete",
-          [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self,
-             const std::vector<nb::bytes>& block_hashes,
-             const std::vector<tpu_raiden::kv_cache::RaidenBlockID>& slices) {
-            auto hashes = ToStdStringVector(block_hashes);
-            self->Delete(hashes, slices);
-          },
-          nb::arg("block_hashes"), nb::arg("slices"))
       .def("capacity",
            [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self) {
              return self->capacity();
            })
-      .def(
-          "pin",
-          [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self,
-             const std::vector<nb::bytes>& block_hashes) {
-            auto hashes = ToStdStringVector(block_hashes);
-            return self->Pin(hashes);
-          },
-          nb::arg("block_hashes"))
       .def(
           "release",
           [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self,

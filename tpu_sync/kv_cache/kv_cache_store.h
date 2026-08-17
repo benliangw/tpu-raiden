@@ -62,6 +62,41 @@ class StoreMonitor;
 
 // KV Store that manages the indices and routing of prefix cache across serving
 // nodes and microservice slices.
+//
+// THE THREE WORKFLOWS
+//
+// The surface exists to serve exactly three flows. Every pin is granted by one
+// call and consumed by one call, so a caller never balances pins by hand:
+//
+//   1. Read what is cached:      Lookup() -> Load()
+//        Lookup() pins each hash it returns; a successful local Load() spends
+//        that pin. A REMOTE hit is not pinned and a remote Load() spends
+//        nothing -- a registry-only hit never entered the local index, and a
+//        peer load records nothing locally either.
+//
+//   2. Cache something new:      Insert() -> Save()
+//        Insert() pins what it takes; a successful Save() spends it.
+//
+//   3. Hand a block to a peer:   Lookup() -> Save(dst)
+//        The block must already be host-resident here, so Lookup() finds it
+//        locally and pins it, and the successful remote Save() spends that
+//        pin.
+//
+// Flows 1 and 2 never collide over a hash: Lookup() returns hits, Insert()
+// takes the misses, so the sets are disjoint by construction and nothing is
+// pinned twice.
+//
+// A FAILED operation does not spend the pin. Retrying, or giving up with
+// Release(), is the caller's decision -- unpinning under a retry would leave
+// the block evictable while the caller still believed it held it.
+//
+// A caller that only wants to OBSERVE what is resident, and will not go on to
+// load or save it, should use the LookupOptions overload with pin_found=false
+// rather than Lookup()-then-Release(): a pin/unpin round trip moves the entry
+// through the pinned list and back, which reorders the LRU.
+//
+// Eviction is not part of any of this. The store reclaims space itself, when
+// an operation needs a host block; there is no caller-driven removal.
 class KVCacheStore {
  public:
   friend class KVCacheStoreTest;
@@ -230,23 +265,6 @@ class KVCacheStore {
   // Returns whether the whole operation succeeded.
   bool Insert(const std::vector<std::string>& block_hashes,
               const std::vector<RaidenBlockID>& slices, bool on_host);
-
-  // Reverts an Insert operation by unlocking all block_hashes in the
-  // LRU cache, deleting any block_hash NOT in HOST or HOST_AND_HBM status
-  // whose pin count is 0, and restoring evicted entries from the LRU cache's
-  // candidate list for each deleted block.
-  // Returns:
-  // - size_t: number of blocks deleted
-  size_t ReleaseAndDelete(const std::vector<std::string>& block_hashes);
-
-  // Deletes cached sharded buffers from host-RAM/HBM backing store entirely.
-  void Delete(const std::vector<std::string>& block_hashes,
-              const std::vector<RaidenBlockID>& slices);
-
-  // Pins cached block hashes in memory, protecting them against LRU eviction
-  // while in active use. Returns true if all keys exist and were successfully
-  // pinned.
-  bool Pin(const std::vector<std::string>& block_hashes);
 
   // Releases previously pinned block hashes (a.k.a. Unpin), making them
   // eligible for LRU eviction when capacity is exceeded.

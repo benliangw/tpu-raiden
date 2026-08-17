@@ -91,31 +91,8 @@ class KVCacheStore:
     The pin it grants is what a subsequent save() consumes.
     """
     ...
-  def release_and_delete(
-      self,
-      block_hashes: list[bytes],
-  ) -> int:
-    """Reverts an insert operation.
-
-    Unpins all block_hashes in the LRU cache, deletes any block_hash in REMOTE
-    status whose pin count is 0.
-
-    Returns:
-      - int: number of remote blocks deleted.
-    """
-    ...
-  def delete(
-      self,
-      block_hashes: list[bytes],
-      slices: list[RaidenBlockID],
-  ) -> None:
-    """Deletes cached sharded buffers from host-RAM/HBM backing store entirely."""
-    ...
   def capacity(self) -> int:
     """Returns the total manageable pool block capacity of the prefix cache hierarchy."""
-    ...
-  def pin(self, block_hashes: list[bytes]) -> bool:
-    """Pins cached block hashes in memory, protecting them against LRU eviction while in active use."""
     ...
   def release(self, block_hashes: list[bytes]) -> None:
     """Releases previously pinned block hashes, making them eligible for LRU eviction when capacity is exceeded."""
