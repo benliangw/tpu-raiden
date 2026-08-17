@@ -261,6 +261,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
 
     # Verify status in store is HBM
     lookup_res = store.lookup(hashes)
+    store.release(hashes)
     self.assertLen(lookup_res, 2)
     self.assertEqual(lookup_res[0][1].status, kv_cache_store.BlockStatus.HBM)
     self.assertEqual(lookup_res[0][1].device_block_id, 0)
@@ -294,6 +295,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
 
     # Verify status in store is updated to HOST_AND_HBM
     lookup_res = store.lookup(hashes)
+    store.release(hashes)
     self.assertLen(lookup_res, 2)
     self.assertEqual(
         lookup_res[0][1].status, kv_cache_store.BlockStatus.HOST_AND_HBM
@@ -321,6 +323,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
       # can evict them out from under the slices -- that ordering is the whole
       # safety contract of this form, since it performs no lookup of its own.
       load_slices = [entry for _, entry in store.lookup(hashes)]
+      store.release(hashes)
       self.assertLen(load_slices, 2)
       for entry in load_slices:
         self.assertEqual(entry.status, kv_cache_store.BlockStatus.HOST_AND_HBM)
@@ -523,6 +526,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     # Give some time for registry propagation
     time.sleep(0.5)
     lookup_res_b = store_b.lookup(hashes, enable_global=True)
+    store_b.release(hashes)
     self.assertLen(lookup_res_b, 2)
 
     # Verify REMOTE status and owner job_a
@@ -540,6 +544,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
 
     # Verify correct source host block IDs
     lookup_res_a = store_a.lookup(hashes)
+    store_a.release(hashes)
     self.assertEqual(
         lookup_res_b[0][1].host_block_id, lookup_res_a[0][1].host_block_id
     )
@@ -757,6 +762,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     # --- Job B: discover the blocks as REMOTE. -----------------------------
     time.sleep(0.5)
     lookup_b = store_b.lookup(hashes, enable_global=True)
+    store_b.release(hashes)
     self.assertLen(lookup_b, 2)
     for _, blk in lookup_b:
       self.assertEqual(blk.status, kv_cache_store.BlockStatus.REMOTE)
@@ -773,6 +779,8 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
       )
       # The batch commits as a unit; the entry records where in HBM it landed.
       after = store_b.lookup(hashes)
+
+      store_b.release(hashes)
       self.assertLen(after, 2)
       for i, (_, blk) in enumerate(after):
         self.assertEqual(blk.status, kv_cache_store.BlockStatus.HBM)
@@ -1027,6 +1035,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
 
     # 3. Job B holds them locally, host-resident, as its own.
     lookup_b = store_b.lookup(hashes, enable_global=False)
+    store_b.release(hashes)
     self.assertLen(lookup_b, len(hashes))
     for _, slice_b in lookup_b:
       self.assertEqual(slice_b.status, kv_cache_store.BlockStatus.HOST)

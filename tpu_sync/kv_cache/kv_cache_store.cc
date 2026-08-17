@@ -796,7 +796,15 @@ KVCacheStore::~KVCacheStore() {
 
 absl::StatusOr<BlockSliceList> KVCacheStore::Lookup(
     const std::vector<std::string>& block_hashes, bool enable_global) {
-  return Lookup(block_hashes, LookupOptions{.enable_global = enable_global});
+  // The application-facing overload PINS what it finds. A caller asks what is
+  // resident in order to use it, and between the answer and the use the entry
+  // would otherwise be evictable -- so the pin comes with the answer, and the
+  // operation the caller goes on to perform (load, save) consumes it.
+  //
+  // Only this overload. The LookupOptions overload leaves pin_found at its
+  // struct default of false, which is what every internal caller goes through.
+  return Lookup(block_hashes,
+                LookupOptions{.enable_global = enable_global, .pin_found = true});
 }
 
 absl::StatusOr<BlockSliceList> KVCacheStore::Lookup(

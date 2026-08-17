@@ -155,6 +155,7 @@ def _phase_a():
   # The blocks are host-resident now; their bytes and the metadata table both
   # live in shared memory and must survive the crash below.
   lookup_res = store.lookup(_HASHES)
+  store.release(_HASHES)
   assert len(lookup_res) == _NUM_BLOCKS
   for i, (_, blk) in enumerate(lookup_res):
     assert blk.status == kv_cache_store.BlockStatus.HOST_AND_HBM, blk.status
@@ -181,6 +182,7 @@ def _phase_b(expect_recovery: bool):
   del rid
 
   lookup_res = store.lookup(_HASHES)
+  store.release(_HASHES)
   if not expect_recovery:
     assert not lookup_res, f"expected a cold start, got hits: {lookup_res}"
     print(_PHASE_B_COLD_MARKER, flush=True)

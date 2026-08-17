@@ -125,6 +125,16 @@ using TestHostOffloadBackend = HostOffloadBackendTest::Backend;
 
 namespace {
 
+// Observes what is resident WITHOUT acquiring it. The application-level
+// Lookup pins what it returns, which is right for a caller that goes on to
+// load or save the answer but wrong for a case that is asserting on pin counts
+// or eviction candidates -- there the pin is the thing under test, and a
+// lookup taking one of its own would be measuring itself.
+absl::StatusOr<BlockSliceList> PeekLookup(
+    KVCacheStore& store, const std::vector<std::string>& block_hashes) {
+  return store.Lookup(block_hashes, LookupOptions{.enable_global = false});
+}
+
 // Publishes a peer so a remote read can resolve its controller. The store
 // server address is required by the registry but a read never dials it -- it
 // speaks to the controller.
@@ -185,6 +195,12 @@ TEST(KVCacheStoreTest, BasicTests) {
   ASSERT_TRUE(lookup_res_early.ok());
   EXPECT_EQ(lookup_res_early->size(), 1);
   EXPECT_EQ((*lookup_res_early)[0].first, "4001");
+
+  // Lookup pins what it returns, and this test only inspects the answers
+  // rather than going on to load or save them, so it gives the pins back
+  // itself. "4001" was returned by both lookups, so it holds two.
+  controller.Release({"4001", "4002"});
+  controller.Release({"4001"});
 
   // 3. Delete
   controller.Delete(hashes, slices);
@@ -891,11 +907,11 @@ TEST(KVCacheStoreTest, ReleaseAndDelete) {
   // remote_1 and remote_2 should be unpinned and deleted (since REMOTE)
   EXPECT_EQ(store.GetPinCount("remote_1"), 0);
   EXPECT_EQ(store.GetPinCount("remote_2"), 0);
-  EXPECT_EQ(store.Lookup({"remote_1"})->size(), 0);
-  EXPECT_EQ(store.Lookup({"remote_2"})->size(), 0);
+  EXPECT_EQ(PeekLookup(store, {"remote_1"})->size(), 0);
+  EXPECT_EQ(PeekLookup(store, {"remote_2"})->size(), 0);
 
   // local_1 and local_2 should be restored to the cache!
-  auto lookup_res = store.Lookup({"local_1", "local_2"});
+  auto lookup_res = PeekLookup(store, {"local_1", "local_2"});
   ASSERT_TRUE(lookup_res.ok());
   EXPECT_EQ(lookup_res->size(), 2);
 
@@ -905,7 +921,7 @@ TEST(KVCacheStoreTest, ReleaseAndDelete) {
   auto res_non_remote = store.ReleaseAndDelete({"local_1"});
   EXPECT_EQ(res_non_remote, 0);
   EXPECT_EQ(store.GetPinCount("local_1"), 0);
-  EXPECT_EQ(store.Lookup({"local_1"})->size(), 1);
+  EXPECT_EQ(PeekLookup(store, {"local_1"})->size(), 1);
 
   // Test remote block pinned twice: after one ReleaseAndDelete, pin count is 1
   // so it should NOT be deleted!
@@ -915,7 +931,7 @@ TEST(KVCacheStoreTest, ReleaseAndDelete) {
   auto res_pinned = store.ReleaseAndDelete({"remote_1"});
   EXPECT_EQ(res_pinned, 0);  // 0 deleted because pin count was 2 -> 1
   EXPECT_EQ(store.GetPinCount("remote_1"), 1);
-  EXPECT_EQ(store.Lookup({"remote_1"})->size(), 1);
+  EXPECT_EQ(PeekLookup(store, {"remote_1"})->size(), 1);
   store.Release({"remote_1"});
   store.Delete({"remote_1"}, {remote_slices[0]});
 
@@ -1998,6 +2014,9 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, EvictByHashesHostAndHbmToErased) {
     ASSERT_TRUE(lookup_res.ok());
     ASSERT_EQ(lookup_res->size(), 2);
   }
+  // ...and give back the pins that check took, or the evict below has nothing
+  // it is allowed to reclaim.
+  store.Release({"hash_1", "hash_2"});
 
   // 5. Check locked blocks on controller
   auto* controller_ptr = KVCacheStoreTest::GetController(store);
@@ -2228,9 +2247,11 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, ProactiveEvictionWithCandidates) {
   }
   store.Release(hashes);
 
-  // Verify both are HOST_AND_HBM
+  // Verify both are HOST_AND_HBM. Observed rather than looked up: this case is
+  // about which block evicts first, and a pin/unpin round trip moves a node
+  // through the pinned list and back, which reorders the very LRU under test.
   {
-    auto lookup_res = store.Lookup({"hash_B", "hash_A"});
+    auto lookup_res = PeekLookup(store, {"hash_B", "hash_A"});
     ASSERT_TRUE(lookup_res.ok());
     ASSERT_EQ(lookup_res->size(), 2);
     EXPECT_EQ((*lookup_res)[0].second.status, BlockStatus::HOST_AND_HBM);

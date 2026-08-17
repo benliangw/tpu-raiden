@@ -691,6 +691,7 @@ def _worker_write_remote_main(argv):
       assert (
           len(lookup_res_b) == 2
       ), f"Expected 2 blocks on store_b, got {len(lookup_res_b)}"
+      store_b.release(hashes)
 
       # Load blocks [0, 1] from Job B's host pool into TPU HBM
       assert store_b.pin(hashes), "pin failed on store_b"

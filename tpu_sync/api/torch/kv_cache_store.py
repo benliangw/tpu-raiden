@@ -233,9 +233,20 @@ class KVCacheStore:
   ) -> list[tuple[bytes, RaidenBlockID]]:
     """Checks the LRU directory for cached block hashes.
 
+    PINS every hash it returns, one pin each, so the answer cannot be evicted
+    between being given and being used. The operation the caller goes on to
+    perform consumes that pin: load() drops it on a successful local load, and
+    save() drops it on success. A caller that does neither -- one that only
+    wanted to know what is resident -- must release() what it was given.
+
+    Locally cached hits are pinned. Hashes resolved only through the global
+    registry are not: they name a block on another node, and there is nothing
+    here to hold.
+
     Args:
       block_hashes: Incoming block hashes to check.
-      enable_global: Whether to fallback to global registry on miss.
+      enable_global: Whether to fallback to global registry on miss. Defaults
+        to False; the fallback is a blocking RPC.
 
     Returns:
       A list of tuples containing the block hash and the matching
