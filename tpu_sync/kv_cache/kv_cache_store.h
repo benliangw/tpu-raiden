@@ -274,9 +274,13 @@ class KVCacheStore {
   // `device_block_ids` is the destination and must name one device block per
   // hash.
   //
-  // NOTE: The block_hashes must be pinned in the LRU cache before calling Load.
-  // Once the operation is complete (as reported by PollLoadStatus), the caller
-  // must manually release/unpin them via Release.
+  // PIN CONTRACT: every hash must be pinned on entry -- Lookup() is what
+  // normally grants that pin -- and a SUCCESSFUL load consumes exactly one pin
+  // per hash. The caller does not release afterwards.
+  //
+  // A FAILED load does not: the entry stays pinned so the caller can retry, or
+  // release it deliberately. Deciding to give up is the caller's, not this
+  // store's.
   absl::Status Load(absl::Span<const std::string> block_hashes,
                     absl::Span<const int> device_block_ids);
 
@@ -290,9 +294,16 @@ class KVCacheStore {
   // hash.
   //
   // If `slices` is non-empty, the caller's pre-looked up RaidenBlockIDs are
-  // used directly. Note that blocks in `slices` must be already pinned
-  // externally (when Load from local host), and remote loads will re-resolve
-  // hashes at the peer, ignoring `slices`.
+  // used directly. Remote loads re-resolve hashes at the peer, ignoring the
+  // rest of `slices`.
+  //
+  // PIN CONTRACT, same as the overload above and now enforced the same way:
+  //   local source  -- every hash must be pinned on entry, and a successful
+  //                    load consumes one pin per hash.
+  //   remote source -- no pin is required and none is consumed. A hash
+  //                    resolved only through the registry never entered the
+  //                    local index, so there is nothing here to have pinned,
+  //                    and a load from a peer records nothing either.
   absl::Status Load(absl::Span<const std::string> block_hashes,
                     absl::Span<const RaidenBlockID> slices,
                     absl::Span<const int> device_block_ids);
@@ -353,10 +364,14 @@ class KVCacheStore {
   // Polls the status of all active/inflight Load operations.
   // Updates cache metadata upon successful H2D transfers:
   //   - Loaded from local host DRAM -> HOST_AND_HBM
-  //   - Loaded from a peer          -> HBM, with host_block_id -1.
+  //   - Loaded from a peer          -> nothing is recorded at all.
   //
-  // Note: HBM-only entries hold a slot in the LRU but own no host block, and
-  // Evict only reclaims HOST and HOST_AND_HBM entries. They must be explicitly deleted.
+  // A peer load leaves no entry because there is nothing here to describe: no
+  // local host copy is kept, so the entry could only say HBM with
+  // host_block_id -1 -- which Evict cannot reclaim (it takes HOST and
+  // HOST_AND_HBM only) and which nothing would ever remove. A later lookup()
+  // of such a hash is therefore a miss, and the caller's own block manager is
+  // what remembers it already owns the device block.
   //
   // Returns:
   //   A tuple of {done_block_hashes, failed_block_hashes, pending_block_hashes}
@@ -507,6 +522,10 @@ class KVCacheStore {
     tsl::Future<> future;
     std::vector<std::string> block_hashes;
     std::vector<int> device_block_ids;
+    // Whether the source was a peer. Decided at submit time and carried here
+    // because the poller cannot re-derive it: a remote load records nothing
+    // locally, so by completion there is no entry to read a status off.
+    bool from_remote = false;
   };
 
   struct RemoteReadState {

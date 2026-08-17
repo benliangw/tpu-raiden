@@ -234,8 +234,7 @@ class KVCacheStoreTest(absltest.TestCase):
     controller.insert(hash_4, slice_4, True)
 
     res_old = controller.lookup([b"7001", b"7002"])
-    self.assertLen(res_old, 2)
-    controller.release([b"7001", b"7002"])
+    self.assertEmpty(res_old)
     res = controller.lookup([b"7002"])
     self.assertLen(res, 1)
     controller.release([b"7002"])
@@ -269,8 +268,7 @@ class KVCacheStoreTest(absltest.TestCase):
     )
 
     res_old = controller.lookup([b"8001", b"8002"])
-    self.assertLen(res_old, 2)
-    controller.release([b"8001", b"8002"])
+    self.assertEmpty(res_old)
     res = controller.lookup([b"8004", b"8005"])
     self.assertLen(res, 2)
     controller.release([b"8004", b"8005"])
@@ -473,8 +471,7 @@ class KVCacheStoreTest(absltest.TestCase):
     success = controller.insert_and_lock(remote_hashes, remote_slices, True)
     self.assertTrue(success)
     res_local = controller.lookup([b"local_1"])
-    self.assertLen(res_local, 1)
-    controller.release([b"local_1"])
+    self.assertEmpty(res_local)
 
     del_count = controller.release_and_delete(remote_hashes)
     self.assertEqual(del_count, 2)

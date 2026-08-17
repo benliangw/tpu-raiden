@@ -438,11 +438,23 @@ class KVCacheStore:
 
     `device_block_ids` is the destination and must name one device block per hash.
     
-    NOTE: The block_hashes must be pinned in the LRU cache before calling load
-    when loading from local host. Once the operation is complete (as reported by
-    poll_load_status), the caller must manually release/unpin them.
-    Blocks provided in `slices` must be already pinned externally, and remote
-    loads will re-resolve hashes at the peer, ignoring `slices`.
+    PIN CONTRACT:
+      local source  -- every hash must be pinned on entry (lookup() is what
+                       normally grants that pin), and a SUCCESSFUL load
+                       consumes exactly one pin per hash. Do not release
+                       afterwards. A FAILED load does not consume it: the entry
+                       stays pinned so you can retry, or release it
+                       deliberately. Giving up is your decision, not the
+                       store's.
+      remote source -- no pin is required and none is consumed. A hash resolved
+                       only through the registry never entered the local cache,
+                       so there is nothing here to have pinned.
+
+    A load from a peer records NOTHING locally: no host copy is kept, so a
+    later lookup() of that hash is still a miss. Your own block manager is what
+    remembers you already own the device block.
+
+    Remote loads re-resolve hashes at the peer, ignoring the rest of `slices`.
 
     Args:
       block_hashes: List of block hashes to load.

@@ -1080,6 +1080,7 @@ absl::Status KVCacheStore::Load(absl::Span<const std::string> block_hashes,
   }
 
   RaidenId remote_id;
+  bool from_remote = false;
   {
     absl::MutexLock lock(mutex_);
     auto lookup_or = backend()->Lookup(block_hashes);
@@ -1093,6 +1094,7 @@ absl::Status KVCacheStore::Load(absl::Span<const std::string> block_hashes,
     BlockStatus first_status = slices[0].second.status;
     if (first_status == BlockStatus::REMOTE) {
       remote_id = slices[0].second.raiden_id;
+      from_remote = true;
     }
 
     for (size_t i = 0; i < slices.size(); ++i) {
@@ -1147,6 +1149,7 @@ absl::Status KVCacheStore::Load(absl::Span<const std::string> block_hashes,
             std::vector<std::string>(block_hashes.begin(), block_hashes.end()),
         .device_block_ids =
             std::vector<int>(device_block_ids.begin(), device_block_ids.end()),
+        .from_remote = from_remote,
     });
   }
 
@@ -1169,12 +1172,14 @@ absl::Status KVCacheStore::Load(absl::Span<const std::string> block_hashes,
   }
 
   RaidenId remote_id;
+  bool from_remote = false;
   {
     absl::MutexLock lock(mutex_);
 
     BlockStatus first_status = slices[0].status;
     if (first_status == BlockStatus::REMOTE) {
       remote_id = slices[0].raiden_id;
+      from_remote = true;
     }
 
     for (size_t i = 0; i < slices.size(); ++i) {
@@ -1195,6 +1200,13 @@ absl::Status KVCacheStore::Load(absl::Span<const std::string> block_hashes,
               "Mixed remote node IDs in a single Load call");
         }
       } else {
+        // The caller's pin is what a successful local load consumes, so it has
+        // to exist. The no-slices form has always required it; this form did
+        // not, which left one signature hiding two different pin contracts.
+        if (backend()->GetPinCount(hash) <= 0) {
+          return absl::FailedPreconditionError(
+              absl::StrCat("Block is not pinned: ", hash));
+        }
         if (existing.status != BlockStatus::HOST &&
             existing.status != BlockStatus::HOST_AND_HBM) {
           return absl::FailedPreconditionError(
@@ -1226,6 +1238,7 @@ absl::Status KVCacheStore::Load(absl::Span<const std::string> block_hashes,
             std::vector<std::string>(block_hashes.begin(), block_hashes.end()),
         .device_block_ids =
             std::vector<int>(device_block_ids.begin(), device_block_ids.end()),
+        .from_remote = from_remote,
     });
   }
 
@@ -1967,8 +1980,25 @@ void KVCacheStore::PollLoadsInternal(std::vector<LoadState> ready_loads) {
   for (auto& state : ready_loads) {
     absl::Status status = state.future.Await();
     absl::MutexLock lock(mutex_);
-    if (status.ok()) {
-      auto lookup_or = backend()->Lookup(state.block_hashes);
+    if (status.ok() && state.from_remote) {
+      // A load from a peer records NOTHING locally. The bytes went to the
+      // caller's device blocks and no local host copy was kept, so there is no
+      // residency to describe: an entry here would claim HBM with
+      // host_block_id -1, which eviction cannot reclaim (it only takes HOST and
+      // HOST_AND_HBM) and which nothing left in the API can delete.
+      //
+      // The consequence is deliberate: a later lookup() of the same hash is a
+      // miss, and a repeat request re-fetches unless the caller's own block
+      // manager remembers it already owns the device block.
+      for (const auto& hash : state.block_hashes) {
+        done_loads_.push_back(hash);
+      }
+    } else if (status.ok()) {
+      // Local source: the entry exists here by construction, so this lookup is
+      // purely local -- no registry fallback, which would otherwise put a
+      // blocking RPC inside the poller while it holds mutex_.
+      auto lookup_or = backend()->Lookup(state.block_hashes,
+                                         LookupOptions{.enable_global = false});
       if (lookup_or.ok()) {
         const auto& slices = lookup_or.value();
         std::vector<std::string> update_hashes;
@@ -1978,13 +2008,7 @@ void KVCacheStore::PollLoadsInternal(std::vector<LoadState> ready_loads) {
           if (i < slices.size()) {
             RaidenBlockID block = slices[i].second;
             block.device_block_id = state.device_block_ids[i];
-            if (block.status == BlockStatus::REMOTE) {
-              block.raiden_id = raiden_id_;
-              block.host_block_id = -1;
-              block.status = BlockStatus::HBM;
-            } else {
-              block.status = BlockStatus::HOST_AND_HBM;
-            }
+            block.status = BlockStatus::HOST_AND_HBM;
             update_hashes.push_back(hash);
             update_slices.push_back(block);
           }
@@ -1992,6 +2016,14 @@ void KVCacheStore::PollLoadsInternal(std::vector<LoadState> ready_loads) {
         }
         if (!update_hashes.empty()) {
           backend()->Insert(update_hashes, update_slices, /*on_host=*/true);
+          // The load is done with the block, so the pin the caller acquired to
+          // keep it alive across the transfer is consumed here. Released AFTER
+          // the index update, so the entry cannot be evicted between the two.
+          //
+          // Only on success, and only for a local source: a failed load stays
+          // pinned so the caller can retry or release deliberately, and a
+          // remote load never had a caller pin to consume.
+          backend()->Release(update_hashes);
         }
       }
     } else {

@@ -777,14 +777,10 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
       self._await_terminal(
           store_b.poll_load_status, len(hashes), "Job B peer-fetch load"
       )
-      # The batch commits as a unit; the entry records where in HBM it landed.
-      after = store_b.lookup(hashes)
-
-      store_b.release(hashes)
-      self.assertLen(after, 2)
-      for i, (_, blk) in enumerate(after):
-        self.assertEqual(blk.status, kv_cache_store.BlockStatus.HBM)
-        self.assertEqual(blk.device_block_id, dst_device_blocks[i])
+      # A load from a peer records nothing locally: no host copy was kept, so
+      # there is no residency to describe. The bytes are in the device blocks
+      # the caller named and the cache is a miss for these hashes.
+      self.assertEmpty(store_b.lookup(hashes))
     else:
       # --- The thing under test: pull straight into HBM. ---------------------
       # No insert first: the lookup answer IS the source coordinate, and the
