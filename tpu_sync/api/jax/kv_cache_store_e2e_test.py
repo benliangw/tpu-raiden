@@ -282,7 +282,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     # Wait for save completion
     done = False
     while not done:
-      save_done, save_failed, _ = store.poll_save_status()
+      save_done, save_failed, _, _, _ = store.poll_save_status()
       if save_failed:
         raise RuntimeError(f"Async Save failed: {save_failed}")
       if save_done:
@@ -290,8 +290,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
       if not done:
         time.sleep(0.01)
 
-    # Release them so we can test pinning before load
-    store.release(hashes)
+    # No release: a successful save consumed the pin insert()/pin() granted.
 
     # Verify status in store is updated to HOST_AND_HBM
     lookup_res = store.lookup(hashes)
@@ -503,7 +502,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     # Wait for save completion
     done = False
     while not done:
-      save_done, save_failed, _ = store_a.poll_save_status()
+      save_done, save_failed, _, _, _ = store_a.poll_save_status()
       if save_failed:
         raise RuntimeError(f"Job A Async Save failed: {save_failed}")
       if save_done:
@@ -513,8 +512,6 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
 
     data_a = manager_a._impl.read_host_memory(0, 0, 16)
     print(f"DEBUG: Job A host memory (layer 0, shard 0) after Save: {data_a}")
-
-    store_a.release(hashes)
 
     # 5. Job B calls Lookup (enable_global=True)
     # Give some time for registry propagation
@@ -751,7 +748,6 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     self.assertTrue(store_a.pin(hashes))
     store_a.save(hashes)
     self._await_terminal(store_a.poll_save_status, len(hashes), "Job A save")
-    store_a.release(hashes)
 
     # --- Job B: discover the blocks as REMOTE. -----------------------------
     time.sleep(0.5)
@@ -836,11 +832,17 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
       )
 
   def _await_terminal(self, poll_fn, expected_done, what, timeout_s=120.0):
-    """Polls until `expected_done` hashes report done, or anything fails."""
+    """Polls until `expected_done` hashes report done, or anything fails.
+
+    Arity-agnostic: poll_save_status returns five lists (the last two annotate
+    remote-save failures) while poll_load_status and poll_remote_read_status
+    return three. Only the first two matter here.
+    """
     deadline = time.time() + timeout_s
     seen_done = 0
     while time.time() < deadline:
-      done, failed, _ = poll_fn()
+      result = poll_fn()
+      done, failed = result[0], result[1]
       if failed:
         raise RuntimeError(f"{what} failed: {failed}")
       seen_done += len(done)
@@ -852,14 +854,14 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
   def _await_write_terminal(self, store, expected, timeout_s=120.0):
     """Polls a remote write to a verdict.
 
-    Separate from _await_terminal because poll_remote_write_status returns
-    four vectors, not three: `existing` carries what a destination already held
-    when it refused a partial batch.
+    Separate from _await_terminal because poll_save_status returns five
+    vectors, not three: `existing` carries what a destination already held when
+    it refused a partial batch.
     """
     deadline = time.time() + timeout_s
     while time.time() < deadline:
       done, failed, pending, existing, unregistered = (
-          store.poll_remote_write_status()
+          store.poll_save_status()
       )
       if done or failed:
         return done, failed, existing
@@ -1007,7 +1009,13 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
 
     # 2. Job A offers them. Returns once Job B has decided, not once the bytes
     #    have moved.
-    self.assertTrue(store_a.write_remote(hashes, rid_b))
+    #
+    # The local save above consumed the pin insert()/pin() granted, so the
+    # offer needs its own. This is the documented remote-save flow: lookup()
+    # answers "yes, host-resident here" AND grants the pin that save(dst)
+    # spends, so the two calls are one workflow rather than a re-pin hack.
+    self.assertLen(store_a.lookup(hashes), len(hashes))
+    self.assertTrue(store_a.save(hashes, rid_b))
     done, failed, existing = self._await_write_terminal(store_a, hashes)
 
     if not expect_write_success:
@@ -1020,7 +1028,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     self.assertCountEqual(done, hashes)
     self.assertEmpty(failed)
     self.assertEmpty(existing)
-    store_a.release(hashes)
+    # No release: the successful remote save consumed the pin lookup() granted.
 
     # 3. Job B holds them locally, host-resident, as its own.
     lookup_b = store_b.lookup(hashes, enable_global=False)
@@ -1427,13 +1435,12 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     deadline = time.time() + 60
     done = []
     while time.time() < deadline:
-      done, failed, _ = store.poll_save_status()
+      done, failed, _, _, _ = store.poll_save_status()
       self.assertEmpty(failed)
       if done:
         break
       time.sleep(0.01)
     self.assertCountEqual(done, hashes)
-    store.release(hashes)
     del built
 
 

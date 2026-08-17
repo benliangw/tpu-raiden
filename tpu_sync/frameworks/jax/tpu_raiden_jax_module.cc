@@ -615,11 +615,13 @@ NB_MODULE(_tpu_raiden_jax, m) {
       .def(
           "save",
           [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self,
-             const std::vector<nb::bytes>& block_hashes) -> bool {
+             const std::vector<nb::bytes>& block_hashes,
+             const std::optional<tpu_raiden::kv_cache::RaidenId>&
+                 dst_raiden_id) -> bool {
             auto hashes = ToStdStringVector(block_hashes);
-            return self->Save(hashes).ok();
+            return self->Save(hashes, dst_raiden_id).ok();
           },
-          nb::arg("block_hashes"))
+          nb::arg("block_hashes"), nb::arg("dst_raiden_id") = nb::none())
       .def(
           "load",
           [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self,
@@ -652,12 +654,22 @@ NB_MODULE(_tpu_raiden_jax, m) {
              // copy the vectors touches CPython refcounts, which must happen
              // with the GIL held. This is why nb::call_guard is wrong here:
              // it would span the whole lambda, including that.
-             std::vector<std::string> done, failed, pending;
+             // Five vectors. `existing` and `unregistered` annotate REMOTE
+             // save failures rather than being outcomes of their own, and are
+             // empty for local saves. See KVCacheStore::PollSaveStatus.
+             std::vector<std::string> done, failed, pending, existing,
+                 unregistered;
              {
                nb::gil_scoped_release release;
-               std::tie(done, failed, pending) = self->PollSaveStatus();
+               auto res = self->PollSaveStatus();
+               done = std::move(res.done);
+               failed = std::move(res.failed);
+               pending = std::move(res.pending);
+               existing = std::move(res.existing);
+               unregistered = std::move(res.unregistered);
              }
-             std::vector<nb::bytes> py_done, py_failed, py_pending;
+             std::vector<nb::bytes> py_done, py_failed, py_pending, py_existing,
+                 py_unregistered;
              py_done.reserve(done.size());
              for (const auto& h : done) {
                py_done.push_back(nb::bytes(h.data(), h.size()));
@@ -670,7 +682,16 @@ NB_MODULE(_tpu_raiden_jax, m) {
              for (const auto& h : pending) {
                py_pending.push_back(nb::bytes(h.data(), h.size()));
              }
-             return std::make_tuple(py_done, py_failed, py_pending);
+             py_existing.reserve(existing.size());
+             for (const auto& h : existing) {
+               py_existing.push_back(nb::bytes(h.data(), h.size()));
+             }
+             py_unregistered.reserve(unregistered.size());
+             for (const auto& h : unregistered) {
+               py_unregistered.push_back(nb::bytes(h.data(), h.size()));
+             }
+             return std::make_tuple(py_done, py_failed, py_pending, py_existing,
+                                    py_unregistered);
            })
       .def("poll_load_status",
            [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self) {
@@ -681,7 +702,10 @@ NB_MODULE(_tpu_raiden_jax, m) {
              std::vector<std::string> done, failed, pending;
              {
                nb::gil_scoped_release release;
-               std::tie(done, failed, pending) = self->PollLoadStatus();
+               auto res = self->PollLoadStatus();
+                done = std::move(res.done);
+                failed = std::move(res.failed);
+                pending = std::move(res.pending);
              }
              std::vector<nb::bytes> py_done, py_failed, py_pending;
              py_done.reserve(done.size());
@@ -734,57 +758,6 @@ NB_MODULE(_tpu_raiden_jax, m) {
                py_pending.push_back(nb::bytes(h.data(), h.size()));
              }
              return std::make_tuple(py_done, py_failed, py_pending);
-           })
-      .def(
-          "write_remote",
-          [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self,
-             const std::vector<nb::bytes>& block_hashes,
-             const tpu_raiden::kv_cache::RaidenId& dst_raiden_id) -> bool {
-            auto hashes = ToStdStringVector(block_hashes);
-            return self->WriteRemote(hashes, dst_raiden_id).ok();
-          },
-          nb::arg("block_hashes"), nb::arg("dst_raiden_id"))
-      .def("poll_remote_write_status",
-           [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self) {
-             // Five vectors. `existing` and `unregistered` annotate
-             // failures rather than being outcomes of their own. See
-             // KVCacheStore::PollRemoteWriteStatus.
-             //
-             // Unlike the other pollers this one has no local future to
-             // test: it asks each destination, one blocking RPC per active
-             // write. Released around the C++ call ONLY -- the nb::bytes
-             // below are Python objects and need the GIL.
-             std::vector<std::string> done, failed, pending, existing,
-                 unregistered;
-             {
-               nb::gil_scoped_release release;
-               std::tie(done, failed, pending, existing, unregistered) =
-                   self->PollRemoteWriteStatus();
-             }
-             std::vector<nb::bytes> py_done, py_failed, py_pending, py_existing,
-                 py_unregistered;
-             py_done.reserve(done.size());
-             for (const auto& h : done) {
-               py_done.push_back(nb::bytes(h.data(), h.size()));
-             }
-             py_failed.reserve(failed.size());
-             for (const auto& h : failed) {
-               py_failed.push_back(nb::bytes(h.data(), h.size()));
-             }
-             py_pending.reserve(pending.size());
-             for (const auto& h : pending) {
-               py_pending.push_back(nb::bytes(h.data(), h.size()));
-             }
-             py_existing.reserve(existing.size());
-             for (const auto& h : existing) {
-               py_existing.push_back(nb::bytes(h.data(), h.size()));
-             }
-             py_unregistered.reserve(unregistered.size());
-             for (const auto& h : unregistered) {
-               py_unregistered.push_back(nb::bytes(h.data(), h.size()));
-             }
-             return std::make_tuple(py_done, py_failed, py_pending, py_existing,
-                                    py_unregistered);
            });
 
   tpu_raiden::telemetry::BindTelemetryApi(m);

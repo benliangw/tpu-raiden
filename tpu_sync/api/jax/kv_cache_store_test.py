@@ -412,7 +412,8 @@ class KVCacheStoreTest(absltest.TestCase):
     hashes = [b"hash_1", b"hash_2"]
     mock_impl.save.return_value = True
     self.assertTrue(controller.save(hashes))
-    mock_impl.save.assert_called_with(hashes)
+    # The wrapper always passes the destination through; None is a local save.
+    mock_impl.save.assert_called_with(hashes, None)
     mock_impl.save.return_value = False
     self.assertFalse(controller.save(hashes))
 
@@ -423,9 +424,15 @@ class KVCacheStoreTest(absltest.TestCase):
     mock_impl.load.return_value = False
     self.assertFalse(controller.load(hashes, device_block_ids))
 
-    mock_impl.poll_save_status.return_value = ([b"hash_1"], [], [b"hash_2"])
+    mock_impl.poll_save_status.return_value = (
+        [b"hash_1"],
+        [],
+        [b"hash_2"],
+        [],
+        [],
+    )
     self.assertEqual(
-        controller.poll_save_status(), ([b"hash_1"], [], [b"hash_2"])
+        controller.poll_save_status(), ([b"hash_1"], [], [b"hash_2"], [], [])
     )
     mock_impl.poll_save_status.assert_called_once()
 
@@ -705,6 +712,8 @@ class KVCacheStoreTest(absltest.TestCase):
       self.assertEqual(res[0][1].host_block_id, expected_host)
       self.assertEqual(res[0][1].device_block_id, expected_device)
 
+    # The verification lookups above pinned what they returned; the save and
+    # load themselves consumed the pins they were given.
     store.release(hashes)
 
   def test_e2e_save(self):
@@ -788,7 +797,7 @@ class KVCacheStoreTest(absltest.TestCase):
     # Wait for save completion
     done = False
     for _ in range(50):
-      done_saving, failed_saving, _ = store.poll_save_status()
+      done_saving, failed_saving, _, _, _ = store.poll_save_status()
       if failed_saving:
         self.fail(f"Save failed: {failed_saving}")
       if len(done_saving) == 2:
@@ -879,7 +888,7 @@ class KVCacheStoreTest(absltest.TestCase):
         store_server_ip="127.0.0.1",
     )
 
-  def test_write_remote_requires_a_registry(self):
+  def test_remote_save_requires_a_registry(self):
     # No global registry address: nothing to resolve the destination through,
     # and nothing to make the blocks reachable once they landed.
     store = kv_cache_store.KVCacheStore(
@@ -898,12 +907,12 @@ class KVCacheStoreTest(absltest.TestCase):
         )
     )
     self.assertFalse(
-        store.write_remote(
+        store.save(
             [b"a"], kv_cache_store.RaidenId("wr_dst", "0", "kv_cache", 0)
         )
     )
 
-  def test_write_remote_all_exist_settles_done(self):
+  def test_remote_save_all_exist_settles_done(self):
     src = self._make_registry_store("wr_src_allexist")
     dst = self._make_registry_store("wr_dst_allexist")
     dst_id = dst.raiden_id
@@ -927,16 +936,16 @@ class KVCacheStoreTest(absltest.TestCase):
     # The destination already holds every offered hash. That is a SUCCESS:
     # hashes are content-addressed, so the peer having them is exactly the
     # post-condition the caller wanted, and no bytes move.
-    self.assertTrue(src.write_remote(hashes, dst_id))
+    self.assertTrue(src.save(hashes, dst_id))
     done, failed, pending, existing, unregistered = (
-        src.poll_remote_write_status()
+        src.poll_save_status()
     )
     self.assertCountEqual(done, hashes)
     self.assertEmpty(failed)
     self.assertEmpty(pending)
     self.assertEmpty(existing)
 
-  def test_write_remote_partial_exist_reports_the_overlap(self):
+  def test_remote_save_partial_exist_reports_the_overlap(self):
     src = self._make_registry_store("wr_src_partial")
     dst = self._make_registry_store("wr_dst_partial")
     dst_id = dst.raiden_id
@@ -967,9 +976,9 @@ class KVCacheStoreTest(absltest.TestCase):
         )
     )
 
-    self.assertTrue(src.write_remote(hashes, dst_id))
+    self.assertTrue(src.save(hashes, dst_id))
     done, failed, pending, existing, unregistered = (
-        src.poll_remote_write_status()
+        src.poll_save_status()
     )
     self.assertEmpty(done)
     self.assertCountEqual(failed, hashes)
@@ -979,7 +988,7 @@ class KVCacheStoreTest(absltest.TestCase):
     # what the remainder is. The store does not retry on its own.
     self.assertCountEqual(existing, [hashes[0]])
 
-  def test_write_remote_carries_a_non_utf8_hash(self):
+  def test_remote_save_carries_a_non_utf8_hash(self):
     # Real block hashes are raw digests, essentially never valid UTF-8. These
     # travel through the bindings as bytes and over the wire as proto `bytes`;
     # while those fields were declared `string` the sender serialized happily
@@ -1012,8 +1021,8 @@ class KVCacheStoreTest(absltest.TestCase):
         )
     )
 
-    self.assertTrue(src.write_remote([binary_hash], dst_id))
-    done, failed, _, _, _ = src.poll_remote_write_status()
+    self.assertTrue(src.save([binary_hash], dst_id))
+    done, failed, _, _, _ = src.poll_save_status()
     self.assertCountEqual(done, [binary_hash])
     self.assertEmpty(failed)
 

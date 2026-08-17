@@ -1267,7 +1267,8 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, SaveReusesFreedBlocksAfterEvict) {
     absl::Status status = store.Save(hashes);
     if (!status.ok()) return status;
     while (true) {
-      auto [done, failed, pending] = store.PollSaveStatus();
+      auto [done, failed, pending, save_existing,
+          save_unregistered] = store.PollSaveStatus();
       if (!failed.empty()) return absl::InternalError("async save failed");
       if (!done.empty()) return absl::OkStatus();
       absl::SleepFor(absl::Milliseconds(10));
@@ -1332,7 +1333,8 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, SaveSuccess) {
   // Poll for completion
   bool done = false;
   while (!done) {
-    auto [save_done, save_failed, save_pending] = store.PollSaveStatus();
+    auto [save_done, save_failed, save_pending, save_existing,
+          save_unregistered] = store.PollSaveStatus();
     if (!save_failed.empty()) {
       FAIL() << "Async Save failed during polling";
     }
@@ -1519,6 +1521,58 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadWithSlicesUnpinnedFails) {
   // With the pin the caller was supposed to hold, it goes through.
   ASSERT_TRUE(store.Pin(hashes));
   EXPECT_TRUE(store.Load(hashes, slices, {2}).ok());
+}
+
+// The local half of the same rule. Note the release is sequenced AFTER the
+// registry write-through where there is one -- releasing inline would let the
+// entry be evicted while the queued Register is still pending, publishing a
+// host block id this node had already freed. This store has no registry, so it
+// exercises the inline branch; the ordering itself is asserted by the e2e
+// suites, which do have one.
+TEST_F(KVCacheStoreEmbeddedControllerTest, LocalSaveConsumesTheCallerPin) {
+  ::tpu_raiden::controller::MockTransferManager mock_mgr;
+  test_server_->service->SetTransferManager(
+      ::tpu_raiden::KVManagerHolder(&mock_mgr));
+
+  auto controller = MakeController(10, 1, 512, "");
+  RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
+
+  RaidenId rid{"test_job", "0", "test_cache", 0};
+  KVCacheStore store(10, std::move(controller), "", rid, std::nullopt,
+                     /*store_server_ip=*/"127.0.0.1");
+
+  std::vector<std::string> hashes = {"hash_1"};
+  std::vector<RaidenBlockID> slices = {
+      RaidenBlockID(rid, -1, 3, BlockStatus::HBM)};
+  ASSERT_TRUE(store.Insert(hashes, slices, /*on_host=*/false).first);
+  ASSERT_TRUE(store.Pin(hashes));
+  ASSERT_EQ(store.GetPinCount("hash_1"), 1);
+
+  ASSERT_OK(store.Save(hashes));
+
+  bool done = false;
+  for (int attempt = 0; attempt < 200 && !done; ++attempt) {
+    auto [save_done, save_failed, pending, existing, unregistered] =
+        store.PollSaveStatus();
+    ASSERT_TRUE(save_failed.empty());
+    if (!save_done.empty()) done = true;
+    if (!done) absl::SleepFor(absl::Milliseconds(10));
+  }
+  ASSERT_TRUE(done);
+
+  // The release can land on the write-through pool, so give it a moment.
+  for (int attempt = 0; attempt < 200 && store.GetPinCount("hash_1") > 0;
+       ++attempt) {
+    absl::SleepFor(absl::Milliseconds(10));
+  }
+  EXPECT_EQ(store.GetPinCount("hash_1"), 0)
+      << "a successful local save must consume the caller's pin";
+
+  // The entry survives the unpin, carrying the save's result.
+  auto after = PeekLookup(store, hashes);
+  ASSERT_TRUE(after.ok());
+  ASSERT_EQ(after->size(), 1);
+  EXPECT_EQ((*after)[0].second.status, BlockStatus::HOST_AND_HBM);
 }
 
 // A successful local load consumes the caller's pin, so the caller never
@@ -1912,7 +1966,8 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, SaveMultiWorkerSuccess) {
   // Poll for completion
   bool done = false;
   while (!done) {
-    auto [save_done, save_failed, save_pending] = store.PollSaveStatus();
+    auto [save_done, save_failed, save_pending, save_existing,
+          save_unregistered] = store.PollSaveStatus();
     if (!save_failed.empty()) {
       FAIL() << "Async Save failed during polling";
     }
@@ -2047,7 +2102,8 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, SaveWriteThrough) {
   // 6. Poll for completion
   bool done = false;
   while (!done) {
-    auto [save_done, save_failed, save_pending] = store.PollSaveStatus();
+    auto [save_done, save_failed, save_pending, save_existing,
+          save_unregistered] = store.PollSaveStatus();
     if (!save_failed.empty()) {
       FAIL() << "Async Save failed during polling";
     }
@@ -2310,7 +2366,8 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, EvictOnSave) {
 
   bool done = false;
   while (!done) {
-    auto [save_done, save_failed, save_pending] = store.PollSaveStatus();
+    auto [save_done, save_failed, save_pending, save_existing,
+          save_unregistered] = store.PollSaveStatus();
     if (!save_failed.empty()) {
       FAIL() << "Async Save failed during polling";
     }
@@ -2372,7 +2429,8 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, ProactiveEvictionWithCandidates) {
   // Poll for Save completion
   bool save_done = false;
   while (!save_done) {
-    auto [done, failed, pending] = store.PollSaveStatus();
+    auto [done, failed, pending, save_existing,
+          save_unregistered] = store.PollSaveStatus();
     ASSERT_TRUE(failed.empty());
     if (!done.empty()) {
       save_done = true;
@@ -2427,7 +2485,8 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, ProactiveEvictionWithCandidates) {
   // Poll for Save completion
   save_done = false;
   while (!save_done) {
-    auto [done, failed, pending] = store.PollSaveStatus();
+    auto [done, failed, pending, save_existing,
+          save_unregistered] = store.PollSaveStatus();
     ASSERT_TRUE(failed.empty());
     if (!done.empty()) {
       save_done = true;
@@ -3072,7 +3131,8 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, ReadRemoteAllocationFailureAborts) {
   // Poll for Save completion
   bool save_done = false;
   for (int attempt = 0; attempt < 100; ++attempt) {
-    auto [done_hashes, failed_hashes, pending_hashes] = store.PollSaveStatus();
+    auto [done_hashes, failed_hashes, pending_hashes, existing_hashes,
+          unregistered_hashes] = store.PollSaveStatus();
     ASSERT_TRUE(failed_hashes.empty());
     if (!done_hashes.empty()) {
       save_done = true;
@@ -3265,7 +3325,8 @@ TEST_F(KVCacheStoreEmbeddedControllerTest,
   // Poll for completion
   bool done = false;
   while (!done) {
-    auto [save_done, save_failed, save_pending] = store.PollSaveStatus();
+    auto [save_done, save_failed, save_pending, save_existing,
+          save_unregistered] = store.PollSaveStatus();
     if (!save_failed.empty()) {
       FAIL() << "Async Save failed during polling";
     }
@@ -4105,12 +4166,11 @@ class FakeDestinationService
       ::grpc::ServerContext* /*context*/,
       const ::tpu_raiden::kv_cache::proto::WriteRemoteRequest* request,
       ::tpu_raiden::kv_cache::proto::WriteRemoteResponse* response) override {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     ++write_calls_;
     requested_deadline_ms_ = request->deadline_ms();
     response->set_operation_id(kOperationId);
-    response->set_exist_state(
-        ::tpu_raiden::kv_cache::proto::WRITE_EXIST_STATE_UNSPECIFIED);
+    response->set_exist_state(exist_state_);
     response->set_granted_deadline_ms(request->deadline_ms());
     return ::grpc::Status::OK;
   }
@@ -4120,7 +4180,7 @@ class FakeDestinationService
       const ::tpu_raiden::kv_cache::proto::PollWriteRemoteRequest* /*request*/,
       ::tpu_raiden::kv_cache::proto::PollWriteRemoteResponse* response)
       override {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     ++poll_calls_;
     *response = poll_response_;
     return ::grpc::Status::OK;
@@ -4128,16 +4188,23 @@ class FakeDestinationService
 
   void SetPollResponse(
       ::tpu_raiden::kv_cache::proto::PollWriteRemoteResponse response) {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     poll_response_ = std::move(response);
   }
 
+  // What the ACK says, as opposed to the later poll verdict. ALL_EXIST makes
+  // the offer settle synchronously inside Save, without a poller.
+  void SetWriteExistState(proto::WriteExistState state) {
+    absl::MutexLock lock(mutex_);
+    exist_state_ = state;
+  }
+
   int write_calls() const {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     return write_calls_;
   }
   int64_t requested_deadline_ms() const {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     return requested_deadline_ms_;
   }
 
@@ -4145,6 +4212,9 @@ class FakeDestinationService
   mutable absl::Mutex mutex_;
   ::tpu_raiden::kv_cache::proto::PollWriteRemoteResponse poll_response_
       ABSL_GUARDED_BY(mutex_);
+  ::tpu_raiden::kv_cache::proto::WriteExistState exist_state_
+      ABSL_GUARDED_BY(mutex_) =
+          ::tpu_raiden::kv_cache::proto::WRITE_EXIST_STATE_UNSPECIFIED;
   int write_calls_ ABSL_GUARDED_BY(mutex_) = 0;
   int poll_calls_ ABSL_GUARDED_BY(mutex_) = 0;
   int64_t requested_deadline_ms_ ABSL_GUARDED_BY(mutex_) = 0;
@@ -4202,7 +4272,7 @@ class RemoteWriteSourceTest : public StoreDiscoveryTest {
   AwaitWriteSettled(KVCacheStore& store) {
     for (int i = 0; i < 300; ++i) {
       auto [done, failed, pending, existing, unregistered] =
-          store.PollRemoteWriteStatus();
+          store.PollSaveStatus();
       if (pending.empty() && (!done.empty() || !failed.empty())) {
         return {done, failed, existing, unregistered};
       }
@@ -4246,7 +4316,7 @@ TEST_F(RemoteWriteSourceTest, RefusesWithoutAGlobalRegistry) {
   auto store = MakeStore(src, /*with_registry=*/false);
   Populate(*store, src, {"a"});
 
-  auto status = store->WriteRemote({"a"}, RaidenId{"rw_dst", "0", "kv", 0});
+  auto status = store->Save({"a"}, RaidenId{"rw_dst", "0", "kv", 0});
   EXPECT_TRUE(absl::IsFailedPrecondition(status)) << status.ToString();
   EXPECT_THAT(status.message(), ::testing::HasSubstr("registry"));
 }
@@ -4259,11 +4329,11 @@ TEST_F(RemoteWriteSourceTest, AnUnresolvableDestinationFailsImmediately) {
   auto store = MakeStore(src);
   Populate(*store, src, {"a"});
 
-  auto status = store->WriteRemote({"a"}, RaidenId{"nobody", "0", "kv", 0});
+  auto status = store->Save({"a"}, RaidenId{"nobody", "0", "kv", 0});
   EXPECT_TRUE(absl::IsNotFound(status)) << status.ToString();
 
   auto [done, failed, pending, existing, unregistered] =
-      store->PollRemoteWriteStatus();
+      store->PollSaveStatus();
   EXPECT_TRUE(pending.empty()) << "a rejected offer must not stay active";
 }
 
@@ -4271,8 +4341,25 @@ TEST_F(RemoteWriteSourceTest, RefusesToOfferBlocksItDoesNotHold) {
   RaidenId src{"rw_src_missing", "0", "kv", 0};
   auto store = MakeStore(src);
 
-  auto status = store->WriteRemote({"absent"}, RaidenId{"d", "0", "kv", 0});
+  auto status = store->Save({"absent"}, RaidenId{"d", "0", "kv", 0});
   EXPECT_TRUE(absl::IsNotFound(status)) << status.ToString();
+}
+
+// A remote save consumes one caller pin on success, so it has to require one
+// on entry -- the local branch always did. Without this the two halves of
+// Save() would have different pin contracts behind one name.
+TEST_F(RemoteWriteSourceTest, RefusesToOfferAnUnpinnedBlock) {
+  RaidenId src{"rw_src_unpinned", "0", "kv", 0};
+  auto store = MakeStore(src);
+  Populate(*store, src, {"a"});
+  // Populate pins; drop it so the block is host-resident but unpinned.
+  store->Release({"a"});
+  ASSERT_EQ(store->GetPinCount("a"), 0);
+
+  auto status = store->Save({"a"}, RaidenId{"rw_dst_unpinned", "0", "kv", 0});
+  EXPECT_TRUE(absl::IsFailedPrecondition(status)) << status.ToString();
+  EXPECT_THAT(std::string(status.message()),
+              ::testing::HasSubstr("not pinned"));
 }
 
 TEST_F(RemoteWriteSourceTest, RefusesToOfferToItself) {
@@ -4280,7 +4367,7 @@ TEST_F(RemoteWriteSourceTest, RefusesToOfferToItself) {
   auto store = MakeStore(src);
   Populate(*store, src, {"a"});
 
-  EXPECT_TRUE(absl::IsInvalidArgument(store->WriteRemote({"a"}, src)));
+  EXPECT_TRUE(absl::IsInvalidArgument(store->Save({"a"}, src)));
 }
 
 // The destination already had everything. A SUCCESS that moves no bytes and
@@ -4296,10 +4383,10 @@ TEST_F(RemoteWriteSourceTest, AllExistSettlesDoneWithoutATransfer) {
       {"a", "b"}, {RaidenBlockID(dst, 5, BlockStatus::HOST),
                    RaidenBlockID(dst, 6, BlockStatus::HOST)}));
 
-  ASSERT_TRUE(src_store->WriteRemote({"a", "b"}, dst).ok());
+  ASSERT_TRUE(src_store->Save({"a", "b"}, dst).ok());
 
   auto [done, failed, pending, existing, unregistered] =
-      src_store->PollRemoteWriteStatus();
+      src_store->PollSaveStatus();
   EXPECT_THAT(done, ::testing::UnorderedElementsAre("a", "b"));
   EXPECT_TRUE(failed.empty());
   EXPECT_TRUE(pending.empty());
@@ -4319,10 +4406,10 @@ TEST_F(RemoteWriteSourceTest, PartialExistIsReportedAndNotRetried) {
   ASSERT_TRUE(dst_store->backend()->InsertAllOrNothing(
       {"a"}, {RaidenBlockID(dst, 5, BlockStatus::HOST)}));
 
-  ASSERT_TRUE(src_store->WriteRemote({"a", "b"}, dst).ok());
+  ASSERT_TRUE(src_store->Save({"a", "b"}, dst).ok());
 
   auto [done, failed, pending, existing, unregistered] =
-      src_store->PollRemoteWriteStatus();
+      src_store->PollSaveStatus();
   EXPECT_TRUE(done.empty());
   EXPECT_THAT(failed, ::testing::UnorderedElementsAre("a", "b"));
   EXPECT_TRUE(pending.empty());
@@ -4345,7 +4432,7 @@ TEST_F(RemoteWriteSourceTest, AnAcceptedOfferIsPolledToATerminalVerdict) {
   RegisterWorker(*src_store);
   Populate(*src_store, src, {"a", "b"});
 
-  ASSERT_TRUE(src_store->WriteRemote({"a", "b"}, dst).ok());
+  ASSERT_TRUE(src_store->Save({"a", "b"}, dst).ok());
 
   auto [done, failed, existing, unregistered] = AwaitWriteSettled(*src_store);
   EXPECT_TRUE(done.empty());
@@ -4353,7 +4440,7 @@ TEST_F(RemoteWriteSourceTest, AnAcceptedOfferIsPolledToATerminalVerdict) {
 
   // The internal pin is gone and the hashes are no longer marked as writing,
   // so the same blocks can be offered again.
-  EXPECT_TRUE(src_store->WriteRemote({"a", "b"}, dst).ok())
+  EXPECT_TRUE(src_store->Save({"a", "b"}, dst).ok())
       << "the first operation never released its claim on these hashes";
   AwaitWriteSettled(*src_store);
 }
@@ -4368,8 +4455,8 @@ TEST_F(RemoteWriteSourceTest, RefusesASecondConcurrentOfferOfTheSameHash) {
   RegisterWorker(*src_store);
   Populate(*src_store, src, {"a"});
 
-  ASSERT_TRUE(src_store->WriteRemote({"a"}, dst).ok());
-  auto second = src_store->WriteRemote({"a"}, dst);
+  ASSERT_TRUE(src_store->Save({"a"}, dst).ok());
+  auto second = src_store->Save({"a"}, dst);
   EXPECT_TRUE(absl::IsFailedPrecondition(second)) << second.ToString();
   AwaitWriteSettled(*src_store);
 }
@@ -4395,7 +4482,7 @@ TEST_F(RemoteWriteSourceTest, StoredUnregisteredIsFailedAndNamesTheBlocks) {
   verdict.add_unregistered_hashes("b");
   fake_destination_.SetPollResponse(verdict);
 
-  ASSERT_TRUE(src_store->WriteRemote({"a", "b"}, dst).ok());
+  ASSERT_TRUE(src_store->Save({"a", "b"}, dst).ok());
   auto [done, failed, existing, unregistered] = AwaitWriteSettled(*src_store);
 
   EXPECT_TRUE(done.empty())
@@ -4407,7 +4494,7 @@ TEST_F(RemoteWriteSourceTest, StoredUnregisteredIsFailedAndNamesTheBlocks) {
 
   // The internal pin is released either way, so the caller can act on the
   // list -- including by offering the same blocks somewhere else.
-  EXPECT_TRUE(src_store->WriteRemote({"a", "b"}, dst).ok());
+  EXPECT_TRUE(src_store->Save({"a", "b"}, dst).ok());
   AwaitWriteSettled(*src_store);
 }
 
@@ -4427,7 +4514,7 @@ TEST_F(RemoteWriteSourceTest, CommittedIsReportedAsDone) {
   verdict.add_committed_hashes("b");
   fake_destination_.SetPollResponse(verdict);
 
-  ASSERT_TRUE(src_store->WriteRemote({"a", "b"}, dst).ok());
+  ASSERT_TRUE(src_store->Save({"a", "b"}, dst).ok());
   auto [done, failed, existing, unregistered] = AwaitWriteSettled(*src_store);
 
   EXPECT_THAT(done, ::testing::UnorderedElementsAre("a", "b"));
@@ -4452,7 +4539,7 @@ TEST_F(RemoteWriteSourceTest, UnknownIsReportedAsAPlainFailure) {
       ::tpu_raiden::kv_cache::proto::PollWriteRemoteResponse::UNKNOWN);
   fake_destination_.SetPollResponse(verdict);
 
-  ASSERT_TRUE(src_store->WriteRemote({"a"}, dst).ok());
+  ASSERT_TRUE(src_store->Save({"a"}, dst).ok());
   auto [done, failed, existing, unregistered] = AwaitWriteSettled(*src_store);
 
   EXPECT_TRUE(done.empty());
@@ -4476,7 +4563,7 @@ TEST_F(RemoteWriteSourceTest, TheOfferAsksForLessThanTheSourceWillHold) {
   verdict.add_committed_hashes("a");
   fake_destination_.SetPollResponse(verdict);
 
-  ASSERT_TRUE(src_store->WriteRemote({"a"}, dst).ok());
+  ASSERT_TRUE(src_store->Save({"a"}, dst).ok());
   AwaitWriteSettled(*src_store);
 
   EXPECT_EQ(fake_destination_.write_calls(), 1);
@@ -4505,45 +4592,124 @@ TEST_F(RemoteWriteSourceTest, ConcurrentPollsSettleAnOfferExactlyOnce) {
   verdict.add_committed_hashes("b");
   fake_destination_.SetPollResponse(verdict);
 
-  ASSERT_TRUE(src_store->WriteRemote({"a", "b"}, dst).ok());
+  ASSERT_TRUE(src_store->Save({"a", "b"}, dst).ok());
 
-  // PollSaveStatus drives the write poller as a side effect (they share
-  // PollFuturesInternal), so these four threads plus the background loop are
-  // five callers racing into it.
+  // PollSaveStatus both DRIVES the write poller and DRAINS its results, so
+  // every one of these threads can be the one that settles the offer and the
+  // one that collects it. They pool what they see: the invariant is that each
+  // hash appears exactly once across all of them, not once per caller.
+  absl::Mutex settled_mu;
+  std::vector<std::string> settled;
   std::atomic<bool> stop{false};
   std::vector<std::thread> drivers;
   for (int t = 0; t < 4; ++t) {
     drivers.emplace_back([&]() {
       while (!stop.load(std::memory_order_relaxed)) {
-        (void)src_store->PollSaveStatus();
+        auto [done, failed, pending, existing, unregistered] =
+            src_store->PollSaveStatus();
+        if (!done.empty() || !failed.empty()) {
+          absl::MutexLock lock(settled_mu);
+          settled.insert(settled.end(), done.begin(), done.end());
+          settled.insert(settled.end(), failed.begin(), failed.end());
+        }
       }
     });
   }
 
-  std::vector<std::string> settled;
-  const auto drain = [&]() {
-    auto [done, failed, pending, existing, unregistered] =
-        src_store->PollRemoteWriteStatus();
-    settled.insert(settled.end(), done.begin(), done.end());
-    settled.insert(settled.end(), failed.begin(), failed.end());
-  };
-  for (int i = 0; i < 300 && settled.size() < 2; ++i) {
-    drain();
+  // Long enough for a duplicate settle to show up, not just the first one.
+  for (int i = 0; i < 300; ++i) {
+    {
+      absl::MutexLock lock(settled_mu);
+      if (settled.size() >= 2) break;
+    }
     absl::SleepFor(absl::Milliseconds(10));
   }
-  // Keep draining after both arrive: a duplicate settle shows up late, and
-  // stopping at the first two hashes would never see it.
   absl::SleepFor(absl::Milliseconds(200));
-  drain();
 
   stop.store(true, std::memory_order_relaxed);
   for (auto& driver : drivers) driver.join();
 
+  absl::MutexLock settled_lock(settled_mu);
+
   EXPECT_THAT(settled, ::testing::UnorderedElementsAre("a", "b"))
       << "the offer was settled more than once";
-  // The caller's own pin survives; only the internal one was released, once.
-  EXPECT_EQ(src_store->GetPinCount("a"), 1);
-  EXPECT_EQ(src_store->GetPinCount("b"), 1);
+  // A successful save consumes the caller's pin, and the internal pin goes
+  // with the operation, so both are spent. Note this count is NOT what detects
+  // a double settle -- Unpin clamps at zero, so surplus releases land on the
+  // same floor. The `settled` list above is the detector.
+  EXPECT_EQ(src_store->GetPinCount("a"), 0);
+  EXPECT_EQ(src_store->GetPinCount("b"), 0);
+}
+
+// A successful remote save consumes the caller's pin, exactly as a local one
+// does. Two pins are in play and they are not the same pin: the caller's, and
+// the internal one that protects the blocks while the destination may still be
+// pulling. Both are spent by a success; only the internal one by a failure.
+TEST_F(RemoteWriteSourceTest, ASuccessfulRemoteSaveConsumesTheCallerPin) {
+  RaidenId src{"rw_src_unpin_ok", "0", "kv", 0};
+  RaidenId dst{"rw_dst_unpin_ok", "0", "kv", 0};
+  auto src_store = MakeStore(src);
+  Populate(*src_store, src, {"a"});
+  StartFakeDestination(dst);
+  ASSERT_EQ(src_store->GetPinCount("a"), 1);
+
+  proto::PollWriteRemoteResponse verdict;
+  verdict.set_state(proto::PollWriteRemoteResponse::COMMITTED);
+  verdict.add_committed_hashes("a");
+  fake_destination_.SetPollResponse(verdict);
+
+  ASSERT_TRUE(src_store->Save({"a"}, dst).ok());
+  auto [done, failed, existing, unregistered] = AwaitWriteSettled(*src_store);
+  ASSERT_THAT(done, ::testing::ElementsAre("a"));
+
+  EXPECT_EQ(src_store->GetPinCount("a"), 0)
+      << "a successful remote save must consume the caller's pin";
+}
+
+// A FAILED remote save must not. Retrying, or giving up, is the caller's
+// decision, and an entry silently unpinned under a retry is evictable while
+// the caller still believes it holds it.
+TEST_F(RemoteWriteSourceTest, AFailedRemoteSaveKeepsTheCallerPin) {
+  RaidenId src{"rw_src_unpin_fail", "0", "kv", 0};
+  RaidenId dst{"rw_dst_unpin_fail", "0", "kv", 0};
+  auto src_store = MakeStore(src);
+  Populate(*src_store, src, {"a"});
+  StartFakeDestination(dst);
+
+  proto::PollWriteRemoteResponse verdict;
+  verdict.set_state(proto::PollWriteRemoteResponse::FAILED);
+  fake_destination_.SetPollResponse(verdict);
+
+  ASSERT_TRUE(src_store->Save({"a"}, dst).ok());
+  auto [done, failed, existing, unregistered] = AwaitWriteSettled(*src_store);
+  ASSERT_THAT(failed, ::testing::ElementsAre("a"));
+
+  EXPECT_EQ(src_store->GetPinCount("a"), 1)
+      << "a failed remote save must leave the caller's pin alone";
+}
+
+// The all-exist path settles SYNCHRONOUSLY inside Save and never reaches a
+// poller, so an auto-unpin written into the poller would leak the caller's pin
+// on every batch the destination already held. This is that path.
+TEST_F(RemoteWriteSourceTest, AnAllExistRemoteSaveConsumesTheCallerPinToo) {
+  RaidenId src{"rw_src_unpin_allexist", "0", "kv", 0};
+  RaidenId dst{"rw_dst_unpin_allexist", "0", "kv", 0};
+  auto src_store = MakeStore(src);
+  Populate(*src_store, src, {"a", "b"});
+  StartFakeDestination(dst);
+  fake_destination_.SetWriteExistState(proto::WRITE_ALL_EXIST);
+
+  ASSERT_EQ(src_store->GetPinCount("a"), 1);
+  ASSERT_TRUE(src_store->Save({"a", "b"}, dst).ok());
+
+  // Settled inside the call: no poll was needed to get here.
+  EXPECT_EQ(src_store->GetPinCount("a"), 0);
+  EXPECT_EQ(src_store->GetPinCount("b"), 0);
+
+  auto [done, failed, pending, existing, unregistered] =
+      src_store->PollSaveStatus();
+  EXPECT_THAT(done, ::testing::UnorderedElementsAre("a", "b"));
+  EXPECT_TRUE(pending.empty());
 }
 
 // A store destroyed with an offer still outstanding must not leave its
@@ -4562,7 +4728,7 @@ TEST_F(RemoteWriteSourceTest, DestroyingAStoreMidOfferReleasesItsInternalPin) {
   verdict.set_state(proto::PollWriteRemoteResponse::PENDING);
   fake_destination_.SetPollResponse(verdict);
 
-  ASSERT_TRUE(src_store->WriteRemote({"a"}, dst).ok());
+  ASSERT_TRUE(src_store->Save({"a"}, dst).ok());
   // Populate's pin plus the offer's internal one.
   EXPECT_EQ(src_store->GetPinCount("a"), 2);
 
@@ -4588,10 +4754,10 @@ TEST_F(RemoteWriteSourceTest, DestroyingAStoreMidOfferDoesNotWaitForTheHold) {
   verdict.set_state(proto::PollWriteRemoteResponse::PENDING);
   fake_destination_.SetPollResponse(verdict);
 
-  ASSERT_TRUE(src_store->WriteRemote({"a"}, dst).ok());
+  ASSERT_TRUE(src_store->Save({"a"}, dst).ok());
   {
     auto [done, failed, pending, existing, unregistered] =
-        src_store->PollRemoteWriteStatus();
+        src_store->PollSaveStatus();
     ASSERT_THAT(pending, ::testing::ElementsAre("a"));
   }
 
@@ -4621,7 +4787,7 @@ TEST_F(RemoteWriteSourceTest, AStaleButRegisteredDestinationFailsPromptly) {
   // The registration outlives the store: store entries never expire, and
   // nothing unpublishes on the way out except the store itself, which has
   // already gone.
-  auto status = src_store->WriteRemote({"a"}, dst);
+  auto status = src_store->Save({"a"}, dst);
   EXPECT_FALSE(status.ok())
       << "offering to a dead peer should fail rather than hang";
 }

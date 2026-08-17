@@ -131,20 +131,16 @@ class KVCacheStore:
   def release(self, block_hashes: list[bytes]) -> None:
     """Releases previously pinned block hashes, making them eligible for LRU eviction when capacity is exceeded."""
     ...
-  def save(self, block_hashes: list[bytes]) -> bool:
-    """Saves blocks from device (HBM) to host (DRAM) asynchronously.
+  def save(
+      self,
+      block_hashes: list[bytes],
+      dst_raiden_id: RaidenId | None = ...,
+  ) -> bool:
+    """Saves blocks out of this node's HBM asynchronously.
 
-    NOTE: The block_hashes must be pinned in the LRU cache (e.g. via
-    insert_and_lock) before calling save. Once the operation is complete (as
-    reported by poll_save_status), the caller must manually release/unpin them
-    via release so they can be evicted if needed.
-
-    Recommended usage flow:
-      0. [optional for save] lookup block hashes
-      1. insert_and_lock(block_hashes)
-      2. save(block_hashes)
-      3. poll_save_status() -> wait for completion
-      4. release(completed_block_hashes)
+    Omit dst_raiden_id for a local save (HBM -> host DRAM); pass one to offer
+    the blocks to that peer, which requires them to be host-resident here
+    already. Poll both with poll_save_status.
     """
     ...
   @overload
@@ -179,8 +175,19 @@ class KVCacheStore:
     hashes at the peer, ignoring `slices`.
     """
     ...
-  def poll_save_status(self) -> tuple[list[bytes], list[bytes], list[bytes]]:
-    """Polls status of asynchronous Save operations."""
+  def poll_save_status(
+      self,
+  ) -> tuple[list[bytes], list[bytes], list[bytes], list[bytes], list[bytes]]:
+    """Polls status of asynchronous Save operations, local and remote.
+
+    Five lists: (done, failed, pending, existing, unregistered). The last two
+    annotate REMOTE failures rather than being outcomes of their own -- a hash
+    in `existing` or `unregistered` also appears in `failed`, not instead of
+    it -- and are empty for local saves. `existing` is what a destination
+    already held when it refused a partial batch; `unregistered` is a
+    destination that HAS the bytes but could not publish them, so no lookup
+    will find them there.
+    """
     ...
   def poll_load_status(self) -> tuple[list[bytes], list[bytes], list[bytes]]:
     """Polls status of asynchronous Load operations."""
@@ -195,29 +202,4 @@ class KVCacheStore:
     ...
   def poll_remote_read_status(self) -> tuple[list[bytes], list[bytes], list[bytes]]:
     """Polls status of active remote reads."""
-    ...
-  def write_remote(
-      self,
-      block_hashes: list[bytes],
-      dst_raiden_id: RaidenId,
-  ) -> bool:
-    """Offers blocks to a peer, which takes its own copy.
-
-    The destination pulls the bytes; this node never pushes. Returns as soon
-    as the offer is issued -- poll with poll_remote_write_status.
-    """
-    ...
-  def poll_remote_write_status(
-      self,
-  ) -> tuple[list[bytes], list[bytes], list[bytes], list[bytes], list[bytes]]:
-    """Polls status of active remote writes.
-
-    Five lists, unlike the three-list save/load/read pollers:
-    (done, failed, pending, existing, unregistered). The last two annotate
-    failures rather than being outcomes of their own -- a hash in `existing`
-    or `unregistered` also appears in `failed`, not instead of it. `existing`
-    is what a destination already held when it refused a partial batch;
-    `unregistered` is a destination that HAS the bytes but could not publish
-    them, so no lookup will find them there.
-    """
     ...

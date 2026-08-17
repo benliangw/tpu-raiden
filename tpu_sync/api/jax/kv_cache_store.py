@@ -339,28 +339,55 @@ class KVCacheStore:
     """Releases previously pinned block hashes, making them eligible for LRU eviction when capacity is exceeded."""
     self._impl.release(block_hashes)
 
-  def save(self, block_hashes: list[bytes]) -> bool:
-    """Saves blocks from device (HBM) to host (DRAM) asynchronously.
+  def save(
+      self,
+      block_hashes: list[bytes],
+      dst_raiden_id: RaidenId | None = None,
+  ) -> bool:
+    """Saves blocks out of this node's HBM asynchronously.
 
-    NOTE: The block_hashes must be pinned in the LRU cache (e.g. via
-    insert_and_lock) before calling save. Once the operation is complete (as
-    reported by poll_save_status), the caller must manually release/unpin them
-    via release so they can be evicted if needed.
+    Where to depends on dst_raiden_id:
+      omitted -- LOCAL save, device (HBM) to host (DRAM). Each block must be
+                 HBM-resident here.
+      given   -- REMOTE save: offer the blocks to that peer, which takes its
+                 own copy. Each block must already be HOST-resident here,
+                 because the bytes are pulled out of host DRAM. There is no
+                 two-hop: a block only in HBM must be saved locally first.
 
-    Recommended usage flow:
-      0. [optional for save] lookup block hashes
-      1. insert_and_lock(block_hashes)
-      2. save(block_hashes)
-      3. poll_save_status() -> wait for completion
-      4. release(completed_block_hashes)
+    Both kinds are polled with poll_save_status().
+
+    PIN CONTRACT: every hash must be pinned on entry -- lookup() grants that
+    pin for a remote save, insert() for a local one -- and a SUCCESSFUL save
+    consumes exactly one pin per hash. Do not release afterwards. A FAILED
+    save does not consume it: the entry stays pinned so you can retry or
+    release deliberately.
+
+    A remote save also takes a SEPARATE internal pin for as long as the
+    destination may still be reading. That one is not yours.
+
+    A remote save requires a global registry at both ends -- that is how the
+    destination is resolved, and how the blocks become reachable once they
+    land.
+
+    IMPORTANT: a remote destination allocates landing blocks from FREE blocks
+    only and never evicts to make room, so a peer whose cache is warm refuses
+    every offer. Destination-side eviction is separate, unimplemented work.
 
     Args:
       block_hashes: List of block hashes to save.
+      dst_raiden_id: Omit for a local save; pass a peer to offer them to it.
 
     Returns:
-      True if successfully launched, False if validation failed.
+      True if successfully launched, False if validation failed. For a remote
+      save a True return does NOT mean the peer has the blocks -- poll for
+      that.
     """
-    return self._impl.save(block_hashes)
+    raw_dst = (
+        None
+        if dst_raiden_id is None
+        else dst_raiden_id._impl  # pylint: disable=protected-access
+    )
+    return self._impl.save(block_hashes, raw_dst)
 
   def load(
       self,
@@ -415,18 +442,43 @@ class KVCacheStore:
       raw_slices.append(s._impl)  # pylint: disable=protected-access
     return self._impl.load(block_hashes, raw_slices, device_block_ids)
 
-  def poll_save_status(self) -> tuple[list[bytes], list[bytes], list[bytes]]:
-    """Polls the status of all active asynchronous Save operations.
+  def poll_save_status(
+      self,
+  ) -> tuple[list[bytes], list[bytes], list[bytes], list[bytes], list[bytes]]:
+    """Polls the status of all active Save operations, local and remote.
 
-    For completed transfers, it advances the LRU block states to HOST_AND_HBM
-    and updates their host block locations. For failed transfers, it releases
-    the allocated host blocks.
+    For completed local transfers it advances the LRU block states to
+    HOST_AND_HBM and updates their host block locations; for failed ones it
+    releases the allocated host blocks. For remote saves it asks each
+    destination for a verdict.
 
     Returns:
-      A tuple of (done, failed, pending), where:
-        done: List of block hashes whose Save transfer successfully completed.
-        failed: List of block hashes whose Save transfer failed.
-        pending: List of block hashes whose Save transfer is still in progress.
+      A tuple of (done, failed, pending, existing, unregistered). The last two
+      annotate REMOTE failures rather than being outcomes of their own, and
+      are empty for local saves:
+        done: Hashes whose save completed. For a remote save that means the
+          destination now holds AND has published them, including the case
+          where it already had them -- hashes are content-addressed, so a peer
+          having them is the post-condition the caller wanted. This is the
+          only result that makes it safe to drop a local copy.
+        failed: Hashes whose save did not succeed.
+        pending: Hashes whose save is still in progress. Note this means
+          different things on the two paths: for a local save it is bounded by
+          a DMA, for a remote one by the destination answering or the ~30s
+          HOLD window elapsing.
+        existing: Hashes a destination already held when it refused a PARTIAL
+          batch. This store does not reissue with the remainder -- doing so is
+          the caller's decision, and this is the list it needs to make it.
+        unregistered: The destination HAS these -- the transfer succeeded --
+          but could not publish them, so no lookup will find them there. They
+          are reported failed because the safe default is to keep your own
+          copy: freeing it would move the block from findable-here to
+          findable-nowhere. A caller that only needed the peer to hold the
+          bytes may treat this as success; a caller that was about to free its
+          copy must not.
+
+    A hash in `existing` or `unregistered` also appears in `failed`, not
+    instead of it.
     """
     return self._impl.poll_save_status()
 
@@ -504,72 +556,3 @@ class KVCacheStore:
     """
     return self._impl.poll_remote_read_status()
 
-  def write_remote(
-      self,
-      block_hashes: list[bytes],
-      dst_raiden_id: RaidenId,
-  ) -> bool:
-    """Offers blocks to a peer, which takes its own copy.
-
-    The use case is proactive eviction: a node under memory pressure hands cold
-    blocks to a peer and then frees them locally. The DESTINATION pulls the
-    bytes; this node never pushes.
-
-    Returns as soon as the destination has decided; poll with
-    poll_remote_write_status().
-
-    Requires a global registry at both ends -- that is how the destination is
-    resolved, and how the blocks become reachable once they land.
-
-    IMPORTANT: the destination allocates landing blocks from FREE blocks only
-    and never evicts to make room, so a peer whose cache is warm refuses every
-    offer. Destination-side eviction is separate, unimplemented work.
-
-    Args:
-      block_hashes: Block hashes to offer. Each must already be resident in this
-        node's host DRAM. The store takes its own internal pin for the life of
-        the operation; the caller's pin is separate and the caller releases it
-        itself, once poll_remote_write_status() reports the hashes terminal.
-      dst_raiden_id: The peer to offer them to.
-
-    Returns:
-      True if the offer was accepted or answered; False if it could not be
-      made at all (no registry, unresolvable peer, blocks not held here).
-      A True return does NOT mean the peer has the blocks -- poll for that.
-    """
-    return self._impl.write_remote(
-        block_hashes, dst_raiden_id._impl  # pylint: disable=protected-access
-    )
-
-  def poll_remote_write_status(
-      self,
-  ) -> tuple[list[bytes], list[bytes], list[bytes], list[bytes], list[bytes]]:
-    """Polls the status of all active remote writes.
-
-    Returns:
-      A tuple of (done, failed, pending, existing, unregistered) -- five
-      elements, unlike the save/load/read pollers' three. The last two annotate
-      failures rather than being outcomes of their own, because this store
-      never decides on the caller's behalf:
-        done: Hashes the destination now holds AND has published, so peers can
-          find them. Includes the case where it already had them: hashes are
-          content-addressed, so a peer having them is the post-condition the
-          caller wanted. This is the only result that makes it safe to drop a
-          local copy.
-        failed: Hashes whose remote write did not succeed.
-        pending: Hashes whose remote write is still in progress.
-        existing: Hashes a destination already held when it refused a PARTIAL
-          batch. This store does not reissue with the remainder -- doing so is
-          the caller's decision, and this is the list it needs to make it.
-        unregistered: The destination HAS these -- the transfer succeeded --
-          but could not publish them, so no lookup will find them there. They
-          are reported failed because the safe default is to keep your own
-          copy: freeing it would move the block from findable-here to
-          findable-nowhere. A caller that only needed the peer to hold the
-          bytes may treat this as success; a caller that was about to free its
-          copy must not.
-
-    A hash in `existing` or `unregistered` also appears in `failed`, not
-    instead of it.
-    """
-    return self._impl.poll_remote_write_status()

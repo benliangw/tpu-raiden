@@ -114,7 +114,8 @@ def _build_stack(tpu_cache):
 
 def _poll(poll_fn, want: int, what: str):
   for _ in range(3000):
-    done, failed, _ = poll_fn()
+    result = poll_fn()
+    done, failed = result[0], result[1]
     if failed:
       raise RuntimeError(f"{what} failed: {failed}")
     if len(done) >= want:

@@ -417,9 +417,30 @@ class KVCacheStore:
     """
     return self._impl.poll_remote_read_status()
 
-  def save(self, block_hashes: list[bytes]) -> bool:
-    """Saves blocks from device (HBM) to host (DRAM) asynchronously."""
-    return self._impl.save(block_hashes)
+  def save(
+      self,
+      block_hashes: list[bytes],
+      dst_raiden_id: RaidenId | None = None,
+  ) -> bool:
+    """Saves blocks out of this node's HBM asynchronously.
+
+    Omit dst_raiden_id for a local save (HBM -> host DRAM); pass a peer to
+    offer the blocks to it, which requires them to be host-resident here
+    already. Both are polled with poll_save_status().
+
+    PIN CONTRACT: every hash must be pinned on entry -- lookup() grants that
+    pin for a remote save, insert() for a local one -- and a SUCCESSFUL save
+    consumes exactly one pin per hash. Do not release afterwards. A FAILED
+    save does not consume it. A remote save also takes a separate internal pin
+    for as long as the destination may still be reading; that one is not
+    yours.
+    """
+    raw_dst = (
+        None
+        if dst_raiden_id is None
+        else dst_raiden_id._impl  # pylint: disable=protected-access
+    )
+    return self._impl.save(block_hashes, raw_dst)
 
   def load(
       self,
@@ -474,80 +495,21 @@ class KVCacheStore:
       raw_slices.append(s._impl)  # pylint: disable=protected-access
     return self._impl.load(block_hashes, raw_slices, device_block_ids)
 
-  def poll_save_status(self) -> tuple[list[bytes], list[bytes], list[bytes]]:
-    """Polls the status of all active asynchronous Save operations."""
+  def poll_save_status(
+      self,
+  ) -> tuple[list[bytes], list[bytes], list[bytes], list[bytes], list[bytes]]:
+    """Polls the status of all active Save operations, local and remote.
+
+    Returns (done, failed, pending, existing, unregistered). The last two
+    annotate REMOTE failures rather than being outcomes of their own -- a hash
+    in either also appears in `failed` -- and are empty for local saves.
+    `existing` is what a destination already held when it refused a partial
+    batch; `unregistered` is a destination that HAS the bytes but could not
+    publish them, so no lookup will find them there.
+    """
     return self._impl.poll_save_status()
 
   def poll_load_status(self) -> tuple[list[bytes], list[bytes], list[bytes]]:
     """Polls the status of all active asynchronous Load operations."""
     return self._impl.poll_load_status()
 
-  def write_remote(
-      self,
-      block_hashes: list[bytes],
-      dst_raiden_id: RaidenId,
-  ) -> bool:
-    """Offers blocks to a peer, which takes its own copy.
-
-    The use case is proactive eviction: a node under memory pressure hands cold
-    blocks to a peer and then frees them locally. The DESTINATION pulls the
-    bytes; this node never pushes.
-
-    Returns as soon as the destination has decided; poll with
-    poll_remote_write_status().
-
-    Requires a global registry at both ends -- that is how the destination is
-    resolved, and how the blocks become reachable once they land.
-
-    IMPORTANT: the destination allocates landing blocks from FREE blocks only
-    and never evicts to make room, so a peer whose cache is warm refuses every
-    offer. Destination-side eviction is separate, unimplemented work.
-
-    Args:
-      block_hashes: Block hashes to offer. Each must already be resident in this
-        node's host DRAM. The store takes its own internal pin for the life of
-        the operation; the caller's pin is separate and the caller releases it
-        itself, once poll_remote_write_status() reports the hashes terminal.
-      dst_raiden_id: The peer to offer them to.
-
-    Returns:
-      True if the offer was accepted or answered; False if it could not be
-      made at all (no registry, unresolvable peer, blocks not held here).
-      A True return does NOT mean the peer has the blocks -- poll for that.
-    """
-    return self._impl.write_remote(
-        block_hashes, dst_raiden_id._impl  # pylint: disable=protected-access
-    )
-
-  def poll_remote_write_status(
-      self,
-  ) -> tuple[list[bytes], list[bytes], list[bytes], list[bytes], list[bytes]]:
-    """Polls the status of all active remote writes.
-
-    Returns:
-      A tuple of (done, failed, pending, existing, unregistered) -- five
-      elements, unlike the save/load/read pollers' three. The last two annotate
-      failures rather than being outcomes of their own, because this store
-      never decides on the caller's behalf:
-        done: Hashes the destination now holds AND has published, so peers can
-          find them. Includes the case where it already had them: hashes are
-          content-addressed, so a peer having them is the post-condition the
-          caller wanted. This is the only result that makes it safe to drop a
-          local copy.
-        failed: Hashes whose remote write did not succeed.
-        pending: Hashes whose remote write is still in progress.
-        existing: Hashes a destination already held when it refused a PARTIAL
-          batch. This store does not reissue with the remainder -- doing so is
-          the caller's decision, and this is the list it needs to make it.
-        unregistered: The destination HAS these -- the transfer succeeded --
-          but could not publish them, so no lookup will find them there. They
-          are reported failed because the safe default is to keep your own
-          copy: freeing it would move the block from findable-here to
-          findable-nowhere. A caller that only needed the peer to hold the
-          bytes may treat this as success; a caller that was about to free its
-          copy must not.
-
-    A hash in `existing` or `unregistered` also appears in `failed`, not
-    instead of it.
-    """
-    return self._impl.poll_remote_write_status()

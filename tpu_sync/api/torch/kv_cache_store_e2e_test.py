@@ -248,7 +248,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     # Wait for save completion
     done = False
     while not done:
-      save_done, save_failed, _ = store.poll_save_status()
+      save_done, save_failed, _, _, _ = store.poll_save_status()
       if save_failed:
         raise RuntimeError(f"Async Save failed: {save_failed}")
       if save_done:
@@ -432,7 +432,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
       # Wait for save completion
       done = False
       while not done:
-        save_done, save_failed, _ = store_a.poll_save_status()
+        save_done, save_failed, _, _, _ = store_a.poll_save_status()
         if save_failed:
           raise RuntimeError(f"Job A Async Save failed: {save_failed}")
         if save_done:
@@ -625,7 +625,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
 
       deadline = time.time() + 120
       while True:
-        save_done, save_failed, _ = store_a.poll_save_status()
+        save_done, save_failed, _, _, _ = store_a.poll_save_status()
         if save_failed:
           raise RuntimeError(f"Job A Async Save failed: {save_failed}")
         if len(save_done) == len(hashes):
@@ -636,13 +636,19 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
 
       # 2. Job A offers them. Returns once Job B has decided, not once the
       #    bytes have moved.
-      self.assertTrue(store_a.write_remote(hashes, rid_b))
+      #
+      # The local save above consumed the pin insert()/pin() granted, so the
+      # offer needs its own. This is the documented remote-save flow: lookup()
+      # answers "yes, host-resident here" AND grants the pin that save(dst)
+      # spends.
+      self.assertLen(store_a.lookup(hashes), len(hashes))
+      self.assertTrue(store_a.save(hashes, rid_b))
 
       deadline = time.time() + 120
       done, failed, existing = [], [], []
       while time.time() < deadline:
         done, failed, pending, existing, unregistered = (
-            store_a.poll_remote_write_status()
+            store_a.poll_save_status()
         )
         if done or failed or existing:
           break
@@ -990,7 +996,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     deadline = time.time() + 60
     done = []
     while time.time() < deadline:
-      done, failed, _ = store.poll_save_status()
+      done, failed, _, _, _ = store.poll_save_status()
       self.assertEmpty(failed)
       if done:
         break

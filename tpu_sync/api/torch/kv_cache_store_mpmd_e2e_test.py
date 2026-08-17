@@ -257,7 +257,7 @@ def _worker_save_load_main(argv):
       store.save(hashes)
       done = False
       while not done:
-        save_done, save_failed, _ = store.poll_save_status()
+        save_done, save_failed, _, _, _ = store.poll_save_status()
         if save_failed:
           raise RuntimeError(f"Async Save failed: {save_failed}")
         if save_done:
@@ -441,7 +441,7 @@ def _worker_read_remote_main(argv):
       store_a.save(hashes)
       done = False
       while not done:
-        save_done, save_failed, _ = store_a.poll_save_status()
+        save_done, save_failed, _, _, _ = store_a.poll_save_status()
         if save_failed:
           raise RuntimeError(f"Job A Async Save failed: {save_failed}")
         if len(save_done) == 2:
@@ -655,7 +655,7 @@ def _worker_write_remote_main(argv):
       deadline = time.time() + 120
       done = False
       while time.time() < deadline:
-        save_done, save_failed, _ = store_a.poll_save_status()
+        save_done, save_failed, _, _, _ = store_a.poll_save_status()
         if save_failed:
           raise RuntimeError(f"Job A Async Save failed: {save_failed}")
         if len(save_done) == 2:
@@ -665,15 +665,19 @@ def _worker_write_remote_main(argv):
       assert done, "Job A Async Save timed out"
 
       print("=== [Rank 0] Launching WriteRemote from Job A to Job B ===")
-      assert store_a.write_remote(
+      # The local save above consumed the pin, so the offer needs its own.
+      # lookup() answers "host-resident here" AND grants the pin that
+      # save(dst) spends -- the documented remote-save flow.
+      assert len(store_a.lookup(hashes)) == len(hashes), "hashes not resident"
+      assert store_a.save(
           hashes, rid_b
-      ), "write_remote launch failed on store_a"
+      ), "remote save launch failed on store_a"
 
       deadline = time.time() + 120
       done = False
       while time.time() < deadline:
         wr_done, wr_failed, wr_pending, _, _ = (
-            store_a.poll_remote_write_status()
+            store_a.poll_save_status()
         )
         if wr_failed:
           raise RuntimeError(f"Job A WriteRemote failed: {wr_failed}")

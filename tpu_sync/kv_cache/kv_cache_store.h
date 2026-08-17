@@ -254,20 +254,39 @@ class KVCacheStore {
   // last blocks (tails of sequences) are evicted first.
   void Release(const std::vector<std::string>& block_hashes);
 
-  // Saves blocks from device (HBM) to host (DRAM) asynchronously.
+  // Saves blocks out of this node's HBM, asynchronously. Where to depends on
+  // `dst_raiden_id`:
   //
-  // NOTE: The block_hashes must be pinned in the LRU cache (e.g., via
-  // InsertAndLock) before calling Save. Once the operation is complete (as
-  // reported by PollSaveStatus), the caller must manually release/unpin them
-  // via Release so they become eligible for eviction.
+  //   absent  -- LOCAL save, device (HBM) to host (DRAM). Requires each block
+  //              to be HBM-resident here.
+  //   present -- REMOTE save: offer the blocks to that peer, which takes its
+  //              own copy. Requires each block to be HOST-resident here
+  //              already, because the bytes are pulled out of host DRAM. There
+  //              is no two-hop: a block only in HBM must be saved locally
+  //              first.
   //
-  // Recommended usage flow:
-  //   0. [optional for save] lookup block hashes
-  //   1. insert_and_lock(block_hashes)
-  //   2. save(block_hashes)
-  //   3. poll_save_status() -> wait for completion
-  //   4. release(completed_block_hashes)
-  absl::Status Save(const std::vector<std::string>& block_hashes);
+  // Both kinds are polled with PollSaveStatus().
+  //
+  // PIN CONTRACT: every hash must be pinned on entry -- Lookup() grants that
+  // pin for a remote save, Insert() for a local one -- and a SUCCESSFUL save
+  // consumes exactly one pin per hash. The caller does not release afterwards.
+  // A FAILED save does not consume it: the entry stays pinned so the caller
+  // can retry or release deliberately.
+  //
+  // A remote save also takes a SEPARATE internal pin for as long as the
+  // destination may still be reading, released when the operation goes
+  // terminal or the HOLD expires. That one is not the caller's.
+  //
+  // A remote save requires a global registry at both ends: that is how the
+  // destination is resolved, and how the blocks become reachable once they
+  // land.
+  //
+  // IMPORTANT: a remote destination allocates landing blocks from FREE blocks
+  // only and never evicts to make room, so a peer with a warm cache refuses
+  // every offer with RESOURCE_EXHAUSTED. Destination-side eviction is
+  // separate, unimplemented work.
+  absl::Status Save(const std::vector<std::string>& block_hashes,
+                    const std::optional<RaidenId>& dst_raiden_id = std::nullopt);
 
   // Asynchronously loads KV cache blocks to device (HBM) from local host DRAM.
   //
@@ -350,16 +369,41 @@ class KVCacheStore {
     return raiden_controller_.get();
   }
 
-  // Polls the status of all active/inflight Save operations.
-  // Iterates over pending futures, updates cache metadata to HOST_AND_HBM
-  // upon successful transfers, and deallocates host blocks on failure.
+  // Polls the status of all active/inflight Save operations, local and remote.
+  // For local saves it iterates pending futures, updates cache metadata to
+  // HOST_AND_HBM on success and deallocates host blocks on failure; for remote
+  // saves it asks each destination for a verdict.
   //
-  // Returns:
-  //   A tuple of {done_block_hashes, failed_block_hashes, pending_block_hashes}
-  //   representing the status of all block hashes tracked by active saves.
-  std::tuple<std::vector<std::string>, std::vector<std::string>,
-             std::vector<std::string>>
-  PollSaveStatus();
+  // Returns {done, failed, pending, existing, unregistered}. The last two are
+  // annotations on REMOTE failures, not separate outcomes -- a hash in either
+  // also appears in `failed` -- and they exist because this store never
+  // decides on the caller's behalf:
+  //
+  //   existing:     the destination already held these, so it refused the
+  //                 batch. Reissuing with the remainder is the caller's call.
+  //   unregistered: the destination HAS these -- the transfer succeeded -- but
+  //                 could not publish them, so no peer can find them. Reported
+  //                 as failed because the safe default is for the caller to
+  //                 keep its own copy. A caller that only needed the peer to
+  //                 have the bytes may treat it as success; one that was about
+  //                 to free its copy must not.
+  //
+  // Both lists are empty for local saves.
+  //
+  // `pending` means different things on the two paths, and the difference is
+  // worth knowing before waiting on it: for a local save it is bounded by a
+  // DMA, for a remote one by the destination answering or the ~30s HOLD
+  // window elapsing.
+  //
+  // Terminal results are drained on read.
+  struct PollSaveStatusResult {
+    std::vector<std::string> done;
+    std::vector<std::string> failed;
+    std::vector<std::string> pending;
+    std::vector<std::string> existing;
+    std::vector<std::string> unregistered;
+  };
+  PollSaveStatusResult PollSaveStatus();
 
   // Polls the status of all active/inflight Load operations.
   // Updates cache metadata upon successful H2D transfers:
@@ -373,12 +417,12 @@ class KVCacheStore {
   // of such a hash is therefore a miss, and the caller's own block manager is
   // what remembers it already owns the device block.
   //
-  // Returns:
-  //   A tuple of {done_block_hashes, failed_block_hashes, pending_block_hashes}
-  //   representing the status of all block hashes tracked by active loads.
-  std::tuple<std::vector<std::string>, std::vector<std::string>,
-             std::vector<std::string>>
-  PollLoadStatus();
+  struct PollLoadStatusResult {
+    std::vector<std::string> done;
+    std::vector<std::string> failed;
+    std::vector<std::string> pending;
+  };
+  PollLoadStatusResult PollLoadStatus();
 
   // Launches an async receiver-initiated read of REMOTE blocks from their
   // owning peers straight into local HBM. Returns as soon as the reads are
@@ -423,46 +467,6 @@ class KVCacheStore {
              std::vector<std::string>>
   PollRemoteReadStatus();
 
-  // Offers `block_hashes` to a peer, which takes its own copy. The use case is
-  // proactive eviction: a node under memory pressure hands cold blocks to a
-  // peer and then frees them locally.
-  //
-  // Returns as soon as the destination has ACCEPTED (or refused); poll with
-  // PollRemoteWriteStatus(). The blocks stay pinned internally until the
-  // operation goes terminal or HOLD expires, whichever comes first -- the
-  // caller's own pin is separate and the caller releases it itself.
-  //
-  // Requires a global registry at both ends: that is how the destination is
-  // resolved, and how the blocks become reachable once they land.
-  //
-  // IMPORTANT: the destination allocates landing blocks from FREE blocks only
-  // and never evicts to make room, so a peer with a warm cache refuses every
-  // offer with RESOURCE_EXHAUSTED. Destination-side eviction is separate,
-  // unimplemented work.
-  absl::Status WriteRemote(const std::vector<std::string>& block_hashes,
-                           const RaidenId& dst_raiden_id);
-
-  // Polls all active/inflight WriteRemote operations.
-  //
-  // Returns {done, failed, pending, existing, unregistered}. The last two are
-  // annotations on failures, not separate outcomes -- a hash in either also
-  // appears in `failed` -- and they exist because this store never decides on
-  // the caller's behalf:
-  //
-  //   existing:     the destination already held these, so it refused the
-  //                 batch. Reissuing with the remainder is the caller's call.
-  //   unregistered: the destination HAS these -- the transfer succeeded -- but
-  //                 could not publish them, so no peer can find them. Reported
-  //                 as failed because the safe default is for the caller to
-  //                 keep its own copy. A caller that only needed the peer to
-  //                 have the bytes may treat it as success; one that was about
-  //                 to free its copy must not.
-  //
-  // Terminal results are drained on read, as with PollSaveStatus.
-  std::tuple<std::vector<std::string>, std::vector<std::string>,
-             std::vector<std::string>, std::vector<std::string>,
-             std::vector<std::string>>
-  PollRemoteWriteStatus();
 
   // Rebuilds this store's LRU cache after an engine restart from the
   // crash-persistent KVCacheMetadata table in local shared memory, without
@@ -636,6 +640,11 @@ class KVCacheStore {
   std::vector<std::string> done_remote_reads_ ABSL_GUARDED_BY(mutex_);
   std::vector<std::string> failed_remote_reads_ ABSL_GUARDED_BY(mutex_);
 
+  // In-flight saves of BOTH kinds. Local and remote saves were tracked
+  // separately, which was safe only by accident: a local save requires the
+  // block in HBM and a remote one requires it in host DRAM, so the two sets
+  // could not overlap. One set makes that explicit and, more usefully, makes
+  // "already saving" mean it whichever kind is in flight.
   absl::flat_hash_set<std::string> saving_hashes_ ABSL_GUARDED_BY(mutex_);
   absl::flat_hash_set<std::string> loading_hashes_ ABSL_GUARDED_BY(mutex_);
   // Peer -> its RaidenController address, as last resolved from the global
@@ -656,7 +665,6 @@ class KVCacheStore {
       resolved_peer_controllers_ ABSL_GUARDED_BY(mutex_);
 
   absl::flat_hash_set<std::string> reading_hashes_ ABSL_GUARDED_BY(mutex_);
-  absl::flat_hash_set<std::string> writing_hashes_ ABSL_GUARDED_BY(mutex_);
 
   std::unique_ptr<std::thread> poller_thread_;
   std::unique_ptr<tpu_raiden::NumaThreadPool> write_through_pool_;
@@ -665,13 +673,20 @@ class KVCacheStore {
   absl::StatusOr<std::vector<int>> AllocateBlockIds(int needed);
   void DeallocateBlockIds(absl::Span<const int> block_ids);
 
+  // The two halves of Save(), split by destination. Save() validates nothing
+  // itself -- each half has its own residency and pin preconditions, and they
+  // are genuinely different operations sharing a name and a status queue.
+  absl::Status SaveLocal(const std::vector<std::string>& block_hashes);
+  absl::Status SaveRemote(const std::vector<std::string>& block_hashes,
+                          const RaidenId& dst_raiden_id);
+
   // Asks the destination what became of each accepted offer, and gives up on
   // any whose HOLD has expired. Runs on the store's own poller, at the same
   // cadence as the save/load pollers, so remote writes do not introduce a
   // second one.
   void PollRemoteWritesInternal();
 
-  // Releases this store's internal pin and clears writing_hashes_. Called once
+  // Releases this store's internal pin and clears saving_hashes_. Called once
   // per operation, whichever way it ends.
   void FinishRemoteWrite(const RemoteWriteState& state, bool succeeded,
                          std::vector<std::string> existing,

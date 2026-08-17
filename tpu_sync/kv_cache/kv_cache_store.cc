@@ -984,7 +984,15 @@ std::string KVCacheStore::raiden_controller_address() const {
   return "";
 }
 
-absl::Status KVCacheStore::Save(const std::vector<std::string>& block_hashes) {
+absl::Status KVCacheStore::Save(
+    const std::vector<std::string>& block_hashes,
+    const std::optional<RaidenId>& dst_raiden_id) {
+  return dst_raiden_id.has_value() ? SaveRemote(block_hashes, *dst_raiden_id)
+                                   : SaveLocal(block_hashes);
+}
+
+absl::Status KVCacheStore::SaveLocal(
+    const std::vector<std::string>& block_hashes) {
   if (!raiden_controller_) {
     return absl::FailedPreconditionError("RaidenController is not initialized");
   }
@@ -1470,9 +1478,9 @@ absl::Status KVCacheStore::ReadRemote(
   return absl::OkStatus();
 }
 
-std::tuple<std::vector<std::string>, std::vector<std::string>,
-           std::vector<std::string>>
-KVCacheStore::PollSaveStatus() {
+KVCacheStore::PollSaveStatusResult KVCacheStore::PollSaveStatus() {
+  // Drives both kinds: PollFuturesInternal finishes the local saves whose DMA
+  // has landed and then asks each remote destination for a verdict.
   PollFuturesInternal();
   absl::MutexLock lock(mutex_);
   std::vector<std::string> pending;
@@ -1481,16 +1489,37 @@ KVCacheStore::PollSaveStatus() {
       pending.push_back(hash);
     }
   }
+  for (const auto& state : active_remote_writes_) {
+    pending.insert(pending.end(), state.block_hashes.begin(),
+                   state.block_hashes.end());
+  }
+
   std::vector<std::string> done = std::move(done_saves_);
   std::vector<std::string> failed = std::move(failed_saves_);
   done_saves_.clear();
   failed_saves_.clear();
-  return std::make_tuple(done, failed, pending);
+  done.insert(done.end(), done_remote_writes_.begin(),
+              done_remote_writes_.end());
+  failed.insert(failed.end(), failed_remote_writes_.begin(),
+                failed_remote_writes_.end());
+  done_remote_writes_.clear();
+  failed_remote_writes_.clear();
+
+  std::vector<std::string> existing;
+  std::vector<std::string> unregistered;
+  existing.swap(existing_remote_writes_);
+  unregistered.swap(unregistered_remote_writes_);
+
+  return PollSaveStatusResult{
+      .done = std::move(done),
+      .failed = std::move(failed),
+      .pending = std::move(pending),
+      .existing = std::move(existing),
+      .unregistered = std::move(unregistered),
+  };
 }
 
-std::tuple<std::vector<std::string>, std::vector<std::string>,
-           std::vector<std::string>>
-KVCacheStore::PollLoadStatus() {
+KVCacheStore::PollLoadStatusResult KVCacheStore::PollLoadStatus() {
   PollFuturesInternal();
   absl::MutexLock lock(mutex_);
   std::vector<std::string> pending;
@@ -1503,7 +1532,11 @@ KVCacheStore::PollLoadStatus() {
   std::vector<std::string> failed = std::move(failed_loads_);
   done_loads_.clear();
   failed_loads_.clear();
-  return std::make_tuple(done, failed, pending);
+  return PollLoadStatusResult{
+      .done = std::move(done),
+      .failed = std::move(failed),
+      .pending = std::move(pending),
+  };
 }
 
 std::tuple<std::vector<std::string>, std::vector<std::string>,
@@ -1634,24 +1667,24 @@ absl::Duration RemoteWriteHold() {
 
 }  // namespace
 
-absl::Status KVCacheStore::WriteRemote(
+absl::Status KVCacheStore::SaveRemote(
     const std::vector<std::string>& block_hashes,
     const RaidenId& dst_raiden_id) {
   if (block_hashes.empty()) {
     return absl::OkStatus();
   }
   if (dst_raiden_id.empty()) {
-    return absl::InvalidArgumentError("WriteRemote requires a destination id");
+    return absl::InvalidArgumentError("A remote save requires a destination id");
   }
   if (dst_raiden_id == raiden_id_) {
     return absl::InvalidArgumentError(
-        "WriteRemote destination is this store; there is nothing to transfer");
+        "The save destination is this store; there is nothing to transfer");
   }
 
   auto* backend = dynamic_cast<HostOffloadBackend*>(this->backend().get());
   if (backend == nullptr) {
     return absl::FailedPreconditionError(
-        "WriteRemote requires a HostOffloadBackend at tier 0");
+        "A remote save requires a HostOffloadBackend at tier 0");
   }
 
   // Everything before the RPC is undone by this if we do not get as far as
@@ -1665,7 +1698,7 @@ absl::Status KVCacheStore::WriteRemote(
     if (!marked.empty()) {
       absl::MutexLock lock(mutex_);
       for (const auto& hash : marked) {
-        writing_hashes_.erase(hash);
+        saving_hashes_.erase(hash);
       }
     }
   });
@@ -1690,9 +1723,17 @@ absl::Status KVCacheStore::WriteRemote(
             "offer: ",
             absl::BytesToHexString(hash)));
       }
-      if (!writing_hashes_.insert(hash).second) {
+      // The caller's pin, which a successful save consumes. The local branch
+      // has always required it; this one did not, and its old contract said
+      // the caller's pin was separate and might not exist at all -- which made
+      // "a save consumes one pin" unstatable for half the API.
+      if (backend->GetPinCount(hash) <= 0) {
+        return absl::FailedPreconditionError(absl::StrCat(
+            "Block is not pinned: ", absl::BytesToHexString(hash)));
+      }
+      if (!saving_hashes_.insert(hash).second) {
         return absl::FailedPreconditionError(
-            absl::StrCat("Block is already being written remotely: ",
+            absl::StrCat("Block is already saving: ",
                          absl::BytesToHexString(hash)));
       }
       marked.push_back(hash);
@@ -1777,14 +1818,28 @@ void KVCacheStore::FinishRemoteWrite(const RemoteWriteState& state,
                                      std::vector<std::string> existing,
                                      std::vector<std::string> unregistered) {
   if (auto* backend = this->backend().get(); backend != nullptr) {
+    // The INTERNAL pin, which protected the blocks while the destination might
+    // still be reading them. Dropped whichever way the offer ended.
     backend->Release(state.block_hashes);
+    if (succeeded) {
+      // ...and separately the CALLER's, which a successful save consumes. Two
+      // releases because they are two different pins: the caller's says "I am
+      // using this", the internal one says "a peer may still be pulling it".
+      //
+      // Doing it here rather than in the poller covers BOTH terminal routes:
+      // the poller's verdict and the synchronous all-exist path, which settles
+      // inside SaveRemote and never reaches a poller at all. That path is why
+      // an auto-unpin written into PollRemoteWritesInternal would have leaked
+      // the caller's pin on every batch the destination already held.
+      backend->Release(state.block_hashes);
+    }
   }
   absl::MutexLock lock(mutex_);
   std::erase_if(active_remote_writes_, [&](const RemoteWriteState& s) {
     return s.operation_id == state.operation_id;
   });
   for (const auto& hash : state.block_hashes) {
-    writing_hashes_.erase(hash);
+    saving_hashes_.erase(hash);
     (succeeded ? done_remote_writes_ : failed_remote_writes_).push_back(hash);
   }
   for (auto& hash : existing) {
@@ -1882,30 +1937,6 @@ void KVCacheStore::PollRemoteWritesInternal() {
   }
 }
 
-std::tuple<std::vector<std::string>, std::vector<std::string>,
-           std::vector<std::string>, std::vector<std::string>,
-           std::vector<std::string>>
-KVCacheStore::PollRemoteWriteStatus() {
-  absl::MutexLock lock(mutex_);
-  std::vector<std::string> pending;
-  for (const auto& state : active_remote_writes_) {
-    pending.insert(pending.end(), state.block_hashes.begin(),
-                   state.block_hashes.end());
-  }
-  // Drained on read, like the save and load pollers: the consumer of these is
-  // in this process, so the store can hand the result over and forget it.
-  std::vector<std::string> done;
-  std::vector<std::string> failed;
-  std::vector<std::string> existing;
-  std::vector<std::string> unregistered;
-  done.swap(done_remote_writes_);
-  failed.swap(failed_remote_writes_);
-  existing.swap(existing_remote_writes_);
-  unregistered.swap(unregistered_remote_writes_);
-  return {std::move(done), std::move(failed), std::move(pending),
-          std::move(existing), std::move(unregistered)};
-}
-
 void KVCacheStore::PollerLoop() {
   while (!stop_poller_.load()) {
     PollFuturesInternal();
@@ -1920,10 +1951,13 @@ void KVCacheStore::PollSavesInternal(std::vector<SaveState> ready_saves) {
     if (status.ok()) {
       std::vector<global_registry::Registration> write_through_regs;
       write_through_regs.reserve(state.block_hashes.size());
-      auto lookup_or = backend()->Lookup(state.block_hashes);
+      // Hoisted: the caller pins these hashes hold are consumed below, on a
+      // path that may run after this scope ends.
+      std::vector<std::string> update_hashes;
+      auto lookup_or = backend()->Lookup(state.block_hashes,
+                                         LookupOptions{.enable_global = false});
       if (lookup_or.ok()) {
         const auto& slices = lookup_or.value();
-        std::vector<std::string> update_hashes;
         std::vector<RaidenBlockID> update_slices;
         for (size_t i = 0; i < state.block_hashes.size(); ++i) {
           const auto& hash = state.block_hashes[i];
@@ -1951,8 +1985,15 @@ void KVCacheStore::PollSavesInternal(std::vector<SaveState> ready_saves) {
       }
       if (!write_through_regs.empty() && registry_client_ &&
           write_through_pool_) {
-        write_through_pool_->Schedule([client = registry_client_,
-                                       regs = std::move(write_through_regs)]() {
+        // The caller's pin is consumed INSIDE this task, after Register
+        // returns, not here. Releasing inline would let the entry be evicted
+        // while the queued registration is still pending, and the late
+        // Register would then publish a host block id this node has already
+        // freed -- a registry advertising blocks that are not here.
+        write_through_pool_->Schedule([backend = this->backend(),
+                                       client = registry_client_,
+                                       regs = std::move(write_through_regs),
+                                       saved = update_hashes]() {
           auto status = client->Register(regs);
           if (!status.ok()) {
             LOG(WARNING) << "Async write-through failed after Save: "
@@ -1961,7 +2002,14 @@ void KVCacheStore::PollSavesInternal(std::vector<SaveState> ready_saves) {
             LOG(INFO) << "Async write-through succeeded after Save for "
                       << regs.size() << " blocks";
           }
+          // Whether or not publishing worked: the save itself succeeded, so
+          // the pin it was granted is spent. Holding it on a registry failure
+          // would leak one pin per block with nothing to release it.
+          if (backend != nullptr) backend->Release(saved);
         });
+      } else if (!update_hashes.empty()) {
+        // No write-through to outlive, so the release is correct right here.
+        backend()->Release(update_hashes);
       }
     } else {
       LOG(ERROR) << "Async Save failed: " << status.ToString();

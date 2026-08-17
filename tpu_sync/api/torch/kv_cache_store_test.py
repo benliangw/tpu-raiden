@@ -391,7 +391,8 @@ class KVCacheStoreTest(absltest.TestCase):
     hashes = [b"hash_1", b"hash_2"]
     mock_impl.save.return_value = True
     self.assertTrue(controller.save(hashes))
-    mock_impl.save.assert_called_with(hashes)
+    # The wrapper always passes the destination through; None is a local save.
+    mock_impl.save.assert_called_with(hashes, None)
     mock_impl.save.return_value = False
     self.assertFalse(controller.save(hashes))
 
@@ -402,9 +403,15 @@ class KVCacheStoreTest(absltest.TestCase):
     mock_impl.load.return_value = False
     self.assertFalse(controller.load(hashes, device_block_ids))
 
-    mock_impl.poll_save_status.return_value = ([b"hash_1"], [], [b"hash_2"])
+    mock_impl.poll_save_status.return_value = (
+        [b"hash_1"],
+        [],
+        [b"hash_2"],
+        [],
+        [],
+    )
     self.assertEqual(
-        controller.poll_save_status(), ([b"hash_1"], [], [b"hash_2"])
+        controller.poll_save_status(), ([b"hash_1"], [], [b"hash_2"], [], [])
     )
     mock_impl.poll_save_status.assert_called_once()
 
