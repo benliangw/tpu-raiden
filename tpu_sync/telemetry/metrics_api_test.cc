@@ -15,6 +15,7 @@
 #include "tpu_sync/telemetry/metrics_api.h"
 
 #include <cstdint>
+#include <cstdlib>
 #include <map>
 #include <memory>
 #include <string>
@@ -25,10 +26,57 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "absl/status/status_matchers.h"
 #include "absl/strings/string_view.h"
+#include "tpu_sync/telemetry/metrics_backend.h"
 
 namespace tpu_raiden::telemetry {
 namespace {
+
+using ::absl_testing::IsOk;
+using ::absl_testing::StatusIs;
+using ::testing::_;
+using ::testing::ElementsAre;
+using ::testing::Eq;
+using ::testing::HasSubstr;
+using ::testing::IsEmpty;
+using ::testing::Pair;
+using ::testing::Return;
+using ::testing::UnorderedElementsAre;
+
+class ScopedEnvironmentVariable {
+ public:
+  ScopedEnvironmentVariable(const char* name, const char* value) : name_(name) {
+    const char* old = std::getenv(name);
+    if (old != nullptr) {
+      old_value_ = old;
+      has_old_value_ = true;
+    }
+    if (value != nullptr) {
+      setenv(name, value, 1);
+    } else {
+      unsetenv(name);
+    }
+  }
+
+  ~ScopedEnvironmentVariable() {
+    if (has_old_value_) {
+      setenv(name_.c_str(), old_value_.c_str(), 1);
+    } else {
+      unsetenv(name_.c_str());
+    }
+  }
+
+  ScopedEnvironmentVariable(const ScopedEnvironmentVariable&) = delete;
+  ScopedEnvironmentVariable& operator=(const ScopedEnvironmentVariable&) =
+      delete;
+
+ private:
+  std::string name_;
+  std::string old_value_;
+  bool has_old_value_ = false;
+};
 
 static_assert(!std::is_copy_constructible_v<MetricsBackend>,
               "MetricsBackend must not be copy constructible");
@@ -38,11 +86,6 @@ static_assert(!std::is_move_constructible_v<MetricsBackend>,
               "MetricsBackend must not be move constructible");
 static_assert(!std::is_move_assignable_v<MetricsBackend>,
               "MetricsBackend must not be move assignable");
-
-using ::testing::_;
-using ::testing::ElementsAre;
-using ::testing::Eq;
-using ::testing::Return;
 
 class MockMetricsBackend : public MetricsBackend {
  public:
@@ -62,13 +105,9 @@ class MockMetricsBackend : public MetricsBackend {
 
 class MetricsApiTest : public testing::Test {
  protected:
-  void SetUp() override {
-    RaidenMetricStore::GetGlobalMetricStore().SetBackends({});
-  }
+  void SetUp() override { store_.SetBackends({}); }
 
-  void TearDown() override {
-    RaidenMetricStore::GetGlobalMetricStore().SetBackends({});
-  }
+  void TearDown() override { store_.SetBackends({}); }
 
   RaidenMetricStore store_;
 };
@@ -196,7 +235,6 @@ TEST_F(MetricsApiTest, SetBackendsEmptyClearsBackends) {
   store_.SetBackends({});
   EXPECT_FALSE(store_.HasBackends());
 
-  // Verify metric emission safely no-ops on empty backends.
   store_.IncrementCounter("tpu_raiden_sent_bytes_total", {}, 1024);
   EXPECT_EQ(store_.GetTextSnapshot(), "");
   EXPECT_TRUE(store_.GetMetricMetadata().empty());
@@ -430,6 +468,135 @@ TEST_F(MetricsApiTest, ConstMetricsBackendReference) {
   const_ref.SetGauge("gauge", {}, 10);
   const_ref.ObserveHistogram("histogram", {}, 1.23);
   EXPECT_EQ(const_ref.GetTextSnapshot(), "snapshot\n");
+}
+
+TEST_F(MetricsApiTest, InitializeFromBackendNamesPrometheus) {
+  EXPECT_THAT(store_.InitializeFromBackendNames({"prometheus"}), IsOk());
+  EXPECT_TRUE(store_.HasBackends());
+
+  store_.IncrementCounter(metric_names::kSentBytesTotal, {}, 10);
+  EXPECT_THAT(store_.GetTextSnapshot(),
+              HasSubstr("tpu_raiden_sent_bytes_total 10"));
+  EXPECT_THAT(store_.GetAndResetMetricSamples(), IsEmpty());
+}
+
+TEST_F(MetricsApiTest, InitializeFromBackendNamesBuffered) {
+  EXPECT_THAT(store_.InitializeFromBackendNames({"buffered"}), IsOk());
+  EXPECT_TRUE(store_.HasBackends());
+
+  store_.IncrementCounter(metric_names::kSentBytesTotal, {}, 10);
+  EXPECT_THAT(store_.GetTextSnapshot(), IsEmpty());
+  EXPECT_THAT(store_.GetAndResetMetricSamples(),
+              UnorderedElementsAre(
+                  Pair("tpu_raiden_sent_bytes_total", ElementsAre(10.0))));
+}
+
+TEST_F(MetricsApiTest, InitializeFromBackendNamesMultipleBackends) {
+  EXPECT_THAT(store_.InitializeFromBackendNames({"prometheus", "buffered"}),
+              IsOk());
+  EXPECT_TRUE(store_.HasBackends());
+
+  store_.IncrementCounter(metric_names::kSentBytesTotal, {}, 10);
+  EXPECT_THAT(store_.GetTextSnapshot(),
+              HasSubstr("tpu_raiden_sent_bytes_total 10"));
+  EXPECT_THAT(store_.GetAndResetMetricSamples(),
+              UnorderedElementsAre(
+                  Pair("tpu_raiden_sent_bytes_total", ElementsAre(10.0))));
+}
+
+TEST_F(MetricsApiTest, InitializeFromBackendNamesCaseInsensitiveAndWhitespace) {
+  EXPECT_THAT(store_.InitializeFromBackendNames({"   pRoMeThEuS   "}), IsOk());
+  EXPECT_TRUE(store_.HasBackends());
+
+  store_.IncrementCounter(metric_names::kSentBytesTotal, {}, 10);
+  EXPECT_THAT(store_.GetTextSnapshot(),
+              HasSubstr("tpu_raiden_sent_bytes_total 10"));
+  EXPECT_THAT(store_.GetAndResetMetricSamples(), IsEmpty());
+}
+
+TEST_F(MetricsApiTest, InitializeFromBackendNamesDeduplicates) {
+  EXPECT_THAT(store_.InitializeFromBackendNames(
+                  {"prometheus", "Prometheus", " PROMETHEUS "}),
+              IsOk());
+  EXPECT_TRUE(store_.HasBackends());
+
+  store_.IncrementCounter(metric_names::kSentBytesTotal, {}, 1);
+  EXPECT_THAT(store_.GetTextSnapshot(),
+              HasSubstr("tpu_raiden_sent_bytes_total 1.000000\n"));
+  EXPECT_THAT(store_.GetAndResetMetricSamples(), IsEmpty());
+}
+
+TEST_F(MetricsApiTest, InitializeFromBackendNamesEmptyClearsBackends) {
+  EXPECT_THAT(store_.InitializeFromBackendNames({"prometheus"}), IsOk());
+  EXPECT_TRUE(store_.HasBackends());
+
+  EXPECT_THAT(store_.InitializeFromBackendNames({}), IsOk());
+  EXPECT_FALSE(store_.HasBackends());
+
+  store_.IncrementCounter(metric_names::kSentBytesTotal, {}, 10);
+  EXPECT_THAT(store_.GetTextSnapshot(), IsEmpty());
+  EXPECT_THAT(store_.GetAndResetMetricSamples(), IsEmpty());
+}
+
+TEST_F(MetricsApiTest,
+       InitializeFromBackendNamesUnknownBackendFailsAllOrNothing) {
+  EXPECT_FALSE(store_.HasBackends());
+  EXPECT_THAT(
+      store_.InitializeFromBackendNames({"unknown_backend"}),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Unknown telemetry backend: unknown_backend")));
+  EXPECT_FALSE(store_.HasBackends());
+
+  EXPECT_THAT(
+      store_.InitializeFromBackendNames({"prometheus", "unknown_backend"}),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Unknown telemetry backend: unknown_backend")));
+  EXPECT_FALSE(store_.HasBackends());
+}
+
+TEST_F(MetricsApiTest, InitializeFromEnvironmentReadsEnvVar) {
+  ScopedEnvironmentVariable env_var(kTelemetryBackendsEnvVar,
+                                    "prometheus,buffered");
+  EXPECT_THAT(store_.InitializeFromEnvironment(), IsOk());
+  EXPECT_TRUE(store_.HasBackends());
+
+  store_.IncrementCounter(metric_names::kSentBytesTotal, {}, 10);
+  EXPECT_THAT(store_.GetTextSnapshot(),
+              HasSubstr("tpu_raiden_sent_bytes_total 10"));
+  EXPECT_THAT(store_.GetAndResetMetricSamples(),
+              UnorderedElementsAre(
+                  Pair("tpu_raiden_sent_bytes_total", ElementsAre(10.0))));
+}
+
+TEST_F(MetricsApiTest, InitializeFromEnvironmentEmptyOrUnsetNoOp) {
+  EXPECT_THAT(store_.InitializeFromEnvironment(), IsOk());
+  EXPECT_FALSE(store_.HasBackends());
+
+  {
+    ScopedEnvironmentVariable env_var(kTelemetryBackendsEnvVar, "   ,  , ");
+    EXPECT_THAT(store_.InitializeFromEnvironment(), IsOk());
+    EXPECT_FALSE(store_.HasBackends());
+  }
+}
+
+TEST_F(MetricsApiTest, InitializeFromEnvironmentUnknownFails) {
+  ScopedEnvironmentVariable env_var(kTelemetryBackendsEnvVar,
+                                    "invalid_backend");
+  EXPECT_THAT(
+      store_.InitializeFromEnvironment(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Unknown telemetry backend: invalid_backend")));
+  EXPECT_FALSE(store_.HasBackends());
+}
+
+TEST_F(MetricsApiTest, InitializeFromEnvironmentNoOpIfAlreadyInitialized) {
+  EXPECT_THAT(store_.InitializeFromBackendNames({"prometheus"}), IsOk());
+  EXPECT_TRUE(store_.HasBackends());
+
+  ScopedEnvironmentVariable env_var(kTelemetryBackendsEnvVar,
+                                    "invalid_backend");
+  EXPECT_THAT(store_.InitializeFromEnvironment(), IsOk());
+  EXPECT_TRUE(store_.HasBackends());
 }
 
 }  // namespace

@@ -82,6 +82,15 @@ class TelemetryBindingTest(absltest.TestCase):
     ):
       telemetry_ext.configure_telemetry(["unknown_backend"])
 
+  def test_configure_telemetry_tuple_sequence_supported(self):
+    telemetry_ext.configure_telemetry(("prometheus",))
+    snapshot = telemetry_ext.get_raiden_metrics_prometheus_text()
+    self.assertIn("# TYPE tpu_raiden_sent_bytes_total counter", snapshot)
+
+  def test_configure_telemetry_set_raises_type_error(self):
+    with self.assertRaises(TypeError):
+      telemetry_ext.configure_telemetry({"prometheus"})
+
   def test_configure_telemetry_invalid_argument_type_raises_type_error(self):
     with self.assertRaises(TypeError):
       telemetry_ext.configure_telemetry(123)

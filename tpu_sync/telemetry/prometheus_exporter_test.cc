@@ -15,10 +15,8 @@
 #include "tpu_sync/telemetry/prometheus_exporter.h"
 
 #include <iterator>
-#include <memory>
 #include <string>
 #include <thread>  // NOLINT
-#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>

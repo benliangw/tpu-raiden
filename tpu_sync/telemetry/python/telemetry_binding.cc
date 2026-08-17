@@ -15,30 +15,24 @@
 #include "tpu_sync/telemetry/python/telemetry_binding.h"
 
 #include <map>
-#include <memory>
-#include <set>
 #include <string>
-#include <utility>
 #include <vector>
 
-#include "absl/strings/match.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include <nanobind/nanobind.h>
 #include <nanobind/operators.h>   // IWYU pragma: keep
 #include <nanobind/stl/map.h>     // IWYU pragma: keep
-#include <nanobind/stl/set.h>     // IWYU pragma: keep
 #include <nanobind/stl/string.h>  // IWYU pragma: keep
 #include <nanobind/stl/vector.h>  // IWYU pragma: keep
-#include "tpu_sync/telemetry/buffered_metrics_exporter.h"
 #include "tpu_sync/telemetry/metrics_api.h"
 #include "tpu_sync/telemetry/metrics_backend.h"
-#include "tpu_sync/telemetry/prometheus_exporter.h"
 
 namespace tpu_raiden::telemetry {
 
-namespace nb = ::nanobind;
+namespace nb = nanobind;
 
 void BindTelemetryApi(nb::module_& m) {
   nb::enum_<MetricType>(m, "MetricType")
@@ -90,24 +84,18 @@ void BindTelemetryApi(nb::module_& m) {
 
   m.def(
       "configure_telemetry",
-      [](const std::set<std::string>& backends) {
-        std::vector<std::unique_ptr<MetricsBackend>> new_backends;
-        for (absl::string_view backend_name : backends) {
-          if (absl::EqualsIgnoreCase(backend_name, kPrometheus)) {
-            new_backends.push_back(std::make_unique<PrometheusExporter>());
-          } else if (absl::EqualsIgnoreCase(backend_name, kBuffered)) {
-            new_backends.push_back(std::make_unique<BufferedMetricsExporter>());
-          } else {
-            throw nb::value_error(
-                absl::StrCat("Unknown telemetry backend: ", backend_name)
-                    .c_str());
-          }
+      [](const std::vector<std::string>& backends) {
+        std::vector<absl::string_view> backend_views(backends.begin(),
+                                                     backends.end());
+        absl::Status status = RaidenMetricStore::GetGlobalMetricStore()
+                                  .InitializeFromBackendNames(backend_views);
+        if (!status.ok()) {
+          throw nb::value_error(std::string(status.message()).c_str());
         }
-        RaidenMetricStore::GetGlobalMetricStore().SetBackends(
-            std::move(new_backends));
       },
       nb::arg("backends"), nb::call_guard<nb::gil_scoped_release>(),
-      "Configures active C++ telemetry backends.");
+      "Configures active C++ telemetry backends given a sequence of backend "
+      "names (e.g. list or tuple).");
 
   m.def(
       "get_raiden_metrics_prometheus_text",

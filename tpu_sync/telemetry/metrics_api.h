@@ -23,13 +23,23 @@
 #include <vector>
 
 #include "absl/base/thread_annotations.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
+#include "absl/types/span.h"
 #include "tpu_sync/telemetry/metrics_backend.h"
 
 namespace tpu_raiden::telemetry {
 
+// Environment Variables START.
+inline constexpr char kTelemetryBackendsEnvVar[] =
+    "TPU_RAIDEN_TELEMETRY_BACKENDS";
+// Environment Variables END.
+
+// Backend names START.
 inline constexpr absl::string_view kPrometheus = "prometheus";
+inline constexpr absl::string_view kBuffered = "buffered";
+// Backend names END.
 
 // Central Telemetry Facade for managing metrics across registered backends.
 // This class is thread-safe for all concurrent operations.
@@ -44,6 +54,19 @@ class RaidenMetricStore {
   RaidenMetricStore& operator=(const RaidenMetricStore&) = delete;
   RaidenMetricStore(RaidenMetricStore&&) = delete;
   RaidenMetricStore& operator=(RaidenMetricStore&&) = delete;
+
+  // Inspects the TPU_RAIDEN_TELEMETRY_BACKENDS environment variable and
+  // initializes backends. Returns OkStatus() if backends are already
+  // configured, if the variable is unset, or on success. Returns
+  // InvalidArgumentError if any backend token in the environment variable is
+  // invalid.
+  [[nodiscard]] absl::Status InitializeFromEnvironment();
+
+  // Validates, instantiates, and sets backends matching the provided names.
+  // Returns absl::InvalidArgumentError if any backend name is unrecognized.
+  // Performs all-or-nothing assignment: backends remain unchanged on error.
+  [[nodiscard]] absl::Status InitializeFromBackendNames(
+      absl::Span<const absl::string_view> backend_names);
 
   void SetBackends(std::vector<std::unique_ptr<MetricsBackend>> backends);
   bool HasBackends() const;

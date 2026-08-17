@@ -28,11 +28,10 @@
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/types/span.h"
-#include "tpu_sync/telemetry/metrics_api.h"
+#include "tpu_sync/telemetry/metrics_backend.h"
 
 namespace tpu_raiden::telemetry {
 
-inline constexpr absl::string_view kBuffered = "buffered";
 inline constexpr size_t kDefaultQueueBufferSize = 4096;
 
 // Fixed-capacity sample buffer for step-level metric observations.

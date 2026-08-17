@@ -32,11 +32,17 @@ cc_library(
     srcs = ["metrics_api.cc"],
     hdrs = ["metrics_api.h"],
     deps = [
+        ":buffered_metrics_exporter",
+        ":metrics_3p_prometheus_exporter",
         ":metrics_backend",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/base:no_destructor",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/types:span",
     ],
 )
 
@@ -46,6 +52,8 @@ cc_test(
     deps = [
         ":metrics_api",
         ":metrics_backend",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:status_matchers",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
     ],
@@ -81,7 +89,7 @@ cc_library(
     srcs = ["buffered_metrics_exporter.cc"],
     hdrs = ["buffered_metrics_exporter.h"],
     deps = [
-        ":metrics_api",
+        ":metrics_backend",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/strings",
@@ -95,7 +103,7 @@ cc_test(
     srcs = ["buffered_metrics_exporter_test.cc"],
     deps = [
         ":buffered_metrics_exporter",
-        ":metrics_api",
+        ":metrics_backend",
         "@com_google_googletest//:gtest_main",
     ],
 )
