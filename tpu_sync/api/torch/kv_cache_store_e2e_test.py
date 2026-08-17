@@ -472,12 +472,11 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
           lookup_res_b[1][1].host_block_id, lookup_res_a[1][1].host_block_id
       )
 
-      # 6. Job B controller calls insert_and_lock for the remote slices
+      # 6. Job B reads straight from Job A into its own device blocks. The
+      # source coordinates come from the lookup answer, so nothing needs to be
+      # inserted into Job B's cache first.
       slices_b = [lookup_res_b[0][1], lookup_res_b[1][1]]
-      self.assertTrue(store_b.insert_and_lock(hashes, slices_b, on_host=True))
-
-      # 7. Job B calls ReadRemote
-      self.assertTrue(store_b.read_remote(hashes))
+      self.assertTrue(store_b.read_remote(hashes, slices_b, [0, 1]))
 
       if not expect_read_success:
         failed = False
@@ -505,33 +504,14 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
         if not done:
           time.sleep(0.01)
 
-      # 8. Verify Job B's LRU block status becomes HOST
-      lookup_res_b_after = store_b.lookup(hashes)
-      self.assertLen(lookup_res_b_after, 2)
-      self.assertEqual(
-          lookup_res_b_after[0][1].status, kv_cache_store.BlockStatus.HOST
-      )
-      self.assertEqual(
-          lookup_res_b_after[1][1].status, kv_cache_store.BlockStatus.HOST
-      )
-
-      # 9. Job B controller calls Load to transfer data to TPU blocks [0, 1]
-      self.assertTrue(store_b.load(hashes, [0, 1]))
-
-      # Wait for Load completion
-      done = False
-      while not done:
-        load_done, load_failed, _ = store_b.poll_load_status()
-        if load_failed:
-          raise RuntimeError(f"Job B Load failed: {load_failed}")
-        if len(load_done) == 2:
-          done = True
-        if not done:
-          time.sleep(0.01)
+      # 8. The read is already in HBM -- there is no second Load step, and no
+      # local record of it either. Job B's cache is still a miss for these
+      # hashes: the bytes live only in the device blocks it named.
+      self.assertEmpty(store_b.lookup(hashes))
 
       store_b.release(hashes)
 
-      # 10. Verify byte-exact match on Job B TPU device
+      # 9. Verify byte-exact match on Job B TPU device
       try:
         torch.tpu.synchronize()
       except (AttributeError, RuntimeError):
@@ -819,8 +799,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
               status=kv_cache_store.BlockStatus.REMOTE,
           )
       ]
-      self.assertTrue(store_b.insert_and_lock(ghost, slices, on_host=True))
-      self.assertTrue(store_b.read_remote(ghost))
+      self.assertTrue(store_b.read_remote(ghost, slices, [0]))
 
       failed = False
       for _ in range(500):
@@ -933,8 +912,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
               status=kv_cache_store.BlockStatus.REMOTE,
           ),
       ]
-      self.assertTrue(store_b.insert_and_lock(hashes, slices_b, on_host=True))
-      self.assertTrue(store_b.read_remote(hashes))
+      self.assertTrue(store_b.read_remote(hashes, slices_b, [0, 1]))
 
       failed = False
       for _ in range(500):

@@ -349,35 +349,49 @@ class KVCacheStore:
   def read_remote(
       self,
       block_hashes: list[bytes],
-      device_block_ids: list[int] | None = None,
+      slices: list[RaidenBlockID],
+      device_block_ids: list[int],
   ) -> bool:
-    """Launches an async receiver-initiated read of REMOTE blocks from peers.
+    """Reads REMOTE blocks from their owning peers straight into local HBM.
 
     Returns as soon as the reads are issued; poll with
     poll_remote_read_status().
+
+    This store's cache is neither consulted nor modified. The hashes need not
+    be present locally and need not be pinned; nothing is inserted on success
+    and nothing is left behind on failure. The bytes land ONLY in the given
+    device blocks -- no local host copy is kept, so a later local load() of the
+    same hash is still a miss.
+
+    Compare with load(): both bring a peer's block into local HBM. Use load()
+    when the hash may be resident locally and you want the store to decide; use
+    read_remote() when you already hold the source coordinates and want no
+    local record of the transfer.
 
     Requires a global registry: it is what maps the owning peer to the
     controller address this store acquires its read lease from. A store built
     without a global_registry_address fails every read.
 
     Args:
-      block_hashes: Block hashes to read. Each must already be pinned, and must
-        stay pinned until poll_remote_read_status() reports it terminal.
-        Releasing early makes the entry deletable mid-read, in which case the
-        read is discarded and the WHOLE batch is reported failed.
-      device_block_ids: Optional. Omit (or pass None) to read into host DRAM,
-        leaving the entries HOST. Pass one device block id per hash to read
-        straight into HBM, leaving the entries HOST_AND_HBM (the host landing
-        blocks act as the staging hop, so a later load() can reuse them).
-        On FAILURE the contents of these device blocks are UNDEFINED: they are
-        written before the source's verdict is known. Treat them as scratch
-        until the read reports success -- nothing in the cache points at them
-        unless it does.
+      block_hashes: Block hashes to read.
+      slices: One REMOTE RaidenBlockID per hash, naming where to read from.
+        Only two fields are used -- raiden_id (the owning peer) and
+        host_block_id (the block on that peer) -- so a lookup() answer can be
+        passed straight through.
+      device_block_ids: One local device block id per hash. Mandatory.
+        On FAILURE their contents are UNDEFINED: they are written before the
+        source's verdict is known. Treat them as scratch until the read
+        reports success.
 
     Returns:
       True if successfully launched.
     """
-    return self._impl.read_remote(block_hashes, device_block_ids or [])
+    raw_slices = []
+    for s in slices:
+      if isinstance(s, RaidenId):
+        s = RaidenBlockID(raiden_id=s)
+      raw_slices.append(s._impl)  # pylint: disable=protected-access
+    return self._impl.read_remote(block_hashes, raw_slices, device_block_ids)
 
   def poll_remote_read_status(
       self,

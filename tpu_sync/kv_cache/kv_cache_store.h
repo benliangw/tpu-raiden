@@ -352,34 +352,41 @@ class KVCacheStore {
   PollLoadStatus();
 
   // Launches an async receiver-initiated read of REMOTE blocks from their
-  // owning peers. Returns as soon as the reads are issued; poll with
-  // PollRemoteReadStatus().
+  // owning peers straight into local HBM. Returns as soon as the reads are
+  // issued; poll with PollRemoteReadStatus().
   //
-  // device_block_ids selects the destination:
-  //   empty                    -> read to host. On success the entries become
-  //                               HOST.
-  //   size == block_hashes     -> read to HBM. The bytes land in the caller's
-  //                               device blocks, with the host landing blocks
-  //                               as the staging hop, so the entries become
-  //                               HOST_AND_HBM and a later load() can reuse
-  //                               the host copy.
-  //   any other size           -> InvalidArgument.
+  // The caller supplies the source coordinates directly: `slices[i]` is the
+  // REMOTE RaidenBlockID for `block_hashes[i]`, and only two of its fields are
+  // read -- `raiden_id` (which peer owns the block) and `host_block_id` (which
+  // block on that peer). A lookup() answer can be passed straight through.
   //
-  // CALLER CONTRACT: every requested hash must already be pinned, and must
-  // stay pinned until PollRemoteReadStatus() reports it terminal (done or
-  // failed). Releasing early makes the entry eligible for deletion mid-read;
-  // the read is then discarded and the WHOLE batch reported failed.
+  // This store's LRU is not consulted and not modified. The hashes need not be
+  // present locally and need not be pinned, nothing is inserted on success,
+  // and nothing is left behind on failure. The bytes land ONLY in the caller's
+  // device blocks; the host blocks this call allocates are pure staging and
+  // are returned to the pool on both the success and the failure path. No
+  // local host copy is retained, so a later local load() of the same hash is
+  // still a miss.
   //
-  // In read-to-HBM mode the device blocks are written before the source's
-  // verdict is known, so on failure their contents are UNDEFINED -- treat
-  // supplied device blocks as scratch until the read reports success. Nothing
-  // in the cache ever points at them unless the read commits.
+  // device_block_ids is mandatory and must match block_hashes in size, as must
+  // slices; any other size is InvalidArgument.
+  //
+  // The device blocks are written before the source's verdict is known, so on
+  // failure their contents are UNDEFINED -- treat them as scratch until the
+  // read reports success.
+  //
+  // Compare with Load(): both bring a peer's block into local HBM. Load()
+  // fetches through the store's own path and is the right call when the hash
+  // may be resident locally; ReadRemote() takes a lease on the source and is
+  // the right call when the caller already knows the source coordinates and
+  // wants no local record of the transfer.
   //
   // Requires a global registry: it is what maps the owning peer to the
   // controller address this store acquires its read lease from. A store built
   // without one fails every read with FailedPrecondition.
   absl::Status ReadRemote(const std::vector<std::string>& block_hashes,
-                          const std::vector<int32_t>& device_block_ids = {});
+                          const std::vector<RaidenBlockID>& slices,
+                          const std::vector<int32_t>& device_block_ids);
 
   // Polls status of active remote reads.
   // Returns {done_hashes, failed_hashes, pending_hashes}
@@ -494,12 +501,12 @@ class KVCacheStore {
     // cached controller addresses -- the poller is where failure is observed,
     // and by then the grouping is gone.
     std::vector<RaidenId> src_raiden_ids;
-    // The local landing blocks. These live HERE and nowhere else until the
-    // poller commits -- stamping them into the LRU entry at issue time would
-    // destroy the peer coordinate the entry needs for a retry.
+    // The local staging blocks the bytes hop through on their way to HBM. They
+    // live HERE and nowhere else: no LRU entry ever points at them, so the
+    // poller returns them to the pool on both the success and the failure
+    // path. The caller's device blocks are not tracked -- once the transfer is
+    // terminal this store has no further interest in them.
     std::vector<int> host_block_ids;
-    // Empty for a read to host; otherwise the caller's device blocks.
-    std::vector<int32_t> device_block_ids;
   };
 
   struct FutureHash {
