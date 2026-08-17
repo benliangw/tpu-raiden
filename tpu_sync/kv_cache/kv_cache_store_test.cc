@@ -347,7 +347,8 @@ TEST(KVCacheStoreTest, GlobalLookupFallback) {
 
   // Case 1: Full local hit, no global hit
   {
-    auto lookup_res = store.Lookup({"local_only_hash"});
+    auto lookup_res = store.Lookup({"local_only_hash"},
+                                   /*enable_global=*/true);
     ASSERT_TRUE(lookup_res.ok());
     ASSERT_EQ(lookup_res->size(), 1);
     EXPECT_EQ((*lookup_res)[0].first, "local_only_hash");
@@ -358,7 +359,7 @@ TEST(KVCacheStoreTest, GlobalLookupFallback) {
   // Case 2: Both local and global has the same hit, but we return local hit
   // results
   {
-    auto lookup_res = store.Lookup({"shared_hash"});
+    auto lookup_res = store.Lookup({"shared_hash"}, /*enable_global=*/true);
     ASSERT_TRUE(lookup_res.ok());
     ASSERT_EQ(lookup_res->size(), 1);
     EXPECT_EQ((*lookup_res)[0].first, "shared_hash");
@@ -369,7 +370,8 @@ TEST(KVCacheStoreTest, GlobalLookupFallback) {
 
   // Case 3: No local hit, only global hits
   {
-    auto lookup_res = store.Lookup({"global_hash_1", "global_hash_2"});
+    auto lookup_res = store.Lookup({"global_hash_1", "global_hash_2"},
+                                   /*enable_global=*/true);
     ASSERT_TRUE(lookup_res.ok());
     ASSERT_EQ(lookup_res->size(), 2);
 
@@ -400,7 +402,8 @@ TEST(KVCacheStoreTest, GlobalLookupFallback) {
   // It should return both local and global
   {
     auto lookup_res =
-        store.Lookup({"local_only_hash", "global_hash_1", "global_hash_2"});
+        store.Lookup({"local_only_hash", "global_hash_1", "global_hash_2"},
+                     /*enable_global=*/true);
     ASSERT_TRUE(lookup_res.ok());
     ASSERT_EQ(lookup_res->size(), 3);
 
@@ -422,7 +425,8 @@ TEST(KVCacheStoreTest, GlobalLookupFallback) {
   // It should stop at the first miss in registry
   {
     auto lookup_res = store.Lookup(
-        {"local_only_hash", "global_hash_1", "missing_hash", "global_hash_2"});
+        {"local_only_hash", "global_hash_1", "missing_hash", "global_hash_2"},
+        /*enable_global=*/true);
     ASSERT_TRUE(lookup_res.ok());
     ASSERT_EQ(lookup_res->size(), 2);  // local_only_hash, global_hash_1
     EXPECT_EQ((*lookup_res)[0].first, "local_only_hash");
@@ -728,7 +732,7 @@ TEST(KVCacheStoreTest, LookupCapLimitWithGlobal) {
   // Lookup 3 hashes, but capacity is 2. It should only return 2.
   std::vector<std::string> lookup_hashes = {"global_hash_1", "global_hash_2",
                                             "global_hash_3"};
-  auto lookup_res = store.Lookup(lookup_hashes);
+  auto lookup_res = store.Lookup(lookup_hashes, /*enable_global=*/true);
   ASSERT_TRUE(lookup_res.ok());
   EXPECT_EQ(lookup_res->size(), 2);
   EXPECT_EQ((*lookup_res)[0].first, "global_hash_1");
@@ -771,7 +775,7 @@ TEST(KVCacheStoreTest, LookupCapLimitMixed) {
   // global).
   std::vector<std::string> lookup_hashes = {"local_hash_1", "global_hash_2",
                                             "global_hash_3"};
-  auto lookup_res = store.Lookup(lookup_hashes);
+  auto lookup_res = store.Lookup(lookup_hashes, /*enable_global=*/true);
   ASSERT_TRUE(lookup_res.ok());
   EXPECT_EQ(lookup_res->size(), 2);
   EXPECT_EQ((*lookup_res)[0].first, "local_hash_1");
@@ -4779,7 +4783,8 @@ std::unique_ptr<StoreInterleaveFixture> MakeStoreInterleaveFixture(
 TEST(KVCacheStoreTest, LookupInterleavesLocalAndRemoteThroughTheStore) {
   auto f = MakeStoreInterleaveFixture();
 
-  auto res = f->store->Lookup({"r1", "l1", "r2", "l2", "nowhere"});
+  auto res = f->store->Lookup({"r1", "l1", "r2", "l2", "nowhere"},
+                              /*enable_global=*/true);
   ASSERT_TRUE(res.ok());
   ASSERT_EQ(res->size(), 4);
 
@@ -4828,7 +4833,7 @@ TEST(KVCacheStoreTest, LookupInterleavedDisabledThroughTheStore) {
   ASSERT_EQ(legacy->size(), 1);
   EXPECT_EQ((*legacy)[0].first, "r1");
 
-  auto interleaved = f->store->Lookup({"r1", "l1"});
+  auto interleaved = f->store->Lookup({"r1", "l1"}, /*enable_global=*/true);
   ASSERT_TRUE(interleaved.ok());
   ASSERT_EQ(interleaved->size(), 2);
   EXPECT_EQ((*interleaved)[1].first, "l1");

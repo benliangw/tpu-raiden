@@ -189,9 +189,11 @@ class KVCacheStore {
   // matched replica pairs (block hash and RaidenBlockID) encountered
   // in sequence prior to the first miss.
   // If enable_global is true, it will query the global registry for any
-  // misses after the local lookup.
+  // misses after the local lookup. Defaults to false: the registry query is a
+  // blocking RPC, so a caller that only wants to know what is resident locally
+  // should not pay for one by omission.
   absl::StatusOr<BlockSliceList> Lookup(
-      const std::vector<std::string>& block_hashes, bool enable_global = true);
+      const std::vector<std::string>& block_hashes, bool enable_global = false);
 
   // Overload accepting LookupOptions for granular control (e.g. pin_found).
   absl::StatusOr<BlockSliceList> Lookup(
