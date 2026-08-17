@@ -63,7 +63,7 @@ import jax.numpy as jnp
 import numpy as np
 
 # [MODIFIED] Use OSS import paths instead of 'google3.third_party...'
-from tpu_raiden.api.jax import kv_cache_manager
+from tpu_sync.api.jax import kv_cache_manager
 from tpu_sync.rpc import coordination_helper
 
 _ROLE = flags.DEFINE_string(
@@ -114,7 +114,6 @@ def setup_shardings(devices):
   return tpu_sharding, host_sharding
 
 def get_peer_grpc_path(peer_arg: str) -> str:
-  # [MODIFIED]: Stripped out Google-internal Borg/BNS resolution.
   # Expects raw "IP:PORT" formatting for cloud environments.
   if not peer_arg:
       raise ValueError("A peer address MUST be provided (e.g. 10.128.0.2:50051)")
@@ -237,7 +236,6 @@ def main(_):
         f'{time.perf_counter() - t0:.2f}s'
     )
 
-    # [MODIFIED] Stripped Borg Dynamic Port lookup
     grpc_port = _GRPC_PORT.value
 
     coordination_server = coordination_helper.CoordinationServer(port=grpc_port)

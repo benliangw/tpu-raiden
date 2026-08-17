@@ -14,19 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Copyright 2026 Google LLC.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 # One-click environment setup for the KV host-offloading example.
 #
 # Clones vLLM and tpu-inference (which ships the RaidenOffloadConnector) into a
@@ -68,7 +55,7 @@ fi
 # does NOT install it. The run scripts resolve whichever is present at launch
 # (see raiden_env.sh).
 if ! python -c "import tpu_sync.rpc.coordination_pb2" 2>/dev/null \
-   && [ ! -f "${RAIDEN_ROOT}/tpu_raiden/frameworks/jax/_tpu_raiden_jax.so" ]; then
+   && [ ! -f "${RAIDEN_ROOT}/tpu_sync/frameworks/jax/_tpu_raiden_jax.so" ]; then
   echo "ERROR: tpu_raiden is not available. Install it via one of:" >&2
   echo "  - build from source: run \`./build.sh jax\` from the repo root, or" >&2
   echo "  - wheel:             \`pip install tpu-raiden-jax --extra-index-url <url>\`" >&2

@@ -23,7 +23,7 @@
 //      the receiver's IP to establish the connection.
 //
 // Example:
-//  ${TARGET_ROOT}/bazel-bin/tpu_raiden/kv_cache/h2h_benchmark_runner \
+//  ${TARGET_ROOT}/bazel-bin/examples/microbenchmarks/h2h_benchmark_runner \
 //      --role=sender \
 //      --peer_control_ip="$RECEIVER_DNS" \
 //      --peer_control_port=9999 \
@@ -65,10 +65,9 @@
 #include "absl/strings/str_split.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include "tpu_raiden/core/tpu_utils.h"
-#include "tpu_raiden/kv_cache/kv_cache_manager_base.h"
-#include "tpu_raiden/kv_cache/logical_block_manager.h"
-
+#include "tpu_sync/core/tpu_utils.h"
+#include "tpu_sync/kv_cache/kv_cache_manager_base.h"
+#include "tpu_sync/kv_cache/logical_block_manager.h"
 
 ABSL_FLAG(std::string, role, "", "Role: sender or receiver");
 ABSL_FLAG(std::string, control_ip, "127.0.0.1", "Local control IP");
@@ -125,8 +124,7 @@ std::string get_ip_of_interface(const std::string& interface_name) {
   return ip;
 }
 
-// Dynamically discover all active data interfaces (excluding lo and eth0 unless
-// on Borg)
+// Dynamically discover all active data interfaces (excluding lo and eth0)
 std::vector<tpu_raiden::HostNicAddress> discover_data_interfaces() {
   std::vector<tpu_raiden::HostNicAddress> interfaces;
   struct ifaddrs* ifaddr;

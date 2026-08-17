@@ -73,7 +73,7 @@ class BlockTransport final {
       const std::vector<int>& src_block_ids,
       const std::vector<int>& dst_block_ids, int parallelism,
       MajorOrder major_order, uint64_t uuid, int layer_idx,
-      std::function<void(absl::StatusOr<std::vector<int>>)> on_complete);
+      std::function<void(absl::StatusOr<std::vector<int>>)> raw_on_complete);
 
   // Synchronous Scatter-Gather Push (op = 1 / op = 6)
   absl::StatusOr<std::vector<int>> SyncPush(
@@ -104,23 +104,27 @@ class BlockTransport final {
   absl::Status PushBuffer(absl::string_view peer, size_t buffer_id,
                           size_t dst_shard_idx, size_t dst_offset_bytes,
                           const uint8_t* data_ptr, size_t size_bytes,
-                          uint64_t uuid = 0) {
-    return raw_transport_.PushBuffer(peer, buffer_id, dst_shard_idx,
-                                     dst_offset_bytes, data_ptr, size_bytes,
-                                     uuid);
-  }
+                          uint64_t uuid = 0);
 
   // Pushes a vector of buffers to multiple peers.
   absl::Status PushBuffers(const std::vector<BufferPushTask>& tasks,
-                           int parallelism, uint64_t uuid) {
-    return raw_transport_.PushBuffers(tasks, parallelism, uuid);
-  }
+                           int parallelism, uint64_t uuid);
 
   // Registers the expected number of chunks for the given `uuid`.
   // If the completed number of chunks is equal to the expected, it triggers
   // the delegate's `OnDataReceived()` H2D callback.
   absl::Status RegisterExpectedChunks(uint64_t uuid, uint32_t expected_chunks) {
     return raw_transport_.RegisterExpectedChunks(uuid, expected_chunks);
+  }
+
+  // Registers the per-layer expected number of chunks for the given `uuid`.
+  // When all chunks for a layer arrive, it triggers
+  // `OnLayerDataReceived(layer_idx, uuid)`.
+  absl::Status RegisterExpectedLayerChunks(
+      uint64_t uuid,
+      const absl::flat_hash_map<size_t, uint32_t>& expected_layer_chunks) {
+    return raw_transport_.RegisterExpectedLayerChunks(uuid,
+                                                      expected_layer_chunks);
   }
 
  private:
@@ -167,6 +171,14 @@ class BlockTransport final {
   absl::Status HandleIncomingPull(int client_fd,
                                   const lib::ChunkHeader& header);
 
+  absl::StatusOr<std::vector<int>> SyncPullInternal(
+      const std::vector<std::string>& peers,
+      const std::vector<int>& src_block_ids,
+      const std::vector<int>& local_block_ids,
+      const std::vector<uint8_t*>& explicit_dst_ptrs, int parallelism,
+      MajorOrder major_order, BlockReceivedCallback on_block_received,
+      uint64_t uuid);
+
   struct SendStreamState {
     int client_fd;
     uint64_t uuid;
@@ -189,17 +201,20 @@ class BlockTransport final {
   absl::Status HandleCustomRequest(int client_fd,
                                    const lib::ChunkHeader& header);
 
+  using SendMap =
+      absl::flat_hash_map<uint64_t, std::shared_ptr<SendStreamState>>;
+  using ProgressMap =
+      absl::flat_hash_map<std::pair<uint64_t, int>, LayerProgress>;
+
  private:
   BlockTransportDelegate* const block_delegate_;
   const int parallelism_;
 
   absl::Mutex active_sends_mu_;
-  absl::flat_hash_map<uint64_t, std::shared_ptr<SendStreamState>> active_sends_
-      ABSL_GUARDED_BY(active_sends_mu_);
+  SendMap active_sends_ ABSL_GUARDED_BY(active_sends_mu_);
 
   absl::Mutex progress_mu_;
-  absl::flat_hash_map<std::pair<uint64_t, int>, LayerProgress> layer_progress_
-      ABSL_GUARDED_BY(progress_mu_);
+  ProgressMap layer_progress_ ABSL_GUARDED_BY(progress_mu_);
 
   absl::Mutex scheduler_mu_;
   absl::CondVar scheduler_cv_;

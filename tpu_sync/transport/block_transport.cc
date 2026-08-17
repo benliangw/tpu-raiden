@@ -46,10 +46,13 @@
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/types/span.h"
-#include "tpu_raiden/core/status_macros.h"
-#include "tpu_sync/transport/lib/chunk_serializer.h"
+#include "tpu_sync/core/status_macros.h"
+#include "tpu_sync/telemetry/metrics_api.h"
+#include "tpu_sync/telemetry/metrics_backend.h"
 #include "tpu_sync/transport/block_transport_delegate.h"
+#include "tpu_sync/transport/buffer_push_task.h"
 #include "tpu_sync/transport/lib/chunk.h"
+#include "tpu_sync/transport/lib/chunk_serializer.h"
 #include "tpu_sync/transport/lib/raw_buffer_transport.h"
 #include "tpu_sync/transport/peregrine/src/api/socket_util.h"
 
@@ -66,6 +69,32 @@ using ::peregrine::ReadExact;
 using ::peregrine::ReadVExact;
 using ::peregrine::WriteExact;
 using ::peregrine::WriteVExact;
+using ::tpu_raiden::telemetry::MetricLabel;
+using ::tpu_raiden::telemetry::RaidenMetricStore;
+namespace metric_labels = ::tpu_raiden::telemetry::metric_labels;
+namespace metric_names = ::tpu_raiden::telemetry::metric_names;
+
+void RecordTransferFailure(const absl::Status& status,
+                           absl::string_view direction, uint64_t count = 1) {
+  RaidenMetricStore& store = RaidenMetricStore::GetGlobalMetricStore();
+  if (status.ok() || !store.HasBackends()) return;
+  const absl::string_view error_code =
+      absl::StatusCodeToStringView(status.code());
+  const MetricLabel labels[] = {
+      {metric_labels::kErrorCode, error_code},
+      {metric_labels::kDirection, direction},
+  };
+  store.IncrementCounter(metric_names::kTransferFailuresTotal, labels, count);
+}
+
+constexpr MetricLabel kPushLabels[] = {
+    {.key = metric_labels::kDirection, .value = metric_labels::kDirectionPush},
+};
+
+constexpr MetricLabel kPullResponseLabels[] = {
+    {.key = metric_labels::kDirection,
+     .value = metric_labels::kDirectionPullResponse},
+};
 
 constexpr uint8_t kUseBlockChunksFlag = 0x80;
 
@@ -187,6 +216,16 @@ BlockTransport::~BlockTransport() {
   scheduler_cv_.SignalAll();
   for (auto& t : socket_workers_) {
     if (t.joinable()) t.join();
+  }
+  {
+    absl::MutexLock lock(active_sends_mu_);
+    for (const auto& [uuid, state] : active_sends_) {
+      if (state && state->client_fd >= 0) {
+        shutdown(state->client_fd, SHUT_RDWR);
+      }
+    }
+    active_sends_mu_.Await(absl::Condition(
+        +[](const SendMap* s) { return s->empty(); }, &active_sends_));
   }
 }
 
@@ -332,6 +371,7 @@ absl::Status BlockTransport::HandleIncomingPush(
     RETURN_IF_ERROR(WriteExact(client_fd, &ack, 1));
   }
 
+  uint64_t total_received_bytes = 0;
   RETURN_IF_ERROR(ForEachPayload(
       major_order, target_layers, block_delegate_->num_shards(),
       header.count_or_size, [&](size_t l, size_t sh, size_t k) -> absl::Status {
@@ -378,9 +418,17 @@ absl::Status BlockTransport::HandleIncomingPush(
 
         if (expected_size > 0) {
           RETURN_IF_ERROR(ReadVExact(client_fd, ToIovec(chunks)));
+          total_received_bytes += expected_size;
         }
         return absl::OkStatus();
       }));
+
+  if (total_received_bytes > 0) {
+    // TODO: Add interface name (e.g. eth0, lo) using
+    // GetSocketLocalNic(client_fd) as a label key.
+    RaidenMetricStore::GetGlobalMetricStore().IncrementCounter(
+        metric_names::kReceivedBytesTotal, kPushLabels, total_received_bytes);
+  }
 
   // Unified receive accounting: one progress map and one increment path for
   // both contracts; only the expectation source and the completion callback
@@ -582,6 +630,13 @@ void BlockTransport::TriggerNextSendStep(
             return;
           }
 
+          if (total_size > 0) {
+            // TODO: Add interface name (e.g. eth0, lo) using
+            // GetSocketLocalNic(state->client_fd) as a label key.
+            RaidenMetricStore::GetGlobalMetricStore().IncrementCounter(
+                metric_names::kSentBytesTotal, kPullResponseLabels, total_size);
+          }
+
           state->current_step++;
           TriggerNextSendStep(state);
         });
@@ -636,7 +691,13 @@ void BlockTransport::AsyncPush(
     const std::vector<int>& src_block_ids,
     const std::vector<int>& dst_block_ids, int parallelism,
     MajorOrder major_order, uint64_t uuid, int layer_idx,
-    std::function<void(absl::StatusOr<std::vector<int>>)> on_complete) {
+    std::function<void(absl::StatusOr<std::vector<int>>)> raw_on_complete) {
+  auto on_complete = [raw_on_complete](absl::StatusOr<std::vector<int>> res) {
+    if (!res.ok()) {
+      RecordTransferFailure(res.status(), metric_labels::kDirectionPush);
+    }
+    raw_on_complete(std::move(res));
+  };
   size_t num_blocks = src_block_ids.size();
   if (num_blocks == 0) {
     on_complete(absl::InvalidArgumentError("Block list cannot be empty"));
@@ -720,6 +781,22 @@ void BlockTransport::AsyncPush(
 }
 
 absl::StatusOr<std::vector<int>> BlockTransport::SyncPull(
+    const std::vector<std::string>& peers,
+    const std::vector<int>& src_block_ids,
+    const std::vector<int>& local_block_ids,
+    const std::vector<uint8_t*>& explicit_dst_ptrs, int parallelism,
+    MajorOrder major_order, BlockReceivedCallback on_block_received,
+    uint64_t uuid) {
+  auto res =
+      SyncPullInternal(peers, src_block_ids, local_block_ids, explicit_dst_ptrs,
+                       parallelism, major_order, on_block_received, uuid);
+  if (!res.ok()) {
+    RecordTransferFailure(res.status(), metric_labels::kDirectionPull);
+  }
+  return res;
+}
+
+absl::StatusOr<std::vector<int>> BlockTransport::SyncPullInternal(
     const std::vector<std::string>& peers,
     const std::vector<int>& src_block_ids,
     const std::vector<int>& local_block_ids,
@@ -899,6 +976,7 @@ void BlockTransport::H2hWriteWorker(int stream_idx, absl::string_view peer,
     target_layers = {layer_idx};
   }
 
+  uint64_t stream_bytes_sent = 0;
   s = ForEachPayload(
       major_order, target_layers, block_delegate_->num_shards(), block_count,
       [&](size_t l, size_t sh, size_t k) -> absl::Status {
@@ -928,13 +1006,21 @@ void BlockTransport::H2hWriteWorker(int stream_idx, absl::string_view peer,
 
         RETURN_IF_ERROR(WriteExact(fd, &total_size, sizeof(total_size)));
         if (total_size > 0) {
-          return WriteVExact(fd, ToIovec(chunks));
+          RETURN_IF_ERROR(WriteVExact(fd, ToIovec(chunks)));
+          stream_bytes_sent += total_size;
         }
         return absl::OkStatus();
       });
   if (!s.ok()) {
     statuses[stream_idx] = s;
     return;
+  }
+
+  if (stream_bytes_sent > 0) {
+    // TODO: Add interface name (e.g.
+    // eth0, lo) using GetSocketLocalNic(fd) as a label key.
+    RaidenMetricStore::GetGlobalMetricStore().IncrementCounter(
+        metric_names::kSentBytesTotal, kPushLabels, stream_bytes_sent);
   }
 
   uint8_t ack = 0;
@@ -1011,6 +1097,7 @@ void BlockTransport::H2hReadWorker(
                       curr_local_count * SF});
   }
 
+  uint64_t stream_bytes_received = 0;
   for (const auto& chunk : chunks) {
     const int remote_read_block_id =
         block_delegate_->GetRemoteReadBlockId(chunk.base_remote_id, 0);
@@ -1130,6 +1217,7 @@ void BlockTransport::H2hReadWorker(
 
           if (expected_size > 0) {
             RETURN_IF_ERROR(ReadVExact(fd, ToIovec(chunks)));
+            stream_bytes_received += expected_size;
           }
 
           if (on_block_received != nullptr) {
@@ -1142,6 +1230,15 @@ void BlockTransport::H2hReadWorker(
       return;
     }
   }
+
+  if (stream_bytes_received > 0) {
+    // TODO: Add interface name (e.g. eth0, lo) using
+    // GetSocketLocalNic(fd) as a label key.
+    RaidenMetricStore::GetGlobalMetricStore().IncrementCounter(
+        metric_names::kReceivedBytesTotal, kPullResponseLabels,
+        stream_bytes_received);
+  }
+
   ok_to_pool = true;
 }
 
@@ -1157,6 +1254,29 @@ void BlockTransport::ForgetPushProgress(uint64_t uuid) {
       ++it;
     }
   }
+}
+
+absl::Status BlockTransport::PushBuffer(absl::string_view peer,
+                                        size_t buffer_id, size_t dst_shard_idx,
+                                        size_t dst_offset_bytes,
+                                        const uint8_t* data_ptr,
+                                        size_t size_bytes, uint64_t uuid) {
+  absl::Status status =
+      raw_transport_.PushBuffer(peer, buffer_id, dst_shard_idx,
+                                dst_offset_bytes, data_ptr, size_bytes, uuid);
+  if (!status.ok()) {
+    RecordTransferFailure(status, metric_labels::kDirectionPush);
+  }
+  return status;
+}
+
+absl::Status BlockTransport::PushBuffers(
+    const std::vector<BufferPushTask>& tasks, int parallelism, uint64_t uuid) {
+  absl::Status status = raw_transport_.PushBuffers(tasks, parallelism, uuid);
+  if (!status.ok()) {
+    RecordTransferFailure(status, metric_labels::kDirectionPush);
+  }
+  return status;
 }
 
 }  // namespace transport

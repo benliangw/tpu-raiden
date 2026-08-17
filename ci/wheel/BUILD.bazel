@@ -1,17 +1,3 @@
-# Copyright 2026 Google LLC.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 # Builds the tpu_raiden Python wheels — one per framework, so the JAX and Torch
 # stacks can be pinned/installed independently:
 #   //ci/wheel:raiden_jax_wheel    -> tpu_raiden_jax   (pulls jax/jaxlib)
@@ -29,7 +15,7 @@
 load("@nanobind_bazel//:build_defs.bzl", "nanobind_extension")
 load("@raiden_version//:version.bzl", "WHEEL_VERSION")
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
-load("@rules_python//python:defs.bzl", "py_library", "py_test")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 load("@rules_python//python:packaging.bzl", "py_package")
 load(":wheel.bzl", "raiden_framework_wheel")
 
@@ -68,9 +54,9 @@ COMMON_REQUIRES = [
 # it can be installed alongside torch_tpu/torch without dragging jax/jaxlib
 # (e.g. sglang / vLLM). torch itself is provided by the environment (TORCH_REQ).
 JAX_REQUIRES = COMMON_REQUIRES + [
-    "jax==0.10.2",
-    "jaxlib==0.10.2",
-    "libtpu==0.0.42.1",
+    "jax==0.11.0",
+    "jaxlib==0.11.0",
+    "libtpu==0.0.44",
 ]
 
 TORCH_REQUIRES = COMMON_REQUIRES + TORCH_REQ
@@ -85,43 +71,39 @@ COMMON_DEPS = [
 # JAX native extensions + wrappers + public API. (TransferEngine was merged into
 # KVCacheManager upstream, so there is no _transfer_engine target.)
 JAX_DEPS = [
-    "//tpu_raiden/frameworks/jax:_tpu_raiden_jax",
-    "//tpu_raiden/frameworks/jax:_kv_cache_manager_ffi",
-    "//tpu_raiden/frameworks/jax:_weight_synchronizer_ffi",
-    "//tpu_raiden/frameworks/jax:weight_synchronizer_ffi_py",
-    "//tpu_raiden/frameworks/jax:resharding_planner",
-    "//tpu_raiden/frameworks/jax:jax_test_utils",
-    "//tpu_raiden/api/jax:kv_cache_manager_jax_py",
-    "//tpu_raiden/api/jax:weight_synchronizer_jax_py",
+    "//tpu_sync/frameworks/jax:_tpu_raiden_jax",
+    "//tpu_sync/frameworks/jax:_kv_cache_manager_ffi",
+    "//tpu_sync/frameworks/jax:_weight_synchronizer_ffi",
+    "//tpu_sync/frameworks/jax:weight_synchronizer_ffi_py",
+    "//tpu_sync/frameworks/jax:resharding_planner",
+    "//tpu_sync/frameworks/jax:jax_test_utils",
+    "//tpu_sync/api/jax:kv_cache_manager_jax_py",
+    "//tpu_sync/api/jax:weight_synchronizer_jax_py",
 ]
 # Excluded (non-OSS internal grpc / global registry):
-# //tpu_raiden/api/jax:kv_cache_store depends on
-# //tpu_raiden/kv_cache:kv_cache_store -> //kv_cache/global_registry.
+# //tpu_sync/api/jax:kv_cache_store depends on
+# //tpu_sync/kv_cache:kv_cache_store -> //kv_cache/global_registry.
 
 # Torch native extensions + public API (require the torch_tpu module at build).
 # binary_launcher additionally bundles the global_registry_server and
 # kv_cache_host_store_node_main binaries as package data, so installing the
 # torch wheel is sufficient to run the GPC control plane and a host store
-# node (see TORCH_ENTRY_POINTS).
+# node.
 TORCH_DEPS = [
-    "//tpu_raiden/frameworks/torch:_tpu_raiden_torch",
-    "//tpu_raiden/api/torch:kv_cache_manager_torch_py",
-    "//tpu_raiden/api/torch:reshard_client",
-    "//tpu_raiden/api/torch:reshard_store",
-    "//tpu_raiden/api/torch:weight_synchronizer_torch_py",
-    "//tpu_raiden/core/controller:binary_launcher",
+    "//tpu_sync/frameworks/torch:_tpu_raiden_torch",
+    "//tpu_sync/api/torch:kv_cache_manager_torch_py",
+    "//tpu_sync/api/torch:reshard_client",
+    "//tpu_sync/api/torch:reshard_store",
+    "//tpu_sync/api/torch:weight_synchronizer_torch_py",
+    "//tpu_sync/core/controller:binary_launcher",
 ]
 
-# Torch wheel only: the JAX wheel keeps its historical exclusion of the
-# global-registry stack (see the note under JAX_DEPS). The scripts
-# deliberately reuse the cc_binary names, so an operator sees one name
-# everywhere: pip-installed environments and raw bazel-bin deployments.
 TORCH_ENTRY_POINTS = {
     "console_scripts": [
         "global_registry_server = " +
-        "tpu_raiden.core.controller.binary_launcher:global_registry_main",
+        "tpu_sync.core.controller.binary_launcher:global_registry_main",
         "kv_cache_host_store_node_main = " +
-        "tpu_raiden.core.controller.binary_launcher:host_store_node_main",
+        "tpu_sync.core.controller.binary_launcher:host_store_node_main",
     ],
 }
 

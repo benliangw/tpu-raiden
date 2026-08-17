@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package tpu_raiden.rpc;
+package tpu_sync.rpc;
 
 import "tpu_sync/rpc/raiden_service.proto";
 
@@ -49,6 +49,15 @@ message CoordinateTransferRequest {
   // len(dst_device_block_ids)). Empty with a single tag preserves the
   // legacy semantics (the whole list belongs to the one tag).
   repeated int32 dst_block_counts = 14;
+  // Per-tag destination clip: transfer only bytes >= dst_skip_bytes[i] of
+  // tag i's request-global destination byte space, re-based onto this
+  // transfer's (suffix) destination block list. Empty = all zeros (full
+  // transfer; wire-compatible). When present, length must equal
+  // transfer_pool_tags; each value must be a non-negative multiple of the
+  // tag's destination page live bytes; nonzero values are valid only for
+  // tags whose declarations use dst_space_version=1. The controller
+  // attaches no meaning beyond the byte arithmetic.
+  repeated int64 dst_skip_bytes = 15;
 }
 
 // One contiguous (or uniformly strided) byte copy between one source block

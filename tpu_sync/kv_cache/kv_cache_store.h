@@ -1,0 +1,807 @@
+// Copyright 2026 Google LLC.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#ifndef THIRD_PARTY_TPU_RAIDEN_KV_CACHE_KV_CACHE_STORE_H_
+#define THIRD_PARTY_TPU_RAIDEN_KV_CACHE_KV_CACHE_STORE_H_
+
+#include <atomic>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <string>
+#include <thread>  // NOLINT(build/c++11)
+#include <tuple>
+#include <utility>
+#include <vector>
+
+#include "absl/base/thread_annotations.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
+#include "absl/synchronization/mutex.h"
+#include "absl/time/time.h"
+#include "absl/types/span.h"
+#include "xla/tsl/concurrency/future.h"
+#include "tpu_sync/core/numa_thread_pool.h"
+#include "tpu_sync/core/raw_transfer_core.h"
+#include "tpu_sync/kv_cache/kv_cache_metadata.h"
+#include "tpu_sync/kv_cache/kv_cache_store_backend.h"
+#include "tpu_sync/kv_cache/kv_cache_store_backend_factory.h"
+#include "tpu_sync/kv_cache/kv_cache_store_server.h"
+#include "tpu_sync/kv_cache/lru_cache.h"
+#include "tpu_sync/kv_cache/raiden_id.h"
+#include "tpu_sync/kv_cache/reshard/reshard_service.h"
+
+namespace tpu_raiden {
+
+namespace controller {
+class RaidenController;
+}  // namespace controller
+
+namespace kv_cache {
+
+namespace global_registry {
+class GlobalRegistryClient;
+}
+
+class StoreMonitor;
+
+// KV Store that manages the indices and routing of prefix cache across serving
+// nodes and microservice slices.
+class KVCacheStore {
+ public:
+  friend class KVCacheStoreTest;
+
+  // NETWORK ADDRESSING (`store_server_ip`, `raiden_controller_port`)
+  //
+  // `store_server_ip` is the IP peers use to reach this node. It is
+  // BIND-AND-ADVERTISE: both this store's KVCacheStoreService and its
+  // RaidenController bind that interface, and it is the host published to the
+  // global registry. It must therefore be an IP this process can bind -- not a
+  // hostname, and not a NAT/service address. Ports are chosen by gRPC (the
+  // store server always; the controller when `raiden_controller_port` is 0),
+  // and the bound port is spliced into the advertised address. Note that the IP
+  // address of the RaidenController reuses `store_server_ip`.
+  //
+  // `store_server_ip` is MANDATORY and must not be a wildcard: `Create()`
+  // rejects an empty or wildcard value, and the raw constructors abort on it.
+  // Whether this store is discoverable is decided by the registry, not by this
+  // field -- with no `global_registry_address` no server is started at all.
+  //
+  // `expected_worker_count` > 0 makes construction block until that many
+  // workers have registered with the in-process RaidenController, and fail
+  // (Create() throws, the raw constructors abort the process via the
+  // controller's exception) if they have not all registered within
+  // RAIDEN_EXPECTED_WORKERS_TIMEOUT_S seconds (default 120). Callers whose
+  // workers register only after the store exists must leave it 0.
+
+  // Safe factory method to create KVCacheStore from a single BackendConfig.
+  static absl::StatusOr<std::unique_ptr<KVCacheStore>> Create(
+      const BackendConfig& config, size_t capacity = 0,
+      absl::string_view global_registry_address = "", RaidenId raiden_id = {},
+      int num_shards = 0, int64_t shard_size_bytes = 0,
+      absl::string_view store_server_ip = "", int raiden_controller_port = 0,
+      std::optional<KVCacheMetadata> metadata = std::nullopt,
+      int expected_worker_count = 0);
+
+  // Safe factory method to create KVCacheStore from a list of BackendConfigs.
+  static absl::StatusOr<std::unique_ptr<KVCacheStore>> Create(
+      absl::Span<const BackendConfig> backend_configs, size_t capacity = 0,
+      absl::string_view global_registry_address = "", RaidenId raiden_id = {},
+      int num_shards = 0, int64_t shard_size_bytes = 0,
+      absl::string_view store_server_ip = "", int raiden_controller_port = 0,
+      std::optional<KVCacheMetadata> metadata = std::nullopt,
+      int expected_worker_count = 0);
+
+  // Thin-store factory: hosts a RaidenController (expected_worker_count=0)
+  // and a ReshardService in WorkerDelivery::Mode::kController mode within a
+  // minimal KVCacheStore, eliminating the need for a separate sidecar
+  // binary. Workers register their WorkerService endpoints with the
+  // in-process controller; the coordinator dispatches reshard transfer
+  // programs over persistent gRPC channels directly to them.
+  static absl::StatusOr<std::unique_ptr<KVCacheStore>> CreateReshardStore(
+      RaidenId raiden_id, absl::string_view store_server_ip,
+      int raiden_controller_port = 0, int reshard_service_port = 0);
+
+  // Flexible constructor accepting a custom root backend
+  explicit KVCacheStore(std::shared_ptr<KVCacheStoreBackend> backend,
+                        RaidenId raiden_id = {}, int num_shards = 0,
+                        int64_t shard_size_bytes = 0,
+                        absl::string_view store_server_ip = "",
+                        int raiden_controller_port = 0,
+                        absl::string_view global_registry_address = "",
+                        int expected_worker_count = 0);
+
+  // Constructor accepting an ordered list of backends.
+  // `global_registry_address` is what this store publishes itself to. The
+  // backends may each hold their own registry client; this one belongs to the
+  // store, and without it the store cannot make itself discoverable.
+  explicit KVCacheStore(
+      std::vector<std::shared_ptr<KVCacheStoreBackend>> backends,
+      RaidenId raiden_id = {}, int num_shards = 0, int64_t shard_size_bytes = 0,
+      absl::string_view store_server_ip = "", int raiden_controller_port = 0,
+      absl::string_view global_registry_address = "",
+      int expected_worker_count = 0);
+
+  // Links RaidenController to all backends in backends_. Returns an error iff
+  // this store owns a store_server_ip and starting/publishing its server
+  // failed -- store initialization requires the store to be discoverable
+  // whenever the caller asked for one.
+  absl::Status SetRaidenController(
+      tpu_raiden::controller::RaidenController* controller);
+
+  // If `metadata` is provided, every LRU cache entry whose data lives in
+  // local host memory is mirrored into it, keeping a crash-persistent copy of
+  // the LRU cache in the caller's region (see KVCacheMetadata).
+  explicit KVCacheStore(size_t capacity,
+                        absl::string_view global_registry_address = "",
+                        RaidenId raiden_id = {}, int num_shards = 0,
+                        int64_t shard_size_bytes = 0,
+                        absl::string_view store_server_ip = "",
+                        int raiden_controller_port = 0,
+                        std::optional<KVCacheMetadata> metadata = std::nullopt,
+                        int expected_worker_count = 0);
+
+  // Test-only constructor for injecting mock controller
+  explicit KVCacheStore(
+      size_t capacity,
+      std::unique_ptr<tpu_raiden::controller::RaidenController>
+          raiden_controller,
+      absl::string_view global_registry_address = "", RaidenId raiden_id = {},
+      std::optional<KVCacheMetadata> metadata = std::nullopt,
+      absl::string_view store_server_ip = "");
+
+  // Create a reshard-only thin-store mode. The
+  // returned store owns nothing but a bound reshard::ReshardService — no
+  // offload backend, no global registry, no store gRPC server, and no
+  // RaidenController submodule. It serves as a sidecar substitution for
+  // the Python controller process; every full-store construction path above
+  // is untouched (their validation still requires backends + num_shards>=1).
+  static absl::StatusOr<std::unique_ptr<KVCacheStore>> CreateReshardSidecar(
+      int reshard_port, double request_registry_ttl_s);
+
+  // Non-null only for CreateReshardSidecar() stores (a full
+  // store gains the member when constructed with co-hosted resharding).
+  reshard::ReshardService* reshard_service() { return reshard_service_.get(); }
+
+  ~KVCacheStore();
+
+  KVCacheStore(const KVCacheStore&) = delete;
+  KVCacheStore& operator=(const KVCacheStore&) = delete;
+
+  // Authoritative KVCacheStore API implementations
+
+  // Checks the LRU cache for cached block hashes. Returns a list of all
+  // matched replica pairs (block hash and RaidenBlockID) encountered
+  // in sequence prior to the first miss.
+  // If enable_global is true, it will query the global registry for any
+  // misses after the local lookup. Defaults to false: the registry query is a
+  // blocking RPC, so a caller that only wants to know what is resident locally
+  // should not pay for one by omission.
+  //
+  // PINS every hash it returns, one pin each, so the answer cannot be evicted
+  // between being given and being used. The operation the caller goes on to
+  // perform consumes that pin -- Load() drops it on a successful local load,
+  // Save() on success. A caller that only wanted to observe residency, and
+  // performs neither, must Release() what it was given; the LookupOptions
+  // overload with pin_found = false is the way to observe without acquiring.
+  //
+  // Registry-only hits are not pinned: they name a block on another node, and
+  // there is nothing here to hold.
+  absl::StatusOr<BlockSliceList> Lookup(
+      const std::vector<std::string>& block_hashes, bool enable_global = false);
+
+  // Overload accepting LookupOptions for granular control. Unlike the overload
+  // above, pin_found defaults to false here, so this is what internal callers
+  // and pure observers use.
+  absl::StatusOr<BlockSliceList> Lookup(
+      const std::vector<std::string>& block_hashes,
+      const LookupOptions& options);
+
+  // Caches sharded buffers into host-RAM/HBM backing store.
+  // Returns:
+  // - bool: whether all blocks were successfully inserted (i.e. none already
+  // existed)
+  // - BlockSliceList: list of entries evicted from the LRU cache during
+  // insertion
+  std::pair<bool, BlockSliceList> Insert(
+      const std::vector<std::string>& block_hashes,
+      const std::vector<RaidenBlockID>& slices, bool on_host);
+
+  // Pins all existing block hashes, and inserts and locks new block hashes if
+  // there is sufficient available space in the LRU cache.
+  // New items are inserted in reverse order to ensure tail blocks are evicted
+  // first. Returns:
+  // - bool: whether the entire InsertAndLock operation succeeded (i.e. all
+  //         existing keys were locked, all new keys inserted and locked)
+  bool InsertAndLock(const std::vector<std::string>& block_hashes,
+                     const std::vector<RaidenBlockID>& slices, bool on_host);
+
+  // Reverts an InsertAndLock operation by unlocking all block_hashes in the
+  // LRU cache, deleting any block_hash NOT in HOST or HOST_AND_HBM status
+  // whose pin count is 0, and restoring evicted entries from the LRU cache's
+  // candidate list for each deleted block.
+  // Returns:
+  // - size_t: number of blocks deleted
+  size_t ReleaseAndDelete(const std::vector<std::string>& block_hashes);
+
+  // Deletes cached sharded buffers from host-RAM/HBM backing store entirely.
+  void Delete(const std::vector<std::string>& block_hashes,
+              const std::vector<RaidenBlockID>& slices);
+
+  // Evicts host blocks by their logical block hashes.
+  //
+  // Checks if the blocks exist in the cache and are in HOST or HOST_AND_HBM
+  // status and erases them from the cache. Pinned entries are skipped.
+  // Releases the host blocks via RaidenController and unregisters them from
+  // GlobalRegistry (this store's own registrations only).
+  //
+  // This is the caller-driven counterpart to the automatic LRU eviction that
+  // AllocateBlockIds performs under admission pressure: a caller that has
+  // handed blocks to a peer via a remote Save (proactive eviction) uses it to
+  // free its local copies once the peer's copy is committed and published.
+  //
+  // Input: `block_hashes` - list of block hashes to evict.
+  // Output: Number of successfully evicted host blocks.
+  size_t Evict(const std::vector<std::string>& block_hashes);
+
+  // Pins cached block hashes in memory, protecting them against LRU eviction
+  // while in active use. Returns true if all keys exist and were successfully
+  // pinned.
+  bool Pin(const std::vector<std::string>& block_hashes);
+
+  // Releases previously pinned block hashes (a.k.a. Unpin), making them
+  // eligible for LRU eviction when capacity is exceeded.
+  // The blocks are released in reversed order internally to ensure that the
+  // last blocks (tails of sequences) are evicted first.
+  void Release(const std::vector<std::string>& block_hashes);
+
+  // Saves blocks out of this node's HBM, asynchronously. Where to depends on
+  // `dst_raiden_id`:
+  //
+  //   absent  -- LOCAL save, device (HBM) to host (DRAM). Requires each block
+  //              to be HBM-resident here.
+  //   present -- REMOTE save: offer the blocks to that peer, which takes its
+  //              own copy. Requires each block to be HOST-resident here
+  //              already, because the bytes are pulled out of host DRAM. There
+  //              is no two-hop: a block only in HBM must be saved locally
+  //              first.
+  //
+  // Both kinds are polled with PollSaveStatus().
+  //
+  // PIN CONTRACT: every hash must be pinned on entry -- Lookup() grants that
+  // pin for a remote save, Insert() for a local one -- and a SUCCESSFUL save
+  // consumes exactly one pin per hash. The caller does not release afterwards.
+  // A FAILED save does not consume it: the entry stays pinned so the caller
+  // can retry or release deliberately.
+  //
+  // A remote save also takes a SEPARATE internal pin for as long as the
+  // destination may still be reading, released when the operation goes
+  // terminal or the HOLD expires. That one is not the caller's.
+  //
+  // A remote save requires a global registry at both ends: that is how the
+  // destination is resolved, and how the blocks become reachable once they
+  // land.
+  //
+  // IMPORTANT: a remote destination allocates landing blocks from FREE blocks
+  // only and never evicts to make room, so a peer with a warm cache refuses
+  // every offer with RESOURCE_EXHAUSTED. Destination-side eviction is
+  // separate, unimplemented work.
+  absl::Status Save(const std::vector<std::string>& block_hashes,
+                    const std::optional<RaidenId>& dst_raiden_id = std::nullopt);
+
+  // Asynchronously loads KV cache blocks to device (HBM) from local host DRAM.
+  //
+  // `device_block_ids` is the destination and must name one device block per
+  // hash.
+  //
+  // PIN CONTRACT: every hash must be pinned on entry -- Lookup() is what
+  // normally grants that pin -- and a SUCCESSFUL load consumes exactly one pin
+  // per hash. The caller does not release afterwards.
+  //
+  // A FAILED load does not: the entry stays pinned so the caller can retry, or
+  // release it deliberately. Deciding to give up is the caller's, not this
+  // store's.
+  absl::Status Load(absl::Span<const std::string> block_hashes,
+                    absl::Span<const int> device_block_ids);
+
+  // Asynchronously loads KV cache blocks to device (HBM), either from local
+  // host DRAM or from a peer.
+  //
+  // ONE CALL IS ONE SOURCE. Every block in a batch must carry the same status,
+  // and remote blocks must all refer to the same peer.
+  //
+  // `device_block_ids` is the destination and must name one device block per
+  // hash.
+  //
+  // If `slices` is non-empty, the caller's pre-looked up RaidenBlockIDs are
+  // used directly. Remote loads re-resolve hashes at the peer, ignoring the
+  // rest of `slices`.
+  //
+  // PIN CONTRACT, same as the overload above and now enforced the same way:
+  //   local source  -- every hash must be pinned on entry, and a successful
+  //                    load consumes one pin per hash.
+  //   remote source -- no pin is required and none is consumed. A hash
+  //                    resolved only through the registry never entered the
+  //                    local index, so there is nothing here to have pinned,
+  //                    and a load from a peer records nothing either.
+  absl::Status Load(absl::Span<const std::string> block_hashes,
+                    absl::Span<const RaidenBlockID> slices,
+                    absl::Span<const int> device_block_ids);
+
+  int GetPinCount(const std::string& hash) const;
+
+  // Source-side ReadRemote (All-or-Nothing validate & pin block hashes at the
+  // src controller): verifies ALL block_hashes exist in the LRU with status
+  // HOST/HOST_AND_HBM and pins them (all-or-nothing: any miss rolls back and
+  // aborts). On success returns the authoritative source host_block_ids
+  // (re-derived from the LRU). NotFound => a hash is absent
+  // (BLOCK_HASH_NOT_FOUND); FailedPrecondition => present but not
+  // host-resident. Registered as a hook on the RaidenController so a peer's
+  // ReadRemote RPC can reach this store's LRU. Public for testability.
+  absl::StatusOr<std::vector<int32_t>> ValidateAndPinHostBlocks(
+      absl::Span<const std::string> block_hashes);
+  // Releases the pins taken by ValidateAndPinHostBlocks.
+  void UnpinHostBlocks(absl::Span<const std::string> block_hashes);
+
+  size_t capacity() const;
+
+  // Number of entries currently held, eviction candidates included (a
+  // candidate still holds its host block, so it counts toward occupancy).
+  size_t size() const;
+
+  // The coldest unpinned entries in true eviction order -- candidates
+  // first, then the LRU tail -- up to `count`. Read-only: recency is not
+  // perturbed. Intended for planning proactive eviction (WriteRemote to a
+  // peer): note that candidates are Lookup-invisible and unreadable to
+  // peers, so probe with Lookup before offering what this returns.
+  std::vector<std::string> GetEvictableKeys(size_t count);
+
+  std::string raiden_controller_address() const;
+
+  // "host:port" of this store's KVCacheStoreService, as published to the
+  // global registry. Empty when this store has no registry configured, since
+  // that is exactly when no server is started -- not when `store_server_ip`
+  // was omitted, which is now a construction error.
+  std::string store_server_address() const { return store_server_address_; }
+
+  // The store server this node serves peers from, or nullptr if it has none.
+  // Owned either by this store or by whichever backend hosts it.
+  KVCacheStoreServer* store_server() const { return store_server_; }
+
+  const std::vector<std::shared_ptr<KVCacheStoreBackend>>& backends() const {
+    return backends_;
+  }
+
+  const std::shared_ptr<KVCacheStoreBackend>& backend() const {
+    return backends_[0];
+  }
+
+  const RaidenId& raiden_id() const { return raiden_id_; }
+
+  tpu_raiden::controller::RaidenController* raiden_controller() const {
+    return raiden_controller_.get();
+  }
+
+  // Polls the status of all active/inflight Save operations, local and remote.
+  // For local saves it iterates pending futures, updates cache metadata to
+  // HOST_AND_HBM on success and deallocates host blocks on failure; for remote
+  // saves it asks each destination for a verdict.
+  //
+  // Returns {done, failed, pending, existing, unregistered}. The last two are
+  // annotations on REMOTE failures, not separate outcomes -- a hash in either
+  // also appears in `failed` -- and they exist because this store never
+  // decides on the caller's behalf:
+  //
+  //   existing:     the destination already held these, so it refused the
+  //                 batch. Reissuing with the remainder is the caller's call.
+  //                 The destination re-published them to the global registry
+  //                 before answering (a refused offer with an unpublishable
+  //                 copy fails instead), so like `done` these are
+  //                 registry-findable on the peer and a caller may drop its
+  //                 own copy of exactly these hashes.
+  //   unregistered: the destination HAS these -- the transfer succeeded -- but
+  //                 could not publish them, so no peer can find them. Reported
+  //                 as failed because the safe default is for the caller to
+  //                 keep its own copy. A caller that only needed the peer to
+  //                 have the bytes may treat it as success; one that was about
+  //                 to free its copy must not.
+  //
+  // Both lists are empty for local saves.
+  //
+  // `pending` means different things on the two paths, and the difference is
+  // worth knowing before waiting on it: for a local save it is bounded by a
+  // DMA, for a remote one by the destination answering or the ~30s HOLD
+  // window elapsing.
+  //
+  // Terminal results are drained on read.
+  struct PollSaveStatusResult {
+    std::vector<std::string> done;
+    std::vector<std::string> failed;
+    std::vector<std::string> pending;
+    std::vector<std::string> existing;
+    std::vector<std::string> unregistered;
+  };
+  PollSaveStatusResult PollSaveStatus();
+
+  // Polls the status of all active/inflight Load operations.
+  // Updates cache metadata upon successful H2D transfers:
+  //   - Loaded from local host DRAM -> HOST_AND_HBM
+  //   - Loaded from a peer          -> nothing is recorded at all.
+  //
+  // A peer load leaves no entry because there is nothing here to describe: no
+  // local host copy is kept, so the entry could only say HBM with
+  // host_block_id -1 -- which Evict cannot reclaim (it takes HOST and
+  // HOST_AND_HBM only) and which nothing would ever remove. A later lookup()
+  // of such a hash is therefore a miss, and the caller's own block manager is
+  // what remembers it already owns the device block.
+  //
+  struct PollLoadStatusResult {
+    std::vector<std::string> done;
+    std::vector<std::string> failed;
+    std::vector<std::string> pending;
+  };
+  PollLoadStatusResult PollLoadStatus();
+
+  // Launches an async receiver-initiated read of REMOTE blocks from their
+  // owning peers straight into local HBM. Returns as soon as the reads are
+  // issued; poll with PollRemoteReadStatus().
+  //
+  // The caller supplies the source coordinates directly: `slices[i]` is the
+  // REMOTE RaidenBlockID for `block_hashes[i]`, and only two of its fields are
+  // read -- `raiden_id` (which peer owns the block) and `host_block_id` (which
+  // block on that peer). A lookup() answer can be passed straight through.
+  //
+  // This store's LRU is not consulted and not modified. The hashes need not be
+  // present locally and need not be pinned, nothing is inserted on success,
+  // and nothing is left behind on failure. The bytes land ONLY in the caller's
+  // device blocks; the host blocks this call allocates are pure staging and
+  // are returned to the pool on both the success and the failure path. No
+  // local host copy is retained, so a later local load() of the same hash is
+  // still a miss.
+  //
+  // device_block_ids is mandatory and must match block_hashes in size, as must
+  // slices; any other size is InvalidArgument.
+  //
+  // The device blocks are written before the source's verdict is known, so on
+  // failure their contents are UNDEFINED -- treat them as scratch until the
+  // read reports success.
+  //
+  // Compare with Load(): both bring a peer's block into local HBM. Load()
+  // fetches through the store's own path and is the right call when the hash
+  // may be resident locally; ReadRemote() takes a lease on the source and is
+  // the right call when the caller already knows the source coordinates and
+  // wants no local record of the transfer.
+  //
+  // Requires a global registry: it is what maps the owning peer to the
+  // controller address this store acquires its read lease from. A store built
+  // without one fails every read with FailedPrecondition.
+  absl::Status ReadRemote(const std::vector<std::string>& block_hashes,
+                          const std::vector<RaidenBlockID>& slices,
+                          const std::vector<int32_t>& device_block_ids);
+
+  // Polls status of active remote reads.
+  // Returns {done_hashes, failed_hashes, pending_hashes}
+  std::tuple<std::vector<std::string>, std::vector<std::string>,
+             std::vector<std::string>>
+  PollRemoteReadStatus();
+
+  // L3 spill: this store autonomously hands its coldest unpinned
+  // host-resident entries to `dst_raiden_id` via a remote save once occupancy
+  // crosses `watermark`, and evicts the local copy of every hash the peer
+  // confirms (committed, or already held -- the destination re-publishes
+  // existing entries before vouching for them, so both verdicts imply a
+  // registry-findable peer copy). A later Lookup with enable_global resolves
+  // the hash REMOTE through the registry and ReadRemote restores it into the
+  // caller's device blocks, so the peer's DRAM acts as an L3 tier behind this
+  // host's pool.
+  //
+  // The policy runs on its own thread (started by ConfigureL3Spill): one
+  // batch in flight at a time, selection from the LRU tail (candidates
+  // excluded -- they are Lookup-invisible, so a peer's read could never
+  // validate them; in-flight saves and loads hold pins and so never appear),
+  // and a cooldown after a batch that confirmed nothing, so a refusing peer
+  // is not hammered.
+  struct L3SpillOptions {
+    // The peer store to offer cold blocks to. Must not be this store.
+    RaidenId dst_raiden_id;
+    // Fraction of capacity at which spilling arms.
+    double watermark = 0.9;
+    // Kernel blocks offered per remote-save batch.
+    size_t max_blocks_per_batch = 64;
+    // Back-off after a batch in which the peer confirmed nothing.
+    absl::Duration cooldown = absl::Seconds(2);
+  };
+
+  // Enables the L3 spill. Requires a global registry (the peer is resolved
+  // through it, and spilled blocks are only findable once published there).
+  absl::Status ConfigureL3Spill(L3SpillOptions options);
+
+  // Cumulative L3 spill counters, all in kernel blocks. The policy runs on
+  // the store's own thread, so this is the only way an embedding process can
+  // observe spill progress without scraping this store's logs.
+  struct L3SpillStats {
+    bool enabled = false;
+    // Batches handed to the remote-save path / kernel blocks in them.
+    size_t batches_launched = 0;
+    size_t blocks_offered = 0;
+    // Peer-confirmed (committed or already held, either way
+    // registry-findable there) / local copies actually evicted on confirm.
+    size_t blocks_peer_confirmed = 0;
+    size_t blocks_evicted = 0;
+    // Batches that finished with nothing confirmed, and batches the launch
+    // refused; both trigger the cooldown back-off.
+    size_t empty_batches = 0;
+    size_t launch_failures = 0;
+  };
+  L3SpillStats GetL3SpillStats() const;
+
+  // Rebuilds this store's LRU cache after an engine restart from the
+  // crash-persistent KVCacheMetadata table in local shared memory, without
+  // consulting the global registry.
+  //
+  // - Requires a raiden controller, an attached metadata table, and an empty
+  //   LRU cache.
+  // - Allocates the recorded host block IDs in the controller, then
+  //   repopulates the LRU cache with unpinned HOST entries in
+  //   ascending-seq order (oldest first).
+  // - Entries exceeding the LRU cache capacity overflow into eviction
+  //   candidates, keeping their blocks and metadata entries.
+  // - The seq counter resumes past the largest recovered stamp.
+  // - If two blocks claim the same hash, the entry with the largest seq is
+  //   the newest binding and wins; stale ones are not recovered and are
+  //   cleared from the table.
+  // - On any failure the store and the table are left untouched so the
+  //   caller can fall back to a cold start.
+  //
+  // Returns the number of recovered blocks.
+  absl::StatusOr<size_t> RecoverFromLocalManifest();
+
+ private:
+  // Tag for the W1 reshard-only construction (no backends, no wiring).
+  struct ReshardSidecarTag {};
+  explicit KVCacheStore(ReshardSidecarTag);
+
+  explicit KVCacheStore(
+      std::vector<std::shared_ptr<KVCacheStoreBackend>> backends,
+      RaidenId raiden_id,
+      std::unique_ptr<controller::RaidenController> raiden_controller,
+      absl::string_view store_server_ip = "",
+      absl::string_view global_registry_address = "");
+
+  // Registers ValidateAndPinHostBlocks/UnpinHostBlocks as ReadRemote step-6a
+  // hooks on raiden_controller_ (no-op if there is no controller).
+  void RegisterReadRemoteHooks();
+
+  struct SaveState {
+    tsl::Future<> future;
+    std::vector<std::string> block_hashes;
+    std::vector<int> host_block_ids;
+  };
+
+  struct LoadState {
+    tsl::Future<> future;
+    std::vector<std::string> block_hashes;
+    std::vector<int> device_block_ids;
+    // Whether the source was a peer. Decided at submit time and carried here
+    // because the poller cannot re-derive it: a remote load records nothing
+    // locally, so by completion there is no entry to read a status off.
+    bool from_remote = false;
+  };
+
+  struct RemoteReadState {
+    std::vector<std::string> block_hashes;
+    // The peers this batch read from. Carried so a failed read can drop their
+    // cached controller addresses -- the poller is where failure is observed,
+    // and by then the grouping is gone.
+    std::vector<RaidenId> src_raiden_ids;
+    // The local staging blocks the bytes hop through on their way to HBM. They
+    // live HERE and nowhere else: no LRU entry ever points at them, so the
+    // poller returns them to the pool on both the success and the failure
+    // path. The caller's device blocks are not tracked -- once the transfer is
+    // terminal this store has no further interest in them.
+    std::vector<int> host_block_ids;
+  };
+
+  struct FutureHash {
+    size_t operator()(const tsl::Future<>& f) const {
+      return reinterpret_cast<size_t>(f.async_value());
+    }
+  };
+
+  struct FutureEqual {
+    bool operator()(const tsl::Future<>& lhs, const tsl::Future<>& rhs) const {
+      return lhs.async_value() == rhs.async_value();
+    }
+  };
+
+  // Starts (if needed) the peer-facing store server, computes
+  // store_server_address_, and publishes it to the global registry.
+  // Idempotent: SetRaidenController may be called more than once, and Create
+  // calls it again after construction. With no registry_client_, this is
+  // a no-op -- no server is started anywhere. Returns an error iff a registry
+  // is configured and starting or publishing the server failed.
+  absl::Status EnsureStoreServerAndRegister(
+      tpu_raiden::controller::RaidenController* controller);
+
+  // Shuts down every server hosted by one of backends_, skipping
+  // `already_shut` (the adopted server, when this store had one). Called from
+  // the destructor body, where raiden_controller_ is still alive: a running
+  // service holds it in a pointer it cannot re-seat.
+  void ShutdownBackendStoreServers(KVCacheStoreServer* already_shut);
+
+  mutable absl::Mutex mutex_;
+  std::vector<std::shared_ptr<KVCacheStoreBackend>> backends_;
+  std::shared_ptr<global_registry::GlobalRegistryClient> registry_client_;
+  RaidenId raiden_id_;
+  std::unique_ptr<tpu_raiden::controller::RaidenController> raiden_controller_;
+
+  // The store-owned reshard control plane (thin sidecar mode).
+  // Never constructed by the full-store paths today.
+  std::unique_ptr<reshard::ReshardService> reshard_service_;
+
+  // The IP peers reach this node on. Never empty and never a wildcard --
+  // construction rejects both.
+  std::string store_server_ip_;
+  // Advertised "host:port" of store_server_, empty until it is started.
+  std::string store_server_address_;
+  // Non-owning. Points either into owned_store_server_ or at a server owned by
+  // one of backends_.
+  KVCacheStoreServer* store_server_ = nullptr;
+  // Set only when no backend hosts a store server and this store made its own.
+  std::unique_ptr<KVCacheStoreServer> owned_store_server_;
+  // True once this store published itself, so teardown knows to unpublish.
+  bool registered_in_global_registry_ = false;
+
+  // Registration attributes from the tier-0 BackendConfig.
+  std::string kv_pool_group_;
+  int32_t evict_tier_ = 0;
+  bool enable_store_monitor_ = false;
+  absl::Duration store_monitor_heartbeat_period_ = absl::ZeroDuration();
+  // Constructed and started at the end of Create when enabled; stopped first
+  // thing in the destructor, before anything its callbacks touch goes away.
+  std::unique_ptr<StoreMonitor> store_monitor_;
+
+  struct RemoteWriteState {
+    RaidenId dst_raiden_id;
+    uint64_t operation_id = 0;
+    std::vector<std::string> block_hashes;
+    // When this source stops protecting the blocks and gives up, whatever the
+    // destination is doing. Must outlive the deadline the destination granted,
+    // or this store would unpin while the destination could still legitimately
+    // commit bytes read out of blocks it has released.
+    absl::Time hold_expiry;
+    // An L3 spill batch: outcomes are consumed internally (confirm -> evict)
+    // instead of surfacing through the public remote-write poll queues.
+    bool l3_spill = false;
+  };
+
+  std::vector<SaveState> active_saves_ ABSL_GUARDED_BY(mutex_);
+  std::vector<LoadState> active_loads_ ABSL_GUARDED_BY(mutex_);
+  absl::flat_hash_map<tsl::Future<>, RemoteReadState, FutureHash, FutureEqual>
+      active_remote_reads_ ABSL_GUARDED_BY(mutex_);
+
+  std::vector<RemoteWriteState> active_remote_writes_ ABSL_GUARDED_BY(mutex_);
+  // Operations a poller has claimed and is currently asking the destination
+  // about. Polling drops mutex_ to make that RPC, so without a claim two
+  // concurrent pollers both see the same operation as committed, both call
+  // FinishRemoteWrite, and the internal pin is released twice while the hashes
+  // are reported twice.
+  absl::flat_hash_set<uint64_t> polling_remote_writes_ ABSL_GUARDED_BY(mutex_);
+  std::vector<std::string> done_remote_writes_ ABSL_GUARDED_BY(mutex_);
+  std::vector<std::string> failed_remote_writes_ ABSL_GUARDED_BY(mutex_);
+  std::vector<std::string> existing_remote_writes_ ABSL_GUARDED_BY(mutex_);
+  std::vector<std::string> unregistered_remote_writes_ ABSL_GUARDED_BY(mutex_);
+
+  std::vector<std::string> done_saves_ ABSL_GUARDED_BY(mutex_);
+  std::vector<std::string> failed_saves_ ABSL_GUARDED_BY(mutex_);
+  std::vector<std::string> done_loads_ ABSL_GUARDED_BY(mutex_);
+  std::vector<std::string> failed_loads_ ABSL_GUARDED_BY(mutex_);
+  std::vector<std::string> done_remote_reads_ ABSL_GUARDED_BY(mutex_);
+  std::vector<std::string> failed_remote_reads_ ABSL_GUARDED_BY(mutex_);
+
+  // In-flight saves of BOTH kinds. Local and remote saves were tracked
+  // separately, which was safe only by accident: a local save requires the
+  // block in HBM and a remote one requires it in host DRAM, so the two sets
+  // could not overlap. One set makes that explicit and, more usefully, makes
+  // "already saving" mean it whichever kind is in flight.
+  absl::flat_hash_set<std::string> saving_hashes_ ABSL_GUARDED_BY(mutex_);
+  absl::flat_hash_set<std::string> loading_hashes_ ABSL_GUARDED_BY(mutex_);
+  // Peer -> its RaidenController address, as last resolved from the global
+  // registry. Read on the prefill path, so it is worth not paying a registry
+  // round trip per read.
+  //
+  // Every entry is dropped as soon as a read against that peer FAILS, for any
+  // reason. That looks over-broad -- a revoked lease or a transfer error says
+  // nothing about the address -- and it is deliberate: an unnecessary
+  // invalidation costs one resolve on the next read, while a missed one leaves
+  // a peer that restarted on a new port unreachable for the life of this
+  // process. That was the shape of the bug this cache replaced, and it is the
+  // reason the old one had to go.
+  //
+  // Consequence worth knowing: the first read after a peer restarts still
+  // fails, on the stale address, and the retry is what succeeds.
+  absl::flat_hash_map<RaidenId, std::string, RaidenIdHash>
+      resolved_peer_controllers_ ABSL_GUARDED_BY(mutex_);
+
+  absl::flat_hash_set<std::string> reading_hashes_ ABSL_GUARDED_BY(mutex_);
+
+  // L3 spill policy state; nullopt disables the spill entirely. One batch
+  // in flight at a time, launched and consumed on the spill's own thread
+  // (started by ConfigureL3Spill) so a slow or hung peer can never stall
+  // the completion poller that save/load/read_remote depend on.
+  std::optional<L3SpillOptions> l3_spill_options_ ABSL_GUARDED_BY(mutex_);
+  bool l3_spill_in_flight_ ABSL_GUARDED_BY(mutex_) = false;
+  absl::Time l3_next_spill_ ABSL_GUARDED_BY(mutex_) = absl::InfinitePast();
+  L3SpillStats l3_spill_stats_ ABSL_GUARDED_BY(mutex_);
+
+  std::unique_ptr<std::thread> poller_thread_;
+  std::unique_ptr<std::thread> l3_spill_thread_;
+  std::unique_ptr<tpu_raiden::NumaThreadPool> write_through_pool_;
+  std::atomic<bool> stop_poller_{false};
+
+  absl::StatusOr<std::vector<int>> AllocateBlockIds(int needed);
+  void DeallocateBlockIds(absl::Span<const int> block_ids);
+
+  // The two halves of Save(), split by destination. Save() validates nothing
+  // itself -- each half has its own residency and pin preconditions, and they
+  // are genuinely different operations sharing a name and a status queue.
+  absl::Status SaveLocal(const std::vector<std::string>& block_hashes);
+  absl::Status SaveRemote(const std::vector<std::string>& block_hashes,
+                          const RaidenId& dst_raiden_id);
+
+  // Asks the destination what became of each accepted offer, and gives up on
+  // any whose HOLD has expired. Polls only operations whose l3_spill flag
+  // matches: the completion poller consumes the public remote-save
+  // operations, the L3 spill thread consumes its own, and neither can stall
+  // the other on a slow peer.
+  void PollRemoteWritesInternal(bool l3_spill);
+
+  // Releases this store's internal pin and clears saving_hashes_. Called once
+  // per operation, whichever way it ends.
+  void FinishRemoteWrite(const RemoteWriteState& state, bool succeeded,
+                         std::vector<std::string> existing,
+                         std::vector<std::string> unregistered = {});
+
+  // SaveRemote body; l3_spill tags the operation's states so its outcomes
+  // route to the spill consumer instead of the public poll queues. A spill
+  // batch skips the caller-pin requirement: its per-hash resolve takes the
+  // one pin the operation holds.
+  absl::Status SaveRemoteInternal(const std::vector<std::string>& block_hashes,
+                                  const RaidenId& dst_raiden_id, bool l3_spill);
+
+  // One L3 spill step, run from the spill thread: launches at most one
+  // remote-save batch of the coldest active host-resident entries when
+  // occupancy is at or above the watermark.
+  void MaybeSpillL3();
+
+  void PollerLoop();
+  // The L3 spill thread body: launches spill batches and polls their
+  // outcomes. Kept off PollerLoop because both steps block on peer RPCs.
+  void L3SpillLoop();
+  void PollSavesInternal(std::vector<SaveState> ready_saves);
+  void PollLoadsInternal(std::vector<LoadState> ready_loads);
+  void PollRemoteReadsInternal(
+      std::vector<std::pair<tsl::Future<>, RemoteReadState>>
+          ready_remote_reads);
+  void PollFuturesInternal();
+};
+
+}  // namespace kv_cache
+}  // namespace tpu_raiden
+
+#endif  // THIRD_PARTY_TPU_RAIDEN_KV_CACHE_KV_CACHE_STORE_H_

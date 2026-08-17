@@ -18,7 +18,6 @@ import asyncio
 import dataclasses
 import enum
 import functools
-import json
 import logging
 import math
 import os
@@ -29,7 +28,7 @@ import time
 import typing
 from typing import Any, Optional
 
-from tpu_raiden.kv_cache import nd_slice_math
+from tpu_sync.kv_cache import nd_slice_math
 from tpu_sync.rpc import controller_service_pb2
 from tpu_sync.rpc import raiden_service_pb2
 
@@ -46,6 +45,7 @@ class _VariableMetadata:
 
 
 def to_physical(logical_shape, logical_mesh_shape, minor_to_major):
+  """Maps logical tensor and mesh shapes to physical memory layout."""
   logical_shape = list(logical_shape)
   logical_mesh_shape = list(logical_mesh_shape)
   minor_to_major = list(minor_to_major)
@@ -169,6 +169,19 @@ def _get_global_indices(
       for axis_name in sharding_spec:
         if not axis_name:
           tensor_coords.append(0)
+        elif "," in axis_name:
+          sub_axes = [a.strip() for a in axis_name.split(",") if a.strip()]
+          coord = 0
+          for sub_a in sub_axes:
+            try:
+              phys_axis_idx = mesh_axes.index(sub_a)
+              sub_size = physical_mesh_shape[phys_axis_idx]
+              coord = coord * sub_size + phys_coords[phys_axis_idx]
+            except ValueError:
+              logging.warning(
+                  "Sub-spec axis %s not found in mesh axes %s", sub_a, mesh_axes
+              )
+          tensor_coords.append(coord)
         else:
           try:
             phys_axis_idx = mesh_axes.index(axis_name)
@@ -292,6 +305,12 @@ class TransferPlan:
   )
   skip_d2h: bool = False
   skip_tiling: dict[int, bool] = dataclasses.field(default_factory=dict)
+  expected_layer_chunk_counts: dict[int, int] = dataclasses.field(
+      default_factory=dict
+  )
+  dst_expected_layer_chunk_counts: dict[RaidenId, dict[int, int]] = (
+      dataclasses.field(default_factory=dict)
+  )
 
 
 def _coerce_pool_spec_proto(pool: Any) -> Any:
@@ -593,6 +612,12 @@ class WorkerRpcClient:
     for layer_idx, skip in transfer_plan.skip_tiling.items():
       start_req.skip_tiling[layer_idx] = skip
 
+    layer_counts = transfer_plan.dst_expected_layer_chunk_counts.get(
+        target_id, transfer_plan.expected_layer_chunk_counts
+    )
+    for layer_idx, count in layer_counts.items():
+      start_req.expected_layer_chunk_counts[layer_idx] = count
+
     for group in transfer_plan.pool_groups:
       group_proto = start_req.pool_groups.add()
       group_proto.pool_indices.extend(int(idx) for idx in group["pool_indices"])
@@ -621,14 +646,17 @@ class WorkerRpcClient:
             if num_src_shards == 1:
               key_idx = transfer_plan.src_schedule_keys.get(src_unit)
               if key_idx is None:
-                if len(transfer_plan.src_units) != 1:
-                  raise ValueError(
-                      "A schedule key is required for every source in a "
-                      "many-to-one transfer"
-                  )
-                key_idx = 0
+                if src_unit in transfer_plan.src_units:
+                  key_idx = transfer_plan.src_units.index(src_unit)
+                else:
+                  key_idx = 0
             else:
-              key_idx = shard_idx
+              src_base = (
+                  transfer_plan.src_units.index(src_unit)
+                  if src_unit in transfer_plan.src_units
+                  else 0
+              )
+              key_idx = src_base * num_src_shards + shard_idx
             schedule_proto = self._proto_module.ShardPushScheduleProto()
             for entry_tuple in schedule:
               (
@@ -942,8 +970,8 @@ def generate_strided_copy_chunks(
       dst_idx = dst_local_int_slice[d][0] + multi_index[d]
       dst_offset_items += dst_idx * dst_strides[d]
 
-    # For merged dimensions (and the stride dim), we use the start of the intersection
-    # as the base offset for this chunk
+    # For merged dimensions (and the stride dim), we use the start of the
+    # intersection as the base offset for this chunk.
     start_d = len(outer_shape)
     for d in range(start_d, rank):
       src_offset_items += src_local_int_slice[d][0] * src_strides[d]
@@ -970,7 +998,7 @@ def is_nd_slice_tile_aligned(
   """Checks if slices and their intersection align with hardware tile boundaries."""
   rank = len(src_shard_slice)
   if rank < 2:
-    return True
+    return False
   t_row, t_col = tile_shape
   s_row_s, s_row_e = src_shard_slice[-2]
   s_col_s, s_col_e = src_shard_slice[-1]
@@ -1003,14 +1031,16 @@ def generate_strided_copy_chunks_tile_aware(
 ) -> list[tuple[int, int, int, int, int, int]]:
   """Translates an N-dimensional grid intersection into tile-aware physical strided copy chunks."""
   rank = len(src_shard_slice)
+  if rank == 0:
+    return [(0, 0, itemsize, 0, 0, 1)]
   if rank == 1:
-    s_s, s_e = src_shard_slice[0]
-    d_s, d_e = dst_shard_slice[0]
+    s_s, _ = src_shard_slice[0]
+    d_s, _ = dst_shard_slice[0]
     i_s, i_e = intersection_slice[0]
     size = (i_e - i_s) * itemsize
     return [((i_s - s_s) * itemsize, (i_s - d_s) * itemsize, size, 0, 0, 1)]
 
-  t_row, t_col = tile_shape
+  t_row, _ = tile_shape
   s_row_s, s_row_e = src_shard_slice[-2]
   s_col_s, s_col_e = src_shard_slice[-1]
   d_row_s, d_row_e = dst_shard_slice[-2]
@@ -1069,6 +1099,27 @@ def generate_strided_copy_chunks_tile_aware(
     ]
 
     num_outer = math.prod(outer_shape) if outer_shape else 1
+    if (
+        (count == 1 or (size_bytes == src_stride and size_bytes == dst_stride))
+        and num_outer_dims == 1
+    ):
+      inner_size = size_bytes * count
+      s_stride_outer = src_outer_strides[-1] * itemsize
+      d_stride_outer = dst_outer_strides[-1] * itemsize
+      base_src = src_offset + src_local_outer_start[0] * s_stride_outer
+      base_dst = dst_offset + dst_local_outer_start[0] * d_stride_outer
+      if inner_size == s_stride_outer and inner_size == d_stride_outer:
+        return [(base_src, base_dst, inner_size * num_outer, 0, 0, 1)]
+      elif inner_size == d_stride_outer:
+        return [(
+            base_src,
+            base_dst,
+            inner_size,
+            s_stride_outer,
+            d_stride_outer,
+            num_outer,
+        )]
+
     chunks = []
     for i in range(num_outer):
       multi_idx = []
@@ -1117,9 +1168,14 @@ class RaidenController:
       port: int,
       worker_rpc_client: Optional[WorkerRpcClient] = None,
       request_registry_ttl_s: float = 600.0,
+      broadcast_k: Optional[int] = None,
   ):
     self.port = port
-    self.broadcast_k = int(os.environ.get("RAIDEN_BROADCAST_K", "2"))
+    self.broadcast_k = (
+        broadcast_k
+        if broadcast_k is not None
+        else int(os.environ.get("RAIDEN_BROADCAST_K", "64"))
+    )
     self._active_transfers: dict[str, TransferPlan] = {}
     self._active_tasks: dict[str, RaidenFuture] = {}
     self._task_units: dict[str, list[RaidenId]] = {}
@@ -1493,9 +1549,6 @@ class RaidenController:
             k_layer_idx = key[7]
             k_pool_group = key[8]
 
-            skip = final_plan.skip_tiling.get(k_layer_idx, False)
-            push_count = k_count
-
             for idx in dst_indices:
               k_target = k_targets[idx]
               (
@@ -1522,6 +1575,11 @@ class RaidenController:
                   k_pool_group,
               )
               sub_schedule[s][s_shard_idx].append(entry)
+
+              is_contiguous = (k_count == 1) or (
+                  k_s_stride == k_size and k_dst_stride == k_size
+              )
+              push_count = 1 if is_contiguous else k_count
               hop_expected_block_count += push_count
 
           hop_uuid = random.randint(1, 2**63 - 1)
@@ -1534,7 +1592,7 @@ class RaidenController:
               shard_push_schedules=sub_schedule,
               worker_rpc_addresses=dict(final_plan.worker_rpc_addresses),
               worker_data_addresses=dict(final_plan.worker_data_addresses),
-              uuid=hop_uuid,
+              uuid=final_plan.uuid,
               dst_mem_type=dst_mem_type,
               use_block_chunks=True,
               is_sender=True,
@@ -1840,6 +1898,7 @@ class RaidenController:
           expected_block_count=expected_block_count,
           req_id=req_id,
           skip_d2h=skip_d2h,
+          parallelism=parallelism or 1,
       )
       with self._lock:
         self._active_transfers[req_id] = plan
@@ -1868,7 +1927,8 @@ class RaidenController:
           # 2. Build rpc_addresses for local destination workers
           rpc_addresses = self.worker_rpc_client.get_worker_endpoints()
 
-          # 3. Construct a lightweight TransferPlan containing receiver parameters
+          # 3. Construct a lightweight TransferPlan containing receiver
+          # parameters
           receiver_plan = TransferPlan(
               src_units=src_units,
               dst_units=dst_units,
@@ -1886,6 +1946,7 @@ class RaidenController:
               req_id=req_id,
               skip_d2h=skip_d2h,
               skip_tiling=skip_tiling or {},
+              parallelism=parallelism or 1,
           )
 
           # 4. Trigger COMMAND_START_TRANSFER (is_sender=False) on local workers
@@ -1902,8 +1963,8 @@ class RaidenController:
             ])
           else:
             logging.info(
-                "Skipping preparation RPCs on local destination workers because "
-                "expected_block_count is 0"
+                "Skipping preparation RPCs on local destination workers"
+                " because expected_block_count is 0"
             )
           logging.info(
               "Symmetric preparation complete on all local destination workers."
@@ -1917,7 +1978,8 @@ class RaidenController:
               uuid,
           )
 
-          # 1. Retrieve destination metadata (either from remote dst_controller or local)
+          # 1. Retrieve destination metadata (either from remote dst_controller
+          # or local)
           dst_metadata = []
           if dst_controller_address:
             logging.info(
@@ -2040,6 +2102,80 @@ class RaidenController:
                     var.name,
                     slices,
                 )
+
+            # Compute skip_tiling if not provided
+            local_skip_tiling = skip_tiling
+            if local_skip_tiling is None:
+              local_skip_tiling = {}
+              if src_units and dst_units:
+                reference_src_unit = src_units[0]
+                with self._lock:
+                  reference_src_vars = self._registered_variables.get(
+                      reference_src_unit
+                  )
+                if not reference_src_vars:
+                  with self._lock:
+                    global_shape = self._registered_global_shapes.get(
+                        reference_src_unit
+                    )
+                    mesh_shape = self._registered_mesh_shapes.get(
+                        reference_src_unit
+                    )
+                    layout = self._registered_layouts.get(reference_src_unit)
+                    itemsize = (
+                        self._registered_itemsizes.get(reference_src_unit) or 4
+                    )
+                  if global_shape and mesh_shape and layout:
+                    reference_src_vars = [
+                        _VariableMetadata(
+                            name=reference_src_unit.data_name,
+                            shape=global_shape,
+                            mesh_shape=mesh_shape,
+                            layout=layout,
+                            item_size=itemsize,
+                            layer_idx=0,
+                        )
+                    ]
+                  else:
+                    reference_src_vars = []
+
+                reference_dst_unit = dst_units[0]
+                reference_dst_vars = dst_vars_by_unit.get(
+                    reference_dst_unit, []
+                )
+
+                for src_var in reference_src_vars:
+                  layer_idx = src_var.layer_idx
+                  dst_var = next(
+                      (
+                          v
+                          for v in reference_dst_vars
+                          if v.layer_idx == layer_idx
+                      ),
+                      None,
+                  )
+                  if dst_var:
+                    s_slices = computed_slices.get(reference_src_unit, {}).get(
+                        src_var.name, []
+                    )
+                    d_slices = computed_slices.get(reference_dst_unit, {}).get(
+                        dst_var.name, []
+                    )
+                    all_aligned = True
+                    for s_proto in s_slices:
+                      s_sl = _proto_to_nd_slice(s_proto)
+                      for d_proto in d_slices:
+                        d_sl = _proto_to_nd_slice(d_proto)
+                        inter = intersect_nd_slices(s_sl, d_sl)
+                        if inter:
+                          if not is_nd_slice_tile_aligned(
+                              s_sl, d_sl, inter, tile_shape=(8, 128)
+                          ):
+                            all_aligned = False
+                            break
+                      if not all_aligned:
+                        break
+                    local_skip_tiling[layer_idx] = all_aligned
 
             # 3. Generate plan (Intersection)
             for src_unit in src_units:
@@ -2192,12 +2328,17 @@ class RaidenController:
 
                       intersection = intersect_nd_slices(src_slice, dst_slice)
                       if intersection:
-                        if is_nd_slice_tile_aligned(
+                        is_tile_aware = (
+                            local_skip_tiling.get(layer_idx, False)
+                            if local_skip_tiling
+                            else False
+                        ) and is_nd_slice_tile_aligned(
                             src_slice,
                             dst_slice,
                             intersection,
                             tile_shape=(8, 128),
-                        ):
+                        )
+                        if is_tile_aware:
                           chunks = generate_strided_copy_chunks_tile_aware(
                               src_slice,
                               dst_slice,
@@ -2217,29 +2358,30 @@ class RaidenController:
                             dst_stride,
                             count,
                         ) in chunks:
-                          src_block_bytes = (
-                              math.prod([e - s for s, e in src_slice[1:]])
-                              * itemsize
-                              if len(src_slice) > 1
-                              else itemsize
-                          )
-                          dst_block_bytes = (
-                              math.prod([e - s for s, e in dst_slice[1:]])
-                              * itemsize
-                              if len(dst_slice) > 1
-                              else itemsize
-                          )
-                          src_block_id = src_offset // src_block_bytes
-                          dst_block_id = dst_offset // dst_block_bytes
-
                           is_legacy = is_legacy_by_unit.get(
                               src_unit, True
                           ) or is_legacy_by_unit.get(dst_unit, True)
                           if is_legacy:
+                            src_block_bytes = (
+                                math.prod([e - s for s, e in src_slice[1:]])
+                                * itemsize
+                                if len(src_slice) > 1
+                                else itemsize
+                            )
+                            dst_block_bytes = (
+                                math.prod([e - s for s, e in dst_slice[1:]])
+                                * itemsize
+                                if len(dst_slice) > 1
+                                else itemsize
+                            )
+                            src_block_id = src_offset // src_block_bytes
+                            dst_block_id = dst_offset // dst_block_bytes
                             # Make offsets block-relative
                             src_block_offset = src_offset % src_block_bytes
                             dst_block_offset = dst_offset % dst_block_bytes
                           else:
+                            src_block_id = 0
+                            dst_block_id = 0
                             src_block_offset = src_offset
                             dst_block_offset = dst_offset
 
@@ -2275,74 +2417,6 @@ class RaidenController:
             if unit in data_addresses:
               data_addresses[unit] = list(meta.shards)
 
-          # Compute skip_tiling if not provided
-          local_skip_tiling = skip_tiling
-          if local_skip_tiling is None:
-            local_skip_tiling = {}
-            if not shard_push_schedules and src_units and dst_units:
-              reference_src_unit = src_units[0]
-              with self._lock:
-                reference_src_vars = self._registered_variables.get(
-                    reference_src_unit
-                )
-              if not reference_src_vars:
-                with self._lock:
-                  global_shape = self._registered_global_shapes.get(
-                      reference_src_unit
-                  )
-                  mesh_shape = self._registered_mesh_shapes.get(
-                      reference_src_unit
-                  )
-                  layout = self._registered_layouts.get(reference_src_unit)
-                  itemsize = (
-                      self._registered_itemsizes.get(reference_src_unit) or 4
-                  )
-                if global_shape and mesh_shape and layout:
-                  reference_src_vars = [
-                      _VariableMetadata(
-                          name=reference_src_unit.data_name,
-                          shape=global_shape,
-                          mesh_shape=mesh_shape,
-                          layout=layout,
-                          item_size=itemsize,
-                          layer_idx=0,
-                      )
-                  ]
-                else:
-                  reference_src_vars = []
-
-              reference_dst_unit = dst_units[0]
-              reference_dst_vars = dst_vars_by_unit.get(reference_dst_unit, [])
-
-              for src_var in reference_src_vars:
-                layer_idx = src_var.layer_idx
-                dst_var = next(
-                    (v for v in reference_dst_vars if v.layer_idx == layer_idx),
-                    None,
-                )
-                if dst_var:
-                  s_slices = computed_slices.get(reference_src_unit, {}).get(
-                      src_var.name, []
-                  )
-                  d_slices = computed_slices.get(reference_dst_unit, {}).get(
-                      dst_var.name, []
-                  )
-                  all_aligned = True
-                  for s_proto in s_slices:
-                    s_sl = _proto_to_nd_slice(s_proto)
-                    for d_proto in d_slices:
-                      d_sl = _proto_to_nd_slice(d_proto)
-                      inter = intersect_nd_slices(s_sl, d_sl)
-                      if inter:
-                        if not is_nd_slice_tile_aligned(
-                            s_sl, d_sl, inter, tile_shape=(8, 128)
-                        ):
-                          all_aligned = False
-                          break
-                    if not all_aligned:
-                      break
-                  local_skip_tiling[layer_idx] = all_aligned
-
           # Build final plan and replace the partial plan
           final_plan = TransferPlan(
               src_units=list(computed_schedules.keys())
@@ -2361,6 +2435,7 @@ class RaidenController:
               req_id=req_id,
               skip_d2h=skip_d2h,
               skip_tiling=local_skip_tiling,
+              parallelism=parallelism or 1,
           )
           with self._lock:
             self._active_transfers[req_id] = final_plan
@@ -2446,7 +2521,12 @@ class RaidenController:
             # Group broadcast tasks by routing compatibility and layer_group_idx
             broadcast_groups = {}
             for key, targets in groups.items():
-              if len(targets) <= 1:
+              unique_dst_units = set(t[0] for t in targets)
+              is_tree_broadcast = (
+                  len(unique_dst_units) > 1
+                  and len(unique_dst_units) > self.broadcast_k
+              )
+              if not is_tree_broadcast:
                 # Re-assemble entry for flat schedule (direct transfer)
                 (
                     src_unit,
@@ -2536,22 +2616,33 @@ class RaidenController:
               )
               tree_broadcast_tasks.append(task)
 
-            if expected_block_count == 0 and direct_schedules:
+            if direct_schedules:
               dst_unit_counts = {}
+              dst_unit_layer_counts = {}
               for src_unit, schedules in direct_schedules.items():
                 for shard_idx, entries in schedules.items():
                   for entry in entries:
                     dst_peer = entry[0]
                     dst_unit = data_address_to_unit.get(dst_peer)
                     if dst_unit:
+                      size = entry[4]
+                      src_stride = entry[7]
+                      dst_stride = entry[8]
                       count = entry[9]
-                      layer_idx = entry[10]
-                      skip = local_skip_tiling.get(layer_idx, False)
-                      push_count = 1 if skip else count
-                      dst_unit_counts[dst_unit] = (
-                          dst_unit_counts.get(dst_unit, 0) + push_count
+                      layer_idx = entry[10] if len(entry) > 10 else 0
+                      is_contiguous = (count == 1) or (
+                          src_stride == size and dst_stride == size
                       )
-              if dst_unit_counts:
+                      tasks_count = 1 if is_contiguous else count
+                      dst_unit_counts[dst_unit] = (
+                          dst_unit_counts.get(dst_unit, 0) + tasks_count
+                      )
+                      dst_unit_layer_counts.setdefault(dst_unit, {})
+                      dst_unit_layer_counts[dst_unit][layer_idx] = (
+                          dst_unit_layer_counts[dst_unit].get(layer_idx, 0)
+                          + tasks_count
+                      )
+              if expected_block_count == 0 and dst_unit_counts:
                 expected_block_count = max(dst_unit_counts.values())
                 logging.info(
                     "Auto-calculated expected_block_count: %d (counts: %s)",
@@ -2559,6 +2650,7 @@ class RaidenController:
                     dst_unit_counts,
                 )
                 final_plan.expected_block_count = expected_block_count
+              final_plan.dst_expected_layer_chunk_counts = dst_unit_layer_counts
 
             # Execute direct schedules (traditional flat route) and tree
             # broadcasts in parallel!
@@ -2575,14 +2667,19 @@ class RaidenController:
                   use_block_chunks=True,
                   is_sender=True,
                   expected_block_count=expected_block_count,
+                  dst_expected_layer_chunk_counts=dst_unit_layer_counts,
+                  src_schedule_keys={
+                      u: i for i, u in enumerate(direct_schedules.keys())
+                  },
                   req_id=req_id,
                   skip_d2h=skip_d2h,
                   skip_tiling=local_skip_tiling,
+                  parallelism=final_plan.parallelism,
               )
 
               direct_dsts = []
-              for src, scheds in direct_schedules.items():
-                for sh, entries in scheds.items():
+              for scheds in direct_schedules.values():
+                for entries in scheds.values():
                   for entry in entries:
                     dst_peer = entry[0]
                     d_node = data_address_to_unit.get(dst_peer)
