@@ -90,6 +90,96 @@ class TelemetryBindingTest(absltest.TestCase):
     with self.assertRaises(TypeError):
       telemetry_ext.configure_telemetry(None)
 
+  def test_metric_type_enum(self):
+    self.assertTrue(hasattr(telemetry_ext.MetricType, "COUNTER"))
+    self.assertTrue(hasattr(telemetry_ext.MetricType, "GAUGE"))
+    self.assertTrue(hasattr(telemetry_ext.MetricType, "HISTOGRAM"))
+    self.assertNotEqual(
+        telemetry_ext.MetricType.COUNTER, telemetry_ext.MetricType.GAUGE
+    )
+    self.assertNotEqual(
+        telemetry_ext.MetricType.COUNTER, telemetry_ext.MetricType.HISTOGRAM
+    )
+    self.assertNotEqual(
+        telemetry_ext.MetricType.GAUGE, telemetry_ext.MetricType.HISTOGRAM
+    )
+
+  def test_metric_metadata_properties_repr_equality(self):
+    self.assertTrue(hasattr(telemetry_ext, "ALL_METRICS"))
+    metrics = telemetry_ext.ALL_METRICS
+    self.assertGreaterEqual(len(metrics), 3)
+
+    sent_bytes_meta = metrics[0]
+    self.assertEqual(sent_bytes_meta.name, "sent_bytes_total")
+    self.assertIn("sent", sent_bytes_meta.description.lower())
+    self.assertEqual(
+        sent_bytes_meta.buckets,
+        [
+            0.1,
+            0.25,
+            0.5,
+            1.0,
+            2.5,
+            5.0,
+            10.0,
+            25.0,
+            50.0,
+            100.0,
+            250.0,
+            500.0,
+            750.0,
+            1000.0,
+            2500.0,
+            5000.0,
+            7500.0,
+            10000.0,
+            25000.0,
+            50000.0,
+        ],
+    )
+
+    # Test __repr__
+    repr_str = repr(sent_bytes_meta)
+    self.assertIn("sent_bytes_total", repr_str)
+    self.assertIn("MetricType.COUNTER", repr_str)
+
+    # Test equality with same object / identical values
+    self.assertEqual(sent_bytes_meta, metrics[0])
+    self.assertNotEqual(sent_bytes_meta, metrics[1])
+
+    # Test heterogeneous equality comparisons (must not raise TypeError)
+    self.assertIsNotNone(sent_bytes_meta)
+    self.assertNotEqual(sent_bytes_meta, "sent_bytes_total")
+    self.assertNotEqual(sent_bytes_meta, 42)
+
+  def test_get_metric_metadata_empty_when_no_backends(self):
+    telemetry_ext.configure_telemetry([])
+    metadata = telemetry_ext.get_metric_metadata()
+    self.assertEqual(metadata, [])
+
+  def test_get_metric_metadata_with_prometheus(self):
+    telemetry_ext.configure_telemetry(["prometheus"])
+    metadata = telemetry_ext.get_metric_metadata()
+    self.assertIsInstance(metadata, list)
+    self.assertEqual(metadata, telemetry_ext.ALL_METRICS)
+
+  def test_get_and_reset_metric_samples_empty_when_no_backends(self):
+    telemetry_ext.configure_telemetry([])
+    samples = telemetry_ext.get_and_reset_metric_samples()
+    self.assertEqual(samples, {})
+
+  def test_get_and_reset_metric_samples_with_prometheus(self):
+    telemetry_ext.configure_telemetry(["prometheus"])
+    samples = telemetry_ext.get_and_reset_metric_samples()
+    self.assertEqual(samples, {})
+
+  def test_configure_telemetry_buffered(self):
+    telemetry_ext.configure_telemetry(["buffered"])
+    metadata = telemetry_ext.get_metric_metadata()
+    self.assertEqual(metadata, telemetry_ext.ALL_METRICS)
+    samples = telemetry_ext.get_and_reset_metric_samples()
+    self.assertEqual(samples, {})
+
 
 if __name__ == "__main__":
   absltest.main()

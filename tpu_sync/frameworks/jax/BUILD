@@ -144,6 +144,7 @@ nanobind_extension(
         "//tpu_sync/core:raw_transfer_core",
         "//tpu_sync/kv_cache:kv_cache_store",
         "//tpu_sync/kv_cache:kv_cache_store_wrapper",
+        "//tpu_sync/telemetry/python:telemetry_binding",
         "//tpu_sync/weight_sync:weight_synchronizer_base",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",

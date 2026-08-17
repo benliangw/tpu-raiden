@@ -16,6 +16,7 @@
 #define THIRD_PARTY_TPU_RAIDEN_TPU_SYNC_TELEMETRY_PROMETHEUS_EXPORTER_H_
 
 #include <cstdint>
+#include <iterator>
 #include <memory>
 #include <string>
 
@@ -27,15 +28,16 @@
 #include "absl/base/no_destructor.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/string_view.h"
-#include "tpu_sync/telemetry/metrics_api.h"
+#include "tpu_sync/telemetry/metrics_backend.h"
 
 namespace tpu_raiden::telemetry {
 
 inline const prometheus::Histogram::BucketBoundaries&
 DefaultHistogramBuckets() {
   static const absl::NoDestructor<prometheus::Histogram::BucketBoundaries>
-      kBuckets(prometheus::Histogram::BucketBoundaries{
-          0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0});
+      kBuckets(prometheus::Histogram::BucketBoundaries(
+          std::begin(kDefaultHistogramBuckets),
+          std::end(kDefaultHistogramBuckets)));
   return *kBuckets;
 }
 

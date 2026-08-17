@@ -17,15 +17,26 @@ load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
+    name = "metrics_backend",
+    hdrs = ["metrics_backend.h"],
+    deps = [
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/types:span",
+    ],
+)
+
+cc_library(
     name = "metrics_api",
     srcs = ["metrics_api.cc"],
     hdrs = ["metrics_api.h"],
     deps = [
+        ":metrics_backend",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/base:no_destructor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/types:span",
     ],
 )
 
@@ -34,6 +45,7 @@ cc_test(
     srcs = ["metrics_api_test.cc"],
     deps = [
         ":metrics_api",
+        ":metrics_backend",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
     ],
@@ -44,7 +56,7 @@ cc_library(
     srcs = ["prometheus_exporter.cc"],
     hdrs = ["prometheus_exporter.h"],
     deps = [
-        ":metrics_api",
+        ":metrics_backend",
         "@com_github_jupp0r_prometheus_cpp//core",
         "@com_google_absl//absl/base:no_destructor",
         "@com_google_absl//absl/container:flat_hash_map",
@@ -57,8 +69,33 @@ cc_test(
     srcs = ["prometheus_exporter_test.cc"],
     deps = [
         ":metrics_3p_prometheus_exporter",
-        ":metrics_api",
+        ":metrics_backend",
+        "@com_github_jupp0r_prometheus_cpp//core",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "buffered_metrics_exporter",
+    srcs = ["buffered_metrics_exporter.cc"],
+    hdrs = ["buffered_metrics_exporter.h"],
+    deps = [
+        ":metrics_api",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/types:span",
+    ],
+)
+
+cc_test(
+    name = "buffered_metrics_exporter_test",
+    srcs = ["buffered_metrics_exporter_test.cc"],
+    deps = [
+        ":buffered_metrics_exporter",
+        ":metrics_api",
         "@com_google_googletest//:gtest_main",
     ],
 )

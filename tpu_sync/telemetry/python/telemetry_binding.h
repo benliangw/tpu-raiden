@@ -19,8 +19,10 @@
 
 namespace tpu_raiden::telemetry {
 
-// Binds configure_telemetry and get_raiden_metrics_prometheus_text to the given
-// nanobind module.
+// Binds telemetry types (MetricType, MetricMetadata) and operations
+// (configure_telemetry, get_raiden_metrics_prometheus_text,
+// get_metric_metadata, get_and_reset_metric_samples) to the given nanobind
+// module.
 void BindTelemetryApi(nanobind::module_& m);
 
 }  // namespace tpu_raiden::telemetry

@@ -26,12 +26,12 @@ cc_library(
     ],
     features = ["-use_header_modules"],
     deps = [
-        "//third_party/highway:hwy",
         "//tpu_sync/core:numa_thread_pool",
         "@com_google_absl//absl/base:no_destructor",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/types:span",
+        "@highway//:hwy",
         "@xla//xla:shape_util",
         "@xla//xla:util",
     ],

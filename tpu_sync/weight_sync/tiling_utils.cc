@@ -25,7 +25,7 @@
 #include "absl/status/status.h"
 #include "absl/synchronization/blocking_counter.h"
 #include "absl/types/span.h"
-#include "third_party/highway/hwy/highway.h"
+#include "hwy/highway.h"
 #include "xla/index_util.h"
 #include "xla/layout.h"
 #include "xla/layout_util.h"

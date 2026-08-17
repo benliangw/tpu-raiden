@@ -15,6 +15,7 @@
 #include "tpu_sync/telemetry/metrics_api.h"
 
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <string>
 #include <thread>  // NOLINT(build/c++11)
@@ -55,6 +56,8 @@ class MockMetricsBackend : public MetricsBackend {
               (absl::string_view name, LabelSpan labels, double val),
               (override, const));
   MOCK_METHOD(std::string, GetTextSnapshot, (), (override, const));
+  MOCK_METHOD((std::map<std::string, std::vector<double>>),
+              GetAndResetMetricSamples, (), (override));
 };
 
 class MetricsApiTest : public testing::Test {
@@ -130,6 +133,9 @@ TEST_F(MetricsApiTest, FastPathExitWhenNoBackends) {
   store_.IncrementCounter(metric_names::kSentBytesTotal, {}, 1024);
   store_.IncrementCounter(metric_names::kReceivedBytesTotal, {}, 1024);
   store_.IncrementCounter(metric_names::kTransferFailuresTotal, {}, 1);
+  EXPECT_EQ(store_.GetTextSnapshot(), "");
+  EXPECT_TRUE(store_.GetMetricMetadata().empty());
+  EXPECT_TRUE(store_.GetAndResetMetricSamples().empty());
 }
 
 TEST_F(MetricsApiTest, DispatchesToRegisteredBackend) {
@@ -193,6 +199,8 @@ TEST_F(MetricsApiTest, SetBackendsEmptyClearsBackends) {
   // Verify metric emission safely no-ops on empty backends.
   store_.IncrementCounter("tpu_raiden_sent_bytes_total", {}, 1024);
   EXPECT_EQ(store_.GetTextSnapshot(), "");
+  EXPECT_TRUE(store_.GetMetricMetadata().empty());
+  EXPECT_TRUE(store_.GetAndResetMetricSamples().empty());
 }
 
 TEST_F(MetricsApiTest, SetBackendsMultipleBackends) {
@@ -216,6 +224,154 @@ TEST_F(MetricsApiTest, SetBackendsMultipleBackends) {
   EXPECT_EQ(store_.GetTextSnapshot(), "snap1\nsnap2\n");
 }
 
+TEST_F(MetricsApiTest, GetMetricMetadataReturnsAllMetricsWhenBackendsActive) {
+  auto backend = std::make_unique<MockMetricsBackend>();
+  std::vector<std::unique_ptr<MetricsBackend>> backends;
+  backends.push_back(std::move(backend));
+  store_.SetBackends(std::move(backends));
+
+  std::vector<MetricMetadata> result = store_.GetMetricMetadata();
+  EXPECT_THAT(
+      result,
+      ElementsAre(metric_metadata::kSentBytesTotal,
+                  metric_metadata::kReceivedBytesTotal,
+                  metric_metadata::kTransferFailuresTotal));
+}
+
+TEST_F(MetricsApiTest, GetMetricMetadataEmptyWhenNoBackends) {
+  EXPECT_FALSE(store_.HasBackends());
+  EXPECT_TRUE(store_.GetMetricMetadata().empty());
+
+  auto backend = std::make_unique<MockMetricsBackend>();
+  std::vector<std::unique_ptr<MetricsBackend>> backends;
+  backends.push_back(std::move(backend));
+  store_.SetBackends(std::move(backends));
+  EXPECT_FALSE(store_.GetMetricMetadata().empty());
+
+  store_.SetBackends({});
+  EXPECT_TRUE(store_.GetMetricMetadata().empty());
+}
+
+TEST_F(MetricsApiTest, GetAndResetMetricSamplesSingleBackend) {
+  auto mock_backend = std::make_unique<MockMetricsBackend>();
+  MockMetricsBackend* raw_mock = mock_backend.get();
+
+  std::map<std::string, std::vector<double>> expected_samples = {
+      {"sent_bytes_total", {1024.0, 2048.0}},
+      {"transfer_failures_total", {1.0}},
+  };
+  EXPECT_CALL(*raw_mock, GetAndResetMetricSamples())
+      .WillOnce(Return(expected_samples));
+
+  std::vector<std::unique_ptr<MetricsBackend>> backends;
+  backends.push_back(std::move(mock_backend));
+  store_.SetBackends(std::move(backends));
+
+  EXPECT_EQ(store_.GetAndResetMetricSamples(), expected_samples);
+}
+
+TEST_F(MetricsApiTest, GetAndResetMetricSamplesMultipleBackendsMerging) {
+  auto backend1 = std::make_unique<MockMetricsBackend>();
+  MockMetricsBackend* raw_backend1 = backend1.get();
+  auto backend2 = std::make_unique<MockMetricsBackend>();
+  MockMetricsBackend* raw_backend2 = backend2.get();
+
+  std::map<std::string, std::vector<double>> samples1 = {
+      {"sent_bytes_total", {100.0, 200.0}},
+      {"unique_to_backend1", {1.0}},
+  };
+  std::map<std::string, std::vector<double>> samples2 = {
+      {"sent_bytes_total", {300.0}},
+      {"unique_to_backend2", {2.0, 3.0}},
+  };
+
+  EXPECT_CALL(*raw_backend1, GetAndResetMetricSamples())
+      .WillOnce(Return(samples1));
+  EXPECT_CALL(*raw_backend2, GetAndResetMetricSamples())
+      .WillOnce(Return(samples2));
+
+  std::vector<std::unique_ptr<MetricsBackend>> backends;
+  backends.push_back(std::move(backend1));
+  backends.push_back(std::move(backend2));
+  store_.SetBackends(std::move(backends));
+
+  std::map<std::string, std::vector<double>> result =
+      store_.GetAndResetMetricSamples();
+
+  std::map<std::string, std::vector<double>> expected = {
+      {"sent_bytes_total", {100.0, 200.0, 300.0}},
+      {"unique_to_backend1", {1.0}},
+      {"unique_to_backend2", {2.0, 3.0}},
+  };
+  EXPECT_EQ(result, expected);
+}
+
+TEST_F(MetricsApiTest, GetAndResetMetricSamplesConsecutiveCalls) {
+  auto mock_backend = std::make_unique<MockMetricsBackend>();
+  MockMetricsBackend* raw_mock = mock_backend.get();
+
+  std::map<std::string, std::vector<double>> first_samples = {
+      {"sent_bytes_total", {100.0}},
+  };
+  std::map<std::string, std::vector<double>> empty_samples = {};
+
+  EXPECT_CALL(*raw_mock, GetAndResetMetricSamples())
+      .WillOnce(Return(first_samples))
+      .WillOnce(Return(empty_samples));
+
+  std::vector<std::unique_ptr<MetricsBackend>> backends;
+  backends.push_back(std::move(mock_backend));
+  store_.SetBackends(std::move(backends));
+
+  EXPECT_EQ(store_.GetAndResetMetricSamples(), first_samples);
+  EXPECT_TRUE(store_.GetAndResetMetricSamples().empty());
+}
+
+TEST_F(MetricsApiTest, GetAndResetMetricSamplesEmptySampleVectors) {
+  auto mock_backend = std::make_unique<MockMetricsBackend>();
+  MockMetricsBackend* raw_mock = mock_backend.get();
+
+  std::map<std::string, std::vector<double>> empty_entry = {
+      {"empty_metric", {}},
+  };
+  EXPECT_CALL(*raw_mock, GetAndResetMetricSamples())
+      .WillOnce(Return(empty_entry));
+
+  std::vector<std::unique_ptr<MetricsBackend>> backends;
+  backends.push_back(std::move(mock_backend));
+  store_.SetBackends(std::move(backends));
+
+  std::map<std::string, std::vector<double>> result =
+      store_.GetAndResetMetricSamples();
+  EXPECT_EQ(result, empty_entry);
+}
+
+TEST_F(MetricsApiTest, SetBackendsFiltersNullptrs) {
+  std::vector<std::unique_ptr<MetricsBackend>> backends;
+  backends.push_back(nullptr);
+  store_.SetBackends(std::move(backends));
+
+  EXPECT_FALSE(store_.HasBackends());
+  EXPECT_TRUE(store_.GetMetricMetadata().empty());
+  EXPECT_TRUE(store_.GetAndResetMetricSamples().empty());
+}
+
+class MinimalMetricsBackend : public MetricsBackend {
+ public:
+  void IncrementCounter(absl::string_view name, LabelSpan labels,
+                        uint64_t val) const override {}
+  void SetGauge(absl::string_view name, LabelSpan labels,
+                double val) const override {}
+  void ObserveHistogram(absl::string_view name, LabelSpan labels,
+                        double val) const override {}
+  std::string GetTextSnapshot() const override { return ""; }
+};
+
+TEST_F(MetricsApiTest, MetricsBackendDefaultVirtualMethods) {
+  MinimalMetricsBackend backend;
+  EXPECT_TRUE(backend.GetAndResetMetricSamples().empty());
+}
+
 TEST_F(MetricsApiTest, ConcurrentTelemetryEmissions) {
   auto backend = std::make_unique<MockMetricsBackend>();
   MockMetricsBackend* raw_backend = backend.get();
@@ -232,6 +388,9 @@ TEST_F(MetricsApiTest, ConcurrentTelemetryEmissions) {
   EXPECT_CALL(*raw_backend, GetTextSnapshot())
       .Times(kTotalCalls)
       .WillRepeatedly(Return("snapshot\n"));
+  EXPECT_CALL(*raw_backend, GetAndResetMetricSamples())
+      .Times(kTotalCalls)
+      .WillRepeatedly(Return(std::map<std::string, std::vector<double>>{}));
 
   std::vector<std::unique_ptr<MetricsBackend>> backends;
   backends.push_back(std::move(backend));
@@ -247,6 +406,8 @@ TEST_F(MetricsApiTest, ConcurrentTelemetryEmissions) {
         store_.SetGauge("gauge", {}, 42);
         store_.ObserveHistogram("histogram", {}, 3.14);
         (void)store_.GetTextSnapshot();
+        (void)store_.GetMetricMetadata();
+        (void)store_.GetAndResetMetricSamples();
       }
     });
   }

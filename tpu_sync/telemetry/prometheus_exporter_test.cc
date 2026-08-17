@@ -14,6 +14,7 @@
 
 #include "tpu_sync/telemetry/prometheus_exporter.h"
 
+#include <iterator>
 #include <memory>
 #include <string>
 #include <thread>  // NOLINT
@@ -24,33 +25,38 @@
 #include <gtest/gtest.h>
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
-#include "tpu_sync/telemetry/metrics_api.h"
+#include "third_party/prometheus_cpp_client/core/include/prometheus/histogram.h"
+#include "tpu_sync/telemetry/metrics_backend.h"
 
 namespace tpu_raiden::telemetry {
 namespace {
 
 using ::testing::HasSubstr;
 
+TEST(PrometheusExporterTest, DefaultHistogramBucketsMatchesMetricsApi) {
+  const prometheus::Histogram::BucketBoundaries& buckets =
+      DefaultHistogramBuckets();
+  std::vector<double> expected(std::begin(kDefaultHistogramBuckets),
+                               std::end(kDefaultHistogramBuckets));
+  EXPECT_EQ(buckets, expected);
+}
+
 TEST(PrometheusExporterTest, RecordAndExportFormat) {
-  auto exporter = std::make_unique<PrometheusExporter>();
-  RaidenMetricStore store;
-  std::vector<std::unique_ptr<MetricsBackend>> backends;
-  backends.push_back(std::move(exporter));
-  store.SetBackends(std::move(backends));
+  PrometheusExporter exporter;
 
   MetricLabel label1{"interface", "ICI"};
 
-  store.IncrementCounter(metric_names::kSentBytesTotal, {label1}, 1024);
+  exporter.IncrementCounter(metric_names::kSentBytesTotal, {label1}, 1024);
 
   // Record transfer failures (Counter)
   const MetricLabel failure_labels[] = {
       {metric_labels::kErrorCode, "DEADLINE_EXCEEDED"},
       {metric_labels::kDirection, metric_labels::kDirectionPull},
   };
-  store.IncrementCounter(metric_names::kTransferFailuresTotal, failure_labels,
-                         2);
+  exporter.IncrementCounter(metric_names::kTransferFailuresTotal,
+                            failure_labels, 2);
 
-  std::string output = store.GetTextSnapshot();
+  std::string output = exporter.GetTextSnapshot();
 
   EXPECT_THAT(output, HasSubstr("# TYPE tpu_raiden_sent_bytes_total counter"));
   EXPECT_THAT(output,

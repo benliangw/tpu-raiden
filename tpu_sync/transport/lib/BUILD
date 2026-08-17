@@ -17,7 +17,6 @@
 
 load("@com_github_google_flatbuffers//:build_defs.bzl", "flatbuffer_cc_library")
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
-load("//third_party/flatbuffers:flatbuffers.bzl", "flatbuffers_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -128,9 +127,4 @@ cc_test(
         "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
-)
-
-flatbuffers_library(
-    name = "chunk_fbs",
-    srcs = ["chunk.fbs"],
 )

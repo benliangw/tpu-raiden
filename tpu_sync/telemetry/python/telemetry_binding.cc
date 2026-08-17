@@ -14,6 +14,7 @@
 
 #include "tpu_sync/telemetry/python/telemetry_binding.h"
 
+#include <map>
 #include <memory>
 #include <set>
 #include <string>
@@ -22,12 +23,17 @@
 
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include <nanobind/nanobind.h>
+#include <nanobind/operators.h>   // IWYU pragma: keep
+#include <nanobind/stl/map.h>     // IWYU pragma: keep
 #include <nanobind/stl/set.h>     // IWYU pragma: keep
 #include <nanobind/stl/string.h>  // IWYU pragma: keep
 #include <nanobind/stl/vector.h>  // IWYU pragma: keep
+#include "tpu_sync/telemetry/buffered_metrics_exporter.h"
 #include "tpu_sync/telemetry/metrics_api.h"
+#include "tpu_sync/telemetry/metrics_backend.h"
 #include "tpu_sync/telemetry/prometheus_exporter.h"
 
 namespace tpu_raiden::telemetry {
@@ -35,6 +41,53 @@ namespace tpu_raiden::telemetry {
 namespace nb = ::nanobind;
 
 void BindTelemetryApi(nb::module_& m) {
+  nb::enum_<MetricType>(m, "MetricType")
+      .value("COUNTER", MetricType::kCounter)
+      .value("GAUGE", MetricType::kGauge)
+      .value("HISTOGRAM", MetricType::kHistogram);
+
+  nb::class_<MetricMetadata>(m, "MetricMetadata")
+      .def_prop_ro(
+          "name",
+          [](const MetricMetadata& self) { return std::string(self.name); })
+      .def_prop_ro("description",
+                   [](const MetricMetadata& self) {
+                     return std::string(self.description);
+                   })
+      .def_ro("type", &MetricMetadata::type)
+      .def_prop_ro("buckets",
+                   [](const MetricMetadata& self) {
+                     return std::vector<double>(self.buckets.begin(),
+                                                self.buckets.end());
+                   })
+      .def("__repr__",
+           [](const MetricMetadata& self) {
+             std::string type_str;
+             switch (self.type) {
+               case MetricType::kCounter:
+                 type_str = "MetricType.COUNTER";
+                 break;
+               case MetricType::kGauge:
+                 type_str = "MetricType.GAUGE";
+                 break;
+               case MetricType::kHistogram:
+                 type_str = "MetricType.HISTOGRAM";
+                 break;
+             }
+             std::string buckets_str =
+                 absl::StrCat("[", absl::StrJoin(self.buckets, ", "), "]");
+             return absl::StrCat("MetricMetadata(name='", self.name,
+                                 "', description='", self.description,
+                                 "', type=", type_str,
+                                 ", buckets=", buckets_str, ")");
+           })
+      .def(nb::self == nb::self)
+      .def(nb::self != nb::self);
+
+  m.attr("ALL_METRICS") =
+      std::vector<MetricMetadata>(std::begin(metric_metadata::kAllMetrics),
+                                  std::end(metric_metadata::kAllMetrics));
+
   m.def(
       "configure_telemetry",
       [](const std::set<std::string>& backends) {
@@ -42,6 +95,8 @@ void BindTelemetryApi(nb::module_& m) {
         for (absl::string_view backend_name : backends) {
           if (absl::EqualsIgnoreCase(backend_name, kPrometheus)) {
             new_backends.push_back(std::make_unique<PrometheusExporter>());
+          } else if (absl::EqualsIgnoreCase(backend_name, kBuffered)) {
+            new_backends.push_back(std::make_unique<BufferedMetricsExporter>());
           } else {
             throw nb::value_error(
                 absl::StrCat("Unknown telemetry backend: ", backend_name)
@@ -61,6 +116,23 @@ void BindTelemetryApi(nb::module_& m) {
       },
       nb::call_guard<nb::gil_scoped_release>(),
       "Exports Prometheus text snapshot of TPU Raiden metrics.");
+
+  m.def(
+      "get_metric_metadata",
+      []() -> std::vector<MetricMetadata> {
+        return RaidenMetricStore::GetGlobalMetricStore().GetMetricMetadata();
+      },
+      nb::call_guard<nb::gil_scoped_release>(),
+      "Returns metadata for all registered metrics.");
+
+  m.def(
+      "get_and_reset_metric_samples",
+      []() -> std::map<std::string, std::vector<double>> {
+        return RaidenMetricStore::GetGlobalMetricStore()
+            .GetAndResetMetricSamples();
+      },
+      nb::call_guard<nb::gil_scoped_release>(),
+      "Extracts and resets buffered metric samples across all backends.");
 }
 
 }  // namespace tpu_raiden::telemetry

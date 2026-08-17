@@ -43,6 +43,7 @@
 #include "tpu_sync/kv_cache/kv_cache_store_wrapper.h"
 #include "tpu_sync/kv_cache/reshard/reshard_client.h"
 #include "tpu_sync/rpc/raiden_service.pb.h"
+#include "tpu_sync/telemetry/python/telemetry_binding.h"
 
 namespace nb = nanobind;
 
@@ -1115,4 +1116,6 @@ NB_MODULE(_tpu_raiden_torch, m) {
       nb::arg("raiden_controller_port") = 0,
       nb::arg("reshard_service_port") = 0,
       nb::call_guard<nb::gil_scoped_release>());
+
+  tpu_raiden::telemetry::BindTelemetryApi(m);
 }

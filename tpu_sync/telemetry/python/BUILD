@@ -29,8 +29,10 @@ cc_library(
         "-use_header_modules",
     ],
     deps = [
+        "//tpu_sync/telemetry:buffered_metrics_exporter",
         "//tpu_sync/telemetry:metrics_3p_prometheus_exporter",
         "//tpu_sync/telemetry:metrics_api",
+        "//tpu_sync/telemetry:metrics_backend",
         "@com_google_absl//absl/strings",
         "@nanobind",
     ],

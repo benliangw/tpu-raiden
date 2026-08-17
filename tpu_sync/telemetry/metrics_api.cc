@@ -16,6 +16,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <string>
 #include <utility>
@@ -80,6 +81,27 @@ std::string RaidenMetricStore::GetTextSnapshot() const {
   for (const std::unique_ptr<MetricsBackend>& backend : backends_) {
     // TODO(b/542363997): Consider adding a separator between backends.
     absl::StrAppend(&result, backend->GetTextSnapshot());
+  }
+  return result;
+}
+
+std::vector<MetricMetadata> RaidenMetricStore::GetMetricMetadata() const {
+  if (!HasBackends()) return {};
+  return {std::begin(metric_metadata::kAllMetrics),
+          std::end(metric_metadata::kAllMetrics)};
+}
+
+std::map<std::string, std::vector<double>>
+RaidenMetricStore::GetAndResetMetricSamples() {
+  if (!HasBackends()) return {};
+  absl::MutexLock lock(mutex_);
+  std::map<std::string, std::vector<double>> result;
+  for (const std::unique_ptr<MetricsBackend>& backend : backends_) {
+    auto samples = backend->GetAndResetMetricSamples();
+    for (auto& [name, vals] : samples) {
+      auto& result_vals = result[name];
+      result_vals.insert(result_vals.end(), vals.begin(), vals.end());
+    }
   }
   return result;
 }
