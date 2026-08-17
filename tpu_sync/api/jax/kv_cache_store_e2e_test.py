@@ -255,9 +255,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
             status=kv_cache_store.BlockStatus.HBM,
         ),
     ]
-    inserted, evicted = store.insert(hashes, slices, on_host=False)
-    self.assertTrue(inserted)
-    self.assertEmpty(evicted)
+    self.assertTrue(store.insert_and_lock(hashes, slices, on_host=False))
 
     # Verify status in store is HBM
     lookup_res = store.lookup(hashes)
@@ -269,8 +267,6 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     self.assertEqual(lookup_res[1][1].device_block_id, 1)
 
     # 6. Save HBM blocks to host memory
-    self.assertTrue(store.pin(hashes))
-
     @jax.jit
     def get_slice_e2e(x):
       return x[0, 0, 0, 0, 0:16]
@@ -485,11 +481,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
             status=kv_cache_store.BlockStatus.HBM,
         ),
     ]
-    inserted_a, evicted_a = store_a.insert(hashes, slices_a, on_host=False)
-    self.assertTrue(inserted_a)
-    self.assertEmpty(evicted_a)
-
-    self.assertTrue(store_a.pin(hashes))
+    self.assertTrue(store_a.insert_and_lock(hashes, slices_a, on_host=False))
 
     @jax.jit
     def get_slice(x):
@@ -743,9 +735,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
         )
         for blk in src_device_blocks
     ]
-    inserted_a, _ = store_a.insert(hashes, slices_a, on_host=False)
-    self.assertTrue(inserted_a)
-    self.assertTrue(store_a.pin(hashes))
+    self.assertTrue(store_a.insert_and_lock(hashes, slices_a, on_host=False))
     store_a.save(hashes)
     self._await_terminal(store_a.poll_save_status, len(hashes), "Job A save")
 
@@ -981,10 +971,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
         )
         for i in range(num_blocks)
     ]
-    inserted_a, evicted_a = store_a.insert(hashes, slices_a, on_host=False)
-    self.assertTrue(inserted_a)
-    self.assertEmpty(evicted_a)
-    self.assertTrue(store_a.pin(hashes))
+    self.assertTrue(store_a.insert_and_lock(hashes, slices_a, on_host=False))
 
     self.assertTrue(store_a.save(hashes))
     self._await_terminal(store_a.poll_save_status, len(hashes), "Job A save")

@@ -155,12 +155,9 @@ def _phase_a():
       )
       for i in range(_NUM_BLOCKS)
   ]
-  inserted, evicted = store.insert(_HASHES, slices, on_host=False)
-  assert inserted and not evicted
-  assert store.pin(_HASHES)
+  assert store.insert_and_lock(_HASHES, slices, on_host=False)
   store.save(_HASHES)
   _poll(store.poll_save_status, _NUM_BLOCKS, "save")
-  store.release(_HASHES)
 
   # The blocks are host-resident now; their bytes and the metadata table both
   # live in shared memory and must survive the crash below.

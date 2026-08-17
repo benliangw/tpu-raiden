@@ -228,9 +228,7 @@ def _worker_save_load_main(argv):
           kv_cache_store.RaidenBlockID(rid, host_block_id=-1, device_block_id=0, status=kv_cache_store.BlockStatus.HBM),
           kv_cache_store.RaidenBlockID(rid, host_block_id=-1, device_block_id=1, status=kv_cache_store.BlockStatus.HBM),
       ]
-      inserted, evicted = store.insert(hashes, slices, on_host=False)
-      assert inserted, "Failed to insert blocks to store"
-      assert store.pin(hashes), "Failed to pin hashes before save"
+      assert store.insert_and_lock(hashes, slices, on_host=False), "Failed to insert blocks to store"
 
     dist.barrier()
 
@@ -264,7 +262,7 @@ def _worker_save_load_main(argv):
           done = True
         if not done:
           time.sleep(0.01)
-      store.release(hashes)
+      # A successful save consumed the pin; nothing to release.
 
     if rank == 0:
       print("=== [Rank 0] Loading checkpoint from Host DRAM into TPU HBM blocks [2, 3] (store.load) ===")
@@ -396,9 +394,7 @@ def _worker_read_remote_main(argv):
               status=kv_cache_store.BlockStatus.HBM,
           ),
       ]
-      inserted, evicted = store_a.insert(hashes, slices_a, on_host=False)
-      assert inserted, "Failed to insert blocks to store_a"
-      assert store_a.pin(hashes), "Failed to pin hashes before save"
+      assert store_a.insert_and_lock(hashes, slices_a, on_host=False), "Failed to insert blocks to store_a"
 
     dist.barrier()
 
@@ -448,7 +444,7 @@ def _worker_read_remote_main(argv):
           done = True
         if not done:
           time.sleep(0.01)
-      store_a.release(hashes)
+      # A successful save consumed the pin; nothing to release.
 
       # Wait for global registry propagation
       deadline = time.time() + 10.0
@@ -609,9 +605,7 @@ def _worker_write_remote_main(argv):
               status=kv_cache_store.BlockStatus.HBM,
           ),
       ]
-      inserted, evicted = store_a.insert(hashes, slices_a, on_host=False)
-      assert inserted, "Failed to insert blocks to store_a"
-      assert store_a.pin(hashes), "Failed to pin hashes before save"
+      assert store_a.insert_and_lock(hashes, slices_a, on_host=False), "Failed to insert blocks to store_a"
 
     dist.barrier()
 
@@ -686,7 +680,7 @@ def _worker_write_remote_main(argv):
           break
         time.sleep(0.01)
       assert done, "Job A WriteRemote timed out"
-      store_a.release(hashes)
+      # A successful save consumed the pin; nothing to release.
 
       # Destination holds blocks locally on host DRAM. lookup() pins the landed entries.
       lookup_res_b = store_b.lookup(hashes, enable_global=False)

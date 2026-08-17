@@ -768,7 +768,7 @@ class KVCacheStoreTest(absltest.TestCase):
 
     time.sleep(1)
 
-    # 5. Insert blocks to store directory as HBM status and PIN them
+    # 5. Insert blocks to store directory as HBM status
     slices_1 = [
         kv_cache_store.RaidenBlockID(
             store_id,
@@ -777,8 +777,7 @@ class KVCacheStoreTest(absltest.TestCase):
             status=kv_cache_store.BlockStatus.HBM,
         )
     ]
-    self.assertTrue(store.insert([b"hash1"], slices_1, False)[0])
-    self.assertTrue(store.pin([b"hash1"]))
+    self.assertTrue(store.insert_and_lock([b"hash1"], slices_1, False))
 
     slices_2 = [
         kv_cache_store.RaidenBlockID(
@@ -788,8 +787,7 @@ class KVCacheStoreTest(absltest.TestCase):
             status=kv_cache_store.BlockStatus.HBM,
         )
     ]
-    self.assertTrue(store.insert([b"hash2"], slices_2, False)[0])
-    self.assertTrue(store.pin([b"hash2"]))
+    self.assertTrue(store.insert_and_lock([b"hash2"], slices_2, False))
 
     # 6. Trigger Save (D2H)
     self.assertTrue(store.save([b"hash1", b"hash2"]))

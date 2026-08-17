@@ -221,9 +221,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
             status=kv_cache_store.BlockStatus.HBM,
         ),
     ]
-    inserted, evicted = store.insert(hashes, slices, on_host=False)
-    self.assertTrue(inserted)
-    self.assertEmpty(evicted)
+    self.assertTrue(store.insert_and_lock(hashes, slices, on_host=False))
 
     # Verify status in store is HBM
     lookup_res = store.lookup(hashes)
@@ -236,7 +234,6 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
 
     # 6. Save HBM blocks to host memory
     print("=== [Step 6/9] Saving HBM blocks to Host DRAM (store.save) ===")
-    self.assertTrue(store.pin(hashes))
 
     def get_slice_e2e(x):
       return x[0, 0, 0, 0, 0:16].cpu().numpy()
@@ -255,9 +252,6 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
         done = True
       if not done:
         time.sleep(0.01)
-
-    # Release them so we can test pinning before load
-    store.release(hashes)
 
     # Verify status in store is updated to HOST_AND_HBM
     lookup_res = store.lookup(hashes)
@@ -422,11 +416,10 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
               status=kv_cache_store.BlockStatus.HBM,
           ),
       ]
-      inserted_a, evicted_a = store_a.insert(hashes, slices_a, on_host=False)
-      self.assertTrue(inserted_a)
-      self.assertEmpty(evicted_a)
+      self.assertTrue(
+          store_a.insert_and_lock(hashes, slices_a, on_host=False)
+      )
 
-      self.assertTrue(store_a.pin(hashes))
       store_a.save(hashes)
 
       # Wait for save completion
@@ -439,8 +432,6 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
           done = True
         if not done:
           time.sleep(0.01)
-
-      store_a.release(hashes)
 
       # 5. Job B calls Lookup (enable_global=True)
       time.sleep(0.5)
@@ -617,10 +608,9 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
           )
           for i in range(2)
       ]
-      inserted_a, evicted_a = store_a.insert(hashes, slices_a, on_host=False)
-      self.assertTrue(inserted_a)
-      self.assertEmpty(evicted_a)
-      self.assertTrue(store_a.pin(hashes))
+      self.assertTrue(
+          store_a.insert_and_lock(hashes, slices_a, on_host=False)
+      )
       store_a.save(hashes)
 
       deadline = time.time() + 120
