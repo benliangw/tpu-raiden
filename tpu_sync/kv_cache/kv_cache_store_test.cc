@@ -135,6 +135,23 @@ absl::StatusOr<BlockSliceList> PeekLookup(
   return store.Lookup(block_hashes, LookupOptions{.enable_global = false});
 }
 
+// Populates the cache with ordinary, EVICTABLE residents.
+//
+// Insert() pins what it takes -- that pin is what a later Save() consumes --
+// but most cases below only need the cache populated, not a pin held, and a
+// held pin makes an entry unevictable and undeletable. Handing it straight
+// back is what the real flow does via a successful save; doing it here keeps
+// those cases about their own subject.
+//
+// Cases whose subject IS insert's pin call Insert() directly.
+bool InsertResident(KVCacheStore& store,
+                    const std::vector<std::string>& block_hashes,
+                    const std::vector<RaidenBlockID>& slices, bool on_host) {
+  if (!store.Insert(block_hashes, slices, on_host)) return false;
+  store.Release(block_hashes);
+  return true;
+}
+
 // Publishes a peer so a remote read can resolve its controller. The store
 // server address is required by the registry but a read never dials it -- it
 // speaks to the controller.
@@ -176,10 +193,12 @@ TEST(KVCacheStoreTest, BasicTests) {
       RaidenId{"inference_server", "0", "kv_cache", 0},
       RaidenId{"inference_server", "1", "kv_cache", 0}};
 
-  // 1. Insert
-  EXPECT_TRUE(controller.Insert(hashes, slices, true).first);
-  EXPECT_FALSE(
-      controller.Insert(hashes, slices, true).first);  // Already exists
+  // 1. Insert. Re-inserting hashes that are already present SUCCEEDS now: the
+  // old non-locking Insert reported "one of these already existed" as false,
+  // whereas this one pins what is there and inserts what is not, which is
+  // exactly what the lookup-miss -> insert flow wants.
+  EXPECT_TRUE(InsertResident(controller, hashes, slices, true));
+  EXPECT_TRUE(InsertResident(controller, hashes, slices, true));
 
   // 2. Lookup with a partial miss at the end
   std::vector<std::string> hashes_with_miss = {"4001", "4002", "4003"};
@@ -205,7 +224,7 @@ TEST(KVCacheStoreTest, BasicTests) {
   // 3. Delete
   controller.Delete(hashes, slices);
   EXPECT_TRUE(
-      controller.Insert(hashes, slices, true).first);  // Successful again
+      InsertResident(controller, hashes, slices, true));  // Successful again
 }
 
 TEST(KVCacheStoreTest, PinAndRelease) {
@@ -218,7 +237,7 @@ TEST(KVCacheStoreTest, PinAndRelease) {
       RaidenId{"inference_server", "0", "kv_cache", 0},
       RaidenId{"inference_server", "1", "kv_cache", 0}};
 
-  EXPECT_TRUE(controller.Insert(hashes, slices, true).first);
+  EXPECT_TRUE(InsertResident(controller, hashes, slices, true));
 
   // Pin both
   EXPECT_TRUE(controller.Pin(hashes));
@@ -230,7 +249,7 @@ TEST(KVCacheStoreTest, PinAndRelease) {
   std::vector<std::string> hash_3 = {"103"};
   std::vector<RaidenBlockID> slice_3 = {
       RaidenId{"inference_server", "2", "kv_cache", 0}};
-  controller.Insert(hash_3, slice_3, true);
+  InsertResident(controller, hash_3, slice_3, true);
 
   // Release 101
   controller.Release({"101"});
@@ -240,7 +259,7 @@ TEST(KVCacheStoreTest, PinAndRelease) {
   std::vector<std::string> hash_4 = {"104"};
   std::vector<RaidenBlockID> slice_4 = {
       RaidenId{"inference_server", "3", "kv_cache", 0}};
-  controller.Insert(hash_4, slice_4, true);
+  InsertResident(controller, hash_4, slice_4, true);
 
   // 101 is candidate.
   EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(controller),
@@ -268,7 +287,9 @@ TEST(KVCacheStoreTest, PartialPinRollback) {
       RaidenId{"inference_server", "0", "kv_cache", 0},
       RaidenId{"inference_server", "1", "kv_cache", 0}};
 
-  EXPECT_TRUE(controller.Insert(hashes, slices, true).first);
+  // Resident but unpinned: this case is about Pin's rollback, so insert's own
+  // pin would just add a constant to every count below.
+  EXPECT_TRUE(InsertResident(controller, hashes, slices, true));
 
   // Attempt to pin a sequence with a missing hash (203)
   EXPECT_FALSE(controller.Pin({"201", "202", "203"}));
@@ -288,37 +309,45 @@ TEST(KVCacheStoreTest, EvictionTracking) {
       RaidenId{"inference_server", "0", "kv_cache", 0},
       RaidenId{"inference_server", "1", "kv_cache", 1}};
 
-  // 1. Insert 101 and 102. No evictions should occur.
-  auto res_1_2 = controller.Insert(hashes_1_2, slices_1_2, true);
-  EXPECT_TRUE(res_1_2.first);
-  EXPECT_TRUE(res_1_2.second.empty());
+  // 1. Insert 101 and 102, filling the cache. Both come back PINNED.
+  EXPECT_TRUE(controller.Insert(hashes_1_2, slices_1_2, true));
 
-  // 2. Insert 103. Since capacity is 2, this must evict the LRU block (101).
+  // 2. Insert 103. available_space() is capacity minus the PINNED entries, so
+  // with both slots pinned there is nothing insert is allowed to reclaim and
+  // it refuses rather than evicting a block somebody is holding. All-or-
+  // nothing: 103 is not inserted and 101/102 keep their pins.
   std::vector<std::string> hash_3 = {"103"};
   std::vector<RaidenBlockID> slice_3 = {
       RaidenId{"inference_server", "2", "kv_cache", 2}};
 
-  auto res_3 = controller.Insert(hash_3, slice_3, true);
-  EXPECT_TRUE(res_3.first);
-  ASSERT_EQ(res_3.second.size(), 1);
-  EXPECT_EQ(res_3.second[0].first, "101");
-  EXPECT_EQ(res_3.second[0].second.raiden_id.job_name, "inference_server");
-  EXPECT_EQ(res_3.second[0].second.raiden_id.data_replica_idx, 0);
+  EXPECT_FALSE(controller.Insert(hash_3, slice_3, true));
+  EXPECT_EQ(controller.GetPinCount("101"), 1);
+  EXPECT_EQ(controller.GetPinCount("102"), 1);
 
-  // 3. Verify that 101 is in candidates.
+  // 3. Release them -- in the real flow a successful save() does this -- and
+  // the same insert now succeeds by evicting.
+  //
+  // The victim is 102, not 101. Release walks the batch in REVERSE so that the
+  // tail of a sequence becomes evictable first, which is what you want for
+  // prefix caches: dropping the tail of a shared prefix costs less than
+  // dropping its head.
+  controller.Release(hashes_1_2);
+  EXPECT_TRUE(controller.Insert(hash_3, slice_3, true));
+
+  // 4. Verify that 102 is in candidates.
   EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(controller),
-              ::testing::ElementsAre("101"));
+              ::testing::ElementsAre("102"));
 
-  // 4. Verify that lookup for 101 misses (candidate invisible with Peek).
-  auto lookup_res = controller.Lookup({"101"});
+  // 5. Verify that lookup for 102 misses (candidate invisible with Peek).
+  auto lookup_res = PeekLookup(controller, {"102"});
   ASSERT_TRUE(lookup_res.ok());
   EXPECT_TRUE(lookup_res->empty());
-  // 101 should still be in candidates.
+  // 102 should still be in candidates.
   EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(controller),
-              ::testing::ElementsAre("101"));
+              ::testing::ElementsAre("102"));
 
-  EXPECT_EQ(controller.Lookup({"102"})->size(), 1);
-  EXPECT_EQ(controller.Lookup({"103"})->size(), 1);
+  EXPECT_EQ(PeekLookup(controller, {"101"})->size(), 1);
+  EXPECT_EQ(PeekLookup(controller, {"103"})->size(), 1);
 }
 
 TEST(KVCacheStoreTest, GlobalLookupFallback) {
@@ -359,7 +388,7 @@ TEST(KVCacheStoreTest, GlobalLookupFallback) {
   std::vector<RaidenBlockID> local_slices = {
       RaidenId{"local_job", "0", "kv_cache", 0},
       RaidenId{"local_job", "0", "kv_cache", 1}};
-  ASSERT_TRUE(store.Insert(local_hashes, local_slices, true).first);
+  ASSERT_TRUE(InsertResident(store, local_hashes, local_slices, true));
 
   // Case 1: Full local hit, no global hit
   {
@@ -581,7 +610,7 @@ TEST(KVCacheStoreTest, GlobalLookupRegistryDown) {
   std::vector<std::string> local_hashes = {"local_hash"};
   std::vector<RaidenBlockID> local_slices = {
       RaidenId{"local_job", "0", "kv_cache", 0}};
-  ASSERT_TRUE(store.Insert(local_hashes, local_slices, true).first);
+  ASSERT_TRUE(InsertResident(store, local_hashes, local_slices, true));
 
   // Lookup with enable_global = true.
   // It should NOT fail even though Lookup RPCs to the registry fail. It
@@ -608,7 +637,7 @@ TEST(KVCacheStoreTest, ValidateAndPinHostBlocksSuccessReDerivesIdsAndPins) {
                     BlockStatus::HOST),
       RaidenBlockID(rid, /*host_block_id=*/7, /*device_block_id=*/-1,
                     BlockStatus::HOST_AND_HBM)};
-  ASSERT_TRUE(store.Insert(hashes, slices, /*on_host=*/true).first);
+  ASSERT_TRUE(InsertResident(store, hashes, slices, /*on_host=*/true));
 
   auto ids_or = store.ValidateAndPinHostBlocks(hashes);
   ASSERT_TRUE(ids_or.ok()) << ids_or.status().message();
@@ -637,7 +666,7 @@ TEST(KVCacheStoreTest, ValidateAndPinHostBlocksWrongStatusFailedPrecondition) {
   std::vector<std::string> hashes = {"remote_h"};
   std::vector<RaidenBlockID> slices = {RaidenBlockID(
       rid, /*host_block_id=*/-1, /*device_block_id=*/-1, BlockStatus::REMOTE)};
-  ASSERT_TRUE(store.Insert(hashes, slices, /*on_host=*/false).first);
+  ASSERT_TRUE(InsertResident(store, hashes, slices, /*on_host=*/false));
 
   auto ids_or = store.ValidateAndPinHostBlocks(hashes);
   EXPECT_TRUE(absl::IsFailedPrecondition(ids_or.status())) << ids_or.status();
@@ -656,7 +685,7 @@ TEST(KVCacheStoreTest, ValidateAndPinHostBlocksAtomicRollbackOnPartialMiss) {
                     BlockStatus::HOST),
       RaidenBlockID(rid, /*host_block_id=*/-1, /*device_block_id=*/-1,
                     BlockStatus::REMOTE)};
-  ASSERT_TRUE(store.Insert(hashes, slices, /*on_host=*/false).first);
+  ASSERT_TRUE(InsertResident(store, hashes, slices, /*on_host=*/false));
 
   auto ids_or = store.ValidateAndPinHostBlocks(hashes);
   EXPECT_FALSE(ids_or.ok());
@@ -680,8 +709,8 @@ TEST(KVCacheStoreTest,
   std::vector<std::string> hashes = {"h0"};
   std::vector<RaidenBlockID> slices = {RaidenBlockID(
       rid, /*host_block_id=*/9, /*device_block_id=*/-1, BlockStatus::HOST)};
-  // insert_and_lock pins once.
-  ASSERT_TRUE(store.InsertAndLock(hashes, slices, /*on_host=*/true));
+  // Insert pins once, and this case counts from that pin.
+  ASSERT_TRUE(store.Insert(hashes, slices, /*on_host=*/true));
   EXPECT_EQ(store.GetPinCount("h0"), 1);
 
   auto ids_or = store.ValidateAndPinHostBlocks(hashes);
@@ -702,7 +731,7 @@ TEST(KVCacheStoreTest, LookupCapLimit) {
       RaidenId{"inference_server", "0", "kv_cache", 0},
       RaidenId{"inference_server", "1", "kv_cache", 1}};
 
-  ASSERT_TRUE(store.Insert(hashes, slices, true).first);
+  ASSERT_TRUE(InsertResident(store, hashes, slices, true));
 
   // Lookup 3 hashes, but capacity is 2. It should only return 2.
   std::vector<std::string> lookup_hashes = {"101", "102", "103"};
@@ -785,7 +814,7 @@ TEST(KVCacheStoreTest, LookupCapLimitMixed) {
   std::vector<std::string> local_hashes = {"local_hash_1"};
   std::vector<RaidenBlockID> local_slices = {
       RaidenId{"local_job", "0", "kv_cache", 0}};
-  ASSERT_TRUE(store.Insert(local_hashes, local_slices, true).first);
+  ASSERT_TRUE(InsertResident(store, local_hashes, local_slices, true));
 
   // Lookup 3 hashes, but capacity is 2. It should only return 2 (1 local, 1
   // global).
@@ -808,7 +837,7 @@ TEST(KVCacheStoreTest, LookupAvailableSpaceLimit) {
       RaidenId{"inference_server", "1", "kv_cache", 1},
       RaidenId{"inference_server", "2", "kv_cache", 2}};
 
-  ASSERT_TRUE(store.Insert(hashes, slices, true).first);
+  ASSERT_TRUE(InsertResident(store, hashes, slices, true));
 
   // Pin 101. Pinned count = 1. Available space = 3 - 1 = 2.
   EXPECT_TRUE(store.Pin({"101"}));
@@ -824,30 +853,29 @@ TEST(KVCacheStoreTest, LookupAvailableSpaceLimit) {
   EXPECT_EQ((*lookup_res)[2].first, "103");
 }
 
-TEST(KVCacheStoreTest, InsertAndLock) {
+TEST(KVCacheStoreTest, InsertPinsExistingAndNewAlike) {
   KVCacheStore store(2, "", {}, /*num_shards=*/1, /*shard_size_bytes=*/512,
                      /*store_server_ip=*/"127.0.0.1");
 
-  // Insert local block
+  // Already resident, and unpinned -- the pins under test are the ones the
+  // insert below grants.
   std::vector<std::string> local_hashes = {"local_1"};
   std::vector<RaidenBlockID> local_slices = {
       RaidenId{"local_job", "0", "kv_cache", 0}};
-  ASSERT_TRUE(store.Insert(local_hashes, local_slices, true).first);
+  ASSERT_TRUE(InsertResident(store, local_hashes, local_slices, true));
 
-  // Execute InsertAndLock
+  // One hash already present, one new: both come back pinned exactly once.
   std::vector<RaidenBlockID> slices = {
       RaidenId{"local_job", "0", "kv_cache", 0},
       RaidenId{"remote_job", "0", "kv_cache", 42}};
-  auto res = store.InsertAndLock({"local_1", "remote_1"}, slices, true);
-  EXPECT_TRUE(res);
+  EXPECT_TRUE(store.Insert({"local_1", "remote_1"}, slices, true));
   EXPECT_EQ(store.GetPinCount("local_1"), 1);
   EXPECT_EQ(store.GetPinCount("remote_1"), 1);
 
-  // Since capacity is 2 and both local_1 and remote_1 are pinned, available
-  // space is 0. Attempting to InsertAndLock remote_2 should fail due to lack
-  // of space.
-  auto res_fail = store.InsertAndLock({"remote_2"}, {}, true);
-  EXPECT_FALSE(res_fail);
+  // Capacity is 2 and both entries are pinned, so available space is 0 and
+  // there is nothing insert is allowed to reclaim: remote_2 is refused rather
+  // than evicting a block somebody is holding.
+  EXPECT_FALSE(store.Insert({"remote_2"}, {}, true));
 }
 
 TEST(KVCacheStoreTest, LruCachePutBack) {
@@ -884,23 +912,23 @@ TEST(KVCacheStoreTest, ReleaseAndDelete) {
                     BlockStatus::HOST),
       RaidenBlockID(RaidenId{"local_job", "0", "kv_cache", 1}, -1,
                     BlockStatus::HOST)};
-  ASSERT_TRUE(store.Insert(local_hashes, local_slices, true).first);
+  ASSERT_TRUE(InsertResident(store, local_hashes, local_slices, true));
 
-  // Now InsertAndLock two remote blocks, which will evict local_1 and local_2.
+  // Now insert two remote blocks, which will evict local_1 and local_2.
   std::vector<std::string> remote_hashes = {"remote_1", "remote_2"};
   std::vector<RaidenBlockID> remote_slices = {
       RaidenBlockID(RaidenId{"remote_job", "0", "kv_cache", 0}, -1,
                     BlockStatus::REMOTE),
       RaidenBlockID(RaidenId{"remote_job", "0", "kv_cache", 1}, -1,
                     BlockStatus::REMOTE)};
-  auto res = store.InsertAndLock(remote_hashes, remote_slices, true);
+  auto res = store.Insert(remote_hashes, remote_slices, true);
   ASSERT_TRUE(res);
   EXPECT_EQ(store.GetPinCount("remote_1"), 1);
   EXPECT_EQ(store.GetPinCount("remote_2"), 1);
   EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
               ::testing::UnorderedElementsAre("local_1", "local_2"));
 
-  // Now call ReleaseAndDelete to revert InsertAndLock!
+  // Now call ReleaseAndDelete to revert the insert!
   auto release_res = store.ReleaseAndDelete(remote_hashes);
   EXPECT_EQ(release_res, 2);
 
@@ -916,7 +944,7 @@ TEST(KVCacheStoreTest, ReleaseAndDelete) {
   EXPECT_EQ(lookup_res->size(), 2);
 
   // Test non-remote block in ReleaseAndDelete: should unpin without deleting
-  store.InsertAndLock({"local_1"}, {local_slices[0]}, true);
+  store.Insert({"local_1"}, {local_slices[0]}, true);
   EXPECT_EQ(store.GetPinCount("local_1"), 1);
   auto res_non_remote = store.ReleaseAndDelete({"local_1"});
   EXPECT_EQ(res_non_remote, 0);
@@ -925,7 +953,7 @@ TEST(KVCacheStoreTest, ReleaseAndDelete) {
 
   // Test remote block pinned twice: after one ReleaseAndDelete, pin count is 1
   // so it should NOT be deleted!
-  store.InsertAndLock({"remote_1"}, {remote_slices[0]}, true);
+  store.Insert({"remote_1"}, {remote_slices[0]}, true);
   store.Pin({"remote_1"});  // pin count is now 2
   EXPECT_EQ(store.GetPinCount("remote_1"), 2);
   auto res_pinned = store.ReleaseAndDelete({"remote_1"});
@@ -942,17 +970,17 @@ TEST(KVCacheStoreTest, ReleaseAndDelete) {
   std::vector<std::string> local_hash_3 = {"local_3"};
   std::vector<RaidenBlockID> local_slice_3 = {RaidenBlockID(
       RaidenId{"local_job", "0", "kv_cache", 2}, -1, BlockStatus::HOST)};
-  ASSERT_TRUE(store.Insert(local_hash_3, local_slice_3, true).first);
+  ASSERT_TRUE(InsertResident(store, local_hash_3, local_slice_3, true));
 
   // Insert local_4 -> evicts local_2 (candidates: local_1, local_2).
   std::vector<std::string> local_hash_4 = {"local_4"};
   std::vector<RaidenBlockID> local_slice_4 = {RaidenBlockID(
       RaidenId{"local_job", "0", "kv_cache", 3}, -1, BlockStatus::HOST)};
-  ASSERT_TRUE(store.Insert(local_hash_4, local_slice_4, true).first);
+  ASSERT_TRUE(InsertResident(store, local_hash_4, local_slice_4, true));
 
-  // Now InsertAndLock remote_2 -> evicts local_3 (candidates: local_1, local_2,
+  // Now insert remote_2 -> evicts local_3 (candidates: local_1, local_2,
   // local_3). Cache has local_4, remote_2.
-  ASSERT_TRUE(store.InsertAndLock({"remote_2"}, {remote_slices[1]}, true));
+  ASSERT_TRUE(store.Insert({"remote_2"}, {remote_slices[1]}, true));
 
   // ReleaseAndDelete remote_2 -> deletes remote_2 and restores local_3.
   auto res_partial = store.ReleaseAndDelete({"remote_2"});
@@ -975,24 +1003,26 @@ TEST(KVCacheStoreTest, RollbackRescue) {
                     BlockStatus::HOST),
       RaidenBlockID(RaidenId{"local_job", "0", "kv_cache", 2}, -1,
                     BlockStatus::HOST)};
-  ASSERT_TRUE(store.Insert(local_hashes, local_slices, true).first);
+  ASSERT_TRUE(InsertResident(store, local_hashes, local_slices, true));
 
-  // 2. Insert local_4 -> evicts local_1
+  // 2. Insert local_4 -> evicts local_3, the TAIL of the batch above (a batch
+  // is released in reverse, so its first hash ends up most recently used).
   std::vector<std::string> local_hash_4 = {"local_4"};
   std::vector<RaidenBlockID> local_slice_4 = {RaidenBlockID(
       RaidenId{"local_job", "0", "kv_cache", 3}, -1, BlockStatus::HOST)};
-  ASSERT_TRUE(store.Insert(local_hash_4, local_slice_4, true).first);
+  ASSERT_TRUE(InsertResident(store, local_hash_4, local_slice_4, true));
 
-  // Candidates list should contain "local_1"
+  // Candidates list should contain "local_3"
   EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
-              ::testing::ElementsAre("local_1"));
+              ::testing::ElementsAre("local_3"));
 
-  // 3. Delete local_4 to free up a slot (so cache has local_2, local_3)
+  // 3. Delete local_4 to free up a slot (so cache has local_1, local_2)
   store.Delete(local_hash_4, local_slice_4);
 
-  // 4. InsertAndLock: local_2 (existing), remote_1 (new), remote_2 (new)
-  // This will use the free slot for remote_1 (0 evictions), and evict local_3
-  // for remote_2 (1 eviction)
+  // 4. Insert: local_2 (existing), remote_1 (new), remote_2 (new)
+  // This will use the free slot for remote_1 (0 evictions), and evict local_1
+  // for remote_2 (1 eviction) -- local_2 is pinned by this very insert, so
+  // local_1 is the only thing left to take.
   std::vector<std::string> insert_hashes = {"local_2", "remote_1", "remote_2"};
   std::vector<RaidenBlockID> insert_slices = {
       RaidenBlockID(RaidenId{"local_job", "0", "kv_cache", 1}, -1,
@@ -1001,34 +1031,34 @@ TEST(KVCacheStoreTest, RollbackRescue) {
                     BlockStatus::REMOTE),
       RaidenBlockID(RaidenId{"remote_job", "0", "kv_cache", 1}, -1,
                     BlockStatus::REMOTE)};
-  ASSERT_TRUE(store.InsertAndLock(insert_hashes, insert_slices, true));
+  ASSERT_TRUE(store.Insert(insert_hashes, insert_slices, true));
 
-  // Verify eviction count was 1 (so candidates should be local_1, local_3)
+  // Verify eviction count was 1. The candidate list is oldest first: local_3
+  // from step 2, then local_1 from this insert.
   EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
-              ::testing::ElementsAre("local_1", "local_3"));
+              ::testing::ElementsAre("local_3", "local_1"));
 
-  // 5. ReleaseAndDelete: should only restore 1 block (local_3) and not restore
-  // local_1
+  // 5. ReleaseAndDelete: only ONE eviction happened during the insert, so only
+  // one candidate is rescued -- local_1, the most recent. local_3 stays a
+  // candidate.
   auto release_res = store.ReleaseAndDelete(insert_hashes);
   EXPECT_EQ(
       release_res,
       2);  // remote_1 and remote_2 are deleted since they are REMOTE status
 
-  // local_3 should be restored to the cache, local_1 should still be in
-  // candidates
-  auto lookup_res = store.Lookup({"local_3"});
+  auto lookup_res = PeekLookup(store, {"local_1"});
   ASSERT_TRUE(lookup_res.ok());
   EXPECT_EQ(lookup_res->size(), 1);
 
   EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
-              ::testing::ElementsAre("local_1"));
+              ::testing::ElementsAre("local_3"));
 
-  // Lookup for local_1 misses (candidate invisible with Peek)
-  auto lookup_local_1 = store.Lookup({"local_1"});
-  ASSERT_TRUE(lookup_local_1.ok());
-  EXPECT_TRUE(lookup_local_1->empty());
+  // Lookup for local_3 misses (candidate invisible with Peek)
+  auto lookup_local_3 = PeekLookup(store, {"local_3"});
+  ASSERT_TRUE(lookup_local_3.ok());
+  EXPECT_TRUE(lookup_local_3->empty());
   EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
-              ::testing::ElementsAre("local_1"));
+              ::testing::ElementsAre("local_3"));
 }
 
 TEST(KVCacheStoreTest, EvictRaceCondition) {
@@ -1039,7 +1069,7 @@ TEST(KVCacheStoreTest, EvictRaceCondition) {
   std::vector<std::string> local_hashes = {"local_1"};
   std::vector<RaidenBlockID> local_slices = {RaidenBlockID(
       RaidenId{"local_job", "0", "kv_cache", 0}, -1, BlockStatus::HOST)};
-  ASSERT_TRUE(store.Insert(local_hashes, local_slices, true).first);
+  ASSERT_TRUE(InsertResident(store, local_hashes, local_slices, true));
 
   // Pin local_1
   ASSERT_TRUE(store.Pin({"local_1"}));
@@ -1106,15 +1136,16 @@ TEST(KVCacheStoreTest, InsertSetsAndDeleteClearsMetadataEntries) {
       RaidenBlockID(rid, 0, BlockStatus::HOST),
       RaidenBlockID(rid, 1, BlockStatus::HOST),
       RaidenBlockID(rid, -1, 0, BlockStatus::HBM)};
-  ASSERT_TRUE(store.Insert(hashes, slices, true).first);
+  ASSERT_TRUE(InsertResident(store, hashes, slices, true));
+  // New items go in REVERSE order, so the later hash takes the lower seq.
   EXPECT_THAT(metadata_or->ValidEntries(),
-              ElementsAre(::testing::FieldsAre(0, "host_1", 0),
-                          ::testing::FieldsAre(1, "host_2", 1)));
+              ElementsAre(::testing::FieldsAre(0, "host_1", 1),
+                          ::testing::FieldsAre(1, "host_2", 0)));
 
   // Delete clears the binding's metadata entry.
   store.Delete({"host_1"}, {slices[0]});
   EXPECT_THAT(metadata_or->ValidEntries(),
-              ElementsAre(::testing::FieldsAre(1, "host_2", 1)));
+              ElementsAre(::testing::FieldsAre(1, "host_2", 0)));
 }
 
 TEST(KVCacheStoreTest, MetadataKeepsEvictionCandidates) {
@@ -1127,37 +1158,39 @@ TEST(KVCacheStoreTest, MetadataKeepsEvictionCandidates) {
                      /*global_registry_address=*/"", rid, *metadata_or,
                      /*store_server_ip=*/"127.0.0.1");
 
-  ASSERT_TRUE(store
-                  .Insert({"host_1", "host_2"},
-                          {RaidenBlockID(rid, 0, BlockStatus::HOST),
-                           RaidenBlockID(rid, 1, BlockStatus::HOST)},
-                          true)
-                  .first);
+  ASSERT_TRUE(InsertResident(store, {"host_1", "host_2"},
+                             {RaidenBlockID(rid, 0, BlockStatus::HOST),
+                              RaidenBlockID(rid, 1, BlockStatus::HOST)},
+                             true));
 
-  // Inserting host_3 moves host_1 to the candidate list. Its host block stays
+  // Inserting host_3 moves host_2 to the candidate list. Its host block stays
   // allocated, so its metadata entry survives.
-  ASSERT_TRUE(
-      store.Insert({"host_3"}, {RaidenBlockID(rid, 2, BlockStatus::HOST)}, true)
-          .first);
+  //
+  // host_2, the TAIL of the batch, not host_1: releasing a batch walks it in
+  // reverse and each unpin promotes to MRU, so the first hash ends up the most
+  // recently used and the last is evicted first. That is the documented intent
+  // -- dropping the tail of a shared prefix costs less than dropping its head
+  // -- and it is what pinning on insert made actually true.
+  ASSERT_TRUE(InsertResident(store, {"host_3"},
+                             {RaidenBlockID(rid, 2, BlockStatus::HOST)}, true));
   EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
-              ElementsAre("host_1"));
+              ElementsAre("host_2"));
   EXPECT_THAT(metadata_or->ValidEntries(),
-              ElementsAre(::testing::FieldsAre(0, "host_1", 0),
-                          ::testing::FieldsAre(1, "host_2", 1),
+              ElementsAre(::testing::FieldsAre(0, "host_1", 1),
+                          ::testing::FieldsAre(1, "host_2", 0),
                           ::testing::FieldsAre(2, "host_3", 2)));
 
-  // Re-inserting host_1 under a new host block reactivates the candidate and
-  // overwrites its binding in place: block 0's entry is cleared and block 3's
+  // Re-inserting host_2 under a new host block reactivates the candidate and
+  // overwrites its binding in place: block 1's entry is cleared and block 3's
   // is set with the newest seq.
-  ASSERT_TRUE(
-      store.Insert({"host_1"}, {RaidenBlockID(rid, 3, BlockStatus::HOST)}, true)
-          .first);
+  ASSERT_TRUE(InsertResident(store, {"host_2"},
+                             {RaidenBlockID(rid, 3, BlockStatus::HOST)}, true));
   EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
               ::testing::IsEmpty());
   EXPECT_THAT(metadata_or->ValidEntries(),
-              ElementsAre(::testing::FieldsAre(1, "host_2", 1),
+              ElementsAre(::testing::FieldsAre(0, "host_1", 1),
                           ::testing::FieldsAre(2, "host_3", 2),
-                          ::testing::FieldsAre(3, "host_1", 3)));
+                          ::testing::FieldsAre(3, "host_2", 3)));
 }
 
 TEST(KVCacheStoreTest, EvictClearsMetadataEntries) {
@@ -1170,17 +1203,15 @@ TEST(KVCacheStoreTest, EvictClearsMetadataEntries) {
                      /*global_registry_address=*/"", rid, *metadata_or,
                      /*store_server_ip=*/"127.0.0.1");
 
-  ASSERT_TRUE(store
-                  .Insert({"host_1", "host_2"},
-                          {RaidenBlockID(rid, 0, BlockStatus::HOST),
-                           RaidenBlockID(rid, 1, BlockStatus::HOST)},
-                          true)
-                  .first);
+  ASSERT_TRUE(InsertResident(store, {"host_1", "host_2"},
+                             {RaidenBlockID(rid, 0, BlockStatus::HOST),
+                              RaidenBlockID(rid, 1, BlockStatus::HOST)},
+                             true));
   ASSERT_EQ(metadata_or->ValidEntries().size(), 2);
 
   EXPECT_EQ(KVCacheStoreTest::Evict(store, {"host_1"}), 1);
   EXPECT_THAT(metadata_or->ValidEntries(),
-              ElementsAre(::testing::FieldsAre(1, "host_2", 1)));
+              ElementsAre(::testing::FieldsAre(1, "host_2", 0)));
 }
 
 class KVCacheStoreEmbeddedControllerTest : public ::testing::Test {
@@ -1279,7 +1310,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, SaveReusesFreedBlocksAfterEvict) {
   std::vector<RaidenBlockID> first_slices = {
       RaidenBlockID(rid, -1, 0, BlockStatus::HBM),
       RaidenBlockID(rid, -1, 1, BlockStatus::HBM)};
-  ASSERT_TRUE(store.Insert(first, first_slices, false).first);
+  ASSERT_TRUE(InsertResident(store, first, first_slices, false));
   ASSERT_TRUE(store.Pin(first));
   ASSERT_TRUE(save_and_wait(first).ok());
   EXPECT_EQ(controller_ptr->block_manager()->num_locked_blocks(), 2);
@@ -1296,7 +1327,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, SaveReusesFreedBlocksAfterEvict) {
   std::vector<std::string> second = {"hash_3"};
   std::vector<RaidenBlockID> second_slices = {
       RaidenBlockID(rid, -1, 0, BlockStatus::HBM)};
-  ASSERT_TRUE(store.Insert(second, second_slices, false).first);
+  ASSERT_TRUE(InsertResident(store, second, second_slices, false));
   ASSERT_TRUE(store.Pin(second));
   absl::Status status = save_and_wait(second);
   EXPECT_TRUE(status.ok()) << status.message();
@@ -1321,7 +1352,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, SaveSuccess) {
       RaidenBlockID(rid, -1, 1, BlockStatus::HBM)};
 
   // Insert them as HBM blocks
-  ASSERT_TRUE(store.Insert(hashes, slices, false).first);
+  ASSERT_TRUE(InsertResident(store, hashes, slices, false));
 
   // Pin them
   ASSERT_TRUE(store.Pin(hashes));
@@ -1385,7 +1416,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadSuccess) {
       RaidenBlockID(rid, 0, -1, BlockStatus::HOST),
       RaidenBlockID(rid, 1, -1, BlockStatus::HOST)};
 
-  ASSERT_TRUE(store.Insert(hashes, slices, true).first);
+  ASSERT_TRUE(InsertResident(store, hashes, slices, true));
 
   // Pin them
   ASSERT_TRUE(store.Pin(hashes));
@@ -1446,7 +1477,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadWithSlicesSuccess) {
       RaidenBlockID(rid, 0, -1, BlockStatus::HOST),
       RaidenBlockID(rid, 1, -1, BlockStatus::HOST)};
 
-  ASSERT_TRUE(store.Insert(hashes, slices, true).first);
+  ASSERT_TRUE(InsertResident(store, hashes, slices, true));
   ASSERT_TRUE(store.Pin(hashes));
 
   absl::Status status = store.Load(hashes, slices, {2, 3});
@@ -1511,7 +1542,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadWithSlicesUnpinnedFails) {
   std::vector<RaidenBlockID> slices = {
       RaidenBlockID(rid, 0, -1, BlockStatus::HOST)};
 
-  ASSERT_TRUE(store.Insert(hashes, slices, true).first);
+  ASSERT_TRUE(InsertResident(store, hashes, slices, true));
 
   absl::Status status = store.Load(hashes, slices, {2});
   EXPECT_EQ(status.code(), absl::StatusCode::kFailedPrecondition);
@@ -1544,7 +1575,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LocalSaveConsumesTheCallerPin) {
   std::vector<std::string> hashes = {"hash_1"};
   std::vector<RaidenBlockID> slices = {
       RaidenBlockID(rid, -1, 3, BlockStatus::HBM)};
-  ASSERT_TRUE(store.Insert(hashes, slices, /*on_host=*/false).first);
+  ASSERT_TRUE(InsertResident(store, hashes, slices, /*on_host=*/false));
   ASSERT_TRUE(store.Pin(hashes));
   ASSERT_EQ(store.GetPinCount("hash_1"), 1);
 
@@ -1594,7 +1625,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LocalLoadConsumesTheCallerPin) {
   std::vector<std::string> hashes = {"hash_1"};
   std::vector<RaidenBlockID> slices = {
       RaidenBlockID(rid, 0, -1, BlockStatus::HOST)};
-  ASSERT_TRUE(store.Insert(hashes, slices, true).first);
+  ASSERT_TRUE(InsertResident(store, hashes, slices, true));
   ASSERT_TRUE(store.Pin(hashes));
   ASSERT_EQ(store.GetPinCount("hash_1"), 1);
 
@@ -1631,7 +1662,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadWithSlicesAlreadyLoadingFails) {
   std::vector<RaidenBlockID> slices = {
       RaidenBlockID(rid, 0, -1, BlockStatus::HOST)};
 
-  ASSERT_TRUE(store.Insert(hashes, slices, true).first);
+  ASSERT_TRUE(InsertResident(store, hashes, slices, true));
   ASSERT_TRUE(store.Pin(hashes));
 
   absl::Status status1 = store.Load(hashes, slices, {2});
@@ -1657,8 +1688,8 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadWithSlicesMixedStatusesFails) {
       RaidenBlockID(remote_rid, 0, -1, BlockStatus::REMOTE),
       RaidenBlockID(rid, 1, -1, BlockStatus::HOST)};
 
-  ASSERT_TRUE(store.Insert({"hash_1"}, {slices[0]}, /*on_host=*/false).first);
-  ASSERT_TRUE(store.Insert({"hash_2"}, {slices[1]}, /*on_host=*/true).first);
+  ASSERT_TRUE(InsertResident(store, {"hash_1"}, {slices[0]}, /*on_host=*/false));
+  ASSERT_TRUE(InsertResident(store, {"hash_2"}, {slices[1]}, /*on_host=*/true));
   ASSERT_TRUE(store.Pin(hashes));
 
   absl::Status status = store.Load(hashes, slices, {2, 3});
@@ -1715,7 +1746,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadWithSlicesRemoteSuccess) {
   std::vector<RaidenBlockID> slices = {
       RaidenBlockID(remote_rid, 42, BlockStatus::REMOTE)};
 
-  ASSERT_TRUE(store.Insert(hashes, slices, /*on_host=*/false).first);
+  ASSERT_TRUE(InsertResident(store, hashes, slices, /*on_host=*/false));
   ASSERT_TRUE(store.Pin(hashes));
 
   absl::Status status = store.Load(hashes, slices, {5});
@@ -1797,7 +1828,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadRemoteSuccess) {
   std::vector<RaidenBlockID> slices = {
       RaidenBlockID(remote_rid, 42, BlockStatus::REMOTE)};
 
-  ASSERT_TRUE(store.Insert(hashes, slices, /*on_host=*/false).first);
+  ASSERT_TRUE(InsertResident(store, hashes, slices, /*on_host=*/false));
   ASSERT_TRUE(store.Pin(hashes));
 
   // 5. Load remote block into local device block 5
@@ -1922,7 +1953,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadUnpinnedRemoteBlockFails) {
   std::vector<RaidenBlockID> slices = {
       RaidenBlockID(remote_rid, /*host_block_id=*/-1, /*device_block_id=*/-1,
                     BlockStatus::REMOTE)};
-  ASSERT_TRUE(store.Insert(hashes, slices, /*on_host=*/false).first);
+  ASSERT_TRUE(InsertResident(store, hashes, slices, /*on_host=*/false));
 
   absl::Status status = store.Load(hashes, {0});
   EXPECT_TRUE(absl::IsFailedPrecondition(status)) << status;
@@ -1955,7 +1986,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, SaveMultiWorkerSuccess) {
       RaidenBlockID(rid, -1, 0, BlockStatus::HBM),
       RaidenBlockID(rid, -1, 1, BlockStatus::HBM)};
 
-  ASSERT_TRUE(store.Insert(hashes, slices, false).first);
+  ASSERT_TRUE(InsertResident(store, hashes, slices, false));
 
   // Pin them
   ASSERT_TRUE(store.Pin(hashes));
@@ -2025,7 +2056,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadMultiWorkerSuccess) {
       RaidenBlockID(rid, 0, -1, BlockStatus::HOST),
       RaidenBlockID(rid, 1, -1, BlockStatus::HOST)};
 
-  ASSERT_TRUE(store.Insert(hashes, slices, true).first);
+  ASSERT_TRUE(InsertResident(store, hashes, slices, true));
 
   // Pin them
   ASSERT_TRUE(store.Pin(hashes));
@@ -2092,7 +2123,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, SaveWriteThrough) {
       RaidenBlockID(rid, -1, 1, BlockStatus::HBM)};
 
   // 4. Insert them as HBM blocks locally and pin them
-  ASSERT_TRUE(store.Insert(hashes, slices, false).first);
+  ASSERT_TRUE(InsertResident(store, hashes, slices, false));
   ASSERT_TRUE(store.Pin(hashes));
 
   // 5. Call Save on the store
@@ -2197,7 +2228,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, EvictByHashesHostAndHbmToErased) {
       RaidenBlockID(rid, host_block_ids[1], 1, BlockStatus::HOST_AND_HBM)};
 
   // 4. Insert them as HOST_AND_HBM blocks locally
-  ASSERT_TRUE(store.Insert(hashes, slices, true).first);
+  ASSERT_TRUE(InsertResident(store, hashes, slices, true));
 
   // Sanity check: verify they are lookable before evict
   {
@@ -2283,7 +2314,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, EvictByHashesHostToErased) {
       RaidenBlockID(rid, host_block_ids[0], -1, BlockStatus::HOST),
       RaidenBlockID(rid, host_block_ids[1], -1, BlockStatus::HOST)};
 
-  ASSERT_TRUE(store.Insert(hashes, slices, true).first);
+  ASSERT_TRUE(InsertResident(store, hashes, slices, true));
 
   auto* controller_ptr = KVCacheStoreTest::GetController(store);
   ASSERT_NE(controller_ptr, nullptr);
@@ -2351,12 +2382,12 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, EvictOnSave) {
   std::vector<RaidenBlockID> slices = {
       RaidenBlockID(rid, host_block_ids[0], -1, BlockStatus::HOST),
       RaidenBlockID(rid, host_block_ids[1], -1, BlockStatus::HOST)};
-  ASSERT_TRUE(store.Insert(hashes, slices, true).first);
+  ASSERT_TRUE(InsertResident(store, hashes, slices, true));
 
   std::vector<std::string> hashes_C = {"block_C"};
   std::vector<RaidenBlockID> slices_C = {
       RaidenBlockID(rid, -1, 0, BlockStatus::HBM)};
-  ASSERT_TRUE(store.Insert(hashes_C, slices_C, false).first);
+  ASSERT_TRUE(InsertResident(store, hashes_C, slices_C, false));
   ASSERT_TRUE(store.Pin(hashes_C));
 
   EXPECT_EQ(controller_ptr->block_manager()->num_free_blocks(), 0);
@@ -2380,25 +2411,31 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, EvictOnSave) {
     }
   }
 
-  EXPECT_EQ(store.Lookup({"block_A"})->size(), 0);
+  // The save needed a host block and there were none free, so it evicted --
+  // block_B, the TAIL of the batch, because releasing a batch walks it in
+  // reverse and each unpin promotes to MRU. block_A survives.
+  EXPECT_EQ(PeekLookup(store, {"block_B"})->size(), 0);
+  EXPECT_EQ(PeekLookup(store, {"block_A"})->size(), 1);
 
-  auto lookup_res = store.Lookup({"block_C"});
+  auto lookup_res = PeekLookup(store, {"block_C"});
   ASSERT_TRUE(lookup_res.ok());
   ASSERT_EQ(lookup_res->size(), 1);
   EXPECT_EQ((*lookup_res)[0].second.status, BlockStatus::HOST_AND_HBM);
-  EXPECT_EQ((*lookup_res)[0].second.host_block_id, host_block_ids[0]);
+  EXPECT_EQ((*lookup_res)[0].second.host_block_id, host_block_ids[1]);
   EXPECT_EQ((*lookup_res)[0].second.device_block_id, 0);
 
-  bool unregistered_A = false;
+  // Evicting it locally must also unpublish it, or peers keep being told this
+  // node holds a block it has handed back.
+  bool unregistered_B = false;
   for (int attempt = 0; attempt < 100; ++attempt) {
-    auto lookup_res = registry_client.Lookup({"block_A"});
+    auto lookup_res = registry_client.Lookup({"block_B"});
     if (lookup_res.ok() && lookup_res->empty()) {
-      unregistered_A = true;
+      unregistered_B = true;
       break;
     }
     absl::SleepFor(absl::Milliseconds(10));
   }
-  EXPECT_TRUE(unregistered_A);
+  EXPECT_TRUE(unregistered_B);
 }
 
 TEST_F(KVCacheStoreEmbeddedControllerTest, ProactiveEvictionWithCandidates) {
@@ -2420,7 +2457,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, ProactiveEvictionWithCandidates) {
       RaidenBlockID(rid, -1, 1, BlockStatus::HBM)};
 
   // 1. Insert A and B as HBM blocks
-  ASSERT_TRUE(store.Insert(hashes, slices, false).first);
+  ASSERT_TRUE(InsertResident(store, hashes, slices, false));
 
   // 2. Save A and B (allocates host blocks for both)
   ASSERT_TRUE(store.Pin(hashes));
@@ -2457,7 +2494,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, ProactiveEvictionWithCandidates) {
   std::vector<std::string> hash_C = {"hash_C"};
   std::vector<RaidenBlockID> slice_C = {
       RaidenBlockID(rid, -1, 2, BlockStatus::HBM)};
-  ASSERT_TRUE(store.Insert(hash_C, slice_C, false).first);
+  ASSERT_TRUE(InsertResident(store, hash_C, slice_C, false));
 
   // B should now be in candidates.
   EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
@@ -2469,7 +2506,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, ProactiveEvictionWithCandidates) {
   std::vector<std::string> hash_D = {"hash_D"};
   std::vector<RaidenBlockID> slice_D = {
       RaidenBlockID(rid, -1, 3, BlockStatus::HBM)};
-  ASSERT_TRUE(store.Insert(hash_D, slice_D, false).first);
+  ASSERT_TRUE(InsertResident(store, hash_D, slice_D, false));
 
   // Candidates list should now contain B, then A.
   EXPECT_THAT(KVCacheStoreTest::GetEvictCandidateKeys(store),
@@ -3095,72 +3132,6 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, ReadRemoteDuplicateFails) {
   promise.Set(absl::OkStatus());
 }
 
-TEST_F(KVCacheStoreEmbeddedControllerTest, ReadRemoteAllocationFailureAborts) {
-  // 1. Start a local mock registry server
-  auto service = std::make_unique<global_registry::GlobalRegistryServiceImpl>();
-  grpc::ServerBuilder registry_builder;
-  int registry_port = 0;
-  registry_builder.AddListeningPort(
-      "localhost:0", grpc::InsecureServerCredentials(), &registry_port);
-  registry_builder.RegisterService(service.get());
-  auto registry_server = registry_builder.BuildAndStart();
-  std::string registry_address = "localhost:" + std::to_string(registry_port);
-
-  ::tpu_raiden::controller::MockTransferManager mock_mgr;
-  test_server_->service->SetTransferManager(
-      ::tpu_raiden::KVManagerHolder(&mock_mgr));
-
-  auto dst_controller = MakeController(/*num_blocks=*/1);
-  RegisterAndInitWorker(*dst_controller, "worker_0",
-                        test_server_->server_address);
-
-  RaidenId rid{"dst_job", "0", "dst_cache", 0};
-  KVCacheStore store(2, std::move(dst_controller), registry_address, rid,
-                     std::nullopt, /*store_server_ip=*/"127.0.0.1");
-
-  // Insert and pin local_1 (HBM status, device_block_id = 0)
-  std::vector<std::string> local_hashes = {"local_1"};
-  std::vector<RaidenBlockID> local_slices = {
-      RaidenBlockID(rid, -1, 0, BlockStatus::HBM)};
-  ASSERT_TRUE(store.InsertAndLock(local_hashes, local_slices, true));
-
-  // Trigger Save on local_1 to allocate its host block
-  absl::Status save_status = store.Save(local_hashes);
-  ASSERT_TRUE(save_status.ok()) << save_status.message();
-
-  // Poll for Save completion
-  bool save_done = false;
-  for (int attempt = 0; attempt < 100; ++attempt) {
-    auto [done_hashes, failed_hashes, pending_hashes, existing_hashes,
-          unregistered_hashes] = store.PollSaveStatus();
-    ASSERT_TRUE(failed_hashes.empty());
-    if (!done_hashes.empty()) {
-      save_done = true;
-      break;
-    }
-    absl::SleepFor(absl::Milliseconds(10));
-  }
-  ASSERT_TRUE(save_done);
-
-  // Now, 1 host block is allocated, free = 0. And local_1 remains pinned.
-  kv_cache::RaidenId src_raiden_id{"src_job", "0", "src_cache", 0};
-  std::vector<std::string> hashes = {"hash_0"};
-  std::vector<RaidenBlockID> slices = {
-      RaidenBlockID(src_raiden_id, 42, BlockStatus::REMOTE)};
-
-  // ReadRemote should fail because allocation of the staging block fails
-  // (0 free, 0 evictable)
-  absl::Status status = store.ReadRemote(hashes, slices, {7});
-  EXPECT_FALSE(status.ok());
-  EXPECT_EQ(status.code(), absl::StatusCode::kResourceExhausted);
-
-  // Verify hash_0 is NOT in reading_hashes_ (so calling it again doesn't report
-  // duplicate)
-  absl::Status status2 = store.ReadRemote(hashes, slices, {7});
-  EXPECT_EQ(status2.code(), absl::StatusCode::kResourceExhausted);
-
-  registry_server->Shutdown();
-}
 
 TEST_F(KVCacheStoreEmbeddedControllerTest, ReadRemoteMultipleSources) {
   auto service = std::make_unique<global_registry::GlobalRegistryServiceImpl>();
@@ -3310,7 +3281,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest,
       RaidenBlockID(rid, -1, 0, BlockStatus::HBM),
       RaidenBlockID(rid, -1, 1, BlockStatus::HBM)};
 
-  ASSERT_TRUE(store.Insert(hashes, slices, false).first);
+  ASSERT_TRUE(InsertResident(store, hashes, slices, false));
   ASSERT_TRUE(store.Pin(hashes));
 
   // Insert has already called SetMetadataEntry for both slices, but their HBM
@@ -3384,8 +3355,7 @@ TEST(KVCacheStoreTest, RecoverFromLocalManifestRebuildsLruCache) {
   // The seq counter resumes past the largest recovered stamp: the next host
   // insert is stamped 9, not 0.
   ASSERT_TRUE(
-      store.Insert({"hash_d"}, {RaidenBlockID(rid, 0, BlockStatus::HOST)}, true)
-          .first);
+      InsertResident(store, {"hash_d"}, {RaidenBlockID(rid, 0, BlockStatus::HOST)}, true));
   EXPECT_THAT(metadata_or->ValidEntries(),
               ElementsAre(::testing::FieldsAre(0, "hash_d", 9),
                           ::testing::FieldsAre(5, "hash_b", 3),
@@ -3498,9 +3468,8 @@ TEST(KVCacheStoreTest, RecoverFromLocalManifestPreconditions) {
                                *metadata_or,
                                /*store_server_ip=*/"127.0.0.1");
   ASSERT_TRUE(
-      store_non_empty
-          .Insert({"hash_a"}, {RaidenBlockID(rid, 0, BlockStatus::HOST)}, true)
-          .first);
+      InsertResident(
+              store_non_empty, {"hash_a"}, {RaidenBlockID(rid, 0, BlockStatus::HOST)}, true));
   EXPECT_EQ(store_non_empty.RecoverFromLocalManifest().status().code(),
             absl::StatusCode::kFailedPrecondition);
 
@@ -3596,7 +3565,7 @@ TEST(KVCacheStoreTest, MultiBackendInsertAndLockRollback) {
       RaidenBlockID(id, 2, BlockStatus::REMOTE)};
 
   // b1 capacity=2 supports 2 blocks, but b2 capacity=1 fails on 2 blocks.
-  bool status = store.InsertAndLock(hashes, slices, /*on_host=*/true);
+  bool status = store.Insert(hashes, slices, /*on_host=*/true);
   EXPECT_FALSE(status);
 
   // Verify rollback on b1: no locks or entries remain.
@@ -4022,7 +3991,8 @@ TEST_F(StoreDiscoveryTest, CapacityConstructedStoreJoinsTheGlobalTier) {
   auto* backend = dynamic_cast<HostOffloadBackend*>(store.backend().get());
   ASSERT_NE(backend, nullptr);
 
-  // Insert registers globally (InsertAndLock deliberately does not).
+  // The backend's non-locking Insert registers globally; the store-level
+  // Insert (which locks) deliberately does not.
   backend->Insert({"tiered_hash"}, {RaidenBlockID(rid, 3, BlockStatus::HOST)},
                   /*on_host=*/true);
   auto looked_up = client_->Lookup({"tiered_hash"});
@@ -4262,7 +4232,9 @@ class RemoteWriteSourceTest : public StoreDiscoveryTest {
       slices.push_back(
           RaidenBlockID(id, static_cast<int>(i), BlockStatus::HOST));
     }
-    ASSERT_TRUE(store.InsertAndLock(hashes, slices, /*on_host=*/true));
+    // Insert(), not InsertResident(): these cases are about offering blocks to
+    // a peer, and a remote save requires -- and consumes -- the caller's pin.
+    ASSERT_TRUE(store.Insert(hashes, slices, /*on_host=*/true));
   }
 
   // Drives the store's poller until the write leaves the pending set.
@@ -4935,7 +4907,10 @@ TEST(KVCacheStoreTest, LookupAndPinWorkflow) {
   std::vector<std::string> hashes = {"h1", "h2"};
   std::vector<RaidenBlockID> slices = {RaidenBlockID(id, 1, BlockStatus::HOST),
                                        RaidenBlockID(id, 2, BlockStatus::HOST)};
-  store.Insert(hashes, slices, /*on_host=*/true);
+  ASSERT_TRUE(store.Insert(hashes, slices, /*on_host=*/true));
+  // Insert pins what it takes. This case is about the pin LOOKUP grants, so
+  // hand the insert's back first and count from zero.
+  store.Release(hashes);
 
   auto res = store.Lookup(hashes, LookupOptions{.pin_found = true});
   ASSERT_TRUE(res.ok());
@@ -4943,23 +4918,25 @@ TEST(KVCacheStoreTest, LookupAndPinWorkflow) {
   EXPECT_EQ(store.GetPinCount("h1"), 1);
   EXPECT_EQ(store.GetPinCount("h2"), 1);
 
-  // Attempting to insert h3 when all blocks are pinned should not evict h1 or
-  // h2
+  // With every block pinned there is nothing an insert is allowed to reclaim,
+  // so h3 is REFUSED rather than evicting a block somebody is holding.
   std::vector<std::string> new_hash = {"h3"};
   std::vector<RaidenBlockID> new_slice = {
       RaidenBlockID(id, 3, BlockStatus::HOST)};
-  auto insert_res = store.Insert(new_hash, new_slice, /*on_host=*/true);
-  EXPECT_TRUE(insert_res.second.empty());  // No evictions occurred
+  EXPECT_FALSE(store.Insert(new_hash, new_slice, /*on_host=*/true));
+  EXPECT_EQ(store.GetPinCount("h1"), 1);
+  EXPECT_EQ(store.GetPinCount("h2"), 1);
+  EXPECT_TRUE(PeekLookup(store, {"h3"})->empty());
 
   // Release pins
   store.Release(hashes);
   EXPECT_EQ(store.GetPinCount("h1"), 0);
   EXPECT_EQ(store.GetPinCount("h2"), 0);
 
-  // Now inserting h3 evicts unpinned h2 (tail of sequence)
-  insert_res = store.Insert(new_hash, new_slice, /*on_host=*/true);
-  ASSERT_EQ(insert_res.second.size(), 1);
-  EXPECT_EQ(insert_res.second[0].first, "h2");
+  // Now inserting h3 succeeds, evicting unpinned h2 (tail of sequence).
+  EXPECT_TRUE(store.Insert(new_hash, new_slice, /*on_host=*/true));
+  EXPECT_TRUE(PeekLookup(store, {"h2"})->empty());
+  EXPECT_EQ(PeekLookup(store, {"h1"})->size(), 1);
 }
 
 TEST(KVCacheStoreTest, LookupAndPinErrorRollback) {
@@ -5091,9 +5068,9 @@ std::unique_ptr<StoreInterleaveFixture> MakeStoreInterleaveFixture(
       /*shard_size_bytes=*/512,
       /*store_server_ip=*/"127.0.0.1");
 
-  f->store->Insert({"l1", "l2"},
-                   {RaidenBlockID(f->store_id, 11, BlockStatus::HOST),
-                    RaidenBlockID(f->store_id, 12, BlockStatus::HOST)},
+  InsertResident(*f->store, {"l1", "l2"},
+                 {RaidenBlockID(f->store_id, 11, BlockStatus::HOST),
+                  RaidenBlockID(f->store_id, 12, BlockStatus::HOST)},
                    /*on_host=*/true);
   // Insert publishes what it caches. Withdrawing those registrations keeps the
   // registry unable to answer for "l1"/"l2", which is what makes the source of

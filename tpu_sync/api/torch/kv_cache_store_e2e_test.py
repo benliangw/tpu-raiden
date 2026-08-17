@@ -221,7 +221,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
             status=kv_cache_store.BlockStatus.HBM,
         ),
     ]
-    self.assertTrue(store.insert_and_lock(hashes, slices, on_host=False))
+    self.assertTrue(store.insert(hashes, slices, on_host=False))
 
     # Verify status in store is HBM
     lookup_res = store.lookup(hashes)
@@ -417,7 +417,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
           ),
       ]
       self.assertTrue(
-          store_a.insert_and_lock(hashes, slices_a, on_host=False)
+          store_a.insert(hashes, slices_a, on_host=False)
       )
 
       store_a.save(hashes)
@@ -609,7 +609,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
           for i in range(2)
       ]
       self.assertTrue(
-          store_a.insert_and_lock(hashes, slices_a, on_host=False)
+          store_a.insert(hashes, slices_a, on_host=False)
       )
       store_a.save(hashes)
 
@@ -887,7 +887,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
               status=kv_cache_store.BlockStatus.HBM,
           ),
       ]
-      self.assertTrue(store_a.insert(hashes, slices_a, on_host=False)[0])
+      self.assertTrue(store_a.insert(hashes, slices_a, on_host=False))
 
       time.sleep(0.5)
       slices_b = [
@@ -978,7 +978,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
         )
         for i in range(num_blocks)
     ]
-    inserted, _ = store.insert(hashes, slices, on_host=False)
+    inserted = store.insert(hashes, slices, on_host=False)
     self.assertTrue(inserted)
     self.assertTrue(store.pin(hashes))
     self.assertTrue(store.save(hashes))

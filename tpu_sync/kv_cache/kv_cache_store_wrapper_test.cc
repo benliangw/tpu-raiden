@@ -94,7 +94,10 @@ class KVCacheStoreWrapperTest : public ::testing::Test {
     for (int i = 0; i < static_cast<int>(hashes.size()); ++i) {
       slices.push_back(RaidenBlockID(rid, i, BlockStatus::HOST));
     }
-    ASSERT_TRUE(wrapper->Insert(hashes, slices, /*on_host=*/true).first);
+    ASSERT_TRUE(wrapper->Insert(hashes, slices, /*on_host=*/true));
+    // Insert pins what it takes; these cases only want the blocks resident,
+    // and a held pin would make them unevictable.
+    wrapper->Release(hashes);
   }
 
   std::string shm_key_;

@@ -88,7 +88,7 @@ class KVCacheStoreServerTest : public ::testing::Test {
         RaidenBlockID(src_raiden_id, 10, BlockStatus::HOST),
         RaidenBlockID(src_raiden_id, 11, BlockStatus::HOST),
     };
-    ASSERT_TRUE(store_->InsertAndLock(test_hashes, slices, /*on_host=*/true));
+    ASSERT_TRUE(store_->Insert(test_hashes, slices, /*on_host=*/true));
   }
 
   void TearDown() override {

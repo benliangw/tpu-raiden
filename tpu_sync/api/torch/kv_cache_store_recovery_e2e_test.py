@@ -146,7 +146,7 @@ def _phase_a():
       )
       for i in range(_NUM_BLOCKS)
   ]
-  assert store.insert_and_lock(_HASHES, slices, on_host=False)
+  assert store.insert(_HASHES, slices, on_host=False)
   store.save(_HASHES)
   _poll(store.poll_save_status, _NUM_BLOCKS, "save")
 

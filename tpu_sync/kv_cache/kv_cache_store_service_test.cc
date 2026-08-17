@@ -105,7 +105,7 @@ class KVCacheStoreServiceTest : public ::testing::Test {
         RaidenBlockID(src_raiden_id, 12, BlockStatus::HOST),
         RaidenBlockID(src_raiden_id, 13, BlockStatus::HOST),
     };
-    ASSERT_TRUE(store_->InsertAndLock(test_hashes, slices, /*on_host=*/true));
+    ASSERT_TRUE(store_->Insert(test_hashes, slices, /*on_host=*/true));
 
     // Setup KVCacheStoreServiceImpl & gRPC server
     service_ = std::make_unique<KVCacheStoreServiceImpl>(
@@ -212,7 +212,7 @@ TEST_F(KVCacheStoreServiceTest, FetchValidationFailsForMissingHash) {
 TEST_F(KVCacheStoreServiceTest, FetchRoundTripsNonUtf8Hash) {
   const std::string binary_hash("\xff\xfe\x80\x00\x01\xc0\xaf\xed\xa0\x80", 10);
   RaidenId src_raiden_id{"src_job", "0", "src_data", 0};
-  ASSERT_TRUE(store_->InsertAndLock(
+  ASSERT_TRUE(store_->Insert(
       {binary_hash}, {RaidenBlockID(src_raiden_id, 20, BlockStatus::HOST)},
       /*on_host=*/true));
 
@@ -241,7 +241,7 @@ TEST_F(KVCacheStoreServiceTest, FetchValidationFailsForNonHostBlock) {
   std::vector<RaidenBlockID> slices = {
       RaidenBlockID(src_raiden_id, 50, BlockStatus::REMOTE),
   };
-  ASSERT_TRUE(store_->InsertAndLock(hashes, slices, /*on_host=*/false));
+  ASSERT_TRUE(store_->Insert(hashes, slices, /*on_host=*/false));
 
   std::vector<int32_t> host_block_ids = {100};
   tsl::Future<::tpu_raiden::kv_cache::proto::FetchResponse> future =
@@ -300,7 +300,7 @@ TEST_F(KVCacheStoreServiceTest, ConcurrentFetchRPCs) {
         RaidenBlockID(src_raiden_id, 100 + i, BlockStatus::HOST));
   }
   ASSERT_TRUE(
-      store_->InsertAndLock(extra_hashes, extra_slices, /*on_host=*/true));
+      store_->Insert(extra_hashes, extra_slices, /*on_host=*/true));
 
   std::vector<std::thread> threads;
   threads.reserve(kNumThreads);
@@ -432,7 +432,7 @@ TEST_F(KVCacheStoreServiceTest, FetchWithMultiWorkerEndpointsRoutesPerWorker) {
   std::vector<std::string> hashes = {"multi_hash"};
   std::vector<RaidenBlockID> slices = {
       RaidenBlockID(multi_id, 7, BlockStatus::HOST)};
-  ASSERT_TRUE(store.InsertAndLock(hashes, slices, /*on_host=*/true));
+  ASSERT_TRUE(store.Insert(hashes, slices, /*on_host=*/true));
 
   KVCacheStoreServiceImpl service(store.backend().get(),
                                   store.raiden_controller());

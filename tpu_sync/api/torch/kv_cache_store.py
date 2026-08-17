@@ -263,8 +263,20 @@ class KVCacheStore:
       block_hashes: list[bytes],
       slices: list[RaidenBlockID],
       on_host: bool,
-  ) -> tuple[bool, list[tuple[bytes, RaidenBlockID]]]:
-    """Caches sharded buffers into host-RAM/HBM backing store.
+  ) -> bool:
+    """Caches sharded buffers into host-RAM/HBM backing store, PINNING them.
+
+    Existing hashes are pinned in place; new ones are inserted and pinned. New
+    items go in reverse order so that tail blocks are evicted first.
+
+    All-or-nothing, and it does NOT evict to make room: if there is not enough
+    free space for the new hashes it unpins whatever it already pinned and
+    returns False, leaving the cache exactly as it found it. Making room is the
+    store's own business, not something an insert does on your behalf.
+
+    PIN CONTRACT: the pin this grants is what a subsequent save() consumes.
+    Call it with hashes lookup() reported as misses -- the two take disjoint
+    sets, which is why no hash ends up pinned twice.
 
     Args:
       block_hashes: Incoming block hashes to insert.
@@ -272,56 +284,21 @@ class KVCacheStore:
       on_host: Whether the slices are located in host memory.
 
     Returns:
-      A tuple containing:
-      - bool: whether all blocks were successfully inserted (i.e. none already
-        existed).
-      - list: list of entries evicted from the LRU cache during insertion.
+      bool: whether the whole operation succeeded.
     """
     raw_slices = []
     for s in slices:
       if isinstance(s, RaidenId):
         s = RaidenBlockID(raiden_id=s)
       raw_slices.append(s._impl)  # pylint: disable=protected-access
-    all_inserted, raw_evicted = self._impl.insert(
-        block_hashes, raw_slices, on_host
-    )
-    wrapped_evicted = []
-    for hash_val, raw_slice in raw_evicted:
-      wrapped_evicted.append((hash_val, RaidenBlockID(impl=raw_slice)))
-    return all_inserted, wrapped_evicted
+    return self._impl.insert(block_hashes, raw_slices, on_host)
 
-  def insert_and_lock(
-      self,
-      block_hashes: list[bytes],
-      slices: list[RaidenBlockID],
-      on_host: bool,
-  ) -> bool:
-    """Locks existing block hashes, and inserts/locks new block hashes.
-
-    Locks all existing block hashes, and inserts and locks new block hashes if
-    there is sufficient available space in the LRU cache.
-
-    Args:
-      block_hashes: Incoming block hashes to insert and lock.
-      slices: List of RaidenBlockID, one for each block hash.
-      on_host: Whether the slices are located in host memory.
-
-    Returns:
-      bool: whether the entire insert_and_lock operation succeeded (i.e. all
-        existing keys were locked, all new keys inserted and locked).
-    """
-    raw_slices = []
-    for s in slices:
-      if isinstance(s, RaidenId):
-        s = RaidenBlockID(raiden_id=s)
-      raw_slices.append(s._impl)  # pylint: disable=protected-access
-    return self._impl.insert_and_lock(block_hashes, raw_slices, on_host)
 
   def release_and_delete(
       self,
       block_hashes: list[bytes],
   ) -> int:
-    """Reverts an insert_and_lock operation.
+    """Reverts an insert operation.
 
     Unpins all block_hashes in the LRU cache, deletes any block_hash in REMOTE
     status whose pin count is 0.

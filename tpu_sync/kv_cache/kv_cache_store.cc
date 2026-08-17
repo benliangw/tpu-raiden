@@ -859,25 +859,9 @@ absl::StatusOr<BlockSliceList> KVCacheStore::Lookup(
   return accumulated_results;
 }
 
-std::pair<bool, BlockSliceList> KVCacheStore::Insert(
-    const std::vector<std::string>& block_hashes,
-    const std::vector<RaidenBlockID>& slices, bool on_host) {
-  if (backends_.empty()) {
-    return std::make_pair(false, BlockSliceList{});
-  }
-  std::pair<bool, BlockSliceList> primary_result =
-      backends_[0]->Insert(block_hashes, slices, on_host);
-  for (size_t i = 1; i < backends_.size(); ++i) {
-    if (backends_[i]) {
-      backends_[i]->Insert(block_hashes, slices, on_host);
-    }
-  }
-  return primary_result;
-}
-
-bool KVCacheStore::InsertAndLock(const std::vector<std::string>& block_hashes,
-                                 const std::vector<RaidenBlockID>& slices,
-                                 bool on_host) {
+bool KVCacheStore::Insert(const std::vector<std::string>& block_hashes,
+                          const std::vector<RaidenBlockID>& slices,
+                          bool on_host) {
   if (backends_.empty()) return false;
 
   std::vector<size_t> locked_backends;

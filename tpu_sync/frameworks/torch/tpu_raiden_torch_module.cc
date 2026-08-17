@@ -681,29 +681,9 @@ NB_MODULE(_tpu_raiden_torch, m) {
           [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self,
              const std::vector<nb::bytes>& block_hashes,
              const std::vector<tpu_raiden::kv_cache::RaidenBlockID>& slices,
-             bool on_host) {
+             bool on_host) -> bool {
             auto hashes = ToStdStringVector(block_hashes);
-            auto res = self->Insert(hashes, slices, on_host);
-            std::vector<
-                std::pair<nb::bytes, tpu_raiden::kv_cache::RaidenBlockID>>
-                py_evicted;
-            py_evicted.reserve(res.second.size());
-            for (const auto& pair : res.second) {
-              py_evicted.push_back(std::make_pair(
-                  nb::bytes(pair.first.data(), pair.first.size()),
-                  pair.second));
-            }
-            return std::make_pair(res.first, py_evicted);
-          },
-          nb::arg("block_hashes"), nb::arg("slices"), nb::arg("on_host"))
-      .def(
-          "insert_and_lock",
-          [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self,
-             const std::vector<nb::bytes>& block_hashes,
-             const std::vector<tpu_raiden::kv_cache::RaidenBlockID>& slices,
-             bool on_host) {
-            auto hashes = ToStdStringVector(block_hashes);
-            return self->InsertAndLock(hashes, slices, on_host);
+            return self->Insert(hashes, slices, on_host);
           },
           nb::arg("block_hashes"), nb::arg("slices"), nb::arg("on_host"))
       .def(

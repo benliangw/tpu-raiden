@@ -255,7 +255,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
             status=kv_cache_store.BlockStatus.HBM,
         ),
     ]
-    self.assertTrue(store.insert_and_lock(hashes, slices, on_host=False))
+    self.assertTrue(store.insert(hashes, slices, on_host=False))
 
     # Verify status in store is HBM
     lookup_res = store.lookup(hashes)
@@ -343,6 +343,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
   @unittest.skip("Multi-NUMA test skipped in sandboxed test env due to port contention")
 
   @unittest.skip("skip")
+  @unittest.skip("Cannot run multi-numa in sandbox")
   def test_e2e_with_multi_numa(self):
     self._run_e2e_test(enable_multi_numa=True)
 
@@ -358,6 +359,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
   @unittest.skip("Multi-NUMA test skipped in sandboxed test env due to port contention")
 
   @unittest.skip("skip")
+  @unittest.skip("Cannot run multi-numa in sandbox")
   def test_e2e_with_slices_with_multi_numa(self):
     self._run_e2e_test(enable_multi_numa=True, use_slices=True)
 
@@ -481,7 +483,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
             status=kv_cache_store.BlockStatus.HBM,
         ),
     ]
-    self.assertTrue(store_a.insert_and_lock(hashes, slices_a, on_host=False))
+    self.assertTrue(store_a.insert(hashes, slices_a, on_host=False))
 
     @jax.jit
     def get_slice(x):
@@ -735,7 +737,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
         )
         for blk in src_device_blocks
     ]
-    self.assertTrue(store_a.insert_and_lock(hashes, slices_a, on_host=False))
+    self.assertTrue(store_a.insert(hashes, slices_a, on_host=False))
     store_a.save(hashes)
     self._await_terminal(store_a.poll_save_status, len(hashes), "Job A save")
 
@@ -749,7 +751,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
 
     if use_slices:
       # --- The new feature under test: one-step peer-fetch load. ---
-      # No insert_and_lock needed. The slices themselves carry the owner resolution,
+      # No insert needed. The slices themselves carry the owner resolution,
       # and load() initiates the fetch.
       slices_b = [b for _, b in lookup_b]
       self.assertTrue(store_b.load(hashes, dst_device_blocks, slices=slices_b))
@@ -971,7 +973,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
         )
         for i in range(num_blocks)
     ]
-    self.assertTrue(store_a.insert_and_lock(hashes, slices_a, on_host=False))
+    self.assertTrue(store_a.insert(hashes, slices_a, on_host=False))
 
     self.assertTrue(store_a.save(hashes))
     self._await_terminal(store_a.poll_save_status, len(hashes), "Job A save")
@@ -980,7 +982,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
       # The destination already holds everything offered. A SUCCESS that moves
       # no bytes, and the one case where the source's blocks never travel.
       self.assertTrue(
-          store_b.insert_and_lock(
+          store_b.insert(
               hashes,
               [
                   kv_cache_store.RaidenBlockID(
@@ -1076,6 +1078,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     self._run_remote_read_to_hbm_test(enable_multi_numa=False)
 
   @unittest.skip("Multi-NUMA test skipped in sandboxed test env due to port contention")
+  @unittest.skip("Cannot run multi-numa in sandbox")
   def test_remote_read_to_hbm_with_multi_numa(self):
     self._run_remote_read_to_hbm_test(enable_multi_numa=True)
 
@@ -1084,6 +1087,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
 
   
   @unittest.skip("skip")
+  @unittest.skip("Cannot run multi-numa in sandbox")
   def test_remote_read_to_hbm_with_slices_with_multi_numa(self):
     self._run_remote_read_to_hbm_test(enable_multi_numa=True, use_slices=True)
 
@@ -1097,6 +1101,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
   @unittest.skip("Multi-NUMA test skipped in sandboxed test env due to port contention")
 
   @unittest.skip("skip")
+  @unittest.skip("Cannot run multi-numa in sandbox")
   def test_remote_read_e2e_with_slices_with_multi_numa(self):
     self._run_remote_read_e2e_test(enable_multi_numa=True, use_slices=True)
 
@@ -1104,6 +1109,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     self._run_remote_read_e2e_test(enable_multi_numa=False)
 
   @unittest.skip("Multi-NUMA test skipped in sandboxed test env due to port contention")
+  @unittest.skip("Cannot run multi-numa in sandbox")
   def test_remote_read_e2e_with_multi_numa(self):
     self._run_remote_read_e2e_test(enable_multi_numa=True)
 
@@ -1286,7 +1292,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
                 )
             ],
             on_host=False,
-        )[0]
+        )
     )
 
     rid_b = kv_cache_store.RaidenId("ws_job_b", "0", "cache_b", 0)
@@ -1414,7 +1420,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
         )
         for i in range(num_blocks)
     ]
-    inserted, _ = store.insert(hashes, slices, on_host=False)
+    inserted = store.insert(hashes, slices, on_host=False)
     self.assertTrue(inserted)
     self.assertTrue(store.pin(hashes))
     self.assertTrue(store.save(hashes))

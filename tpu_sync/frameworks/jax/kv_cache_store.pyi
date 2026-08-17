@@ -83,30 +83,19 @@ class KVCacheStore:
       block_hashes: list[bytes],
       slices: list[RaidenBlockID],
       on_host: bool,
-  ) -> tuple[bool, list[tuple[bytes, RaidenBlockID]]]:
-    """Caches sharded buffers into host-RAM/HBM backing store."""
-    ...
-  def insert_and_lock(
-      self,
-      block_hashes: list[bytes],
-      slices: list[RaidenBlockID],
-      on_host: bool,
   ) -> bool:
-    """Locks existing block hashes, and inserts/locks new block hashes.
+    """Caches sharded buffers into host-RAM/HBM backing store, pinning them.
 
-    Locks all existing block hashes, and inserts and locks new block hashes if
-    there is sufficient available space in the LRU cache.
-
-    Returns:
-      - bool: whether the entire insert_and_lock operation succeeded (i.e. all
-        existing keys were locked, all new keys inserted and locked).
+    All-or-nothing, and does NOT evict to make room: without enough free space
+    for the new hashes it unpins whatever it already pinned and returns False.
+    The pin it grants is what a subsequent save() consumes.
     """
     ...
   def release_and_delete(
       self,
       block_hashes: list[bytes],
   ) -> int:
-    """Reverts an insert_and_lock operation.
+    """Reverts an insert operation.
 
     Unpins all block_hashes in the LRU cache, deletes any block_hash in REMOTE
     status whose pin count is 0.

@@ -116,9 +116,9 @@ class KVCacheStoreTest(absltest.TestCase):
     ]
 
     # 1. Insert
-    self.assertTrue(controller.insert(hashes, slices, True)[0])
-    self.assertFalse(
-        controller.insert(hashes, slices, True)[0]
+    self.assertTrue(controller.insert(hashes, slices, True))
+    self.assertTrue(
+        controller.insert(hashes, slices, True)
     )  # Already exists
 
     # 2. Lookup with a partial miss at the end
@@ -141,7 +141,7 @@ class KVCacheStoreTest(absltest.TestCase):
     controller.release(hashes)
     controller.delete(hashes, slices)
     self.assertTrue(
-        controller.insert(hashes, slices, True)[0]
+        controller.insert(hashes, slices, True)
     )  # Successful again
 
   def test_pin_and_release(self):
@@ -155,7 +155,7 @@ class KVCacheStoreTest(absltest.TestCase):
         kv_cache_store.RaidenId("inference_server", "1", "kv_cache", 0),
     ]
 
-    self.assertTrue(controller.insert(hashes, slices, True)[0])
+    self.assertTrue(controller.insert(hashes, slices, True))
 
     # Pin both
     self.assertTrue(controller.pin(hashes))
@@ -172,10 +172,10 @@ class KVCacheStoreTest(absltest.TestCase):
     # Now inserting a fourth element (7004) should successfully evict 7001
     hash_4 = [b"7004"]
     slice_4 = [kv_cache_store.RaidenId("inference_server", "3", "kv_cache", 0)]
-    controller.insert(hash_4, slice_4, True)
+    self.assertFalse(controller.insert(hash_4, slice_4, True))
 
     res_old = controller.lookup([b"7001", b"7002"])
-    self.assertEmpty(res_old)
+    self.assertLen(res_old, 2)
     res = controller.lookup([b"7002"])
     self.assertLen(res, 1)
     controller.release([b"7002"])
@@ -190,14 +190,14 @@ class KVCacheStoreTest(absltest.TestCase):
         kv_cache_store.RaidenId("inference_server", "0", "kv_cache", 0),
         kv_cache_store.RaidenId("inference_server", "1", "kv_cache", 0),
     ]
-    self.assertTrue(controller.insert(hashes, slices, True)[0])
+    self.assertTrue(controller.insert(hashes, slices, True))
 
     # Attempt to pin a sequence with a missing hash (8003).
     self.assertFalse(controller.pin([b"8001", b"8002", b"8003"]))
 
     # Now inserting two new items (8004, 8005) should successfully evict 8001
     # and 8002 because their pins were completely rolled back!
-    self.assertTrue(
+    self.assertFalse(
         controller.insert(
             [b"8004", b"8005"],
             [
@@ -205,13 +205,13 @@ class KVCacheStoreTest(absltest.TestCase):
                 kv_cache_store.RaidenId("inference_server", "3", "kv_cache", 0),
             ],
             True,
-        )[0]
+        )
     )
 
     res_old = controller.lookup([b"8001", b"8002"])
-    self.assertEmpty(res_old)
+    self.assertLen(res_old, 2)
     res = controller.lookup([b"8004", b"8005"])
-    self.assertLen(res, 2)
+    self.assertEmpty(res)
     controller.release([b"8004", b"8005"])
 
   def test_large_and_arbitrary_length_hashes(self):
@@ -228,7 +228,7 @@ class KVCacheStoreTest(absltest.TestCase):
         kv_cache_store.RaidenId("inference_server", "1", "kv_cache", 0),
     ]
 
-    self.assertTrue(controller.insert(hashes, slices, True)[0])
+    self.assertTrue(controller.insert(hashes, slices, True))
 
     lookup_res = controller.lookup(hashes)
     controller.release(hashes)
@@ -246,7 +246,7 @@ class KVCacheStoreTest(absltest.TestCase):
     slices = [
         kv_cache_store.RaidenId("local_job", "0", "kv_cache", 0),
     ]
-    self.assertTrue(controller.insert(hashes, slices, True)[0])
+    self.assertTrue(controller.insert(hashes, slices, True))
 
     res = controller.lookup(hashes, enable_global=True)
     controller.release(hashes)
@@ -337,7 +337,7 @@ class KVCacheStoreTest(absltest.TestCase):
     controller.release(hashes)
     self.assertEmpty(res)
 
-  def test_insert_and_lock_release_and_delete(self):
+  def test_insert_release_and_delete(self):
     controller = kv_cache_store.KVCacheStore(
         capacity=2, num_shards=1, store_server_ip="127.0.0.1"
     )
@@ -355,7 +355,9 @@ class KVCacheStoreTest(absltest.TestCase):
             kv_cache_store.BlockStatus.HOST,
         ),
     ]
-    self.assertTrue(controller.insert(local_hashes, local_slices, True)[0])
+    # Resident but unpinned, so the remote insert below has room to evict them.
+    self.assertTrue(controller.insert(local_hashes, local_slices, True))
+    controller.release(local_hashes)
 
     remote_hashes = [b"remote_1", b"remote_2"]
     remote_slices = [
@@ -370,7 +372,7 @@ class KVCacheStoreTest(absltest.TestCase):
             kv_cache_store.BlockStatus.REMOTE,
         ),
     ]
-    success = controller.insert_and_lock(remote_hashes, remote_slices, True)
+    success = controller.insert(remote_hashes, remote_slices, True)
     self.assertTrue(success)
     res_local = controller.lookup([b"local_1"])
     self.assertEmpty(res_local)

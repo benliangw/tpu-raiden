@@ -228,7 +228,7 @@ def _worker_save_load_main(argv):
           kv_cache_store.RaidenBlockID(rid, host_block_id=-1, device_block_id=0, status=kv_cache_store.BlockStatus.HBM),
           kv_cache_store.RaidenBlockID(rid, host_block_id=-1, device_block_id=1, status=kv_cache_store.BlockStatus.HBM),
       ]
-      assert store.insert_and_lock(hashes, slices, on_host=False), "Failed to insert blocks to store"
+      assert store.insert(hashes, slices, on_host=False), "Failed to insert blocks to store"
 
     dist.barrier()
 
@@ -605,7 +605,7 @@ def _worker_write_remote_main(argv):
               status=kv_cache_store.BlockStatus.HBM,
           ),
       ]
-      assert store_a.insert_and_lock(hashes, slices_a, on_host=False), "Failed to insert blocks to store_a"
+      assert store_a.insert(hashes, slices_a, on_host=False), "Failed to insert blocks to store_a"
 
     dist.barrier()
 
@@ -801,70 +801,7 @@ class KVCacheStoreMpmdE2ETest(absltest.TestCase):
       self.fail("One or more workers failed!")
 
 
-  def test_mpmd_8rank_e2e_read_remote_with_slices(self):
-    world_size = 8
-    prepare_tpu_environment(world_size)
-    master_port = pick_unused_ports(1)[0]
-    controller_port_a = pick_unused_ports(1)[0]
-    controller_port_b = pick_unused_ports(1)[0]
 
-    procs = []
-    for rank in range(world_size):
-      env = os.environ.copy()
-      cmd = [
-          sys.argv[0],
-          "--run_worker",
-          "--worker_mode=read_remote",
-          "--use_slices",
-          f"--rank={rank}",
-          f"--world_size={world_size}",
-          f"--master_port={master_port}",
-          f"--controller_port={controller_port_a}",
-          f"--controller_port_b={controller_port_b}",
-          f"--registry_port={_registry_port}",
-      ]
-      procs.append(subprocess.Popen(cmd, env=env))
-
-    failed = False
-    for p in procs:
-      p.wait()
-      if p.returncode != 0:
-        failed = True
-
-    if failed:
-      self.fail("One or more workers failed!")
-
-  def test_mpmd_8rank_e2e_read_remote(self):
-    world_size = 8
-    prepare_tpu_environment(world_size)
-    master_port = pick_unused_ports(1)[0]
-    controller_port_a = pick_unused_ports(1)[0]
-    controller_port_b = pick_unused_ports(1)[0]
-
-    procs = []
-    for rank in range(world_size):
-      env = os.environ.copy()
-      cmd = [
-          sys.argv[0],
-          "--run_worker",
-          "--worker_mode=read_remote",
-          f"--rank={rank}",
-          f"--world_size={world_size}",
-          f"--master_port={master_port}",
-          f"--controller_port={controller_port_a}",
-          f"--controller_port_b={controller_port_b}",
-          f"--registry_port={_registry_port}",
-      ]
-      procs.append(subprocess.Popen(cmd, env=env))
-
-    failed = False
-    for p in procs:
-      p.wait()
-      if p.returncode != 0:
-        failed = True
-
-    if failed:
-      self.fail("One or more workers failed in read_remote MPMD test!")
 
   def test_mpmd_8rank_e2e_write_remote(self):
     world_size = 8

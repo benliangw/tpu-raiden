@@ -212,26 +212,26 @@ class KVCacheStore {
       const std::vector<std::string>& block_hashes,
       const LookupOptions& options);
 
-  // Caches sharded buffers into host-RAM/HBM backing store.
-  // Returns:
-  // - bool: whether all blocks were successfully inserted (i.e. none already
-  // existed)
-  // - BlockSliceList: list of entries evicted from the LRU cache during
-  // insertion
-  std::pair<bool, BlockSliceList> Insert(
-      const std::vector<std::string>& block_hashes,
-      const std::vector<RaidenBlockID>& slices, bool on_host);
+  // Caches sharded buffers into host-RAM/HBM backing store, PINNING every
+  // hash it takes: existing ones are pinned in place, new ones inserted and
+  // pinned. New items are inserted in reverse order so that tail blocks are
+  // evicted first.
+  //
+  // All-or-nothing. It does NOT evict to make room: if there is not enough
+  // free space for the new hashes it unpins whatever it already pinned and
+  // returns false, leaving the cache exactly as it found it. Making room by
+  // evicting is the store's own business, not something an insert does on the
+  // caller's behalf.
+  //
+  // PIN CONTRACT: the pin it grants is what a subsequent Save() consumes.
+  // Called with hashes Lookup() reported as misses -- the two take disjoint
+  // sets, which is why no hash ends up pinned twice.
+  //
+  // Returns whether the whole operation succeeded.
+  bool Insert(const std::vector<std::string>& block_hashes,
+              const std::vector<RaidenBlockID>& slices, bool on_host);
 
-  // Pins all existing block hashes, and inserts and locks new block hashes if
-  // there is sufficient available space in the LRU cache.
-  // New items are inserted in reverse order to ensure tail blocks are evicted
-  // first. Returns:
-  // - bool: whether the entire InsertAndLock operation succeeded (i.e. all
-  //         existing keys were locked, all new keys inserted and locked)
-  bool InsertAndLock(const std::vector<std::string>& block_hashes,
-                     const std::vector<RaidenBlockID>& slices, bool on_host);
-
-  // Reverts an InsertAndLock operation by unlocking all block_hashes in the
+  // Reverts an Insert operation by unlocking all block_hashes in the
   // LRU cache, deleting any block_hash NOT in HOST or HOST_AND_HBM status
   // whose pin count is 0, and restoring evicted entries from the LRU cache's
   // candidate list for each deleted block.
