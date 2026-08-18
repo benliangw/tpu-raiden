@@ -242,13 +242,13 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     # 5. Insert HBM blocks to KVCacheStore
     hashes = [b"hash_0", b"hash_1"]
     slices = [
-        kv_cache_store.RaidenBlockID(
+        kv_cache_store.RaidenBlockId(
             rid,
             host_block_id=-1,
             device_block_id=0,
             status=kv_cache_store.BlockStatus.HBM,
         ),
-        kv_cache_store.RaidenBlockID(
+        kv_cache_store.RaidenBlockId(
             rid,
             host_block_id=-1,
             device_block_id=1,
@@ -470,13 +470,13 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
 
     # 4. Job A inserts HBM status and calls Save
     slices_a = [
-        kv_cache_store.RaidenBlockID(
+        kv_cache_store.RaidenBlockId(
             rid_a,
             host_block_id=-1,
             device_block_id=0,
             status=kv_cache_store.BlockStatus.HBM,
         ),
-        kv_cache_store.RaidenBlockID(
+        kv_cache_store.RaidenBlockId(
             rid_a,
             host_block_id=-1,
             device_block_id=1,
@@ -729,7 +729,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
 
     # --- Job A: save (D2H) so the blocks are HOST-resident and leasable. ----
     slices_a = [
-        kv_cache_store.RaidenBlockID(
+        kv_cache_store.RaidenBlockId(
             rid_a,
             host_block_id=-1,
             device_block_id=blk,
@@ -965,7 +965,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     # 1. Job A puts the blocks in HBM and saves them to host DRAM. Only
     #    host-resident blocks can be offered: the pull reads host memory.
     slices_a = [
-        kv_cache_store.RaidenBlockID(
+        kv_cache_store.RaidenBlockId(
             rid_a,
             host_block_id=-1,
             device_block_id=i,
@@ -985,7 +985,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
           store_b.insert(
               hashes,
               [
-                  kv_cache_store.RaidenBlockID(
+                  kv_cache_store.RaidenBlockId(
                       rid_b,
                       host_block_id=i,
                       status=kv_cache_store.BlockStatus.HOST,
@@ -1211,7 +1211,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     # and tries to read it.
     ghost = [b"ghost_hash"]
     slices = [
-        kv_cache_store.RaidenBlockID(
+        kv_cache_store.RaidenBlockId(
             rid_a,
             host_block_id=0,
             device_block_id=-1,
@@ -1284,7 +1284,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
         store_a.insert(
             hashes,
             [
-                kv_cache_store.RaidenBlockID(
+                kv_cache_store.RaidenBlockId(
                     rid_a,
                     host_block_id=-1,
                     device_block_id=0,
@@ -1320,7 +1320,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
 
     # Destination names the source's HBM-only block as the read source.
     slices = [
-        kv_cache_store.RaidenBlockID(
+        kv_cache_store.RaidenBlockId(
             rid_a,
             host_block_id=0,
             device_block_id=-1,
@@ -1412,7 +1412,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     # what fails if the constructor returns before the worker is registered.
     hashes = [b"barrier_hash_0", b"barrier_hash_1"]
     slices = [
-        kv_cache_store.RaidenBlockID(
+        kv_cache_store.RaidenBlockId(
             rid,
             host_block_id=-1,
             device_block_id=i,

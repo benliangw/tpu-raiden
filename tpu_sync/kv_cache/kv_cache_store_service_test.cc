@@ -99,11 +99,11 @@ class KVCacheStoreServiceTest : public ::testing::Test {
     // Pre-populate and pin test blocks in store so Fetch succeeds
     std::vector<std::string> test_hashes = {
         "block_hash_1", "block_hash_2", "block_hash_dev_1", "block_hash_dev_2"};
-    std::vector<RaidenBlockID> slices = {
-        RaidenBlockID(src_raiden_id, 10, BlockStatus::HOST),
-        RaidenBlockID(src_raiden_id, 11, BlockStatus::HOST),
-        RaidenBlockID(src_raiden_id, 12, BlockStatus::HOST),
-        RaidenBlockID(src_raiden_id, 13, BlockStatus::HOST),
+    std::vector<RaidenBlockId> slices = {
+        RaidenBlockId(src_raiden_id, 10, BlockStatus::HOST),
+        RaidenBlockId(src_raiden_id, 11, BlockStatus::HOST),
+        RaidenBlockId(src_raiden_id, 12, BlockStatus::HOST),
+        RaidenBlockId(src_raiden_id, 13, BlockStatus::HOST),
     };
     ASSERT_TRUE(store_->Insert(test_hashes, slices, /*on_host=*/true).ok());
 
@@ -213,7 +213,7 @@ TEST_F(KVCacheStoreServiceTest, FetchRoundTripsNonUtf8Hash) {
   const std::string binary_hash("\xff\xfe\x80\x00\x01\xc0\xaf\xed\xa0\x80", 10);
   RaidenId src_raiden_id{"src_job", "0", "src_data", 0};
   ASSERT_TRUE(store_->Insert(
-      {binary_hash}, {RaidenBlockID(src_raiden_id, 20, BlockStatus::HOST)},
+      {binary_hash}, {RaidenBlockId(src_raiden_id, 20, BlockStatus::HOST)},
       /*on_host=*/true)
                   .ok());
 
@@ -241,8 +241,8 @@ TEST_F(KVCacheStoreServiceTest, FetchValidationFailsForNonHostBlock) {
   std::vector<std::string> hashes = {"hbm_only_hash"};
   // HBM-only: local, so Insert takes it (REMOTE would be refused at the
   // gate), but not host-resident -- which is what Fetch validates.
-  std::vector<RaidenBlockID> slices = {
-      RaidenBlockID(src_raiden_id, /*host_block_id=*/-1,
+  std::vector<RaidenBlockId> slices = {
+      RaidenBlockId(src_raiden_id, /*host_block_id=*/-1,
                     /*device_block_id=*/50, BlockStatus::HBM),
   };
   ASSERT_TRUE(store_->Insert(hashes, slices, /*on_host=*/false).ok());
@@ -294,14 +294,14 @@ TEST_F(KVCacheStoreServiceTest, ConcurrentFetchRPCs) {
   RaidenId src_raiden_id{"src_job", "0", "src_data", 0};
   constexpr int kNumThreads = 8;
   std::vector<std::string> extra_hashes;
-  std::vector<RaidenBlockID> extra_slices;
+  std::vector<RaidenBlockId> extra_slices;
   extra_hashes.reserve(kNumThreads * 2);
   extra_slices.reserve(kNumThreads * 2);
 
   for (int i = 0; i < kNumThreads * 2; ++i) {
     extra_hashes.push_back("concurrent_hash_" + std::to_string(i));
     extra_slices.push_back(
-        RaidenBlockID(src_raiden_id, 100 + i, BlockStatus::HOST));
+        RaidenBlockId(src_raiden_id, 100 + i, BlockStatus::HOST));
   }
   ASSERT_TRUE(
       store_->Insert(extra_hashes, extra_slices, /*on_host=*/true).ok());
@@ -434,8 +434,8 @@ TEST_F(KVCacheStoreServiceTest, FetchWithMultiWorkerEndpointsRoutesPerWorker) {
                                        /*node_id=*/20));
 
   std::vector<std::string> hashes = {"multi_hash"};
-  std::vector<RaidenBlockID> slices = {
-      RaidenBlockID(multi_id, 7, BlockStatus::HOST)};
+  std::vector<RaidenBlockId> slices = {
+      RaidenBlockId(multi_id, 7, BlockStatus::HOST)};
   ASSERT_TRUE(store.Insert(hashes, slices, /*on_host=*/true).ok());
 
   KVCacheStoreServiceImpl service(store.backend().get(),
@@ -648,7 +648,7 @@ TEST_F(WriteRemoteTest, RejectsMissingSourceEndpointsWhenAPullIsNeeded) {
 
 TEST_F(WriteRemoteTest, AllExistNeedsNoSourceEndpoints) {
   ASSERT_TRUE(store_->backend()->InsertAllOrNothing(
-      {"a"}, {RaidenBlockID(dst_id_, 1, BlockStatus::HOST)}));
+      {"a"}, {RaidenBlockId(dst_id_, 1, BlockStatus::HOST)}));
 
   std::vector<int32_t> src_ids = {100};
   auto response =
@@ -694,8 +694,8 @@ TEST_F(WriteRemoteTest, RejectsAnOfferFromItself) {
 // already having them is the post-condition the source wanted.
 TEST_F(WriteRemoteTest, AllExistIsAnImmediateSuccess) {
   ASSERT_TRUE(store_->backend()->InsertAllOrNothing(
-      {"a", "b"}, {RaidenBlockID(dst_id_, 1, BlockStatus::HOST),
-                   RaidenBlockID(dst_id_, 2, BlockStatus::HOST)}));
+      {"a", "b"}, {RaidenBlockId(dst_id_, 1, BlockStatus::HOST),
+                   RaidenBlockId(dst_id_, 2, BlockStatus::HOST)}));
 
   auto response = Offer({"a", "b"});
   ASSERT_OK(response.status());
@@ -709,7 +709,7 @@ TEST_F(WriteRemoteTest, AllExistIsAnImmediateSuccess) {
 // would let an eviction caller free blocks this node does not have.
 TEST_F(WriteRemoteTest, PartialExistIsRefusedAndNamesWhatItHas) {
   ASSERT_TRUE(store_->backend()->InsertAllOrNothing(
-      {"a"}, {RaidenBlockID(dst_id_, 1, BlockStatus::HOST)}));
+      {"a"}, {RaidenBlockId(dst_id_, 1, BlockStatus::HOST)}));
 
   auto response = Offer({"a", "b"});
   ASSERT_OK(response.status());
@@ -841,8 +841,8 @@ TEST_F(WriteRemoteTest, LosingTheRaceAtInsertTimeReportsAllExistAndFrees) {
   ASSERT_OK(response.status());
 
   ASSERT_TRUE(store_->backend()->InsertAllOrNothing(
-      {"a", "b"}, {RaidenBlockID(dst_id_, 6, BlockStatus::HOST),
-                   RaidenBlockID(dst_id_, 7, BlockStatus::HOST)}));
+      {"a", "b"}, {RaidenBlockId(dst_id_, 6, BlockStatus::HOST),
+                   RaidenBlockId(dst_id_, 7, BlockStatus::HOST)}));
 
   latch_.Release(absl::OkStatus());
   ASSERT_EQ(AwaitTerminal(response->operation_id()),
@@ -862,7 +862,7 @@ TEST_F(WriteRemoteTest, PartialExistDiscoveredAtInsertTimeReachesThePoll) {
   ASSERT_OK(response.status());
 
   ASSERT_TRUE(store_->backend()->InsertAllOrNothing(
-      {"a"}, {RaidenBlockID(dst_id_, 6, BlockStatus::HOST)}));
+      {"a"}, {RaidenBlockId(dst_id_, 6, BlockStatus::HOST)}));
 
   latch_.Release(absl::OkStatus());
   ASSERT_EQ(
@@ -881,7 +881,7 @@ TEST_F(WriteRemoteTest, PartialExistDiscoveredAtInsertTimeReachesThePoll) {
 // rather than an eviction bug.
 TEST_F(WriteRemoteTest, RefusesWhenThereAreNoFreeBlocksAndEvictsNothing) {
   ASSERT_TRUE(store_->backend()->InsertAllOrNothing(
-      {"victim"}, {RaidenBlockID(dst_id_, 0, BlockStatus::HOST)}));
+      {"victim"}, {RaidenBlockId(dst_id_, 0, BlockStatus::HOST)}));
   auto drained = store_->raiden_controller()->AllocateBlockIds(kCapacity);
   ASSERT_TRUE(drained.ok()) << drained.status().ToString();
 

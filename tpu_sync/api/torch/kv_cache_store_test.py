@@ -59,7 +59,7 @@ class KVCacheStoreTest(absltest.TestCase):
 
   def test_raiden_block_id_creation_and_equality(self):
     id_ = kv_cache_store.RaidenId("test_job", "0", "test_cache", 0)
-    block_1 = kv_cache_store.RaidenBlockID(
+    block_1 = kv_cache_store.RaidenBlockId(
         id_,
         host_block_id=10,
         device_block_id=20,
@@ -74,7 +74,7 @@ class KVCacheStoreTest(absltest.TestCase):
     self.assertEqual(block_1.status, kv_cache_store.BlockStatus.HBM)
 
     # Test constructor with position arguments (backwards compatibility)
-    block_pos = kv_cache_store.RaidenBlockID(
+    block_pos = kv_cache_store.RaidenBlockId(
         id_, 10, kv_cache_store.BlockStatus.HBM
     )
     self.assertEqual(block_pos.raiden_id.job_name, id_.job_name)
@@ -85,7 +85,7 @@ class KVCacheStoreTest(absltest.TestCase):
     self.assertEqual(block_pos.device_block_id, -1)
     self.assertEqual(block_pos.status, kv_cache_store.BlockStatus.HBM)
 
-    block_2 = kv_cache_store.RaidenBlockID(
+    block_2 = kv_cache_store.RaidenBlockId(
         id_,
         host_block_id=10,
         device_block_id=20,
@@ -95,7 +95,7 @@ class KVCacheStoreTest(absltest.TestCase):
     self.assertEqual(block_1.device_block_id, block_2.device_block_id)
     self.assertEqual(block_1.status, block_2.status)
 
-    block_3 = kv_cache_store.RaidenBlockID(
+    block_3 = kv_cache_store.RaidenBlockId(
         id_,
         host_block_id=10,
         device_block_id=21,
@@ -193,7 +193,7 @@ class KVCacheStoreTest(absltest.TestCase):
     controller._impl = mock_impl
 
     # Case 2: Both local and global have the same hit, but we return local.
-    local_id = kv_cache_store._impl.RaidenBlockID(
+    local_id = kv_cache_store._impl.RaidenBlockId(
         kv_cache_store._impl.RaidenId("local_job", "0", "kv_cache", 1)
     )
     mock_impl.lookup.return_value = [(b"shared_hash", local_id)]
@@ -206,10 +206,10 @@ class KVCacheStoreTest(absltest.TestCase):
     mock_impl.lookup.assert_called_with([b"shared_hash"], True, True)
 
     # Case 3: No local hit, only global hits.
-    remote_id1 = kv_cache_store._impl.RaidenBlockID(
+    remote_id1 = kv_cache_store._impl.RaidenBlockId(
         kv_cache_store._impl.RaidenId("10.0.0.1:1234", "0", "kv_cache", 42)
     )
-    remote_id2 = kv_cache_store._impl.RaidenBlockID(
+    remote_id2 = kv_cache_store._impl.RaidenBlockId(
         kv_cache_store._impl.RaidenId("10.0.0.2:1234", "0", "kv_cache", 43)
     )
     mock_impl.lookup.return_value = [
@@ -356,7 +356,7 @@ class KVCacheStoreLoadWithSlicesTest(absltest.TestCase):
   def test_rejects_slices_count_mismatch(self):
     store = self._make_store()
     slices = [
-        kv_cache_store.RaidenBlockID(
+        kv_cache_store.RaidenBlockId(
             store.raiden_id, 0, kv_cache_store.BlockStatus.HOST
         )
     ]
@@ -367,10 +367,10 @@ class KVCacheStoreLoadWithSlicesTest(absltest.TestCase):
     store = self._make_store()
     store_id = store.raiden_id
     slices = [
-        kv_cache_store.RaidenBlockID(
+        kv_cache_store.RaidenBlockId(
             store_id, 0, kv_cache_store.BlockStatus.HOST
         ),
-        kv_cache_store.RaidenBlockID(
+        kv_cache_store.RaidenBlockId(
             store_id, 1, kv_cache_store.BlockStatus.HOST
         ),
     ]
@@ -381,10 +381,10 @@ class KVCacheStoreLoadWithSlicesTest(absltest.TestCase):
     store = self._make_store()
     peer_id = kv_cache_store.RaidenId("peer_job", "0", "kv_cache", 0)
     slices = [
-        kv_cache_store.RaidenBlockID(
+        kv_cache_store.RaidenBlockId(
             store.raiden_id, 0, kv_cache_store.BlockStatus.HOST
         ),
-        kv_cache_store.RaidenBlockID(
+        kv_cache_store.RaidenBlockId(
             peer_id, 7, kv_cache_store.BlockStatus.REMOTE
         ),
     ]
@@ -397,10 +397,10 @@ class KVCacheStoreLoadWithSlicesTest(absltest.TestCase):
     peer_a = kv_cache_store.RaidenId("peer_a", "0", "kv_cache", 0)
     peer_b = kv_cache_store.RaidenId("peer_b", "0", "kv_cache", 0)
     slices = [
-        kv_cache_store.RaidenBlockID(
+        kv_cache_store.RaidenBlockId(
             peer_a, 7, kv_cache_store.BlockStatus.REMOTE
         ),
-        kv_cache_store.RaidenBlockID(
+        kv_cache_store.RaidenBlockId(
             peer_b, 9, kv_cache_store.BlockStatus.REMOTE
         ),
     ]
@@ -411,7 +411,7 @@ class KVCacheStoreLoadWithSlicesTest(absltest.TestCase):
     # host_block_id -1 means the entry names no host block, so there is
     # nothing to copy up even though the status claims HOST.
     slices = [
-        kv_cache_store.RaidenBlockID(
+        kv_cache_store.RaidenBlockId(
             store.raiden_id, -1, kv_cache_store.BlockStatus.HOST
         )
     ]
@@ -438,10 +438,10 @@ class KVCacheStoreLoadWithSlicesTest(absltest.TestCase):
     store = self._make_store()
     store_id = store.raiden_id
     slices = [
-        kv_cache_store.RaidenBlockID(
+        kv_cache_store.RaidenBlockId(
             store_id, 0, kv_cache_store.BlockStatus.HOST
         ),
-        kv_cache_store.RaidenBlockID(
+        kv_cache_store.RaidenBlockId(
             store_id, 1, kv_cache_store.BlockStatus.HOST
         ),
     ]

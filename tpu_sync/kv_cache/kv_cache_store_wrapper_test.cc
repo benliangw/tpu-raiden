@@ -107,10 +107,10 @@ class KVCacheStoreWrapperTest : public ::testing::Test {
   void InsertHostBlocks(KVCacheStoreWrapper& wrapper,
                         const std::vector<std::string>& hashes) {
     RaidenId rid{"wrapper_test_job", "0", "wrapper_test_cache", 0};
-    std::vector<RaidenBlockID> slices;
+    std::vector<RaidenBlockId> slices;
     slices.reserve(hashes.size());
     for (int i = 0; i < static_cast<int>(hashes.size()); ++i) {
-      slices.push_back(RaidenBlockID(rid, i, BlockStatus::HOST));
+      slices.push_back(RaidenBlockId(rid, i, BlockStatus::HOST));
     }
     ASSERT_TRUE(wrapper->Insert(hashes, slices, /*on_host=*/true).ok());
     // Insert pins what it takes; these cases only want the blocks resident,

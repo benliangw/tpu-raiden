@@ -158,7 +158,7 @@ absl::StatusOr<BlockSliceList> HostOffloadBackend::Lookup(
   // Which hashes the local sweep matched -- one bit each, not the entries
   // themselves. Neither the matched values nor pointers to them survive the
   // registry RPC below: the RPC runs with mutex_ released, and copying a
-  // RaidenBlockID means copying the three strings inside its RaidenId, while a
+  // RaidenBlockId means copying the three strings inside its RaidenId, while a
   // pointer into an LRU node dangles the moment a concurrent Delete or Evict
   // erases that node. The assembly phase re-reads the index under the lock
   // instead, which is both cheaper than the copies and the only way to tell
@@ -189,7 +189,7 @@ absl::StatusOr<BlockSliceList> HostOffloadBackend::Lookup(
       // would make a lookup silently un-queue a block the store had already
       // decided to reclaim, and make the space accounting behind it wrong.
       // Candidates are invisible to lookup; pinning must not change that.
-      const RaidenBlockID* existing = lru_cache_.Peek(hash);
+      const RaidenBlockId* existing = lru_cache_.Peek(hash);
       if (existing != nullptr) {
         if (options.pin_found) {
           // Not a candidate (Peek just proved it), so this only moves the node
@@ -242,7 +242,7 @@ absl::StatusOr<BlockSliceList> HostOffloadBackend::Lookup(
         // flight, and reporting a block this node no longer holds is worse than
         // a short answer. A pinned hit is still here by construction, and this
         // costs one index lookup either way.
-        const RaidenBlockID* existing = lru_cache_.Peek(block_hashes[i]);
+        const RaidenBlockId* existing = lru_cache_.Peek(block_hashes[i]);
         if (existing == nullptr) {
           break;  // Gone underneath us: the answer ends here.
         }
@@ -267,7 +267,7 @@ absl::StatusOr<BlockSliceList> HostOffloadBackend::Lookup(
         break;
       }
       results.emplace_back(
-          block_hashes[i], RaidenBlockID(remote_id, metadata.block_id(), BlockStatus::REMOTE));
+          block_hashes[i], RaidenBlockId(remote_id, metadata.block_id(), BlockStatus::REMOTE));
     }
 
     // Give back the pins taken in phase 1 for hits that fell past the end of
@@ -287,7 +287,7 @@ absl::StatusOr<BlockSliceList> HostOffloadBackend::Lookup(
 
 std::pair<bool, BlockSliceList> HostOffloadBackend::Insert(
     absl::Span<const std::string> block_hashes,
-    absl::Span<const RaidenBlockID> slices, bool /*on_host*/) {
+    absl::Span<const RaidenBlockId> slices, bool /*on_host*/) {
   BlockSliceList evicted_entries;
   bool all_inserted = true;
   std::vector<global_registry::Registration> registrations;
@@ -301,7 +301,7 @@ std::pair<bool, BlockSliceList> HostOffloadBackend::Insert(
       if (lru_cache_.Contains(hash)) {
         all_inserted = false;
         if (i < slices.size()) {
-          if (RaidenBlockID* existing = lru_cache_.PeekMutable(hash)) {
+          if (RaidenBlockId* existing = lru_cache_.PeekMutable(hash)) {
             *existing = slices[i];
             SetMetadataEntry(hash, slices[i]);
           }
@@ -314,17 +314,17 @@ std::pair<bool, BlockSliceList> HostOffloadBackend::Insert(
         continue;
       }
       if (metadata_.has_value()) {
-        if (const RaidenBlockID* stale =
+        if (const RaidenBlockId* stale =
                 lru_cache_.PeekIncludingCandidates(hash)) {
           ClearMetadataEntry(*stale);
         }
       }
-      std::optional<std::pair<std::string, RaidenBlockID>> evicted;
+      std::optional<std::pair<std::string, RaidenBlockId>> evicted;
       if (i < slices.size()) {
         evicted = lru_cache_.Put(hash, slices[i]);
         SetMetadataEntry(hash, slices[i]);
       } else {
-        evicted = lru_cache_.Put(hash, RaidenBlockID());
+        evicted = lru_cache_.Put(hash, RaidenBlockId());
       }
       if (evicted.has_value()) {
         evicted_entries.push_back(std::move(*evicted));
@@ -367,7 +367,7 @@ std::pair<bool, BlockSliceList> HostOffloadBackend::Insert(
 
 bool HostOffloadBackend::InsertAndLock(
     absl::Span<const std::string> block_hashes,
-    absl::Span<const RaidenBlockID> slices, bool /*on_host*/) {
+    absl::Span<const RaidenBlockId> slices, bool /*on_host*/) {
   absl::MutexLock lock(mutex_);
 
   std::vector<size_t> existing_indices;
@@ -402,17 +402,17 @@ bool HostOffloadBackend::InsertAndLock(
     size_t i = *it;
     const std::string& hash = block_hashes[i];
     if (metadata_.has_value()) {
-      if (const RaidenBlockID* stale =
+      if (const RaidenBlockId* stale =
               lru_cache_.PeekIncludingCandidates(hash)) {
         ClearMetadataEntry(*stale);
       }
     }
-    std::optional<std::pair<std::string, RaidenBlockID>> evicted;
+    std::optional<std::pair<std::string, RaidenBlockId>> evicted;
     if (i < slices.size()) {
       evicted = lru_cache_.Put(hash, slices[i]);
       SetMetadataEntry(hash, slices[i]);
     } else {
-      evicted = lru_cache_.Put(hash, RaidenBlockID());
+      evicted = lru_cache_.Put(hash, RaidenBlockId());
     }
     if (evicted.has_value()) {
       eviction_count++;
@@ -429,7 +429,7 @@ bool HostOffloadBackend::InsertAndLock(
         lru_cache_.Unpin(block_hashes[j]);
       }
       for (size_t j : new_indices) {
-        if (const RaidenBlockID* val =
+        if (const RaidenBlockId* val =
                 lru_cache_.PeekIncludingCandidates(block_hashes[j])) {
           ClearMetadataEntry(*val);
         }
@@ -483,7 +483,7 @@ size_t HostOffloadBackend::ReleaseAndDelete(
 }
 
 void HostOffloadBackend::Delete(absl::Span<const std::string> block_hashes,
-                                absl::Span<const RaidenBlockID> /*slices*/) {
+                                absl::Span<const RaidenBlockId> /*slices*/) {
   std::shared_ptr<global_registry::GlobalRegistryClient> client;
   RaidenId local_id;
   std::vector<std::string> deleted_hashes;
@@ -496,7 +496,7 @@ void HostOffloadBackend::Delete(absl::Span<const std::string> block_hashes,
                      << absl::BytesToHexString(hash);
         continue;
       }
-      if (const RaidenBlockID* val = lru_cache_.PeekIncludingCandidates(hash)) {
+      if (const RaidenBlockId* val = lru_cache_.PeekIncludingCandidates(hash)) {
         ClearMetadataEntry(*val);
       }
       lru_cache_.Erase(hash);
@@ -597,7 +597,7 @@ absl::StatusOr<size_t> HostOffloadBackend::RecoverFromLocalManifest() {
 
   uint64_t max_seq = 0;
   for (const KVCacheMetadata::Entry* entry : recoverable) {
-    lru_cache_.Put(entry->hash, RaidenBlockID(raiden_id_, entry->block_id,
+    lru_cache_.Put(entry->hash, RaidenBlockId(raiden_id_, entry->block_id,
                                               BlockStatus::HOST));
     max_seq = std::max(max_seq, entry->seq);
   }
@@ -662,7 +662,7 @@ std::vector<int> HostOffloadBackend::Evict(
   {
     absl::MutexLock lock(mutex_);
     for (const std::string& hash : block_hashes) {
-      const RaidenBlockID* block = lru_cache_.PeekIncludingCandidates(hash);
+      const RaidenBlockId* block = lru_cache_.PeekIncludingCandidates(hash);
       if (block != nullptr && lru_cache_.GetPinCount(hash) == 0 &&
           (block->status == BlockStatus::HOST ||
            block->status == BlockStatus::HOST_AND_HBM)) {
@@ -848,7 +848,7 @@ std::vector<std::string> HostOffloadBackend::AlreadyPresentHostResident(
     // PeekIncludingCandidates, not Peek: an eviction candidate still holds its
     // host block, so calling it absent would let a duplicate insert through.
     // Peek also promotes LRU order, which a question has no business doing.
-    const RaidenBlockID* entry = lru_cache_.PeekIncludingCandidates(hash);
+    const RaidenBlockId* entry = lru_cache_.PeekIncludingCandidates(hash);
     if (entry != nullptr && (entry->status == BlockStatus::HOST ||
                              entry->status == BlockStatus::HOST_AND_HBM)) {
       present.push_back(hash);
@@ -859,7 +859,7 @@ std::vector<std::string> HostOffloadBackend::AlreadyPresentHostResident(
 
 bool HostOffloadBackend::InsertAllOrNothing(
     absl::Span<const std::string> block_hashes,
-    absl::Span<const RaidenBlockID> slices) {
+    absl::Span<const RaidenBlockId> slices) {
   if (block_hashes.empty() || block_hashes.size() != slices.size()) {
     return false;
   }
@@ -892,7 +892,7 @@ bool HostOffloadBackend::InsertAllOrNothing(
   // what keeps that true if Phase 1 ever changes.
   for (size_t i = 0; i < block_hashes.size(); ++i) {
     const std::string& hash = block_hashes[i];
-    std::optional<std::pair<std::string, RaidenBlockID>> evicted =
+    std::optional<std::pair<std::string, RaidenBlockId>> evicted =
         lru_cache_.Put(hash, slices[i]);
     if (lru_cache_.Peek(hash) == nullptr) {
       LOG(ERROR) << "InsertAllOrNothing: LRUCache::Put inserted nothing for a "
@@ -916,7 +916,7 @@ void HostOffloadBackend::RollbackInsert(
   {
     absl::MutexLock lock(mutex_);
     for (const auto& hash : block_hashes) {
-      if (const RaidenBlockID* entry =
+      if (const RaidenBlockId* entry =
               lru_cache_.PeekIncludingCandidates(hash)) {
         ClearMetadataEntry(*entry);
       }
@@ -967,7 +967,7 @@ absl::Status HostOffloadBackend::RegisterBlocksSync(
 tsl::Future<> HostOffloadBackend::Load(
     const RaidenId& remote_id, absl::Span<const std::string> block_hashes,
     absl::Span<const int32_t> device_block_ids,
-    absl::Span<const RaidenBlockID> slices) {
+    absl::Span<const RaidenBlockId> slices) {
   if (block_hashes.empty()) {
     return tsl::Future<>(absl::OkStatus());
   }
@@ -1074,7 +1074,7 @@ tsl::Future<> HostOffloadBackend::LoadRemoteBlocks(
 tsl::Future<> HostOffloadBackend::LoadLocalHostBlocks(
     absl::Span<const std::string> block_hashes,
     absl::Span<const int32_t> device_block_ids,
-    absl::Span<const RaidenBlockID> slices) {
+    absl::Span<const RaidenBlockId> slices) {
   std::vector<int64_t> src_host_block_ids;
   src_host_block_ids.reserve(block_hashes.size());
   if (!slices.empty()) {
@@ -1092,7 +1092,7 @@ tsl::Future<> HostOffloadBackend::LoadLocalHostBlocks(
   } else {
     absl::MutexLock lock(mutex_);
     for (const auto& hash : block_hashes) {
-      const RaidenBlockID* entry = lru_cache_.Peek(hash);
+      const RaidenBlockId* entry = lru_cache_.Peek(hash);
       if (entry == nullptr) {
         return tsl::Future<>(absl::NotFoundError(
             absl::StrCat("Block hash not found in host backend: ", hash)));
@@ -1212,7 +1212,7 @@ absl::Status HostOffloadBackend::RegisterKVTransferSpec(
 }
 
 void HostOffloadBackend::SetMetadataEntry(absl::string_view hash,
-                                          const RaidenBlockID& block) {
+                                          const RaidenBlockId& block) {
   if (!metadata_.has_value()) {
     return;
   }
@@ -1228,7 +1228,7 @@ void HostOffloadBackend::SetMetadataEntry(absl::string_view hash,
   }
 }
 
-void HostOffloadBackend::ClearMetadataEntry(const RaidenBlockID& block) {
+void HostOffloadBackend::ClearMetadataEntry(const RaidenBlockId& block) {
   if (!metadata_.has_value()) {
     return;
   }

@@ -24,7 +24,7 @@ class RaidenId:
       data_replica_idx: int = 0,
   ) -> None: ...
 
-class RaidenBlockID:
+class RaidenBlockId:
   raiden_id: RaidenId
   # The local host block when status is HOST or HOST_AND_HBM; the OWNING
   # PEER's host block when status is REMOTE, where it means nothing locally.
@@ -76,7 +76,7 @@ class KVCacheStore:
       block_hashes: list[bytes],
       enable_global: bool = False,
       pin_found: bool = True,
-  ) -> list[tuple[bytes, RaidenBlockID]]:
+  ) -> list[tuple[bytes, RaidenBlockId]]:
     """Checks the LRU directory for cached block hashes. Returns a list of all
     matched replica pairs prior to the first miss. Pins every local hit unless
     pin_found is False."""
@@ -84,7 +84,7 @@ class KVCacheStore:
   def insert(
       self,
       block_hashes: list[bytes],
-      slices: list[RaidenBlockID],
+      slices: list[RaidenBlockId],
       on_host: bool,
   ) -> bool:
     """Caches sharded buffers into host-RAM/HBM backing store, pinning them.
@@ -133,7 +133,7 @@ class KVCacheStore:
   def load(
       self,
       block_hashes: list[bytes],
-      slices: list[RaidenBlockID],
+      slices: list[RaidenBlockId],
       device_block_ids: list[int],
   ) -> bool:
     """Asynchronously loads KV cache blocks to device (HBM), either from local
@@ -144,7 +144,7 @@ class KVCacheStore:
 
     `device_block_ids` is the destination and must name one device block per hash.
 
-    If `slices` is provided, the caller's pre-looked up RaidenBlockIDs are
+    If `slices` is provided, the caller's pre-looked up RaidenBlockIds are
     used directly. Note that blocks in `slices` must be already pinned
     externally (when Loading from local host), and remote loads will re-resolve
     hashes at the peer, ignoring `slices`.
@@ -170,7 +170,7 @@ class KVCacheStore:
   def read_remote(
       self,
       block_hashes: list[bytes],
-      slices: list[RaidenBlockID],
+      slices: list[RaidenBlockId],
       device_block_ids: list[int],
   ) -> bool:
     """Reads REMOTE blocks from their owning peers into local HBM."""

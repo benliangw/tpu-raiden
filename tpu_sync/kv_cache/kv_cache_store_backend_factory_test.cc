@@ -51,21 +51,21 @@ class CustomTestBackend : public KVCacheStoreBackend {
   tsl::Future<> Load(const RaidenId& remote_id,
                      absl::Span<const std::string> block_hashes,
                      absl::Span<const int32_t> device_block_ids,
-                     absl::Span<const RaidenBlockID> slices = {}) override {
+                     absl::Span<const RaidenBlockId> slices = {}) override {
     return tsl::Future<>(absl::UnimplementedError("Load is not supported."));
   }
   std::pair<bool, BlockSliceList> Insert(absl::Span<const std::string>,
-                                         absl::Span<const RaidenBlockID>,
+                                         absl::Span<const RaidenBlockId>,
                                          bool) override {
     return {true, {}};
   }
   bool InsertAndLock(absl::Span<const std::string>,
-                     absl::Span<const RaidenBlockID>, bool) override {
+                     absl::Span<const RaidenBlockId>, bool) override {
     return true;
   }
   size_t ReleaseAndDelete(absl::Span<const std::string>) override { return 0; }
   void Delete(absl::Span<const std::string>,
-              absl::Span<const RaidenBlockID>) override {}
+              absl::Span<const RaidenBlockId>) override {}
   bool Pin(absl::Span<const std::string>) override { return true; }
   void Release(absl::Span<const std::string>) override {}
   int GetPinCount(const std::string&) const override { return 0; }

@@ -225,8 +225,8 @@ def _worker_save_load_main(argv):
       )
 
       slices = [
-          kv_cache_store.RaidenBlockID(rid, host_block_id=-1, device_block_id=0, status=kv_cache_store.BlockStatus.HBM),
-          kv_cache_store.RaidenBlockID(rid, host_block_id=-1, device_block_id=1, status=kv_cache_store.BlockStatus.HBM),
+          kv_cache_store.RaidenBlockId(rid, host_block_id=-1, device_block_id=0, status=kv_cache_store.BlockStatus.HBM),
+          kv_cache_store.RaidenBlockId(rid, host_block_id=-1, device_block_id=1, status=kv_cache_store.BlockStatus.HBM),
       ]
       assert store.insert(hashes, slices, on_host=False), "Failed to insert blocks to store"
 
@@ -381,13 +381,13 @@ def _worker_read_remote_main(argv):
       )
 
       slices_a = [
-          kv_cache_store.RaidenBlockID(
+          kv_cache_store.RaidenBlockId(
               rid_a,
               host_block_id=-1,
               device_block_id=0,
               status=kv_cache_store.BlockStatus.HBM,
           ),
-          kv_cache_store.RaidenBlockID(
+          kv_cache_store.RaidenBlockId(
               rid_a,
               host_block_id=-1,
               device_block_id=1,
@@ -592,13 +592,13 @@ def _worker_write_remote_main(argv):
       )
 
       slices_a = [
-          kv_cache_store.RaidenBlockID(
+          kv_cache_store.RaidenBlockId(
               rid_a,
               host_block_id=-1,
               device_block_id=0,
               status=kv_cache_store.BlockStatus.HBM,
           ),
-          kv_cache_store.RaidenBlockID(
+          kv_cache_store.RaidenBlockId(
               rid_a,
               host_block_id=-1,
               device_block_id=1,

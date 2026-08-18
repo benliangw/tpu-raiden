@@ -590,7 +590,7 @@ NB_MODULE(_tpu_raiden_torch, m) {
       .value("HOST", tpu_raiden::kv_cache::BlockStatus::HOST)
       .value("HOST_AND_HBM", tpu_raiden::kv_cache::BlockStatus::HOST_AND_HBM);
 
-  nb::class_<tpu_raiden::kv_cache::RaidenBlockID>(m, "RaidenBlockID")
+  nb::class_<tpu_raiden::kv_cache::RaidenBlockId>(m, "RaidenBlockId")
       .def(nb::init<tpu_raiden::kv_cache::RaidenId, int,
                     tpu_raiden::kv_cache::BlockStatus>(),
            nb::arg("raiden_id") = tpu_raiden::kv_cache::RaidenId(),
@@ -601,12 +601,12 @@ NB_MODULE(_tpu_raiden_torch, m) {
            nb::arg("raiden_id") = tpu_raiden::kv_cache::RaidenId(),
            nb::arg("host_block_id") = -1, nb::arg("device_block_id") = -1,
            nb::arg("status") = tpu_raiden::kv_cache::BlockStatus::INIT)
-      .def_rw("raiden_id", &tpu_raiden::kv_cache::RaidenBlockID::raiden_id)
+      .def_rw("raiden_id", &tpu_raiden::kv_cache::RaidenBlockId::raiden_id)
       .def_rw("host_block_id",
-              &tpu_raiden::kv_cache::RaidenBlockID::host_block_id)
+              &tpu_raiden::kv_cache::RaidenBlockId::host_block_id)
       .def_rw("device_block_id",
-              &tpu_raiden::kv_cache::RaidenBlockID::device_block_id)
-      .def_rw("status", &tpu_raiden::kv_cache::RaidenBlockID::status);
+              &tpu_raiden::kv_cache::RaidenBlockId::device_block_id)
+      .def_rw("status", &tpu_raiden::kv_cache::RaidenBlockId::status);
 
   nb::class_<tpu_raiden::kv_cache::KVCacheStoreWrapper>(m, "KVCacheStore")
       .def(nb::init<size_t, std::string, tpu_raiden::kv_cache::RaidenId, int,
@@ -664,7 +664,7 @@ NB_MODULE(_tpu_raiden_torch, m) {
                   "KVCacheStore lookup failed: ", res.status().message()));
             }
             std::vector<
-                std::pair<nb::bytes, tpu_raiden::kv_cache::RaidenBlockID>>
+                std::pair<nb::bytes, tpu_raiden::kv_cache::RaidenBlockId>>
                 py_res;
             py_res.reserve(res.value().size());
             for (const auto& pair : res.value()) {
@@ -683,7 +683,7 @@ NB_MODULE(_tpu_raiden_torch, m) {
           "insert",
           [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self,
              const std::vector<nb::bytes>& block_hashes,
-             const std::vector<tpu_raiden::kv_cache::RaidenBlockID>& slices,
+             const std::vector<tpu_raiden::kv_cache::RaidenBlockId>& slices,
              bool on_host) -> bool {
             auto hashes = ToStdStringVector(block_hashes);
             absl::Status status = self->Insert(hashes, slices, on_host);
@@ -711,7 +711,7 @@ NB_MODULE(_tpu_raiden_torch, m) {
           "read_remote",
           [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self,
              const std::vector<nb::bytes>& block_hashes,
-             const std::vector<tpu_raiden::kv_cache::RaidenBlockID>& slices,
+             const std::vector<tpu_raiden::kv_cache::RaidenBlockId>& slices,
              const std::vector<int32_t>& device_block_ids) -> bool {
             auto hashes = ToStdStringVector(block_hashes);
             return self->ReadRemote(hashes, slices, device_block_ids).ok();
@@ -773,7 +773,7 @@ NB_MODULE(_tpu_raiden_torch, m) {
           "load",
           [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self,
              const std::vector<nb::bytes>& block_hashes,
-             const std::vector<tpu_raiden::kv_cache::RaidenBlockID>& slices,
+             const std::vector<tpu_raiden::kv_cache::RaidenBlockId>& slices,
              const std::vector<int>& device_block_ids) -> bool {
             auto hashes = ToStdStringVector(block_hashes);
             return self->Load(hashes, slices, device_block_ids).ok();

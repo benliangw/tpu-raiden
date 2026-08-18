@@ -637,13 +637,13 @@ void KVCacheStoreServiceImpl::CompleteWriteRemote(
     return;
   }
 
-  std::vector<RaidenBlockID> slices;
+  std::vector<RaidenBlockId> slices;
   slices.reserve(op->landing_block_ids.size());
   const auto& unit = controller_->unit();
   const RaidenId local_id{unit.job_name(), unit.job_replica_id(),
                           unit.data_name(), unit.data_replica_idx()};
   for (int32_t block_id : op->landing_block_ids) {
-    slices.push_back(RaidenBlockID(local_id, block_id, BlockStatus::HOST));
+    slices.push_back(RaidenBlockId(local_id, block_id, BlockStatus::HOST));
   }
   if (!backend_->InsertAllOrNothing(op->block_hashes, slices)) {
     finish(OpState::kFailed, {});

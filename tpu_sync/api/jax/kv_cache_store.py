@@ -72,8 +72,8 @@ class RaidenId:
     )
 
 
-class RaidenBlockID:
-  """Wrapper around compiled C++ RaidenBlockID."""
+class RaidenBlockId:
+  """Wrapper around compiled C++ RaidenBlockId."""
 
   def __init__(
       self,
@@ -90,7 +90,7 @@ class RaidenBlockID:
         raiden_id = RaidenId()
       # Map Python enum to C++ enum
       status_val = getattr(_impl.BlockStatus, status.name)
-      self._impl = _impl.RaidenBlockID(
+      self._impl = _impl.RaidenBlockId(
           raiden_id._impl,
           host_block_id,
           device_block_id,
@@ -131,7 +131,7 @@ class RaidenBlockID:
 
   def __repr__(self) -> str:
     return (
-        f"RaidenBlockID(raiden_id={self.raiden_id},"
+        f"RaidenBlockId(raiden_id={self.raiden_id},"
         f" host_block_id={self.host_block_id},"
         f" device_block_id={self.device_block_id}, status={self.status})"
     )
@@ -257,7 +257,7 @@ class KVCacheStore:
       block_hashes: list[bytes],
       enable_global: bool = False,
       pin_found: bool = True,
-  ) -> list[tuple[bytes, RaidenBlockID]]:
+  ) -> list[tuple[bytes, RaidenBlockId]]:
     """Checks the LRU directory for cached block hashes.
 
     PINS every hash it returns by default (pin_found=True), one pin each, so
@@ -283,18 +283,18 @@ class KVCacheStore:
 
     Returns:
       A list of tuples containing the block hash and the matching
-      RaidenBlockID replica, halting immediately upon the first cache miss.
+      RaidenBlockId replica, halting immediately upon the first cache miss.
     """
     raw_res = self._impl.lookup(block_hashes, enable_global, pin_found)
     final_res = []
     for hash_val, raw_slice in raw_res:
-      final_res.append((hash_val, RaidenBlockID(impl=raw_slice)))
+      final_res.append((hash_val, RaidenBlockId(impl=raw_slice)))
     return final_res
 
   def insert(
       self,
       block_hashes: list[bytes],
-      slices: list[RaidenBlockID],
+      slices: list[RaidenBlockId],
       on_host: bool,
   ) -> bool:
     """Caches sharded buffers into host-RAM/HBM backing store, PINNING them.
@@ -318,7 +318,7 @@ class KVCacheStore:
 
     Args:
       block_hashes: Incoming block hashes to insert.
-      slices: List of RaidenBlockID, one for each block hash.
+      slices: List of RaidenBlockId, one for each block hash.
       on_host: Whether the slices are located in host memory.
 
     Returns:
@@ -330,7 +330,7 @@ class KVCacheStore:
     raw_slices = []
     for s in slices:
       if isinstance(s, RaidenId):
-        s = RaidenBlockID(raiden_id=s)
+        s = RaidenBlockId(raiden_id=s)
       raw_slices.append(s._impl)  # pylint: disable=protected-access
     return self._impl.insert(block_hashes, raw_slices, on_host)
 
@@ -404,7 +404,7 @@ class KVCacheStore:
       self,
       block_hashes: list[bytes],
       device_block_ids: list[int],
-      slices: list[RaidenBlockID] | None = None,
+      slices: list[RaidenBlockId] | None = None,
   ) -> bool:
     """Asynchronously loads KV cache blocks to device (HBM), either from local
     host DRAM or from a peer (if `slices` is provided).
@@ -440,7 +440,7 @@ class KVCacheStore:
     Args:
       block_hashes: List of block hashes to load.
       device_block_ids: Destination device block IDs, one per hash.
-      slices: Optional pre-resolved RaidenBlockIDs.
+      slices: Optional pre-resolved RaidenBlockIds.
 
     Returns:
       True if successfully launched, False if validation failed. Launching is
@@ -451,7 +451,7 @@ class KVCacheStore:
     raw_slices = []
     for s in slices:
       if isinstance(s, RaidenId):
-        s = RaidenBlockID(raiden_id=s)
+        s = RaidenBlockId(raiden_id=s)
       raw_slices.append(s._impl)  # pylint: disable=protected-access
     return self._impl.load(block_hashes, raw_slices, device_block_ids)
 
@@ -512,7 +512,7 @@ class KVCacheStore:
   def read_remote(
       self,
       block_hashes: list[bytes],
-      slices: list[RaidenBlockID],
+      slices: list[RaidenBlockId],
       device_block_ids: list[int],
   ) -> bool:
     """Reads REMOTE blocks from their owning peers straight into local HBM.
@@ -537,7 +537,7 @@ class KVCacheStore:
 
     Args:
       block_hashes: Block hashes to read.
-      slices: One REMOTE RaidenBlockID per hash, naming where to read from.
+      slices: One REMOTE RaidenBlockId per hash, naming where to read from.
         Only two fields are used -- raiden_id (the owning peer) and
         host_block_id (the block on that peer) -- so a lookup() answer can be
         passed straight through.
@@ -552,7 +552,7 @@ class KVCacheStore:
     raw_slices = []
     for s in slices:
       if isinstance(s, RaidenId):
-        s = RaidenBlockID(raiden_id=s)
+        s = RaidenBlockId(raiden_id=s)
       raw_slices.append(s._impl)  # pylint: disable=protected-access
     return self._impl.read_remote(block_hashes, raw_slices, device_block_ids)
 

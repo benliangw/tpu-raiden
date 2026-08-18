@@ -44,7 +44,7 @@ enum class BlockStatus {
   HOST_AND_HBM,
 };
 
-struct RaidenBlockID {
+struct RaidenBlockId {
   RaidenId raiden_id;
   // When status is REMOTE, it represents the remote host block ID.
   // When status is HOST or HOST_AND_HBM, it represents the local host block ID.
@@ -52,29 +52,29 @@ struct RaidenBlockID {
   int device_block_id = -1;
   BlockStatus status = BlockStatus::INIT;
 
-  RaidenBlockID() = default;
-  /* implicit */ RaidenBlockID(RaidenId id, int host_id = -1,
+  RaidenBlockId() = default;
+  /* implicit */ RaidenBlockId(RaidenId id, int host_id = -1,
                                BlockStatus stat = BlockStatus::INIT)
       : raiden_id(std::move(id)), host_block_id(host_id), status(stat) {}
 
-  RaidenBlockID(RaidenId id, int host_block_id, int device_block_id,
+  RaidenBlockId(RaidenId id, int host_block_id, int device_block_id,
                 BlockStatus stat = BlockStatus::INIT)
       : raiden_id(std::move(id)),
         host_block_id(host_block_id),
         device_block_id(device_block_id),
         status(stat) {}
 
-  bool operator==(const RaidenBlockID& other) const {
+  bool operator==(const RaidenBlockId& other) const {
     return raiden_id == other.raiden_id &&
            host_block_id == other.host_block_id &&
            device_block_id == other.device_block_id && status == other.status;
   }
-  bool operator!=(const RaidenBlockID& other) const {
+  bool operator!=(const RaidenBlockId& other) const {
     return !(*this == other);
   }
 };
 
-using BlockSliceList = std::vector<std::pair<std::string, RaidenBlockID>>;
+using BlockSliceList = std::vector<std::pair<std::string, RaidenBlockId>>;
 
 // Options controlling lookup behavior across storage backends.
 struct LookupOptions {
@@ -108,7 +108,7 @@ class KVCacheStoreBackend {
   virtual std::string name() const = 0;
 
   // Resolves cached block hashes in sequence.
-  // Returns a list of matched (block_hash, RaidenBlockID) pairs up to the first
+  // Returns a list of matched (block_hash, RaidenBlockId) pairs up to the first
   // miss.
   virtual absl::StatusOr<BlockSliceList> Lookup(
       absl::Span<const std::string> block_hashes,
@@ -120,14 +120,14 @@ class KVCacheStoreBackend {
   // `device_block_ids` is the destination and must name one device block per
   // hash.
   //
-  // If `slices` is non-empty, the caller's pre-looked up RaidenBlockIDs are
+  // If `slices` is non-empty, the caller's pre-looked up RaidenBlockIds are
   // used directly. Note that blocks in `slices` must be already pinned
   // externally (when Load from local host), and remote loads will re-resolve
   // hashes at the peer, ignoring `slices`.
   virtual tsl::Future<> Load(const RaidenId& remote_id,
                              absl::Span<const std::string> block_hashes,
                              absl::Span<const int32_t> device_block_ids,
-                             absl::Span<const RaidenBlockID> slices = {}) = 0;
+                             absl::Span<const RaidenBlockId> slices = {}) = 0;
 
   // Inserts key-block mappings into the backend.
   // Returns:
@@ -135,12 +135,12 @@ class KVCacheStoreBackend {
   //   - BlockSliceList: entries evicted from this backend during insertion
   virtual std::pair<bool, BlockSliceList> Insert(
       absl::Span<const std::string> block_hashes,
-      absl::Span<const RaidenBlockID> slices, bool on_host) = 0;
+      absl::Span<const RaidenBlockId> slices, bool on_host) = 0;
 
   // Pins existing hashes and inserts & locks new hashes if space permits.
   // Performs complete rollback on failure. Returns true on full success.
   virtual bool InsertAndLock(absl::Span<const std::string> block_hashes,
-                             absl::Span<const RaidenBlockID> slices,
+                             absl::Span<const RaidenBlockId> slices,
                              bool on_host) = 0;
 
   // Reverts an InsertAndLock operation: unpins hashes, erases non-host blocks
@@ -151,7 +151,7 @@ class KVCacheStoreBackend {
 
   // Explicitly deletes cached block entries from the backend.
   virtual void Delete(absl::Span<const std::string> block_hashes,
-                      absl::Span<const RaidenBlockID> slices) = 0;
+                      absl::Span<const RaidenBlockId> slices) = 0;
 
   // Pins block hashes to protect them from LRU eviction.
   // Returns true if all hashes exist and were successfully pinned.
@@ -228,7 +228,7 @@ class KVCacheStoreBackend {
   // success, which would let the source free blocks the destination does not
   // have.
   virtual bool InsertAllOrNothing(absl::Span<const std::string> block_hashes,
-                                  absl::Span<const RaidenBlockID> slices) {
+                                  absl::Span<const RaidenBlockId> slices) {
     return false;
   }
 

@@ -79,9 +79,9 @@ TEST(HostOffloadBackendTest, BasicInsertAndLookup) {
 
   std::vector<std::string> hashes = {"h1", "h2"};
   RaidenId id{"job", "0", "data", 0};
-  std::vector<RaidenBlockID> slices = {
-      RaidenBlockID(id, 10, BlockStatus::HOST),
-      RaidenBlockID(id, 11, BlockStatus::HOST)};
+  std::vector<RaidenBlockId> slices = {
+      RaidenBlockId(id, 10, BlockStatus::HOST),
+      RaidenBlockId(id, 11, BlockStatus::HOST)};
 
   auto [all_new, evicted] = backend.Insert(hashes, slices, /*on_host=*/true);
   EXPECT_TRUE(all_new);
@@ -112,9 +112,9 @@ TEST(HostOffloadBackendTest, LookupUnboundedByAvailableSpace) {
   HostOffloadBackendTest::Backend backend(/*capacity=*/2);
   std::vector<std::string> hashes = {"h1", "h2"};
   RaidenId id{"job", "0", "data", 0};
-  std::vector<RaidenBlockID> slices = {
-      RaidenBlockID(id, 10, BlockStatus::HOST),
-      RaidenBlockID(id, 11, BlockStatus::HOST)};
+  std::vector<RaidenBlockId> slices = {
+      RaidenBlockId(id, 10, BlockStatus::HOST),
+      RaidenBlockId(id, 11, BlockStatus::HOST)};
 
   backend.Insert(hashes, slices, /*on_host=*/true);
   EXPECT_TRUE(backend.Pin(hashes));
@@ -130,10 +130,10 @@ TEST(HostOffloadBackendTest, InsertAndLockRollbackOnCapacityExceeded) {
   HostOffloadBackendTest::Backend backend(/*capacity=*/2);
   std::vector<std::string> hashes = {"h1", "h2", "h3"};
   RaidenId id{"job", "0", "data", 0};
-  std::vector<RaidenBlockID> slices = {
-      RaidenBlockID(id, 10, BlockStatus::HOST),
-      RaidenBlockID(id, 11, BlockStatus::HOST),
-      RaidenBlockID(id, 12, BlockStatus::HOST)};
+  std::vector<RaidenBlockId> slices = {
+      RaidenBlockId(id, 10, BlockStatus::HOST),
+      RaidenBlockId(id, 11, BlockStatus::HOST),
+      RaidenBlockId(id, 12, BlockStatus::HOST)};
 
   // InsertAndLock for 3 items on capacity=2 must fail and rollback
   bool success = backend.InsertAndLock(hashes, slices, /*on_host=*/true);
@@ -142,7 +142,7 @@ TEST(HostOffloadBackendTest, InsertAndLockRollbackOnCapacityExceeded) {
 
   // Partial InsertAndLock up to capacity works
   std::vector<std::string> sub_hashes = {"h1", "h2"};
-  std::vector<RaidenBlockID> sub_slices = {slices[0], slices[1]};
+  std::vector<RaidenBlockId> sub_slices = {slices[0], slices[1]};
   EXPECT_TRUE(backend.InsertAndLock(sub_hashes, sub_slices, /*on_host=*/true));
   EXPECT_EQ(backend.GetPinCount("h1"), 1);
   EXPECT_EQ(backend.GetPinCount("h2"), 1);
@@ -534,9 +534,9 @@ TEST(HostOffloadBackendTest, EndToEndFetchRPC) {
   auto backend = std::dynamic_pointer_cast<HostOffloadBackend>(backend_base);
   ASSERT_NE(backend, nullptr);
 
-  std::vector<RaidenBlockID> dst_slices = {
-      RaidenBlockID(dst_raiden_id, 101, BlockStatus::HOST),
-      RaidenBlockID(dst_raiden_id, 102, BlockStatus::HOST),
+  std::vector<RaidenBlockId> dst_slices = {
+      RaidenBlockId(dst_raiden_id, 101, BlockStatus::HOST),
+      RaidenBlockId(dst_raiden_id, 102, BlockStatus::HOST),
   };
   backend->Insert({"fetch_hash_1", "fetch_hash_2"}, dst_slices,
                   /*on_host=*/true);
@@ -653,8 +653,8 @@ TEST(HostOffloadBackendTest, LoadSuccess) {
       std::dynamic_pointer_cast<HostOffloadBackend>(remote_backend_base);
   ASSERT_NE(remote_backend, nullptr);
 
-  std::vector<RaidenBlockID> remote_slices = {
-      RaidenBlockID(remote_node_id, 42, BlockStatus::HOST),
+  std::vector<RaidenBlockId> remote_slices = {
+      RaidenBlockId(remote_node_id, 42, BlockStatus::HOST),
   };
   remote_backend->Insert({"load_hash_1"}, remote_slices, /*on_host=*/true);
 
@@ -738,7 +738,7 @@ TEST(HostOffloadBackendTest, LoadLocalSuccess) {
   ASSERT_NE(backend, nullptr);
 
   backend->Insert({"local_hash_1"},
-                  {RaidenBlockID(node_id, 10, BlockStatus::HOST)},
+                  {RaidenBlockId(node_id, 10, BlockStatus::HOST)},
                   /*on_host=*/true);
 
   auto load_future = backend->Load(RaidenId{}, {"local_hash_1"}, {5});
@@ -796,7 +796,7 @@ TEST(HostOffloadBackendTest, LoadLocalNonHostBlockError) {
 
   RaidenId remote_id{"remote_job", "0", "data", 0};
   backend->Insert({"remote_hash"},
-                  {RaidenBlockID(remote_id, 10, BlockStatus::REMOTE)},
+                  {RaidenBlockId(remote_id, 10, BlockStatus::REMOTE)},
                   /*on_host=*/true);
 
   auto load_future = backend->Load(RaidenId{}, {"remote_hash"}, {5});
@@ -853,8 +853,8 @@ TEST(HostOffloadBackendWriteRemoteTest, AlreadyPresentReportsAScatteredSubset) {
   HostOffloadBackendTest::Backend backend(/*capacity=*/8);
   RaidenId id{"job", "0", "data", 0};
   backend.Insert({"a", "c"},
-                 {RaidenBlockID(id, 1, BlockStatus::HOST),
-                  RaidenBlockID(id, 3, BlockStatus::HOST)},
+                 {RaidenBlockId(id, 1, BlockStatus::HOST),
+                  RaidenBlockId(id, 3, BlockStatus::HOST)},
                  /*on_host=*/true);
 
   EXPECT_THAT(backend.AlreadyPresentHostResident({"a", "b", "c"}),
@@ -867,7 +867,7 @@ TEST(HostOffloadBackendWriteRemoteTest, AlreadyPresentReportsAScatteredSubset) {
 TEST(HostOffloadBackendWriteRemoteTest, AlreadyPresentIgnoresNonHostBlocks) {
   HostOffloadBackendTest::Backend backend(/*capacity=*/8);
   RaidenId id{"job", "0", "data", 0};
-  backend.Insert({"remote"}, {RaidenBlockID(id, 1, BlockStatus::REMOTE)},
+  backend.Insert({"remote"}, {RaidenBlockId(id, 1, BlockStatus::REMOTE)},
                  /*on_host=*/true);
 
   EXPECT_TRUE(backend.AlreadyPresentHostResident({"remote"}).empty());
@@ -879,8 +879,8 @@ TEST(HostOffloadBackendWriteRemoteTest,
   RaidenId id{"job", "0", "data", 0};
 
   EXPECT_TRUE(backend.InsertAllOrNothing(
-      {"a", "b"}, {RaidenBlockID(id, 1, BlockStatus::HOST),
-                   RaidenBlockID(id, 2, BlockStatus::HOST)}));
+      {"a", "b"}, {RaidenBlockId(id, 1, BlockStatus::HOST),
+                   RaidenBlockId(id, 2, BlockStatus::HOST)}));
   EXPECT_EQ(backend.GetSize(), 2);
   EXPECT_THAT(backend.AlreadyPresentHostResident({"a", "b"}),
               UnorderedElementsAre("a", "b"));
@@ -893,12 +893,12 @@ TEST(HostOffloadBackendWriteRemoteTest,
 TEST(HostOffloadBackendWriteRemoteTest, InsertAllOrNothingRefusesADuplicate) {
   HostOffloadBackendTest::Backend backend(/*capacity=*/8);
   RaidenId id{"job", "0", "data", 0};
-  backend.Insert({"a"}, {RaidenBlockID(id, 1, BlockStatus::HOST)},
+  backend.Insert({"a"}, {RaidenBlockId(id, 1, BlockStatus::HOST)},
                  /*on_host=*/true);
 
   EXPECT_FALSE(backend.InsertAllOrNothing(
-      {"b", "a"}, {RaidenBlockID(id, 2, BlockStatus::HOST),
-                   RaidenBlockID(id, 3, BlockStatus::HOST)}));
+      {"b", "a"}, {RaidenBlockId(id, 2, BlockStatus::HOST),
+                   RaidenBlockId(id, 3, BlockStatus::HOST)}));
   // "b" must not have landed: nothing, not almost-everything.
   EXPECT_TRUE(backend.AlreadyPresentHostResident({"b"}).empty());
   EXPECT_EQ(backend.GetSize(), 1);
@@ -910,12 +910,12 @@ TEST(HostOffloadBackendWriteRemoteTest, InsertAllOrNothingRespectsPinnedSpace) {
   HostOffloadBackendTest::Backend backend(/*capacity=*/2);
   RaidenId id{"job", "0", "data", 0};
   ASSERT_TRUE(backend.InsertAndLock({"pinned_a", "pinned_b"},
-                                    {RaidenBlockID(id, 1, BlockStatus::HOST),
-                                     RaidenBlockID(id, 2, BlockStatus::HOST)},
+                                    {RaidenBlockId(id, 1, BlockStatus::HOST),
+                                     RaidenBlockId(id, 2, BlockStatus::HOST)},
                                     /*on_host=*/true));
 
   EXPECT_FALSE(backend.InsertAllOrNothing(
-      {"c"}, {RaidenBlockID(id, 3, BlockStatus::HOST)}));
+      {"c"}, {RaidenBlockId(id, 3, BlockStatus::HOST)}));
 }
 
 // The assertion that matters for E1: a failed registration must leave the LRU
@@ -935,9 +935,9 @@ TEST(HostOffloadBackendWriteRemoteTest, RollbackInsertErasesAndFreesBlocks) {
   EXPECT_FALSE(controller->AllocateBlockIds(1).ok());
 
   std::vector<std::string> hashes = {"a", "b", "c", "d"};
-  std::vector<RaidenBlockID> slices;
+  std::vector<RaidenBlockId> slices;
   for (int32_t block_id : ids) {
-    slices.push_back(RaidenBlockID(id, block_id, BlockStatus::HOST));
+    slices.push_back(RaidenBlockId(id, block_id, BlockStatus::HOST));
   }
   ASSERT_TRUE(backend.InsertAllOrNothing(hashes, slices));
 
@@ -1004,10 +1004,10 @@ TEST(HostOffloadBackendTest, LookupAndPinBasicHits) {
   HostOffloadBackendTest::Backend backend(/*capacity=*/5);
   std::vector<std::string> hashes = {"h1", "h2", "h3"};
   RaidenId id{"job", "0", "data", 0};
-  std::vector<RaidenBlockID> slices = {
-      RaidenBlockID(id, 10, BlockStatus::HOST),
-      RaidenBlockID(id, 11, BlockStatus::HOST),
-      RaidenBlockID(id, 12, BlockStatus::HOST)};
+  std::vector<RaidenBlockId> slices = {
+      RaidenBlockId(id, 10, BlockStatus::HOST),
+      RaidenBlockId(id, 11, BlockStatus::HOST),
+      RaidenBlockId(id, 12, BlockStatus::HOST)};
 
   backend.Insert(hashes, slices, /*on_host=*/true);
 
@@ -1023,9 +1023,9 @@ TEST(HostOffloadBackendTest, LookupAndPinPartialMiss) {
   HostOffloadBackendTest::Backend backend(/*capacity=*/5);
   std::vector<std::string> hashes = {"h1", "h2"};
   RaidenId id{"job", "0", "data", 0};
-  std::vector<RaidenBlockID> slices = {
-      RaidenBlockID(id, 10, BlockStatus::HOST),
-      RaidenBlockID(id, 11, BlockStatus::HOST)};
+  std::vector<RaidenBlockId> slices = {
+      RaidenBlockId(id, 10, BlockStatus::HOST),
+      RaidenBlockId(id, 11, BlockStatus::HOST)};
 
   backend.Insert(hashes, slices, /*on_host=*/true);
 
@@ -1126,7 +1126,7 @@ std::unique_ptr<InterleavedFixture> MakeInterleavedFixture(
 void InsertLocal(KVCacheStoreBackend* backend, const RaidenId& local_id,
                  const std::string& hash, int host_block_id) {
   backend->Insert({hash},
-                  {RaidenBlockID(local_id, host_block_id, BlockStatus::HOST)},
+                  {RaidenBlockId(local_id, host_block_id, BlockStatus::HOST)},
                   /*on_host=*/true);
 }
 
@@ -1298,8 +1298,8 @@ TEST(HostOffloadBackendTest, LookupInterleavedWithoutRegistryClient) {
   HostOffloadBackendTest::Backend backend(/*capacity=*/5);
   RaidenId id{"job", "0", "data", 0};
   backend.Insert({"l1", "l2"},
-                 {RaidenBlockID(id, 11, BlockStatus::HOST),
-                  RaidenBlockID(id, 12, BlockStatus::HOST)},
+                 {RaidenBlockId(id, 11, BlockStatus::HOST),
+                  RaidenBlockId(id, 12, BlockStatus::HOST)},
                  /*on_host=*/true);
 
   auto res =

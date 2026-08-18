@@ -903,7 +903,7 @@ absl::StatusOr<BlockSliceList> KVCacheStore::Lookup(
 }
 
 absl::Status KVCacheStore::Insert(const std::vector<std::string>& block_hashes,
-                                  const std::vector<RaidenBlockID>& slices,
+                                  const std::vector<RaidenBlockId>& slices,
                                   bool on_host) {
   if (backends_.empty()) {
     return absl::FailedPreconditionError("KVCacheStore has no backend");
@@ -1136,7 +1136,7 @@ absl::Status KVCacheStore::Load(absl::Span<const std::string> block_hashes,
 }
 
 absl::Status KVCacheStore::Load(absl::Span<const std::string> block_hashes,
-                                absl::Span<const RaidenBlockID> slices,
+                                absl::Span<const RaidenBlockId> slices,
                                 absl::Span<const int> device_block_ids) {
   if (block_hashes.size() != slices.size() ||
       slices.size() != device_block_ids.size()) {
@@ -1274,7 +1274,7 @@ void KVCacheStore::UnpinHostBlocks(absl::Span<const std::string> block_hashes) {
 
 absl::Status KVCacheStore::ReadRemote(
     const std::vector<std::string>& block_hashes,
-    const std::vector<RaidenBlockID>& slices,
+    const std::vector<RaidenBlockId>& slices,
     const std::vector<int32_t>& device_block_ids) {
   if (block_hashes.empty()) {
     return absl::OkStatus();
@@ -2131,11 +2131,11 @@ void KVCacheStore::PollSavesInternal(std::vector<SaveState> ready_saves) {
                                          LookupOptions{.enable_global = false});
       if (lookup_or.ok()) {
         const auto& slices = lookup_or.value();
-        std::vector<RaidenBlockID> update_slices;
+        std::vector<RaidenBlockId> update_slices;
         for (size_t i = 0; i < state.block_hashes.size(); ++i) {
           const auto& hash = state.block_hashes[i];
           if (i < slices.size()) {
-            RaidenBlockID block = slices[i].second;
+            RaidenBlockId block = slices[i].second;
             block.host_block_id = state.host_block_ids[i];
             block.status = BlockStatus::HOST_AND_HBM;
             update_hashes.push_back(hash);
@@ -2223,11 +2223,11 @@ void KVCacheStore::PollLoadsInternal(std::vector<LoadState> ready_loads) {
       if (lookup_or.ok()) {
         const auto& slices = lookup_or.value();
         std::vector<std::string> update_hashes;
-        std::vector<RaidenBlockID> update_slices;
+        std::vector<RaidenBlockId> update_slices;
         for (size_t i = 0; i < state.block_hashes.size(); ++i) {
           const auto& hash = state.block_hashes[i];
           if (i < slices.size()) {
-            RaidenBlockID block = slices[i].second;
+            RaidenBlockId block = slices[i].second;
             block.device_block_id = state.device_block_ids[i];
             block.status = BlockStatus::HOST_AND_HBM;
             update_hashes.push_back(hash);

@@ -147,7 +147,7 @@ def _phase_a():
   store, manager, rid = _build_stack(tpu_cache)
 
   slices = [
-      kv_cache_store.RaidenBlockID(
+      kv_cache_store.RaidenBlockId(
           rid,
           host_block_id=-1,
           device_block_id=i,

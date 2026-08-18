@@ -208,13 +208,13 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     print("=== [Step 5/9] Inserting HBM blocks into KVCacheStore ===")
     hashes = [b"hash_0", b"hash_1"]
     slices = [
-        kv_cache_store.RaidenBlockID(
+        kv_cache_store.RaidenBlockId(
             rid,
             host_block_id=-1,
             device_block_id=0,
             status=kv_cache_store.BlockStatus.HBM,
         ),
-        kv_cache_store.RaidenBlockID(
+        kv_cache_store.RaidenBlockId(
             rid,
             host_block_id=-1,
             device_block_id=1,
@@ -403,13 +403,13 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
 
       # 4. Job A inserts HBM status and calls Save
       slices_a = [
-          kv_cache_store.RaidenBlockID(
+          kv_cache_store.RaidenBlockId(
               rid_a,
               host_block_id=-1,
               device_block_id=0,
               status=kv_cache_store.BlockStatus.HBM,
           ),
-          kv_cache_store.RaidenBlockID(
+          kv_cache_store.RaidenBlockId(
               rid_a,
               host_block_id=-1,
               device_block_id=1,
@@ -600,7 +600,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
       # 1. Job A puts the blocks in HBM and saves them to host DRAM. Only
       #    host-resident blocks can be offered: the pull reads host memory.
       slices_a = [
-          kv_cache_store.RaidenBlockID(
+          kv_cache_store.RaidenBlockId(
               rid_a,
               host_block_id=-1,
               device_block_id=i,
@@ -784,7 +784,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
       time.sleep(1)
       ghost = [f"{tag}_ghost".encode()]
       slices = [
-          kv_cache_store.RaidenBlockID(
+          kv_cache_store.RaidenBlockId(
               rid_a,
               host_block_id=0,
               device_block_id=-1,
@@ -874,13 +874,13 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
           b"\x93\xff\x00" + f"{tag}_h1".encode(),
       ]
       slices_a = [
-          kv_cache_store.RaidenBlockID(
+          kv_cache_store.RaidenBlockId(
               rid_a,
               host_block_id=-1,
               device_block_id=0,
               status=kv_cache_store.BlockStatus.HBM,
           ),
-          kv_cache_store.RaidenBlockID(
+          kv_cache_store.RaidenBlockId(
               rid_a,
               host_block_id=-1,
               device_block_id=1,
@@ -891,13 +891,13 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
 
       time.sleep(0.5)
       slices_b = [
-          kv_cache_store.RaidenBlockID(
+          kv_cache_store.RaidenBlockId(
               rid_a,
               host_block_id=0,
               device_block_id=-1,
               status=kv_cache_store.BlockStatus.REMOTE,
           ),
-          kv_cache_store.RaidenBlockID(
+          kv_cache_store.RaidenBlockId(
               rid_a,
               host_block_id=0,
               device_block_id=-1,
@@ -970,7 +970,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
 
     hashes = [b"barrier_hash_0", b"barrier_hash_1"]
     slices = [
-        kv_cache_store.RaidenBlockID(
+        kv_cache_store.RaidenBlockId(
             rid,
             host_block_id=-1,
             device_block_id=i,

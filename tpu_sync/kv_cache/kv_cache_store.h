@@ -221,7 +221,7 @@ class KVCacheStore {
   // Authoritative KVCacheStore API implementations
 
   // Checks the LRU cache for cached block hashes. Returns a list of all
-  // matched replica pairs (block hash and RaidenBlockID) encountered
+  // matched replica pairs (block hash and RaidenBlockId) encountered
   // in sequence prior to the first miss.
   // If enable_global is true, it will query the global registry for any
   // misses after the local lookup. Defaults to false: the registry query is a
@@ -274,7 +274,7 @@ class KVCacheStore {
   // a REMOTE slice in the batch, and ResourceExhausted when the cache refused
   // the batch (not enough unpinned space, or a hash could not be pinned).
   absl::Status Insert(const std::vector<std::string>& block_hashes,
-                      const std::vector<RaidenBlockID>& slices, bool on_host);
+                      const std::vector<RaidenBlockId>& slices, bool on_host);
 
   // Releases previously pinned block hashes (a.k.a. Unpin), making them
   // eligible for LRU eviction when capacity is exceeded.
@@ -349,7 +349,7 @@ class KVCacheStore {
   // `device_block_ids` is the destination and must name one device block per
   // hash.
   //
-  // If `slices` is non-empty, the caller's pre-looked up RaidenBlockIDs are
+  // If `slices` is non-empty, the caller's pre-looked up RaidenBlockIds are
   // used directly. Remote loads re-resolve hashes at the peer, ignoring the
   // rest of `slices`.
   //
@@ -362,7 +362,7 @@ class KVCacheStore {
   //                    local index, so there is nothing here to have pinned,
   //                    and a load from a peer records nothing either.
   absl::Status Load(absl::Span<const std::string> block_hashes,
-                    absl::Span<const RaidenBlockID> slices,
+                    absl::Span<const RaidenBlockId> slices,
                     absl::Span<const int> device_block_ids);
 
   int GetPinCount(const std::string& hash) const;
@@ -467,7 +467,7 @@ class KVCacheStore {
   // issued; poll with PollRemoteReadStatus().
   //
   // The caller supplies the source coordinates directly: `slices[i]` is the
-  // REMOTE RaidenBlockID for `block_hashes[i]`, and only two of its fields are
+  // REMOTE RaidenBlockId for `block_hashes[i]`, and only two of its fields are
   // read -- `raiden_id` (which peer owns the block) and `host_block_id` (which
   // block on that peer). A lookup() answer can be passed straight through.
   //
@@ -496,7 +496,7 @@ class KVCacheStore {
   // controller address this store acquires its read lease from. A store built
   // without one fails every read with FailedPrecondition.
   absl::Status ReadRemote(const std::vector<std::string>& block_hashes,
-                          const std::vector<RaidenBlockID>& slices,
+                          const std::vector<RaidenBlockId>& slices,
                           const std::vector<int32_t>& device_block_ids);
 
   // Polls status of active remote reads.

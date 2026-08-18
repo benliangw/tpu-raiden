@@ -84,9 +84,9 @@ class KVCacheStoreServerTest : public ::testing::Test {
 
     // Pre-populate test blocks
     std::vector<std::string> test_hashes = {"block_hash_1", "block_hash_2"};
-    std::vector<RaidenBlockID> slices = {
-        RaidenBlockID(src_raiden_id, 10, BlockStatus::HOST),
-        RaidenBlockID(src_raiden_id, 11, BlockStatus::HOST),
+    std::vector<RaidenBlockId> slices = {
+        RaidenBlockId(src_raiden_id, 10, BlockStatus::HOST),
+        RaidenBlockId(src_raiden_id, 11, BlockStatus::HOST),
     };
     ASSERT_TRUE(store_->Insert(test_hashes, slices, /*on_host=*/true).ok());
   }

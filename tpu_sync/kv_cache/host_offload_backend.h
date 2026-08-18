@@ -67,16 +67,16 @@ class HostOffloadBackend : public KVCacheStoreBackend {
 
   std::pair<bool, BlockSliceList> Insert(
       absl::Span<const std::string> block_hashes,
-      absl::Span<const RaidenBlockID> slices, bool on_host) override;
+      absl::Span<const RaidenBlockId> slices, bool on_host) override;
 
   bool InsertAndLock(absl::Span<const std::string> block_hashes,
-                     absl::Span<const RaidenBlockID> slices,
+                     absl::Span<const RaidenBlockId> slices,
                      bool on_host) override;
 
   size_t ReleaseAndDelete(absl::Span<const std::string> block_hashes) override;
 
   void Delete(absl::Span<const std::string> block_hashes,
-              absl::Span<const RaidenBlockID> slices) override;
+              absl::Span<const RaidenBlockId> slices) override;
 
   bool Pin(absl::Span<const std::string> block_hashes) override;
 
@@ -121,7 +121,7 @@ class HostOffloadBackend : public KVCacheStoreBackend {
   tsl::Future<> Load(const RaidenId& remote_id,
                      absl::Span<const std::string> block_hashes,
                      absl::Span<const int32_t> device_block_ids,
-                     absl::Span<const RaidenBlockID> slices = {}) override;
+                     absl::Span<const RaidenBlockId> slices = {}) override;
 
   // --- Remote write (WriteRemote); see KVCacheStoreBackend for why each of
   // these exists rather than reusing Lookup/Insert/Delete.
@@ -129,7 +129,7 @@ class HostOffloadBackend : public KVCacheStoreBackend {
       absl::Span<const std::string> block_hashes) const override;
 
   bool InsertAllOrNothing(absl::Span<const std::string> block_hashes,
-                          absl::Span<const RaidenBlockID> slices) override;
+                          absl::Span<const RaidenBlockId> slices) override;
 
   void RollbackInsert(absl::Span<const std::string> block_hashes,
                       absl::Span<const int32_t> host_block_ids) override;
@@ -249,19 +249,19 @@ class HostOffloadBackend : public KVCacheStoreBackend {
   // `slices` is the caller's pre-resolved index entries.
   tsl::Future<> LoadLocalHostBlocks(absl::Span<const std::string> block_hashes,
                                     absl::Span<const int32_t> device_block_ids,
-                                    absl::Span<const RaidenBlockID> slices);
+                                    absl::Span<const RaidenBlockId> slices);
 
-  void SetMetadataEntry(absl::string_view hash, const RaidenBlockID& block)
+  void SetMetadataEntry(absl::string_view hash, const RaidenBlockId& block)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  void ClearMetadataEntry(const RaidenBlockID& block)
+  void ClearMetadataEntry(const RaidenBlockId& block)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   std::vector<std::string> GetSortedHashes(
       absl::Span<const std::string> hashes) const;
 
   mutable absl::Mutex mutex_;
-  LRUCache<std::string, RaidenBlockID> lru_cache_ ABSL_GUARDED_BY(mutex_);
+  LRUCache<std::string, RaidenBlockId> lru_cache_ ABSL_GUARDED_BY(mutex_);
   std::optional<KVCacheMetadata> metadata_ ABSL_GUARDED_BY(mutex_);
   uint64_t next_metadata_seq_ ABSL_GUARDED_BY(mutex_) = 0;
   RaidenId raiden_id_ ABSL_GUARDED_BY(mutex_);
