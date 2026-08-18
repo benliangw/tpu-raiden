@@ -27,8 +27,11 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/strings/str_cat.h"
+#include "absl/time/time.h"
+#include "tpu_sync/kv_cache/global_registry/test_util.h"
 #include "tpu_sync/kv_cache/kv_cache_store.h"
 #include "tpu_sync/kv_cache/kv_cache_store_backend.h"
+#include "tpu_sync/kv_cache/kv_cache_store_backend_factory.h"
 #include "tpu_sync/kv_cache/raiden_id.h"
 
 namespace tpu_raiden {
@@ -36,6 +39,18 @@ namespace kv_cache {
 namespace {
 
 using ::testing::IsEmpty;
+
+// Wrapper construction reads the monitor env contract, so every fixture
+// here starts and ends with it cleared -- ambient configuration on the
+// machine running the tests must not leak in.
+void ClearMonitorEnv() {
+  unsetenv("RAIDEN_ENABLE_STORE_MONITOR");
+  unsetenv("RAIDEN_ENABLE_EVICT_SWEEP");
+  unsetenv("RAIDEN_STORE_MONITOR_HEARTBEAT_S");
+  unsetenv("RAIDEN_EVICT_SWEEP_PERIOD_S");
+  unsetenv("RAIDEN_EVICT_LOW_WATERMARK");
+  unsetenv("RAIDEN_EVICT_HIGH_WATERMARK");
+}
 
 // Drives the wrapper through the same environment contract the serving stack
 // uses: RAIDEN_SHM_KEY turns the metadata table on, RAIDEN_SHM_MODEL_UID
@@ -50,6 +65,7 @@ class KVCacheStoreWrapperTest : public ::testing::Test {
     setenv("RAIDEN_SHM_MODEL_UID", "model_a", /*overwrite=*/1);
     setenv("RAIDEN_DISABLE_SINGLETON_WORKER", "1", /*overwrite=*/1);
     unsetenv("RAIDEN_SHM_SERVER_NAME");
+    ClearMonitorEnv();
   }
 
   void TearDown() override {
@@ -58,13 +74,15 @@ class KVCacheStoreWrapperTest : public ::testing::Test {
     unsetenv("RAIDEN_SHM_MODEL_UID");
     unsetenv("RAIDEN_DISABLE_SINGLETON_WORKER");
     unsetenv("RAIDEN_SHM_SERVER_NAME");
+    ClearMonitorEnv();
   }
 
-  std::unique_ptr<KVCacheStoreWrapper> MakeWrapper(size_t capacity,
-                                                   int num_shards) {
+  std::unique_ptr<KVCacheStoreWrapper> MakeWrapper(
+      size_t capacity, int num_shards,
+      const std::string& global_registry_address = "") {
     RaidenId rid{"wrapper_test_job", "0", "wrapper_test_cache", 0};
     return std::make_unique<KVCacheStoreWrapper>(
-        capacity, /*global_registry_address=*/"", rid, num_shards,
+        capacity, global_registry_address, rid, num_shards,
         /*shard_size_bytes=*/512,
         /*store_server_ip=*/"127.0.0.1");
   }
@@ -155,6 +173,89 @@ TEST_F(KVCacheStoreWrapperTest, RecoversHostBlocksAfterRestart) {
   EXPECT_EQ((*lookup_or)[1].first, "host_2");
   EXPECT_EQ((*lookup_or)[1].second.status, BlockStatus::HOST);
   EXPECT_EQ((*lookup_or)[1].second.host_block_id, 1);
+}
+
+// Exercises the env contract StoreMonitorConfigFromEnv documents; the
+// wrapper feeds its result straight into BackendConfig.monitor_config.
+class StoreMonitorConfigFromEnvTest : public ::testing::Test {
+ protected:
+  void SetUp() override { ClearMonitorEnv(); }
+  void TearDown() override { ClearMonitorEnv(); }
+};
+
+TEST_F(StoreMonitorConfigFromEnvTest, UnsetEnvironmentIsAllDefaults) {
+  StoreMonitorConfig config = StoreMonitorConfigFromEnv();
+  EXPECT_FALSE(config.enable);
+  EXPECT_FALSE(config.enable_evict_sweep);
+  EXPECT_EQ(config.heartbeat_period, absl::ZeroDuration());
+  EXPECT_EQ(config.evict_sweep_period, absl::ZeroDuration());
+  EXPECT_EQ(config.evict_low_watermark, 0.0);
+  EXPECT_EQ(config.evict_high_watermark, 0.0);
+}
+
+TEST_F(StoreMonitorConfigFromEnvTest, ReadsTheFullConfiguration) {
+  setenv("RAIDEN_ENABLE_STORE_MONITOR", "true", /*overwrite=*/1);
+  setenv("RAIDEN_ENABLE_EVICT_SWEEP", "1", /*overwrite=*/1);
+  setenv("RAIDEN_STORE_MONITOR_HEARTBEAT_S", "7", /*overwrite=*/1);
+  setenv("RAIDEN_EVICT_SWEEP_PERIOD_S", "45", /*overwrite=*/1);
+  setenv("RAIDEN_EVICT_LOW_WATERMARK", "0.1", /*overwrite=*/1);
+  setenv("RAIDEN_EVICT_HIGH_WATERMARK", "0.25", /*overwrite=*/1);
+
+  StoreMonitorConfig config = StoreMonitorConfigFromEnv();
+  EXPECT_TRUE(config.enable);
+  EXPECT_TRUE(config.enable_evict_sweep);
+  EXPECT_EQ(config.heartbeat_period, absl::Seconds(7));
+  EXPECT_EQ(config.evict_sweep_period, absl::Seconds(45));
+  EXPECT_EQ(config.evict_low_watermark, 0.1);
+  EXPECT_EQ(config.evict_high_watermark, 0.25);
+}
+
+TEST_F(StoreMonitorConfigFromEnvTest, InvalidValuesFallBackToTheDefaults) {
+  // Enables are "true"/"1" only -- "0" and other strings do not enable.
+  setenv("RAIDEN_ENABLE_STORE_MONITOR", "0", /*overwrite=*/1);
+  setenv("RAIDEN_ENABLE_EVICT_SWEEP", "yes", /*overwrite=*/1);
+  setenv("RAIDEN_STORE_MONITOR_HEARTBEAT_S", "soon", /*overwrite=*/1);
+  setenv("RAIDEN_EVICT_SWEEP_PERIOD_S", "-3", /*overwrite=*/1);
+  setenv("RAIDEN_EVICT_LOW_WATERMARK", "1.5", /*overwrite=*/1);
+  setenv("RAIDEN_EVICT_HIGH_WATERMARK", "-0.1", /*overwrite=*/1);
+
+  StoreMonitorConfig config = StoreMonitorConfigFromEnv();
+  EXPECT_FALSE(config.enable);
+  EXPECT_FALSE(config.enable_evict_sweep);
+  EXPECT_EQ(config.heartbeat_period, absl::ZeroDuration());
+  EXPECT_EQ(config.evict_sweep_period, absl::ZeroDuration());
+  EXPECT_EQ(config.evict_low_watermark, 0.0);
+  EXPECT_EQ(config.evict_high_watermark, 0.0);
+
+  // NaN parses but is not in (0, 1); it must not leak past the range check
+  // (every NaN comparison downstream would be false).
+  setenv("RAIDEN_EVICT_LOW_WATERMARK", "nan", /*overwrite=*/1);
+  EXPECT_EQ(StoreMonitorConfigFromEnv().evict_low_watermark, 0.0);
+}
+
+TEST_F(KVCacheStoreWrapperTest, MonitorEnvWithoutRegistryIsDropped) {
+  // The env block is shared fleet-wide, so the switches must not break a
+  // registry-less (local-only) store: KVCacheStore::Create rejects the
+  // monitor without a registry, so the wrapper drops the request instead.
+  setenv("RAIDEN_ENABLE_STORE_MONITOR", "true", /*overwrite=*/1);
+  setenv("RAIDEN_ENABLE_EVICT_SWEEP", "true", /*overwrite=*/1);
+  EXPECT_NE(MakeWrapper(/*capacity=*/4, /*num_shards=*/1), nullptr);
+}
+
+TEST_F(KVCacheStoreWrapperTest, MonitorEnvReachesTheStore) {
+  // Watermarks the store rejects (low > high) prove the parsed environment
+  // lands in BackendConfig.monitor_config rather than on the floor.
+  auto registry = global_registry::CreateTestGlobalRegistryServer();
+  setenv("RAIDEN_ENABLE_STORE_MONITOR", "true", /*overwrite=*/1);
+  setenv("RAIDEN_ENABLE_EVICT_SWEEP", "true", /*overwrite=*/1);
+  setenv("RAIDEN_EVICT_LOW_WATERMARK", "0.9", /*overwrite=*/1);
+  setenv("RAIDEN_EVICT_HIGH_WATERMARK", "0.5", /*overwrite=*/1);
+  try {
+    MakeWrapper(/*capacity=*/4, /*num_shards=*/1, registry->server_address);
+    FAIL() << "expected the watermark rejection to reach construction";
+  } catch (const std::invalid_argument& e) {
+    EXPECT_THAT(e.what(), ::testing::HasSubstr("watermarks"));
+  }
 }
 
 TEST_F(KVCacheStoreWrapperTest, ModelUidMismatchColdStarts) {

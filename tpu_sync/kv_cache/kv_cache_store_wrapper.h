@@ -22,10 +22,27 @@
 
 #include "tpu_sync/kv_cache/kv_cache_metadata_shm.h"
 #include "tpu_sync/kv_cache/kv_cache_store.h"
+#include "tpu_sync/kv_cache/kv_cache_store_backend_factory.h"
 #include "tpu_sync/kv_cache/raiden_id.h"
 
 namespace tpu_raiden {
 namespace kv_cache {
+
+// The StoreMonitorConfig a Python-driven store runs with. The bindings
+// expose no monitor arguments; like the shm wiring above, the knobs come
+// from the environment:
+//   RAIDEN_ENABLE_STORE_MONITOR       "true"/"1" runs the StoreMonitor
+//   RAIDEN_ENABLE_EVICT_SWEEP         "true"/"1" runs the evict sweep
+//   RAIDEN_STORE_MONITOR_HEARTBEAT_S  heartbeat period, whole seconds
+//   RAIDEN_EVICT_SWEEP_PERIOD_S       sweep fallback period, whole seconds
+//   RAIDEN_EVICT_LOW_WATERMARK        free-block ratio in (0, 1)
+//   RAIDEN_EVICT_HIGH_WATERMARK       free-block ratio in (0, 1)
+// A numeric value that is unset -- or invalid, which logs an error -- stays
+// zero, which KVCacheStore::Create resolves to the built-in default. The
+// wrapper honors the two switches only when constructed with a
+// global_registry_address; a registry-less store drops them, so the fleet's
+// shared env block never breaks a local-only boot.
+StoreMonitorConfig StoreMonitorConfigFromEnv();
 
 // Constructs the KVCacheStore behind the framework Python bindings (the jax
 // and torch modules both bind this class) and owns it together with its

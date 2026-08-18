@@ -94,6 +94,25 @@ class KVCacheHostStoreNode {
     // neither discover nor dial this node.
     std::string global_registry_address;
 
+    // KV pool group this node registers under (StoreInfo.kv_pool_group), the
+    // same group whose KVTransferSpec it serves. Placement never crosses
+    // groups, and a store registered with an empty group never serves as a
+    // placement target.
+    std::string kv_pool_group;
+
+    // Placement tier this node registers under (StoreInfo.evict_tier).
+    // Serving hosts sit on tier 0 and demote strictly upward, so a host
+    // store node defaults to the tier right below them.
+    int32_t evict_tier = 1;
+
+    // Runs the StoreMonitor: its heartbeats put a TTL on this node's
+    // registration (so a dead node ages out of placement) and refresh the
+    // free capacity the placement RPC ranks by. Only takes effect with a
+    // global_registry_address -- the monitor's whole job here is talking to
+    // the registry. Off means a TTL-less registration that never reports
+    // capacity.
+    bool enable_store_monitor = true;
+
     // Host DRAM lent to the pool. Converted to whole blocks of the received
     // spec's block geometry; the remainder below one block is not allocated.
     size_t dram_budget_bytes = 0;

@@ -182,6 +182,13 @@ KVCacheHostStoreNode::Create(const Options& options,
     // and this node's workers only register below, after the store exists.
     kv_cache::BackendConfig backend_config;
     backend_config.type = "HostOffloadBackend";
+    backend_config.kv_pool_group = options.kv_pool_group;
+    backend_config.evict_tier = options.evict_tier;
+    // Without a registry there is nothing to heartbeat, so the monitor only
+    // runs when one is configured (Create rejects the combination).
+    backend_config.monitor_config.enable =
+        options.enable_store_monitor &&
+        !options.global_registry_address.empty();
     ASSIGN_OR_RETURN(
         store, kv_cache::KVCacheStore::Create(
                    backend_config, /*capacity=*/num_host_blocks,

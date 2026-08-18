@@ -293,6 +293,7 @@ TEST_F(KVCacheHostStoreNodeBootTest, BootsServesAndPublishesWithRegistry) {
 
   KVCacheHostStoreNode::Options options = BootOptions();
   options.global_registry_address = registry_server->server_address;
+  options.kv_pool_group = "prefill_pool";
 
   StaticKVTransferSpecSource source(TestSpec());
   absl::StatusOr<std::unique_ptr<KVCacheHostStoreNode>> node =
@@ -309,6 +310,24 @@ TEST_F(KVCacheHostStoreNodeBootTest, BootsServesAndPublishesWithRegistry) {
   auto store_info = registry_client.ResolveStore(options.raiden_id);
   ASSERT_TRUE(store_info.ok()) << store_info.status();
   EXPECT_EQ(store_info->store_server_address(),
+            (*node)->store_server_address());
+
+  // Placement can find it: a tier-0 store of the same group asks for targets
+  // and gets this node back, which is Options' kv_pool_group and evict_tier
+  // plumbed into the registration -- placement never crosses groups and only
+  // offers tiers greater than the caller's.
+  kv_cache::RaidenId serving_id{"serving_host", "0", "kv_cache", 0};
+  ASSERT_TRUE(registry_client
+                  .RegisterStore(serving_id, "localhost:1",
+                                 /*controller_address=*/"",
+                                 /*ttl=*/absl::ZeroDuration(),
+                                 /*kv_pool_group=*/"prefill_pool",
+                                 /*evict_tier=*/0)
+                  .ok());
+  auto targets = registry_client.GetPlacementTargets(serving_id);
+  ASSERT_TRUE(targets.ok()) << targets.status();
+  ASSERT_EQ(targets->size(), 1u);
+  EXPECT_EQ((*targets)[0].store_server_address(),
             (*node)->store_server_address());
 }
 

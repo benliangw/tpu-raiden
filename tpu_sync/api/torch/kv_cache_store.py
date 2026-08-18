@@ -209,6 +209,21 @@ class KVCacheStore:
     keyword -- there is no value for either that is valid to fall into by
     omission.
 
+    The store monitor (heartbeats to the global registry) and its evict
+    sweep (demoting cold blocks to higher-tier peer stores under memory
+    pressure) are configured through environment variables, not arguments:
+      RAIDEN_ENABLE_STORE_MONITOR       "true"/"1" runs the monitor
+      RAIDEN_ENABLE_EVICT_SWEEP         "true"/"1" runs the evict sweep
+                                        (requires the monitor)
+      RAIDEN_STORE_MONITOR_HEARTBEAT_S  heartbeat period, whole seconds
+      RAIDEN_EVICT_SWEEP_PERIOD_S       sweep fallback period, whole seconds
+      RAIDEN_EVICT_LOW_WATERMARK        free-block ratio in (0, 1) below
+                                        which the sweep starts demoting
+      RAIDEN_EVICT_HIGH_WATERMARK       free-block ratio at which it stops
+    Unset numeric values mean the built-in defaults. The switches only take
+    effect when global_registry_address is set; a registry-less store
+    ignores them, so one fleet-wide environment block is safe.
+
     Args:
       num_shards: Shard count for this store's RaidenController; must be
         >= 1.

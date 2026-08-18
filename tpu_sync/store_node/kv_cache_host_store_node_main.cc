@@ -70,7 +70,19 @@ ABSL_FLAG(std::string, global_registry_address, "",
 ABSL_FLAG(std::string, kv_pool_group, "",
           "KV pool group whose KVTransferSpec this node serves (the "
           "serving hosts publish their spec under this name; see "
-          "global_registry.proto). Required.");
+          "global_registry.proto). Also the group this node registers "
+          "under: placement never crosses groups. Required.");
+ABSL_FLAG(int, evict_tier, 1,
+          "Placement tier this node registers under (StoreInfo.evict_tier). "
+          "Cold blocks demote strictly to greater tiers; serving hosts sit "
+          "on tier 0, so the default puts this node right below them.");
+ABSL_FLAG(bool, enable_store_monitor, true,
+          "Heartbeat this node's status to the global registry. Heartbeats "
+          "put a TTL on the registration (a dead node ages out of "
+          "placement) and refresh the free capacity placement ranks by; "
+          "without them this node is registered forever but never offers "
+          "capacity.");
+
 // Capacity.
 ABSL_FLAG(size_t, dram_budget_bytes, 0,
           "Host DRAM lent to the pool, in bytes. Required.");
@@ -112,13 +124,15 @@ int Run() {
     LOG(ERROR) << "--global_registry_address is required";
     return 1;
   }
-  const std::string kv_pool_group = absl::GetFlag(FLAGS_kv_pool_group);
-  if (kv_pool_group.empty()) {
+  options.kv_pool_group = absl::GetFlag(FLAGS_kv_pool_group);
+  if (options.kv_pool_group.empty()) {
     LOG(ERROR) << "--kv_pool_group is required";
     return 1;
   }
+  options.evict_tier = absl::GetFlag(FLAGS_evict_tier);
+  options.enable_store_monitor = absl::GetFlag(FLAGS_enable_store_monitor);
   GrsKVTransferSpecSource kv_transfer_spec_source(
-      options.global_registry_address, kv_pool_group);
+      options.global_registry_address, options.kv_pool_group);
 
   absl::StatusOr<std::unique_ptr<KVCacheHostStoreNode>> node =
       KVCacheHostStoreNode::Create(options, &kv_transfer_spec_source);

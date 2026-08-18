@@ -137,6 +137,7 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
     ],
 )
 
@@ -148,9 +149,12 @@ cc_test(
     deps = [
         ":kv_cache_store",
         ":kv_cache_store_backend",
+        ":kv_cache_store_backend_factory",
         ":kv_cache_store_wrapper",
         ":raiden_id",
+        "//tpu_sync/kv_cache/global_registry:test_util",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
