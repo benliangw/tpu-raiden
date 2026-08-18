@@ -32,10 +32,12 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
+#include "absl/types/span.h"
 #include "tpu_sync/transport/block_transport_delegate.h"
 #include "tpu_sync/transport/buffer_push_task.h"
 #include "tpu_sync/transport/lib/chunk.h"
 #include "tpu_sync/transport/lib/raw_buffer_transport.h"
+#include "tpu_sync/transport/lib/transport_adapter.h"
 
 namespace tpu_raiden {
 namespace transport {
@@ -153,6 +155,27 @@ class BlockTransport final {
                       std::vector<absl::Status>& statuses,
                       MajorOrder major_order, uint64_t uuid = 0,
                       int layer_idx = -1, int parallelism = 1);
+
+  lib::Request BuildBlockRequest(uint8_t socket_opcode, uint8_t* laddr,
+                                 size_t len, uint32_t count_or_size,
+                                 int layer_idx, uint32_t request_id,
+                                 uint64_t uuid, int parallelism,
+                                 MajorOrder major_order);
+
+  // Builds a batch of Requests for block transfer.
+  absl::StatusOr<std::vector<lib::Request>> BuildBlockRequests(
+      absl::string_view peer, size_t block_offset, size_t block_count,
+      const std::vector<int>& src_block_ids,
+      const std::vector<int>& dst_block_ids, MajorOrder major_order,
+      uint64_t uuid = 0, int layer_idx = -1, int parallelism = 1);
+
+  absl::Status ProcessSocketPush(absl::string_view peer,
+                                 absl::string_view local_ip,
+                                 absl::Span<const lib::Request> requests,
+                                 const std::vector<int>& src_block_ids,
+                                 const std::vector<int>& dst_block_ids,
+                                 size_t block_offset,
+                                 std::vector<int>& allocated_ids);
 
   void H2hReadWorker(int stream_idx, absl::string_view peer,
                      absl::string_view local_ip, size_t local_block_offset,

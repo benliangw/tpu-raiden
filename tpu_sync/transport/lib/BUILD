@@ -31,6 +31,11 @@ cc_library(
 )
 
 cc_library(
+    name = "transport_adapter",
+    hdrs = ["transport_adapter.h"],
+)
+
+cc_library(
     name = "raw_buffer_transport_delegate",
     hdrs = ["raw_buffer_transport_delegate.h"],
     copts = [
