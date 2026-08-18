@@ -1,0 +1,172 @@
+===== Syncing dependencies to pyproject.toml =====
+Using Python 3.12.13 environment at: /usr/local
+Resolved 121 packages in 616ms
+Downloading nvidia-cuda-nvrtc (86.0MiB)
+Downloading nvidia-cuda-runtime (2.1MiB)
+Downloading nvidia-cufile (1.2MiB)
+Downloading nvidia-nvshmem-cu13 (57.6MiB)
+Downloading nvidia-nccl-cu13 (196.4MiB)
+Downloading nvidia-curand (56.8MiB)
+Downloading nvidia-cudnn-cu13 (349.2MiB)
+Downloading nvidia-cusparselt-cu13 (162.3MiB)
+Downloading nvidia-nvjitlink (38.9MiB)
+Downloading nvidia-cusolver (191.6MiB)
+Downloading nvidia-cuda-cupti (10.2MiB)
+Downloading torch (502.2MiB)
+Downloading nvidia-cufft (204.2MiB)
+Downloading nvidia-cublas (403.5MiB)
+Downloading nvidia-cusparse (139.2MiB)
+Downloading libtpu (205.6MiB)
+Downloading torchvision (7.3MiB)
+Downloading jax (3.1MiB)
+Downloading jaxlib (81.5MiB)
+ Downloaded nvidia-cufile
+ Downloaded nvidia-cuda-runtime
+ Downloaded jax
+ Downloaded torchvision
+ Downloaded nvidia-cuda-cupti
+ Downloaded nvidia-nvjitlink
+ Downloaded nvidia-curand
+ Downloaded nvidia-nvshmem-cu13
+ Downloaded jaxlib
+ Downloaded nvidia-cuda-nvrtc
+ Downloaded nvidia-cusparse
+ Downloaded nvidia-cusparselt-cu13
+ Downloaded nvidia-cusolver
+ Downloaded nvidia-nccl-cu13
+ Downloaded libtpu
+ Downloaded nvidia-cufft
+ Downloaded nvidia-cudnn-cu13
+ Downloaded nvidia-cublas
+ Downloaded torch
+Prepared 21 packages in 39.44s
+Uninstalled 7 packages in 2.73s
+Installed 21 packages in 233ms
+ + cuda-toolkit==13.0.3.0
+ - jax==0.10.0
+ + jax==0.10.2
+ - jaxlib==0.10.0
+ + jaxlib==0.10.2
+ - libtpu==0.0.40
+ + libtpu==0.0.44.1
+ + nvidia-cublas==13.1.1.3
+ + nvidia-cuda-cupti==13.0.85
+ - nvidia-cuda-nvrtc==13.3.33
+ + nvidia-cuda-nvrtc==13.0.88
+ - nvidia-cuda-runtime==13.3.29
+ + nvidia-cuda-runtime==13.0.96
+ + nvidia-cudnn-cu13==9.20.0.48
+ + nvidia-cufft==12.0.0.61
+ + nvidia-cufile==1.15.1.6
+ + nvidia-curand==10.4.0.35
+ + nvidia-cusolver==12.0.4.66
+ + nvidia-cusparse==12.6.3.3
+ + nvidia-cusparselt-cu13==0.8.1
+ + nvidia-nccl-cu13==2.29.7
+ + nvidia-nvjitlink==13.3.33
+ + nvidia-nvshmem-cu13==3.4.5
+ + nvidia-nvtx==13.0.85
+ - torch==2.11.0+cpu
+ + torch==2.13.0
+ - torchvision==0.26.0+cpu
+ + torchvision==0.28.0
+Installing pinned vLLM from active worktree: vllm==0.27.0
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 88ms
+Downloading vllm (298.4MiB)
+ Downloaded vllm
+Prepared 1 package in 4.60s
+Uninstalled 1 package in 8ms
+Installed 1 package in 142ms
+ - vllm==0.23.1rc1.dev927+gc0e8e1f12.d20260708.tpu (from file:///root/cloud-devkit/vllm)
+ + vllm==0.27.0
+Installing pinned torch-tpu: /root/wheels/torch_tpu-0.1.1.dev20260815010203-cp312-cp312-manylinux_2_31_x86_64.whl
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 3ms
+Prepared 1 package in 872ms
+Uninstalled 1 package in 87ms
+Installed 1 package in 3ms
+ - torch-tpu==0.1.1 (from file:///artifact-source/opt/wheels/torch_tpu-0.1.1-cp312-cp312-manylinux_2_31_x86_64.whl)
+ + torch-tpu==0.1.1.dev20260815010203 (from file:///root/wheels/torch_tpu-0.1.1.dev20260815010203-cp312-cp312-manylinux_2_31_x86_64.whl)
+raiden wheel: /root/wheels/tpu_raiden_torch-0.0.1.dev20260814203702-1_main_7dc7e55_7dc7e55-cp312-cp312-manylinux_2_31_x86_64.whl
+Using Python 3.12.13 environment at: /usr/local
+Resolved 1 package in 3ms
+Prepared 1 package in 341ms
+Installed 1 package in 2ms
+ + tpu-raiden-torch==0.0.1.dev20260814203702 (from file:///root/wheels/tpu_raiden_torch-0.0.1.dev20260814203702-1_main_7dc7e55_7dc7e55-cp312-cp312-manylinux_2_31_x86_64.whl)
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1787075076.997589     866 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1787075077.133123     866 device_rt.cc:128] PjRt runtime initialization deferred for tpu
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1787075080.547940     931 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1787075080.582461     931 device_rt.cc:128] PjRt runtime initialization deferred for tpu
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+INFO 08-18 17:44:42 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-18 17:44:42 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-18 17:44:42 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 08-18 17:44:42 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-18 17:44:42 [tpu_info.py:26] 
+INFO 08-18 17:44:42 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-18 17:44:42 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 08-18 17:44:42 [tpu_platform.py:1047] Pin memory is not supported on TPU.
+INFO 08-18 17:44:51 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-18 17:44:51 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+V2 preflight OK
+===== Starting Qwen3.5 DP8 decode node (BASELINE=0) =====
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1787075096.556558    1189 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1787075096.590736    1189 device_rt.cc:128] PjRt runtime initialization deferred for tpu
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+INFO 08-18 17:44:56 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-18 17:44:56 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-18 17:44:56 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 08-18 17:44:57 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-18 17:44:57 [tpu_info.py:26] 
+INFO 08-18 17:44:57 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-18 17:44:57 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 08-18 17:44:57 [tpu_platform.py:1047] Pin memory is not supported on TPU.
+INFO 08-18 17:45:00 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-18 17:45:00 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+INFO 08-18 17:45:02 [serve.py:123] Defaulting api_server_count to data_parallel_size (8).
+INFO 08-18 17:45:02 [api_utils.py:345] 
+INFO 08-18 17:45:02 [api_utils.py:345]        █     █     █▄   ▄█
+INFO 08-18 17:45:02 [api_utils.py:345]  ▄▄ ▄█ █     █     █ ▀▄▀ █  version 0.27.0
+INFO 08-18 17:45:02 [api_utils.py:345]   █▄█▀ █     █     █     █  model   Qwen/Qwen3.5-4B
+INFO 08-18 17:45:02 [api_utils.py:345]    ▀▀  ▀▀▀▀▀ ▀▀▀▀▀ ▀     ▀
+INFO 08-18 17:45:02 [api_utils.py:345] 
+INFO 08-18 17:45:02 [api_utils.py:273] non-default args: {'model_tag': 'Qwen/Qwen3.5-4B', 'api_server_count': 8, 'host': '0.0.0.0', 'port': 7200, 'model': 'Qwen/Qwen3.5-4B', 'trust_remote_code': True, 'seed': 42, 'max_model_len': 65536, 'served_model_name': ['Qwen3.5-4B'], 'attention_backend': 'CUSTOM', 'data_parallel_size': 8, 'data_parallel_size_local': 8, 'enable_expert_parallel': True, 'disable_custom_all_reduce': True, 'block_size': 4096, 'gpu_memory_utilization': 0.9, 'num_gpu_blocks_override': 262, 'enable_prefix_caching': True, 'mamba_cache_mode': 'align', 'language_model_only': True, 'limit_mm_per_prompt': {'image': 0, 'video': 0}, 'max_num_batched_tokens': 4096, 'max_num_seqs': 16, 'disable_hybrid_kv_cache_manager': False, 'async_scheduling': False, 'kv_transfer_config': KVTransferConfig(kv_connector='TPUMultiConnector', engine_id='34a0da03-fe9d-4648-bc21-17cb1d0835cc', kv_buffer_device='tpu', kv_buffer_size=1000000000.0, kv_role='kv_consumer', kv_rank=None, kv_parallel_size=1, kv_ip='127.0.0.1', kv_port=14579, kv_connector_extra_config={'connectors': [{'kv_connector': 'TPURaidenConnector', 'kv_connector_module_path': 'vllm_torchtpu.distributed.kv_transfer.tpu_connector', 'kv_role': 'kv_consumer', 'kv_port': 14579}, {'kv_connector': 'TPURaidenOffloadingConnector', 'kv_connector_module_path': 'vllm_torchtpu.offload.raiden_connector', 'kv_role': 'kv_both', 'kv_connector_extra_config': {'cpu_bytes_to_use': 8589934592, 'raiden_controller_port': 47800}}]}, kv_connector_module_path='vllm_torchtpu.distributed.kv_transfer.tpu_multi_connector', enable_permute_local_kv=False, kv_load_failure_policy='fail'), 'compilation_config': {'mode': None, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'vllm_torchtpu.compilation.tpu_compiler.TpuCompilerAdaptor', 'custom_ops': [], 'ir_enable_torch_wrap': None, 'splitting_ops': None, 'compile_mm_encoder': False, 'cudagraph_mm_encoder': False, 'encoder_cudagraph_token_budgets': [], 'encoder_cudagraph_max_vision_items_per_batch': 0, 'encoder_cudagraph_max_frames_per_batch': None, 'compile_sizes': [4096], 'compile_ranges_endpoints': None, 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'size_asserts': False, 'alignment_asserts': False, 'scalar_asserts': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': None, 'cudagraph_num_of_warmups': 0, 'cudagraph_capture_sizes': None, 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': None, 'pass_config': {}, 'max_cudagraph_capture_size': None, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': None, 'static_all_moe_layers': []}}
+INFO 08-18 17:45:13 [model.py:645] Resolved architecture: Qwen3_5ForConditionalGeneration
+INFO 08-18 17:45:13 [model.py:1883] Using max model len 65536
+INFO 08-18 17:45:16 [registry.py:134] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+INFO 08-18 17:45:16 [model.py:842] Disabled mm_prefix attention mode because multimodal inputs are configuration-disabled. Attention backends without mm_prefix support may now be selected.
+INFO 08-18 17:45:16 [scheduler.py:242] Chunked prefill is enabled with max_num_batched_tokens=4096.
+INFO 08-18 17:45:16 [config.py:638] Warning: Prefix caching in Mamba cache 'align' mode is currently enabled. Its support for Mamba layers is experimental. Please report any issues you may observe.
+Traceback (most recent call last):
+  File "/usr/local/bin/vllm", line 10, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/cli/main.py", line 97, in main
+    args.dispatch_function(args)
+  File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/cli/serve.py", line 148, in cmd
+    run_multi_api_server(args)
+  File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/cli/serve.py", line 297, in run_multi_api_server
+    vllm_config = engine_args.create_engine_config(usage_context=usage_context)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/vllm/engine/arg_utils.py", line 2464, in create_engine_config
+    config = VllmConfig(
+             ^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/pydantic/_internal/_dataclasses.py", line 121, in __init__
+    s.__pydantic_validator__.validate_python(ArgsKwargs(args, kwargs), self_instance=s)
+pydantic_core._pydantic_core.ValidationError: 1 validation error for VllmConfig
+  Value error, Number of experts in the model must be greater than 0 when expert parallelism is enabled. [type=value_error, input_value=ArgsKwargs((), {'model_co... 'shutdown_timeout': 0}), input_type=ArgsKwargs]
+    For further information visit https://errors.pydantic.dev/2.13/v/value_error
