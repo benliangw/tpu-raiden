@@ -75,8 +75,11 @@ class KVCacheStore:
       self,
       block_hashes: list[bytes],
       enable_global: bool = False,
+      pin_found: bool = True,
   ) -> list[tuple[bytes, RaidenBlockID]]:
-    """Checks the LRU directory for cached block hashes. Returns a list of all matched replica pairs prior to the first miss."""
+    """Checks the LRU directory for cached block hashes. Returns a list of all
+    matched replica pairs prior to the first miss. Pins every local hit unless
+    pin_found is False."""
     ...
   def insert(
       self,

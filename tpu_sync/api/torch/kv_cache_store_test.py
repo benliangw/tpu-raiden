@@ -203,7 +203,7 @@ class KVCacheStoreTest(absltest.TestCase):
     self.assertEqual(res[0][0], b"shared_hash")
     self.assertEqual(res[0][1].raiden_id.job_name, "local_job")
     self.assertEqual(res[0][1].raiden_id.data_replica_idx, 1)
-    mock_impl.lookup.assert_called_with([b"shared_hash"], True)
+    mock_impl.lookup.assert_called_with([b"shared_hash"], True, True)
 
     # Case 3: No local hit, only global hits.
     remote_id1 = kv_cache_store._impl.RaidenBlockID(
@@ -225,7 +225,7 @@ class KVCacheStoreTest(absltest.TestCase):
     self.assertEqual(res[1][0], b"global_2")
     self.assertEqual(res[1][1].raiden_id.job_name, "10.0.0.2:1234")
     self.assertEqual(res[1][1].raiden_id.data_replica_idx, 43)
-    mock_impl.lookup.assert_called_with([b"global_1", b"global_2"], True)
+    mock_impl.lookup.assert_called_with([b"global_1", b"global_2"], True, True)
 
   def test_global_lookup_error_ignored(self):
     # Construction requires a registry that is actually reachable

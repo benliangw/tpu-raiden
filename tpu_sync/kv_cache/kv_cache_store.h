@@ -228,17 +228,20 @@ class KVCacheStore {
   // blocking RPC, so a caller that only wants to know what is resident locally
   // should not pay for one by omission.
   //
-  // PINS every hash it returns, one pin each, so the answer cannot be evicted
-  // between being given and being used. The operation the caller goes on to
-  // perform consumes that pin -- Load() drops it on a successful local load,
-  // Save() on success. A caller that only wanted to observe residency, and
-  // performs neither, must Release() what it was given; the LookupOptions
-  // overload with pin_found = false is the way to observe without acquiring.
+  // PINS every hash it returns (pin_found = true, the default), one pin each,
+  // so the answer cannot be evicted between being given and being used. The
+  // operation the caller goes on to perform consumes that pin -- Load() drops
+  // it on a successful local load, Save() on success. A caller that only
+  // wanted to observe residency, and performs neither, should pass
+  // pin_found = false rather than Release() what it was given: a pin/unpin
+  // round trip moves the entry through the pinned list and back, which
+  // reorders the LRU.
   //
   // Registry-only hits are not pinned: they name a block on another node, and
   // there is nothing here to hold.
   absl::StatusOr<BlockSliceList> Lookup(
-      const std::vector<std::string>& block_hashes, bool enable_global = false);
+      const std::vector<std::string>& block_hashes, bool enable_global = false,
+      bool pin_found = true);
 
   // Overload accepting LookupOptions for granular control. Unlike the overload
   // above, pin_found defaults to false here, so this is what internal callers

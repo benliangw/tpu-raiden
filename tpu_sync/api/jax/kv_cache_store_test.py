@@ -227,6 +227,48 @@ class KVCacheStoreTest(absltest.TestCase):
     self.assertEmpty(controller.lookup([b"local_h"]))
     self.assertEmpty(controller.lookup([b"remote_h"]))
 
+  def test_lookup_pin_found_false_does_not_pin(self):
+    # pin_found=False is the observation mode: same answer, no pin taken.
+    # Pins are not directly visible from Python, so use what they gate: an
+    # insert refuses when pinned entries leave it no reclaimable space.
+    def make_full_store():
+      store = kv_cache_store.KVCacheStore(
+          capacity=2, num_shards=1, store_server_ip="127.0.0.1"
+      )
+      rid = kv_cache_store.RaidenId("inference_server", "0", "kv_cache", 0)
+      slices = [
+          kv_cache_store.RaidenBlockID(
+              rid, 1, kv_cache_store.BlockStatus.HOST
+          ),
+          kv_cache_store.RaidenBlockID(
+              rid, 2, kv_cache_store.BlockStatus.HOST
+          ),
+      ]
+      self.assertTrue(store.insert([b"h1", b"h2"], slices, True))
+      store.release([b"h1", b"h2"])  # resident but unpinned
+      return store, rid
+
+    # Observation: no pin taken, so both entries stay evictable and a new
+    # insert succeeds by evicting one of them.
+    store, rid = make_full_store()
+    res = store.lookup([b"h1", b"h2"], pin_found=False)
+    self.assertLen(res, 2)
+    new_slice = [
+        kv_cache_store.RaidenBlockID(rid, 3, kv_cache_store.BlockStatus.HOST)
+    ]
+    self.assertTrue(store.insert([b"h3"], new_slice, True))
+
+    # Control: the default lookup pins both, and the same insert is refused
+    # because nothing evictable is left.
+    store, rid = make_full_store()
+    res = store.lookup([b"h1", b"h2"])
+    self.assertLen(res, 2)
+    new_slice = [
+        kv_cache_store.RaidenBlockID(rid, 3, kv_cache_store.BlockStatus.HOST)
+    ]
+    self.assertFalse(store.insert([b"h3"], new_slice, True))
+    store.release([b"h1", b"h2"])
+
   def test_large_and_arbitrary_length_hashes(self):
     controller = kv_cache_store.KVCacheStore(
         capacity=5, num_shards=1, store_server_ip="127.0.0.1"
@@ -288,7 +330,7 @@ class KVCacheStoreTest(absltest.TestCase):
     self.assertEqual(res[0][0], b"shared_hash")
     self.assertEqual(res[0][1].raiden_id.job_name, "local_job")
     self.assertEqual(res[0][1].raiden_id.data_replica_idx, 1)
-    mock_impl.lookup.assert_called_with([b"shared_hash"], True)
+    mock_impl.lookup.assert_called_with([b"shared_hash"], True, True)
 
     # Case 3: No local hit, only global hits.
     remote_id1 = kv_cache_store._impl.RaidenBlockID(
@@ -316,7 +358,7 @@ class KVCacheStoreTest(absltest.TestCase):
     self.assertEqual(res[1][1].raiden_id.job_name, "job2")
     self.assertEqual(res[1][1].host_block_id, 43)
     self.assertEqual(res[1][1].status, kv_cache_store.BlockStatus.REMOTE)
-    mock_impl.lookup.assert_called_with([b"global_1", b"global_2"], True)
+    mock_impl.lookup.assert_called_with([b"global_1", b"global_2"], True, True)
 
   def test_global_lookup_error_ignored(self):
     # Construction requires a registry that is actually reachable

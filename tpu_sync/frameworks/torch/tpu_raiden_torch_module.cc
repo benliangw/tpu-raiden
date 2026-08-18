@@ -655,9 +655,10 @@ NB_MODULE(_tpu_raiden_torch, m) {
       .def(
           "lookup",
           [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self,
-             const std::vector<nb::bytes>& block_hashes, bool enable_global) {
+             const std::vector<nb::bytes>& block_hashes, bool enable_global,
+             bool pin_found) {
             auto hashes = ToStdStringVector(block_hashes);
-            auto res = self->Lookup(hashes, enable_global);
+            auto res = self->Lookup(hashes, enable_global, pin_found);
             if (!res.ok()) {
               throw std::runtime_error(absl::StrCat(
                   "KVCacheStore lookup failed: ", res.status().message()));
@@ -674,8 +675,10 @@ NB_MODULE(_tpu_raiden_torch, m) {
             return py_res;
           },
           nb::arg("block_hashes"), nb::arg("enable_global") = false,
+          nb::arg("pin_found") = true,
           "Checks the LRU directory for cached block hashes. Returns a list of "
-          "all matched replica pairs prior to the first miss.")
+          "all matched replica pairs prior to the first miss. Pins every local "
+          "hit unless pin_found is false.")
       .def(
           "insert",
           [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self,

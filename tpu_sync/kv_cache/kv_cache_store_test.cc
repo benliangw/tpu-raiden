@@ -5032,6 +5032,30 @@ TEST(KVCacheStoreTest, LookupAndPinWorkflow) {
   EXPECT_EQ(PeekLookup(store, {"h1"})->size(), 1);
 }
 
+// The application overload's pin_found=false is the observation mode: the
+// answer is the same, but no pin is taken and the LRU order is untouched.
+TEST(KVCacheStoreTest, LookupPinFoundFalseObservesWithoutPinning) {
+  auto b = std::make_shared<TestHostOffloadBackend>(/*capacity=*/2);
+  KVCacheStore store(std::vector<std::shared_ptr<KVCacheStoreBackend>>{b},
+                     RaidenId{}, /*num_shards=*/1, /*shard_size_bytes=*/512,
+                     /*store_server_ip=*/"127.0.0.1");
+
+  RaidenId id{"job", "0", "cache", 0};
+  ASSERT_TRUE(InsertResident(store, {"h1"},
+                             {RaidenBlockID(id, 1, BlockStatus::HOST)}, true));
+
+  auto res =
+      store.Lookup({"h1"}, /*enable_global=*/false, /*pin_found=*/false);
+  ASSERT_TRUE(res.ok());
+  EXPECT_EQ(res->size(), 1);
+  EXPECT_EQ(store.GetPinCount("h1"), 0);
+
+  // The default still pins.
+  ASSERT_TRUE(store.Lookup({"h1"}).ok());
+  EXPECT_EQ(store.GetPinCount("h1"), 1);
+  store.Release({"h1"});
+}
+
 TEST(KVCacheStoreTest, LookupAndPinErrorRollback) {
   auto b1 = std::make_shared<TestHostOffloadBackend>(/*capacity=*/2);
   RaidenId id{"job", "0", "cache", 0};
