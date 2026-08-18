@@ -15,11 +15,7 @@
 """Tests for Raiden Controller high-level transfer API under rpc/."""
 
 import asyncio
-import concurrent.futures
-import math
 import socket
-import threading
-from unittest import mock
 from absl.testing import absltest
 from tpu_sync.rpc import raiden_controller
 from tpu_sync.rpc import raiden_service_pb2
@@ -1193,6 +1189,342 @@ class RaidenControllerTest(absltest.TestCase):
     self.assertLen(dst_calls, 1)
     target_id, plan = dst_calls[0]
     self.assertEqual(plan.expected_block_count, 16)
+
+  def test_plan_caching_hit_and_reuse(self):
+    client = RecordingWorkerRpcClient()
+    controller = raiden_controller.RaidenController(
+        port=10005, worker_rpc_client=client, enable_plan_cache=True
+    )
+
+    src = raiden_controller.RaidenId(
+        job_name="trainer", job_replica_id="0", data_name="weights"
+    )
+    target = raiden_controller.RaidenId(
+        job_name="inference_server", job_replica_id="0", data_name="weights"
+    )
+
+    controller.register_work_unit(
+        src,
+        ["10.0.0.1:8000", "10.0.0.1:8001"],
+        mesh_shape=[2],
+        layout=[0],
+        global_shape=[128],
+        itemsize=4,
+        control_plane_rpc_address="10.0.0.1:9000",
+    )
+    controller.register_work_unit(
+        target,
+        ["10.0.0.2:8000", "10.0.0.2:8001"],
+        mesh_shape=[2],
+        layout=[0],
+        global_shape=[128],
+        itemsize=4,
+        control_plane_rpc_address="10.0.0.2:9000",
+    )
+
+    self.assertEqual(controller.get_plan_cache_size(), 0)
+
+    # First transfer: cache miss, computes and caches schedule
+    future_1 = controller.start_transfer(
+        src_units=[src],
+        dst_units=[target],
+        use_block_chunks=True,
+        req_id="iter_0",
+        uuid=1001,
+    )
+    asyncio.run(future_1.wait())
+    self.assertEqual(controller.get_plan_cache_size(), 1)
+    plan_1 = controller.get_plan("iter_0")
+    self.assertEqual(plan_1.uuid, 1001)
+    self.assertEqual(plan_1.expected_block_count, 2)
+
+    # Second transfer: cache hit, reuses pre-computed schedule
+    future_2 = controller.start_transfer(
+        src_units=[src],
+        dst_units=[target],
+        use_block_chunks=True,
+        req_id="iter_1",
+        uuid=1002,
+    )
+    asyncio.run(future_2.wait())
+    self.assertEqual(controller.get_plan_cache_size(), 1)
+    plan_2 = controller.get_plan("iter_1")
+    self.assertEqual(plan_2.uuid, 1002)
+    self.assertEqual(plan_2.expected_block_count, 2)
+    self.assertEqual(plan_1.shard_push_schedules, plan_2.shard_push_schedules)
+
+  def test_plan_caching_invalidation_on_reregistration(self):
+    client = RecordingWorkerRpcClient()
+    controller = raiden_controller.RaidenController(
+        port=10006, worker_rpc_client=client
+    )
+
+    src = raiden_controller.RaidenId(
+        job_name="trainer", job_replica_id="0", data_name="weights"
+    )
+    target = raiden_controller.RaidenId(
+        job_name="inference_server", job_replica_id="0", data_name="weights"
+    )
+
+    controller.register_work_unit(
+        src,
+        ["10.0.0.1:8000"],
+        mesh_shape=[1],
+        layout=[0],
+        global_shape=[64],
+        itemsize=4,
+        control_plane_rpc_address="10.0.0.1:9000",
+    )
+    controller.register_work_unit(
+        target,
+        ["10.0.0.2:8000"],
+        mesh_shape=[1],
+        layout=[0],
+        global_shape=[64],
+        itemsize=4,
+        control_plane_rpc_address="10.0.0.2:9000",
+    )
+
+    future = controller.start_transfer(
+        src_units=[src],
+        dst_units=[target],
+        use_block_chunks=True,
+    )
+    asyncio.run(future.wait())
+    self.assertEqual(controller.get_plan_cache_size(), 1)
+
+    # Re-registering target invalidates plan cache
+    controller.register_work_unit(
+        target,
+        ["10.0.0.2:8000"],
+        mesh_shape=[1],
+        layout=[0],
+        global_shape=[64],
+        itemsize=4,
+        control_plane_rpc_address="10.0.0.2:9000",
+    )
+    self.assertEqual(controller.get_plan_cache_size(), 0)
+
+    # Next transfer repopulates cache
+    future_2 = controller.start_transfer(
+        src_units=[src],
+        dst_units=[target],
+        use_block_chunks=True,
+    )
+    asyncio.run(future_2.wait())
+    self.assertEqual(controller.get_plan_cache_size(), 1)
+
+  def test_plan_caching_clear_cache(self):
+    client = RecordingWorkerRpcClient()
+    controller = raiden_controller.RaidenController(
+        port=10007, worker_rpc_client=client
+    )
+
+    src = raiden_controller.RaidenId(
+        job_name="trainer", job_replica_id="0", data_name="weights"
+    )
+    target = raiden_controller.RaidenId(
+        job_name="inference_server", job_replica_id="0", data_name="weights"
+    )
+
+    controller.register_work_unit(
+        src,
+        ["10.0.0.1:8000"],
+        mesh_shape=[1],
+        layout=[0],
+        global_shape=[64],
+        itemsize=4,
+        control_plane_rpc_address="10.0.0.1:9000",
+    )
+    controller.register_work_unit(
+        target,
+        ["10.0.0.2:8000"],
+        mesh_shape=[1],
+        layout=[0],
+        global_shape=[64],
+        itemsize=4,
+        control_plane_rpc_address="10.0.0.2:9000",
+    )
+
+    future = controller.start_transfer(
+        src_units=[src],
+        dst_units=[target],
+        use_block_chunks=True,
+    )
+    asyncio.run(future.wait())
+    self.assertEqual(controller.get_plan_cache_size(), 1)
+
+    controller.clear_plan_cache()
+    self.assertEqual(controller.get_plan_cache_size(), 0)
+
+  def test_plan_caching_disabled(self):
+    client = RecordingWorkerRpcClient()
+    controller = raiden_controller.RaidenController(
+        port=10008, worker_rpc_client=client, enable_plan_cache=False
+    )
+
+    src = raiden_controller.RaidenId(
+        job_name="trainer", job_replica_id="0", data_name="weights"
+    )
+    target = raiden_controller.RaidenId(
+        job_name="inference_server", job_replica_id="0", data_name="weights"
+    )
+
+    controller.register_work_unit(
+        src,
+        ["10.0.0.1:8000"],
+        mesh_shape=[1],
+        layout=[0],
+        global_shape=[64],
+        itemsize=4,
+        control_plane_rpc_address="10.0.0.1:9000",
+    )
+    controller.register_work_unit(
+        target,
+        ["10.0.0.2:8000"],
+        mesh_shape=[1],
+        layout=[0],
+        global_shape=[64],
+        itemsize=4,
+        control_plane_rpc_address="10.0.0.2:9000",
+    )
+
+    future = controller.start_transfer(
+        src_units=[src],
+        dst_units=[target],
+        use_block_chunks=True,
+    )
+    asyncio.run(future.wait())
+    self.assertEqual(controller.get_plan_cache_size(), 0)
+
+  def test_plan_caching_multi_target_distinct_keys(self):
+    client = RecordingWorkerRpcClient()
+    controller = raiden_controller.RaidenController(
+        port=10009, worker_rpc_client=client
+    )
+
+    src = raiden_controller.RaidenId(
+        job_name="trainer", job_replica_id="0", data_name="weights"
+    )
+    target_0 = raiden_controller.RaidenId(
+        job_name="inference_server", job_replica_id="0", data_name="weights"
+    )
+    target_1 = raiden_controller.RaidenId(
+        job_name="inference_server", job_replica_id="1", data_name="weights"
+    )
+
+    controller.register_work_unit(
+        src,
+        ["10.0.0.1:8000"],
+        mesh_shape=[1],
+        layout=[0],
+        global_shape=[64],
+        itemsize=4,
+        control_plane_rpc_address="10.0.0.1:9000",
+    )
+    controller.register_work_unit(
+        target_0,
+        ["10.0.0.2:8000"],
+        mesh_shape=[1],
+        layout=[0],
+        global_shape=[64],
+        itemsize=4,
+        control_plane_rpc_address="10.0.0.2:9000",
+    )
+    controller.register_work_unit(
+        target_1,
+        ["10.0.0.3:8000"],
+        mesh_shape=[1],
+        layout=[0],
+        global_shape=[64],
+        itemsize=4,
+        control_plane_rpc_address="10.0.0.3:9000",
+    )
+
+    # Transfer to target_0
+    future_0 = controller.start_transfer(
+        src_units=[src],
+        dst_units=[target_0],
+        use_block_chunks=True,
+    )
+    asyncio.run(future_0.wait())
+    self.assertEqual(controller.get_plan_cache_size(), 1)
+
+    # Transfer to target_1
+    future_1 = controller.start_transfer(
+        src_units=[src],
+        dst_units=[target_1],
+        use_block_chunks=True,
+    )
+    asyncio.run(future_1.wait())
+    self.assertEqual(controller.get_plan_cache_size(), 2)
+
+    # Transfer to both target_0 and target_1
+    future_both = controller.start_transfer(
+        src_units=[src],
+        dst_units=[target_0, target_1],
+        use_block_chunks=True,
+    )
+    asyncio.run(future_both.wait())
+    self.assertEqual(controller.get_plan_cache_size(), 3)
+
+  def test_overlapped_receiver_arming_and_d2h(self):
+    client = RecordingWorkerRpcClient()
+    controller = raiden_controller.RaidenController(
+        port=10010, worker_rpc_client=client
+    )
+
+    src = raiden_controller.RaidenId(
+        job_name="trainer", job_replica_id="0", data_name="weights"
+    )
+    target = raiden_controller.RaidenId(
+        job_name="inference_server", job_replica_id="0", data_name="weights"
+    )
+
+    controller.register_work_unit(
+        src,
+        ["10.0.0.1:8000"],
+        mesh_shape=[1],
+        layout=[0],
+        global_shape=[64],
+        itemsize=4,
+        control_plane_rpc_address="10.0.0.1:9000",
+    )
+    controller.register_work_unit(
+        target,
+        ["10.0.0.2:8000"],
+        mesh_shape=[1],
+        layout=[0],
+        global_shape=[64],
+        itemsize=4,
+        control_plane_rpc_address="10.0.0.2:9000",
+    )
+
+    future = controller.start_transfer(
+        src_units=[src],
+        dst_units=[target],
+        use_block_chunks=True,
+        skip_d2h=False,
+    )
+    asyncio.run(future.wait())
+
+    self.assertGreaterEqual(len(client.calls), 3)
+    # Call 1: Source D2H dummy plan
+    d2h_target, d2h_plan = client.calls[0]
+    self.assertEqual(d2h_target, src)
+    self.assertFalse(d2h_plan.skip_d2h)
+    self.assertEqual(d2h_plan.expected_block_count, 0)
+
+    # Call 2: Destination receiver arming
+    dst_target, dst_plan = client.calls[1]
+    self.assertEqual(dst_target, target)
+    self.assertTrue(dst_plan.skip_d2h)
+
+    # Call 3: Source P2P push execution
+    src_target, src_plan = client.calls[2]
+    self.assertEqual(src_target, src)
+    self.assertTrue(src_plan.skip_d2h)
+    self.assertIn(src, src_plan.shard_push_schedules)
 
 
 class GetGlobalIndicesTest(absltest.TestCase):
