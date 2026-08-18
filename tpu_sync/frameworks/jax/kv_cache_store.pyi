@@ -89,6 +89,9 @@ class KVCacheStore:
     All-or-nothing, and does NOT evict to make room: without enough free space
     for the new hashes it unpins whatever it already pinned and returns False.
     The pin it grants is what a subsequent save() consumes.
+
+    LOCAL entries only: raises ValueError if any slice has status REMOTE, and
+    nothing is inserted or pinned.
     """
     ...
   def capacity(self) -> int:

@@ -157,7 +157,8 @@ class KVCacheStoreBackend {
   // Returns true if all hashes exist and were successfully pinned.
   virtual bool Pin(absl::Span<const std::string> block_hashes) = 0;
 
-  // Releases (unpins) previously pinned block hashes.
+  // Releases (unpins) previously pinned block hashes. Absent hashes are not
+  // an error; unpinning them is a no-op.
   virtual void Release(absl::Span<const std::string> block_hashes) = 0;
 
   // Returns current pin count for a single hash (0 if absent).

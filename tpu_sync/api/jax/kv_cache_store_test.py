@@ -202,6 +202,31 @@ class KVCacheStoreTest(absltest.TestCase):
 
 
 
+  def test_insert_rejects_remote_slices(self):
+    # The LRU cache holds LOCAL blocks only; a REMOTE slice names a block on
+    # another node. The whole batch is refused before anything is touched, so
+    # not even the local member is inserted or pinned.
+    controller = kv_cache_store.KVCacheStore(
+        capacity=20, num_shards=1, store_server_ip="127.0.0.1"
+    )
+    local_id = kv_cache_store.RaidenId("inference_server", "0", "kv_cache", 0)
+    slices = [
+        kv_cache_store.RaidenBlockID(
+            local_id, 1, kv_cache_store.BlockStatus.HOST
+        ),
+        kv_cache_store.RaidenBlockID(
+            kv_cache_store.RaidenId("peer_job", "0", "kv_cache", 0),
+            42,
+            kv_cache_store.BlockStatus.REMOTE,
+        ),
+    ]
+    with self.assertRaises(ValueError):
+      controller.insert([b"local_h", b"remote_h"], slices, True)
+
+    # Nothing was inserted, the local member included.
+    self.assertEmpty(controller.lookup([b"local_h"]))
+    self.assertEmpty(controller.lookup([b"remote_h"]))
+
   def test_large_and_arbitrary_length_hashes(self):
     controller = kv_cache_store.KVCacheStore(
         capacity=5, num_shards=1, store_server_ip="127.0.0.1"

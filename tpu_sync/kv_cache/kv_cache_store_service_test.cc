@@ -105,7 +105,7 @@ class KVCacheStoreServiceTest : public ::testing::Test {
         RaidenBlockID(src_raiden_id, 12, BlockStatus::HOST),
         RaidenBlockID(src_raiden_id, 13, BlockStatus::HOST),
     };
-    ASSERT_TRUE(store_->Insert(test_hashes, slices, /*on_host=*/true));
+    ASSERT_TRUE(store_->Insert(test_hashes, slices, /*on_host=*/true).ok());
 
     // Setup KVCacheStoreServiceImpl & gRPC server
     service_ = std::make_unique<KVCacheStoreServiceImpl>(
@@ -214,7 +214,8 @@ TEST_F(KVCacheStoreServiceTest, FetchRoundTripsNonUtf8Hash) {
   RaidenId src_raiden_id{"src_job", "0", "src_data", 0};
   ASSERT_TRUE(store_->Insert(
       {binary_hash}, {RaidenBlockID(src_raiden_id, 20, BlockStatus::HOST)},
-      /*on_host=*/true));
+      /*on_host=*/true)
+                  .ok());
 
   ::tpu_sync::rpc::RaidenIdProto client_id;
   client_id.set_job_name("client_job");
@@ -237,11 +238,14 @@ TEST_F(KVCacheStoreServiceTest, FetchRoundTripsNonUtf8Hash) {
 
 TEST_F(KVCacheStoreServiceTest, FetchValidationFailsForNonHostBlock) {
   RaidenId src_raiden_id{"src_job", "0", "src_data", 0};
-  std::vector<std::string> hashes = {"remote_only_hash"};
+  std::vector<std::string> hashes = {"hbm_only_hash"};
+  // HBM-only: local, so Insert takes it (REMOTE would be refused at the
+  // gate), but not host-resident -- which is what Fetch validates.
   std::vector<RaidenBlockID> slices = {
-      RaidenBlockID(src_raiden_id, 50, BlockStatus::REMOTE),
+      RaidenBlockID(src_raiden_id, /*host_block_id=*/-1,
+                    /*device_block_id=*/50, BlockStatus::HBM),
   };
-  ASSERT_TRUE(store_->Insert(hashes, slices, /*on_host=*/false));
+  ASSERT_TRUE(store_->Insert(hashes, slices, /*on_host=*/false).ok());
 
   std::vector<int32_t> host_block_ids = {100};
   tsl::Future<::tpu_raiden::kv_cache::proto::FetchResponse> future =
@@ -300,7 +304,7 @@ TEST_F(KVCacheStoreServiceTest, ConcurrentFetchRPCs) {
         RaidenBlockID(src_raiden_id, 100 + i, BlockStatus::HOST));
   }
   ASSERT_TRUE(
-      store_->Insert(extra_hashes, extra_slices, /*on_host=*/true));
+      store_->Insert(extra_hashes, extra_slices, /*on_host=*/true).ok());
 
   std::vector<std::thread> threads;
   threads.reserve(kNumThreads);
@@ -432,7 +436,7 @@ TEST_F(KVCacheStoreServiceTest, FetchWithMultiWorkerEndpointsRoutesPerWorker) {
   std::vector<std::string> hashes = {"multi_hash"};
   std::vector<RaidenBlockID> slices = {
       RaidenBlockID(multi_id, 7, BlockStatus::HOST)};
-  ASSERT_TRUE(store.Insert(hashes, slices, /*on_host=*/true));
+  ASSERT_TRUE(store.Insert(hashes, slices, /*on_host=*/true).ok());
 
   KVCacheStoreServiceImpl service(store.backend().get(),
                                   store.raiden_controller());

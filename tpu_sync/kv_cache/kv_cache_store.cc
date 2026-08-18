@@ -898,10 +898,24 @@ absl::StatusOr<BlockSliceList> KVCacheStore::Lookup(
   return accumulated_results;
 }
 
-bool KVCacheStore::Insert(const std::vector<std::string>& block_hashes,
-                          const std::vector<RaidenBlockID>& slices,
-                          bool on_host) {
-  if (backends_.empty()) return false;
+absl::Status KVCacheStore::Insert(const std::vector<std::string>& block_hashes,
+                                  const std::vector<RaidenBlockID>& slices,
+                                  bool on_host) {
+  if (backends_.empty()) {
+    return absl::FailedPreconditionError("KVCacheStore has no backend");
+  }
+
+  // The LRU cache holds LOCAL blocks only; refuse the whole batch before any
+  // backend is touched, so a bad batch cannot pin or insert anything.
+  for (size_t i = 0; i < slices.size(); ++i) {
+    if (slices[i].status == BlockStatus::REMOTE) {
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Insert only takes LOCAL entries; slice ", i, " (hash ",
+          i < block_hashes.size() ? absl::BytesToHexString(block_hashes[i])
+                                  : "<none>",
+          ") has status REMOTE"));
+    }
+  }
 
   std::vector<size_t> locked_backends;
   for (size_t i = 0; i < backends_.size(); ++i) {
@@ -910,11 +924,13 @@ bool KVCacheStore::Insert(const std::vector<std::string>& block_hashes,
       for (size_t lb : locked_backends) {
         backends_[lb]->ReleaseAndDelete(block_hashes);
       }
-      return false;
+      return absl::ResourceExhaustedError(
+          "Insert refused: not enough unpinned space, or a hash could not be "
+          "pinned");
     }
     locked_backends.push_back(i);
   }
-  return true;
+  return absl::OkStatus();
 }
 
 void KVCacheStore::Release(const std::vector<std::string>& block_hashes) {

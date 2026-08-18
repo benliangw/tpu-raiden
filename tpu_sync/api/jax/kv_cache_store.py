@@ -304,6 +304,11 @@ class KVCacheStore:
     Call it with hashes lookup() reported as misses -- the two take disjoint
     sets, which is why no hash ends up pinned twice.
 
+    LOCAL entries only. The LRU cache holds blocks resident on THIS node; a
+    REMOTE slice names a block on another node and is refused. If any slice
+    in the batch has status REMOTE the call raises ValueError and nothing is
+    inserted or pinned.
+
     Args:
       block_hashes: Incoming block hashes to insert.
       slices: List of RaidenBlockID, one for each block hash.
@@ -311,6 +316,9 @@ class KVCacheStore:
 
     Returns:
       bool: whether the whole operation succeeded.
+
+    Raises:
+      ValueError: if any slice in the batch has status REMOTE.
     """
     raw_slices = []
     for s in slices:
@@ -327,7 +335,12 @@ class KVCacheStore:
 
 
   def release(self, block_hashes: list[bytes]) -> None:
-    """Releases previously pinned block hashes, making them eligible for LRU eviction when capacity is exceeded."""
+    """Releases previously pinned block hashes.
+
+    Released hashes become eligible for LRU eviction when capacity is
+    exceeded. The cache holds LOCAL entries only -- insert() enforces that --
+    so release needs no status handling.
+    """
     self._impl.release(block_hashes)
 
   def save(

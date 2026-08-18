@@ -683,7 +683,13 @@ NB_MODULE(_tpu_raiden_torch, m) {
              const std::vector<tpu_raiden::kv_cache::RaidenBlockID>& slices,
              bool on_host) -> bool {
             auto hashes = ToStdStringVector(block_hashes);
-            return self->Insert(hashes, slices, on_host);
+            absl::Status status = self->Insert(hashes, slices, on_host);
+            // A REMOTE slice is a caller bug, not a full cache: surface it as
+            // ValueError instead of an indistinguishable False.
+            if (absl::IsInvalidArgument(status)) {
+              throw std::invalid_argument(std::string(status.message()));
+            }
+            return status.ok();
           },
           nb::arg("block_hashes"), nb::arg("slices"), nb::arg("on_host"))
       .def("capacity",

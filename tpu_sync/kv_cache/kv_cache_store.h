@@ -262,14 +262,25 @@ class KVCacheStore {
   // Called with hashes Lookup() reported as misses -- the two take disjoint
   // sets, which is why no hash ends up pinned twice.
   //
-  // Returns whether the whole operation succeeded.
-  bool Insert(const std::vector<std::string>& block_hashes,
-              const std::vector<RaidenBlockID>& slices, bool on_host);
+  // LOCAL entries only. The LRU cache holds blocks resident on THIS node;
+  // a REMOTE slice names a block on another node and has no business in it.
+  // If any slice in the batch has status REMOTE the whole batch is refused
+  // with InvalidArgument and nothing is inserted or pinned.
+  //
+  // Returns OkStatus when the whole operation succeeded, InvalidArgument for
+  // a REMOTE slice in the batch, and ResourceExhausted when the cache refused
+  // the batch (not enough unpinned space, or a hash could not be pinned).
+  absl::Status Insert(const std::vector<std::string>& block_hashes,
+                      const std::vector<RaidenBlockID>& slices, bool on_host);
 
   // Releases previously pinned block hashes (a.k.a. Unpin), making them
   // eligible for LRU eviction when capacity is exceeded.
   // The blocks are released in reversed order internally to ensure that the
   // last blocks (tails of sequences) are evicted first.
+  //
+  // LOCAL entries by construction: Insert() refuses REMOTE slices, so the
+  // cache cannot hold an entry release would need to reject, and no status
+  // check is performed here.
   void Release(const std::vector<std::string>& block_hashes);
 
   // Saves blocks out of this node's HBM, asynchronously. Where to depends on
