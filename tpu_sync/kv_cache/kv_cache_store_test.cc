@@ -4525,6 +4525,19 @@ class EvictSweepTest : public RemoteWriteSourceTest {
     store.Release(hashes);
   }
 
+  // The same, but KEEPING the pin Insert granted: an application remote save
+  // requires the caller's pin and consumes it on success.
+  void PopulatePinned(KVCacheStore& store, const RaidenId& id,
+                      const std::vector<std::string>& hashes) {
+    auto ids_or = store.raiden_controller()->AllocateBlockIds(hashes.size());
+    ASSERT_TRUE(ids_or.ok()) << ids_or.status().ToString();
+    std::vector<RaidenBlockID> slices;
+    for (size_t i = 0; i < hashes.size(); ++i) {
+      slices.push_back(RaidenBlockID(id, (*ids_or)[i], BlockStatus::HOST));
+    }
+    ASSERT_TRUE(store.Insert(hashes, slices, /*on_host=*/true));
+  }
+
   // The sweep runs on the monitor's thread; wait until it has raised the free
   // count to `expected_free`. Free blocks, not cache size, because eviction
   // erases the cache entry a beat before the block id is deallocated.
@@ -4659,6 +4672,116 @@ TEST_F(EvictSweepTest, DropsLocallyWhenThereAreNoTargets) {
   AwaitSweepFreed(store, 6);
   EXPECT_EQ(store.backend()->GetSize(), 2);
   EXPECT_EQ(fake_destination_.write_calls(), 0);
+}
+
+// --- Save() ownership ------------------------------------------------------
+// A remote save's verdict is addressed to whoever asked for it. Verdicts are
+// drained on read, so with one shared queue the two consumers -- the
+// application through PollSaveStatus(), the sweep through
+// WaitForBatchWriteResult -- take each other's mail, and each direction
+// breaks something different. Both directions are covered below.
+// ---------------------------------------------------------------------------
+
+// Direction one: the application must not see, or drain, an operation the
+// sweep is waiting on. Stealing it strands the sweep permanently -- it waits
+// for a verdict that has already been discarded, on the monitor's thread, so
+// no later sweep runs either.
+TEST_F(EvictSweepTest, AnApplicationPollNeitherSeesNorStealsSweepVerdicts) {
+  RaidenId src{"sweep_src_owner", "0", "kv", 0};
+  RaidenId dst{"sweep_dst_owner", "0", "kv", 0};
+  auto store_or = MakeSweepStore(src, "ownergroup");
+  ASSERT_TRUE(store_or.ok()) << store_or.status().ToString();
+  KVCacheStore& store = **store_or;
+
+  StartFakeDestination(dst, "ownergroup", /*evict_tier=*/1);
+  // Held in flight: the destination keeps saying "still working", so the
+  // sweep stays in its drain loop while the assertions below run against a
+  // live, unsettled sweep operation.
+  proto::PollWriteRemoteResponse held;
+  held.set_state(proto::PollWriteRemoteResponse::PENDING);
+  fake_destination_.SetPollResponse(held);
+
+  PopulateCold(store, src, {"a", "b", "c", "d", "e", "f"});
+
+  for (int i = 0; i < 1000 && fake_destination_.write_calls() == 0; ++i) {
+    absl::SleepFor(absl::Milliseconds(10));
+  }
+  ASSERT_GE(fake_destination_.write_calls(), 1)
+      << "the sweep never got an offer in flight";
+
+  // The application is not waiting on this operation and will never receive a
+  // verdict for it, so reporting it as pending would describe a wait with no
+  // end.
+  auto [done, failed, pending, existing, unregistered] =
+      store.PollSaveStatus();
+  EXPECT_THAT(done, ::testing::IsEmpty());
+  EXPECT_THAT(failed, ::testing::IsEmpty());
+  EXPECT_THAT(pending, ::testing::IsEmpty());
+  EXPECT_THAT(existing, ::testing::IsEmpty());
+  EXPECT_THAT(unregistered, ::testing::IsEmpty());
+
+  // Now poll hard while the verdict actually lands. PollSaveStatus() DRIVES
+  // the write poller as well as draining it, so this thread is very likely to
+  // be the one that settles the sweep's offer -- and it must still file the
+  // verdict under the sweep rather than hand it back here.
+  std::atomic<bool> stop{false};
+  absl::Mutex seen_mu;
+  std::vector<std::string> seen;
+  std::thread application([&]() {
+    while (!stop.load(std::memory_order_relaxed)) {
+      auto [d, f, p, e, u] = store.PollSaveStatus();
+      absl::MutexLock lock(seen_mu);
+      seen.insert(seen.end(), d.begin(), d.end());
+      seen.insert(seen.end(), f.begin(), f.end());
+    }
+  });
+
+  proto::PollWriteRemoteResponse committed;
+  committed.set_state(proto::PollWriteRemoteResponse::COMMITTED);
+  fake_destination_.SetPollResponse(committed);
+
+  // The sweep completes only if its verdict reached it.
+  AwaitSweepFreed(store, 6);
+  stop.store(true, std::memory_order_relaxed);
+  application.join();
+
+  absl::MutexLock lock(seen_mu);
+  EXPECT_THAT(seen, ::testing::IsEmpty())
+      << "the application drained a verdict addressed to the sweep";
+}
+
+// Direction two: the sweep must not swallow the application's verdicts. This
+// one is silent rather than fatal -- the application's save simply never
+// reports done or failed -- which is why it is worth a test of its own.
+TEST_F(EvictSweepTest, TheSweepDoesNotSwallowAnApplicationVerdict) {
+  RaidenId src{"sweep_src_appverdict", "0", "kv", 0};
+  RaidenId dst{"sweep_dst_appverdict", "0", "kv", 0};
+  auto store_or = MakeSweepStore(src, "appverdictgroup");
+  ASSERT_TRUE(store_or.ok()) << store_or.status().ToString();
+  KVCacheStore& store = **store_or;
+
+  StartFakeDestination(dst, "appverdictgroup", /*evict_tier=*/1);
+  // ALL_EXIST settles an offer synchronously inside Save, so the
+  // application's verdict is in its mailbox before the sweep ever runs and
+  // the test does not race the poller.
+  fake_destination_.SetWriteExistState(proto::WRITE_ALL_EXIST);
+
+  // Two blocks, still under the low watermark for free blocks (6 of 8 free),
+  // so saving them does not itself start a pressure episode.
+  PopulatePinned(store, src, {"app0", "app1"});
+  ASSERT_TRUE(store.Save({"app0", "app1"}, dst).ok());
+
+  // Now push the store under the watermark and let the sweep run a batch,
+  // draining as it goes.
+  PopulateCold(store, src, {"c0", "c1", "c2", "c3"});
+  AwaitSweepFreed(store, 6);
+
+  // The application's own verdict must have survived the sweep's drains.
+  auto [done, failed, pending, existing, unregistered] =
+      store.PollSaveStatus();
+  EXPECT_THAT(done, ::testing::UnorderedElementsAre("app0", "app1"))
+      << "the sweep drained the application's verdict and discarded it";
+  EXPECT_THAT(failed, ::testing::IsEmpty());
 }
 
 // The sweep flag rides on the monitor; asking for one without the other is a

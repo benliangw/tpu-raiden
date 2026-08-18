@@ -947,8 +947,10 @@ std::string KVCacheStore::raiden_controller_address() const {
 absl::Status KVCacheStore::Save(
     const std::vector<std::string>& block_hashes,
     const std::optional<RaidenId>& dst_raiden_id) {
-  return dst_raiden_id.has_value() ? SaveRemote(block_hashes, *dst_raiden_id)
-                                   : SaveLocal(block_hashes);
+  return dst_raiden_id.has_value()
+             ? SaveRemote(block_hashes, *dst_raiden_id,
+                          SaveOwner::kApplication)
+             : SaveLocal(block_hashes);
 }
 
 absl::Status KVCacheStore::SaveLocal(
@@ -1450,6 +1452,12 @@ KVCacheStore::PollSaveStatusResult KVCacheStore::PollSaveStatus() {
     }
   }
   for (const auto& state : active_remote_writes_) {
+    // The sweep's operations are not this caller's to wait on: it will never
+    // receive a verdict for them, so reporting them as pending would describe
+    // a wait that never ends.
+    if (state.owner != SaveOwner::kApplication) {
+      continue;
+    }
     pending.insert(pending.end(), state.block_hashes.begin(),
                    state.block_hashes.end());
   }
@@ -1458,17 +1466,20 @@ KVCacheStore::PollSaveStatusResult KVCacheStore::PollSaveStatus() {
   std::vector<std::string> failed = std::move(failed_saves_);
   done_saves_.clear();
   failed_saves_.clear();
-  done.insert(done.end(), done_remote_writes_.begin(),
-              done_remote_writes_.end());
-  failed.insert(failed.end(), failed_remote_writes_.begin(),
-                failed_remote_writes_.end());
-  done_remote_writes_.clear();
-  failed_remote_writes_.clear();
+  // The application's mailbox only. A sweep verdict drained here would be
+  // discarded -- nothing in this result names an owner -- and the sweep would
+  // then wait for it forever.
+  RemoteWriteVerdicts remote;
+  remote.done.swap(application_remote_writes_.done);
+  remote.failed.swap(application_remote_writes_.failed);
+  remote.existing.swap(application_remote_writes_.existing);
+  remote.unregistered.swap(application_remote_writes_.unregistered);
 
-  std::vector<std::string> existing;
-  std::vector<std::string> unregistered;
-  existing.swap(existing_remote_writes_);
-  unregistered.swap(unregistered_remote_writes_);
+  done.insert(done.end(), remote.done.begin(), remote.done.end());
+  failed.insert(failed.end(), remote.failed.begin(), remote.failed.end());
+
+  std::vector<std::string> existing = std::move(remote.existing);
+  std::vector<std::string> unregistered = std::move(remote.unregistered);
 
   return PollSaveStatusResult{
       .done = std::move(done),
@@ -1633,7 +1644,7 @@ bool KVCacheStore::SweepOnce() {
     if (!backend()->Pin(batch)) {
       return end_episode();
     }
-    absl::Status offered = SaveRemote(batch, dst);
+    absl::Status offered = SaveRemote(batch, dst, SaveOwner::kSweep);
     if (!offered.ok()) {
       backend()->Release(batch);
       // Refused (peer out of free blocks) or unreachable: this target is
@@ -1675,42 +1686,49 @@ bool KVCacheStore::SweepOnce() {
   return true;
 }
 
+KVCacheStore::RemoteWriteVerdicts KVCacheStore::DrainSweepVerdicts() {
+  PollFuturesInternal();
+  absl::MutexLock lock(mutex_);
+  RemoteWriteVerdicts verdicts;
+  verdicts.done.swap(sweep_remote_writes_.done);
+  verdicts.failed.swap(sweep_remote_writes_.failed);
+  verdicts.existing.swap(sweep_remote_writes_.existing);
+  verdicts.unregistered.swap(sweep_remote_writes_.unregistered);
+  return verdicts;
+}
+
 KVCacheStore::BatchWriteResult KVCacheStore::WaitForBatchWriteResult(
     const std::vector<std::string>& batch) {
-  // Results are filtered against this batch, so a drained result that
-  // belongs to someone else's Save is not miscounted. SaveRemote's HOLD
-  // deadline guarantees each block eventually leaves `pending`.
-  const absl::flat_hash_set<std::string> batch_set(batch.begin(), batch.end());
-  absl::flat_hash_set<std::string> pending = batch_set;
+  // Everything drained here belongs to this batch. SaveRemote tags the
+  // operation with its owner and FinishRemoteWrite files the verdict under
+  // that owner, so the application cannot take these and this cannot take the
+  // application's; and the monitor's thread, the only caller, runs one batch
+  // at a time. SaveRemote's HOLD deadline guarantees each block eventually
+  // leaves `pending`.
+  absl::flat_hash_set<std::string> pending(batch.begin(), batch.end());
   BatchWriteResult result;
   while (!pending.empty()) {
-    const PollSaveStatusResult polled = PollSaveStatus();
+    const RemoteWriteVerdicts verdicts = DrainSweepVerdicts();
     // Completed transfers: the peer holds these blocks now, and success
     // already consumed the sweep's pin.
-    for (const std::string& hash : polled.done) {
-      if (pending.erase(hash) > 0) {
-        result.freeable.push_back(hash);
-      }
+    for (const std::string& hash : verdicts.done) {
+      pending.erase(hash);
+      result.freeable.push_back(hash);
     }
-    size_t batch_failed = 0;
-    for (const std::string& hash : polled.failed) {
-      if (pending.erase(hash) > 0) {
-        result.still_pinned.push_back(hash);
-        ++batch_failed;
-      }
+    for (const std::string& hash : verdicts.failed) {
+      pending.erase(hash);
+      result.still_pinned.push_back(hash);
     }
-    // `existing` annotates refusals whose bytes the peer already holds --
-    // as freeable as a completed transfer. Everything else that failed
-    // (including `unregistered`: landed but unfindable there) keeps its
+    // `existing` annotates refusals whose bytes the peer already holds -- as
+    // freeable as a completed transfer. It is a SUBSET of `failed`, so those
+    // hashes are both unpinned above and freed here: nothing consumed the
+    // sweep's pin, yet the local copy is droppable. Everything else that
+    // failed (including `unregistered`: landed but unfindable there) keeps its
     // local copy.
-    size_t batch_existing = 0;
-    for (const std::string& hash : polled.existing) {
-      if (batch_set.contains(hash)) {
-        result.freeable.push_back(hash);
-        ++batch_existing;
-      }
+    for (const std::string& hash : verdicts.existing) {
+      result.freeable.push_back(hash);
     }
-    if (batch_failed > batch_existing) {
+    if (verdicts.failed.size() > verdicts.existing.size()) {
       result.transfer_failed = true;
     }
     if (!pending.empty()) {
@@ -1807,8 +1825,8 @@ absl::Duration RemoteWriteHold() {
 }  // namespace
 
 absl::Status KVCacheStore::SaveRemote(
-    const std::vector<std::string>& block_hashes,
-    const RaidenId& dst_raiden_id) {
+    const std::vector<std::string>& block_hashes, const RaidenId& dst_raiden_id,
+    SaveOwner owner) {
   if (block_hashes.empty()) {
     return absl::OkStatus();
   }
@@ -1910,7 +1928,8 @@ absl::Status KVCacheStore::SaveRemote(
     std::move(rollback).Cancel();
     FinishRemoteWrite({.dst_raiden_id = dst_raiden_id,
                        .block_hashes = block_hashes,
-                       .hold_expiry = hold_expiry},
+                       .hold_expiry = hold_expiry,
+                       .owner = owner},
                       /*succeeded=*/true, {});
     return absl::OkStatus();
   }
@@ -1920,7 +1939,8 @@ absl::Status KVCacheStore::SaveRemote(
     std::move(rollback).Cancel();
     FinishRemoteWrite({.dst_raiden_id = dst_raiden_id,
                        .block_hashes = block_hashes,
-                       .hold_expiry = hold_expiry},
+                       .hold_expiry = hold_expiry,
+                       .owner = owner},
                       /*succeeded=*/false, std::move(ack.existing_hashes));
     return absl::OkStatus();
   }
@@ -1946,6 +1966,7 @@ absl::Status KVCacheStore::SaveRemote(
         .block_hashes = block_hashes,
         .hold_expiry =
             std::max(hold_expiry, absl::Now() + ack.granted_deadline),
+        .owner = owner,
     });
   }
   std::move(rollback).Cancel();
@@ -1977,15 +1998,19 @@ void KVCacheStore::FinishRemoteWrite(const RemoteWriteState& state,
   std::erase_if(active_remote_writes_, [&](const RemoteWriteState& s) {
     return s.operation_id == state.operation_id;
   });
+  // Addressed to whoever asked for this save; see SaveOwner.
+  RemoteWriteVerdicts& verdicts = state.owner == SaveOwner::kSweep
+                                      ? sweep_remote_writes_
+                                      : application_remote_writes_;
   for (const auto& hash : state.block_hashes) {
     saving_hashes_.erase(hash);
-    (succeeded ? done_remote_writes_ : failed_remote_writes_).push_back(hash);
+    (succeeded ? verdicts.done : verdicts.failed).push_back(hash);
   }
   for (auto& hash : existing) {
-    existing_remote_writes_.push_back(std::move(hash));
+    verdicts.existing.push_back(std::move(hash));
   }
   for (auto& hash : unregistered) {
-    unregistered_remote_writes_.push_back(std::move(hash));
+    verdicts.unregistered.push_back(std::move(hash));
   }
 }
 

@@ -651,6 +651,20 @@ class KVCacheStore {
   // thing in the destructor, before anything its callbacks touch goes away.
   std::unique_ptr<StoreMonitor> store_monitor_;
 
+  // Who asked for a remote save, and therefore who its verdict is addressed
+  // to. Verdicts are drained on read, so a single shared queue lets either
+  // consumer take the other's mail: an application PollSaveStatus() would
+  // strand the evict sweep in WaitForBatchWriteResult, which waits for a
+  // verdict that has already been thrown away, and a sweep drain would
+  // silently swallow verdicts the application is waiting for.
+  //
+  // The owner rides on the state because it is known where the operation is
+  // created and unrecoverable everywhere it is needed -- a poller thread, a
+  // destructor. Keying a side table by operation_id would not do: the two
+  // paths that settle inside SaveRemote itself never record an operation at
+  // all, and for the sweep those are the common outcome, not the rare one.
+  enum class SaveOwner { kApplication, kSweep };
+
   struct RemoteWriteState {
     RaidenId dst_raiden_id;
     uint64_t operation_id = 0;
@@ -660,6 +674,17 @@ class KVCacheStore {
     // or this store would unpin while the destination could still legitimately
     // commit bytes read out of blocks it has released.
     absl::Time hold_expiry;
+    SaveOwner owner = SaveOwner::kApplication;
+  };
+
+  // One owner's mailbox of settled remote writes. `existing` and
+  // `unregistered` ANNOTATE entries that are also in `failed`; they do not
+  // replace them.
+  struct RemoteWriteVerdicts {
+    std::vector<std::string> done;
+    std::vector<std::string> failed;
+    std::vector<std::string> existing;
+    std::vector<std::string> unregistered;
   };
 
   std::vector<SaveState> active_saves_ ABSL_GUARDED_BY(mutex_);
@@ -674,10 +699,11 @@ class KVCacheStore {
   // FinishRemoteWrite, and the internal pin is released twice while the hashes
   // are reported twice.
   absl::flat_hash_set<uint64_t> polling_remote_writes_ ABSL_GUARDED_BY(mutex_);
-  std::vector<std::string> done_remote_writes_ ABSL_GUARDED_BY(mutex_);
-  std::vector<std::string> failed_remote_writes_ ABSL_GUARDED_BY(mutex_);
-  std::vector<std::string> existing_remote_writes_ ABSL_GUARDED_BY(mutex_);
-  std::vector<std::string> unregistered_remote_writes_ ABSL_GUARDED_BY(mutex_);
+  // Addressed by owner, so the two consumers cannot take each other's mail.
+  // PollSaveStatus() drains the application's; the evict sweep drains its own
+  // through DrainSweepVerdicts().
+  RemoteWriteVerdicts application_remote_writes_ ABSL_GUARDED_BY(mutex_);
+  RemoteWriteVerdicts sweep_remote_writes_ ABSL_GUARDED_BY(mutex_);
 
   std::vector<std::string> done_saves_ ABSL_GUARDED_BY(mutex_);
   std::vector<std::string> failed_saves_ ABSL_GUARDED_BY(mutex_);
@@ -723,8 +749,12 @@ class KVCacheStore {
   // itself -- each half has its own residency and pin preconditions, and they
   // are genuinely different operations sharing a name and a status queue.
   absl::Status SaveLocal(const std::vector<std::string>& block_hashes);
+  // `owner` is deliberately not defaulted: both call sites state it. The bug
+  // this replaced was an unwritten assumption about who drains the verdict,
+  // and a default is how the next caller inherits that answer without ever
+  // deciding it.
   absl::Status SaveRemote(const std::vector<std::string>& block_hashes,
-                          const RaidenId& dst_raiden_id);
+                          const RaidenId& dst_raiden_id, SaveOwner owner);
 
   // Asks the destination what became of each accepted offer, and gives up on
   // any whose HOLD has expired. Runs on the store's own poller, at the same
@@ -737,6 +767,11 @@ class KVCacheStore {
   void FinishRemoteWrite(const RemoteWriteState& state, bool succeeded,
                          std::vector<std::string> existing,
                          std::vector<std::string> unregistered = {});
+
+  // Takes the sweep's settled remote writes. Drives the pollers first for the
+  // same reason PollSaveStatus() does: on the monitor's thread nothing else
+  // moves an accepted offer to a verdict.
+  RemoteWriteVerdicts DrainSweepVerdicts();
 
   void PollerLoop();
   void PollSavesInternal(std::vector<SaveState> ready_saves);
