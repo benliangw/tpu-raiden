@@ -1626,8 +1626,16 @@ bool KVCacheStore::SweepOnce() {
   // either sends the batch or drops one target, so this ends.
   while (!placement_targets_.empty()) {
     const RaidenId dst = placement_targets_.front();
-    absl::Status offered = WriteRemote(batch, dst);
+    // SaveRemote's pin contract: the caller pins, and only success consumes
+    // the pin. The sweep is its own caller here; whatever a refusal or a
+    // failed transfer leaves pinned is released below, or the blocks would
+    // never become evictable again.
+    if (!backend()->Pin(batch)) {
+      return end_episode();
+    }
+    absl::Status offered = SaveRemote(batch, dst);
     if (!offered.ok()) {
+      backend()->Release(batch);
       // Refused (peer out of free blocks) or unreachable: this target is
       // out for the rest of the episode; try the batch on the next one.
       LOG(INFO) << "Evict sweep target " << dst
@@ -1636,6 +1644,11 @@ bool KVCacheStore::SweepOnce() {
       continue;
     }
     const BatchWriteResult result = WaitForBatchWriteResult(batch);
+    // Offers that settled without success kept the sweep's pin; drop it
+    // before evicting, which skips pinned blocks.
+    if (!result.still_pinned.empty()) {
+      backend()->Release(result.still_pinned);
+    }
     const size_t evicted = Evict(result.freeable);
     if (result.transfer_failed) {
       // The peer accepted but a transfer failed; the failed blocks stay
@@ -1664,31 +1677,40 @@ bool KVCacheStore::SweepOnce() {
 
 KVCacheStore::BatchWriteResult KVCacheStore::WaitForBatchWriteResult(
     const std::vector<std::string>& batch) {
-  // The sweep is the only WriteRemote caller, so every drained result
-  // belongs to this batch. WriteRemote's HOLD deadline guarantees each
-  // block eventually leaves `pending`.
-  absl::flat_hash_set<std::string> pending(batch.begin(), batch.end());
+  // Results are filtered against this batch, so a drained result that
+  // belongs to someone else's Save is not miscounted. SaveRemote's HOLD
+  // deadline guarantees each block eventually leaves `pending`.
+  const absl::flat_hash_set<std::string> batch_set(batch.begin(), batch.end());
+  absl::flat_hash_set<std::string> pending = batch_set;
   BatchWriteResult result;
   while (!pending.empty()) {
-    auto [done, failed, still_pending, existing, unregistered] =
-        PollRemoteWriteStatus();
-    // Completed transfers: the peer holds these blocks now.
-    for (const std::string& hash : done) {
+    const PollSaveStatusResult polled = PollSaveStatus();
+    // Completed transfers: the peer holds these blocks now, and success
+    // already consumed the sweep's pin.
+    for (const std::string& hash : polled.done) {
       if (pending.erase(hash) > 0) {
         result.freeable.push_back(hash);
       }
     }
-    for (const std::string& hash : failed) {
-      pending.erase(hash);
+    size_t batch_failed = 0;
+    for (const std::string& hash : polled.failed) {
+      if (pending.erase(hash) > 0) {
+        result.still_pinned.push_back(hash);
+        ++batch_failed;
+      }
     }
     // `existing` annotates refusals whose bytes the peer already holds --
-    // as freeable as a completed transfer. Everything else in `failed`
+    // as freeable as a completed transfer. Everything else that failed
     // (including `unregistered`: landed but unfindable there) keeps its
     // local copy.
-    for (const std::string& hash : existing) {
-      result.freeable.push_back(hash);
+    size_t batch_existing = 0;
+    for (const std::string& hash : polled.existing) {
+      if (batch_set.contains(hash)) {
+        result.freeable.push_back(hash);
+        ++batch_existing;
+      }
     }
-    if (failed.size() > existing.size()) {
+    if (batch_failed > batch_existing) {
       result.transfer_failed = true;
     }
     if (!pending.empty()) {

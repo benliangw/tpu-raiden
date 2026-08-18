@@ -4520,7 +4520,8 @@ class EvictSweepTest : public RemoteWriteSourceTest {
     for (size_t i = 0; i < hashes.size(); ++i) {
       slices.push_back(RaidenBlockID(id, (*ids_or)[i], BlockStatus::HOST));
     }
-    ASSERT_TRUE(store.InsertAndLock(hashes, slices, /*on_host=*/true));
+    // Insert() pins; the sweep only takes unpinned blocks, so release.
+    ASSERT_TRUE(store.Insert(hashes, slices, /*on_host=*/true));
     store.Release(hashes);
   }
 

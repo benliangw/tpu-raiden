@@ -602,6 +602,9 @@ class KVCacheStore {
   struct BatchWriteResult {
     // Blocks the peer now holds; their local copies are safe to free.
     std::vector<std::string> freeable;
+    // Blocks whose offer settled without success, so the sweep's caller pin
+    // was not consumed and the sweep must release it itself.
+    std::vector<std::string> still_pinned;
     // At least one block's transfer failed outright; its local copy stays.
     bool transfer_failed = false;
   };
