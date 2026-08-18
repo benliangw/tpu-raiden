@@ -322,6 +322,10 @@ class KVCacheStore {
 
   // Asynchronously loads KV cache blocks to device (HBM) from local host DRAM.
   //
+  // LOCAL ONLY. A hash whose entry has status REMOTE is refused with
+  // InvalidArgument -- this overload never talks to a peer; the slices
+  // overload below is the only peer-load path.
+  //
   // `device_block_ids` is the destination and must name one device block per
   // hash.
   //
@@ -336,7 +340,8 @@ class KVCacheStore {
                     absl::Span<const int> device_block_ids);
 
   // Asynchronously loads KV cache blocks to device (HBM), either from local
-  // host DRAM or from a peer.
+  // host DRAM or from a peer. This is the ONLY way to load from a peer -- the
+  // no-slices overload above is local-only.
   //
   // ONE CALL IS ONE SOURCE. Every block in a batch must carry the same status,
   // and remote blocks must all refer to the same peer.
@@ -348,7 +353,8 @@ class KVCacheStore {
   // used directly. Remote loads re-resolve hashes at the peer, ignoring the
   // rest of `slices`.
   //
-  // PIN CONTRACT, same as the overload above and now enforced the same way:
+  // PIN CONTRACT -- NOT the same as the overload above; the two sources
+  // genuinely differ:
   //   local source  -- every hash must be pinned on entry, and a successful
   //                    load consumes one pin per hash.
   //   remote source -- no pin is required and none is consumed. A hash

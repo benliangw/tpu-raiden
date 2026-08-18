@@ -409,7 +409,9 @@ class KVCacheStore:
     """Asynchronously loads KV cache blocks to device (HBM), either from local
     host DRAM or from a peer (if `slices` is provided).
 
-    If `slices` is None, this is only for loading from local host DRAM.
+    If `slices` is None, this is LOCAL-ONLY: a hash whose cached entry has
+    status REMOTE is refused (the call returns False) -- passing `slices` is
+    the only way to load from a peer.
     If `slices` is provided, it handles loading from local host DRAM or from a peer.
 
     ONE CALL IS ONE SOURCE. Every block in a batch must carry the same status,

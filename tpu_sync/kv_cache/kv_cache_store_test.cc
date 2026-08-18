@@ -1557,94 +1557,6 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadWithSlicesRemoteSuccess) {
   EXPECT_EQ((*lookup_res)[0].second.raiden_id, remote_rid);
 }
 
-TEST_F(KVCacheStoreEmbeddedControllerTest, LoadRemoteSuccess) {
-  // 1. Setup GlobalRegistry server
-  auto registry_server = global_registry::CreateTestGlobalRegistryServer();
-  std::string registry_address = registry_server->server_address;
-
-  RaidenId local_rid{"local_job", "0", "local_cache", 0};
-  RaidenId remote_rid{"remote_job", "0", "remote_cache", 0};
-
-  // 2. Setup local RaidenController & KVCacheStore
-  auto controller = MakeController();
-  RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
-
-  // 3. Setup remote node's backend & server
-  BackendConfig remote_config;
-  remote_config.type = "HostOffloadBackend";
-  remote_config.capacity = 100;
-  remote_config.global_registry_address = registry_address;
-  remote_config.raiden_id = remote_rid;
-
-  auto remote_backend_or =
-      HostOffloadBackend::Create(remote_config, controller.get());
-  ASSERT_OK(remote_backend_or.status());
-  auto remote_backend =
-      std::dynamic_pointer_cast<HostOffloadBackend>(*remote_backend_or);
-  ASSERT_NE(remote_backend, nullptr);
-
-  std::vector<RaidenBlockID> remote_slices = {
-      RaidenBlockID(remote_rid, 42, BlockStatus::HOST),
-  };
-  remote_backend->Insert({"load_remote_hash_1"}, remote_slices,
-                         /*on_host=*/true);
-
-  auto remote_server = KVCacheStoreServer::Create();
-  ASSERT_OK(remote_server->StartServer(remote_backend.get(), controller.get(),
-                                       "127.0.0.1"));
-
-  auto channel =
-      grpc::CreateChannel(registry_address, grpc::InsecureChannelCredentials());
-  auto registry_client =
-      std::make_shared<global_registry::GlobalRegistryClient>(channel);
-  ASSERT_OK(registry_client->RegisterStore(remote_rid,
-                                           remote_server->GetServerAddress(),
-                                           controller->controller_address()));
-
-  // 4. Create store and insert remote block entry
-  KVCacheStore store(10, std::move(controller), registry_address, local_rid,
-                     std::nullopt, /*store_server_ip=*/"127.0.0.1");
-
-  std::vector<std::string> hashes = {"load_remote_hash_1"};
-  std::vector<RaidenBlockID> slices = {
-      RaidenBlockID(remote_rid, 42, BlockStatus::REMOTE)};
-
-  KVCacheStoreTest::PlantIndexEntry(store, hashes, slices,
-                                    /*on_host=*/false);
-  ASSERT_TRUE(store.Lookup(hashes).ok());
-
-  // 5. Load remote block into local device block 5
-  absl::Status status = store.Load(hashes, {5});
-  ASSERT_TRUE(status.ok()) << status.message();
-
-  // 6. Poll for completion
-  bool done = false;
-  for (int attempt = 0; attempt < 100; ++attempt) {
-    auto [load_done, load_failed, load_pending] = store.PollLoadStatus();
-    ASSERT_TRUE(load_failed.empty());
-    if (!load_done.empty()) {
-      EXPECT_THAT(load_done,
-                  ::testing::UnorderedElementsAre("load_remote_hash_1"));
-      done = true;
-      break;
-    }
-    absl::SleepFor(absl::Milliseconds(10));
-  }
-  ASSERT_TRUE(done);
-
-  // 7. A load from a peer records NOTHING. This entry was put here by the
-  // caller before the load, and the load leaves it exactly as it found it --
-  // still REMOTE, still naming the peer's block 42. Promoting it to HBM with
-  // host_block_id -1, as this used to, produced an entry describing no local
-  // residency that Evict could not reclaim and nothing could delete.
-  auto lookup_res = PeekLookup(store, hashes);
-  ASSERT_TRUE(lookup_res.ok());
-  ASSERT_EQ(lookup_res->size(), 1);
-  EXPECT_EQ((*lookup_res)[0].second.status, BlockStatus::REMOTE);
-  EXPECT_EQ((*lookup_res)[0].second.host_block_id, 42);
-  EXPECT_EQ((*lookup_res)[0].second.raiden_id, remote_rid);
-}
-
 // The flow the API actually serves for a peer source: lookup() resolves the
 // hash through the registry and hands back a REMOTE slice, load() takes that
 // slice directly. Nothing is inserted before, and -- the point of this case --
@@ -1722,7 +1634,12 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadRemoteWithSlicesRecordsNothing) {
       << "a load from a peer must leave no local entry";
 }
 
-TEST_F(KVCacheStoreEmbeddedControllerTest, LoadUnpinnedRemoteBlockFails) {
+// The no-slices Load is LOCAL-ONLY: a REMOTE index entry is refused with
+// InvalidArgument regardless of pin state -- the entry here is deliberately
+// UNPINNED, and the refusal must come before the pin gate, because "wrong
+// API" is the answer whether or not a pin exists. The slices overload is the
+// only peer-load path.
+TEST_F(KVCacheStoreEmbeddedControllerTest, LoadRefusesRemoteBlock) {
   auto controller = MakeController();
   RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
 
@@ -1731,7 +1648,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadUnpinnedRemoteBlockFails) {
   KVCacheStore store(10, std::move(controller), "", local_rid, std::nullopt,
                      /*store_server_ip=*/"127.0.0.1");
 
-  std::vector<std::string> hashes = {"unpinned_remote_hash"};
+  std::vector<std::string> hashes = {"planted_remote_hash"};
   std::vector<RaidenBlockID> slices = {
       RaidenBlockID(remote_rid, /*host_block_id=*/-1, /*device_block_id=*/-1,
                     BlockStatus::REMOTE)};
@@ -1739,8 +1656,8 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadUnpinnedRemoteBlockFails) {
                                     /*on_host=*/false);
 
   absl::Status status = store.Load(hashes, {0});
-  EXPECT_TRUE(absl::IsFailedPrecondition(status)) << status;
-  EXPECT_THAT(status.message(), ::testing::HasSubstr("is not pinned"));
+  EXPECT_TRUE(absl::IsInvalidArgument(status)) << status;
+  EXPECT_THAT(status.message(), ::testing::HasSubstr("local-only"));
 }
 
 TEST_F(KVCacheStoreEmbeddedControllerTest, SaveMultiWorkerSuccess) {

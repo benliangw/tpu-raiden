@@ -119,11 +119,14 @@ class KVCacheStore:
   def load(self, block_hashes: list[bytes], device_block_ids: list[int]) -> bool:
     """Asynchronously loads KV cache blocks to device (HBM) from local host DRAM.
 
+    LOCAL ONLY: a hash whose cached entry has status REMOTE is refused (returns
+    False); the slices overload is the only way to load from a peer.
+
     `device_block_ids` is the destination and must name one device block per hash.
 
     NOTE: The block_hashes must be pinned in the LRU cache before calling load.
-    Once the operation is complete (as reported by poll_load_status), the caller
-    must manually release/unpin them via release.
+    A SUCCESSFUL load consumes that pin; do not release afterwards. A failed
+    load leaves the pin in place for a retry or a deliberate release.
     """
     ...
   @overload

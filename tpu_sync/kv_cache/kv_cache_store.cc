@@ -1069,8 +1069,6 @@ absl::Status KVCacheStore::Load(absl::Span<const std::string> block_hashes,
     return absl::OkStatus();
   }
 
-  RaidenId remote_id;
-  bool from_remote = false;
   {
     absl::MutexLock lock(mutex_);
     auto lookup_or = backend()->Lookup(block_hashes);
@@ -1081,15 +1079,18 @@ absl::Status KVCacheStore::Load(absl::Span<const std::string> block_hashes,
           absl::StrCat("Block hash not found: ", block_hashes[slices.size()]));
     }
 
-    BlockStatus first_status = slices[0].second.status;
-    if (first_status == BlockStatus::REMOTE) {
-      remote_id = slices[0].second.raiden_id;
-      from_remote = true;
-    }
-
     for (size_t i = 0; i < slices.size(); ++i) {
       const auto& hash = block_hashes[i];
       const auto& existing = slices[i].second;
+      // LOCAL ONLY, checked before the pin gate: a REMOTE hash here is the
+      // wrong API regardless of its pin state. The slices overload is the
+      // only peer-load path.
+      if (existing.status == BlockStatus::REMOTE) {
+        return absl::InvalidArgumentError(absl::StrCat(
+            "Load without slices is local-only, but block is REMOTE: ", hash,
+            ". Use Load(block_hashes, slices, device_block_ids) to load from "
+            "a peer."));
+      }
       if (backend()->GetPinCount(hash) <= 0) {
         return absl::FailedPreconditionError(
             absl::StrCat("Block is not pinned: ", hash));
@@ -1098,26 +1099,14 @@ absl::Status KVCacheStore::Load(absl::Span<const std::string> block_hashes,
         return absl::FailedPreconditionError(
             absl::StrCat("Block is already loading: ", hash));
       }
-
-      if (first_status == BlockStatus::REMOTE) {
-        if (existing.status != BlockStatus::REMOTE) {
-          return absl::InvalidArgumentError(
-              "Mixed block statuses in a single Load call");
-        }
-        if (existing.raiden_id != remote_id) {
-          return absl::InvalidArgumentError(
-              "Mixed remote node IDs in a single Load call");
-        }
-      } else {
-        if (existing.status != BlockStatus::HOST &&
-            existing.status != BlockStatus::HOST_AND_HBM) {
-          return absl::FailedPreconditionError(
-              absl::StrCat("Block is not on host: ", hash));
-        }
-        if (existing.host_block_id == -1) {
-          return absl::FailedPreconditionError(
-              absl::StrCat("Block host_block_id is -1: ", hash));
-        }
+      if (existing.status != BlockStatus::HOST &&
+          existing.status != BlockStatus::HOST_AND_HBM) {
+        return absl::FailedPreconditionError(
+            absl::StrCat("Block is not on host: ", hash));
+      }
+      if (existing.host_block_id == -1) {
+        return absl::FailedPreconditionError(
+            absl::StrCat("Block host_block_id is -1: ", hash));
       }
     }
     for (const auto& hash : block_hashes) {
@@ -1126,7 +1115,7 @@ absl::Status KVCacheStore::Load(absl::Span<const std::string> block_hashes,
   }
 
   tsl::Future<> future = backend()->Load(
-      remote_id, block_hashes,
+      RaidenId(), block_hashes,
       absl::Span<const int32_t>(
           reinterpret_cast<const int32_t*>(device_block_ids.data()),
           device_block_ids.size()));
@@ -1139,7 +1128,7 @@ absl::Status KVCacheStore::Load(absl::Span<const std::string> block_hashes,
             std::vector<std::string>(block_hashes.begin(), block_hashes.end()),
         .device_block_ids =
             std::vector<int>(device_block_ids.begin(), device_block_ids.end()),
-        .from_remote = from_remote,
+        .from_remote = false,
     });
   }
 
