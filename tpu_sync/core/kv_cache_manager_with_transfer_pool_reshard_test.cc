@@ -21,21 +21,28 @@
 
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/types/span.h"
 #include "tpu_sync/core/kv_cache_manager_with_transfer.h"
 #include "tpu_sync/kv_cache/pool_layout.h"
 #include "tpu_sync/rpc/raiden_service.pb.h"
+#include "tpu_sync/telemetry/metrics_backend.h"
+#include "tpu_sync/telemetry/mock_metrics_backend.h"
 
 namespace tpu_raiden {
 namespace {
 
+using ::testing::_;
+using ::testing::Ge;
+using ::testing::IsEmpty;
 using ::tpu_sync::rpc::MEMORY_TYPE_HBM;
 using ::tpu_sync::rpc::ShardPushEntryProto;
 using ::tpu_sync::rpc::StartTransferRequest;
@@ -52,6 +59,8 @@ class TestManager : public KVCacheManagerWithTransfer {
             /*local_control_port=*/-1, /*max_blocks=*/0, /*num_slots=*/0,
             timeout_s) {}
 
+  using KVCacheManagerWithTransfer::FinishPoolReshardRecvPool;
+  using KVCacheManagerWithTransfer::PoolReshardRegisterRecv;
   using KVCacheManagerWithTransfer::ValidatePoolReshardPlan;
 
   // Passes the device-attached gate with no real device state. Only paths
@@ -583,6 +592,48 @@ TEST(PoolReshardSendTest, SenderWithNoBytesForAnyTransferredPoolCompletes) {
   EXPECT_EQ(done_sending, std::vector<std::string>{plan.req_id()});
   EXPECT_TRUE(done_recving.empty()) << done_recving.size();
   EXPECT_TRUE(failed_recving.empty()) << failed_recving.size();
+}
+
+TEST(PoolReshardRecvTest, FinishPoolReshardRecvRecordsDurationMetric) {
+  TestManager manager;
+  ASSERT_TRUE(manager.RegisterPools({DensePool("fa")}).ok());
+  manager.AttachPlaceholderDeviceHold();
+
+  auto mock_backend = std::make_unique<telemetry::MockMetricsBackend>();
+  telemetry::MockMetricsBackend* raw_mock = mock_backend.get();
+  EXPECT_CALL(*raw_mock,
+              ObserveHistogram(telemetry::metric_names::kTransferDurationMs,
+                               IsEmpty(), Ge(0.0)))
+      .Times(1);
+  telemetry::ScopedMetricsBackendReset scoped_metrics_reset(
+      std::move(mock_backend));
+
+  StartTransferRequest plan = ValidPlan(/*uuid=*/3001);
+  ASSERT_TRUE(
+      manager.PoolReshardRegisterRecv(plan, std::vector<int64_t>{0}).ok());
+
+  // Simulate pool completion
+  manager.FinishPoolReshardRecvPool(3001, /*pool_idx=*/0, absl::OkStatus());
+}
+
+TEST(PoolReshardRecvTest, FinishPoolReshardRecvDoesNotRecordMetricOnFailure) {
+  TestManager manager;
+  ASSERT_TRUE(manager.RegisterPools({DensePool("fa")}).ok());
+  manager.AttachPlaceholderDeviceHold();
+
+  auto mock_backend = std::make_unique<telemetry::MockMetricsBackend>();
+  telemetry::MockMetricsBackend* raw_mock = mock_backend.get();
+  EXPECT_CALL(*raw_mock, ObserveHistogram(_, _, _)).Times(0);
+  telemetry::ScopedMetricsBackendReset scoped_metrics_reset(
+      std::move(mock_backend));
+
+  StartTransferRequest plan = ValidPlan(/*uuid=*/3002);
+  ASSERT_TRUE(
+      manager.PoolReshardRegisterRecv(plan, std::vector<int64_t>{0}).ok());
+
+  // Simulate pool failure
+  manager.FinishPoolReshardRecvPool(3002, /*pool_idx=*/0,
+                                    absl::InternalError("simulated failure"));
 }
 
 }  // namespace

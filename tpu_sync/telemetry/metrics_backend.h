@@ -57,6 +57,8 @@ inline constexpr absl::string_view kSentBytesTotal = "sent_bytes_total";
 inline constexpr absl::string_view kReceivedBytesTotal = "received_bytes_total";
 inline constexpr absl::string_view kTransferFailuresTotal =
     "transfer_failures_total";
+inline constexpr absl::string_view kTransferDurationMs = "transfer_duration_ms";
+
 }  // namespace metric_names
 
 namespace metric_descriptions {
@@ -67,6 +69,10 @@ inline constexpr absl::string_view kReceivedBytesTotal =
     "Total count of bytes received over TPU Raiden interfaces.";
 inline constexpr absl::string_view kTransferFailuresTotal =
     "Cumulative total count of transfer failures across all interfaces.";
+inline constexpr absl::string_view kTransferDurationMs =
+    "Measures End-to-End (E2E) latency bound around the entire request in "
+    "milliseconds, including setup delays.";
+
 }  // namespace metric_descriptions
 
 namespace metric_metadata {
@@ -86,10 +92,16 @@ inline constexpr MetricMetadata kTransferFailuresTotal{
     .description = metric_descriptions::kTransferFailuresTotal,
     .type = MetricType::kCounter};
 
+inline constexpr MetricMetadata kTransferDurationMs{
+    .name = metric_names::kTransferDurationMs,
+    .description = metric_descriptions::kTransferDurationMs,
+    .type = MetricType::kHistogram};
+
 inline constexpr MetricMetadata kAllMetrics[] = {
     kSentBytesTotal,
     kReceivedBytesTotal,
     kTransferFailuresTotal,
+    kTransferDurationMs,
 };
 }  // namespace metric_metadata
 

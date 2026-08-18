@@ -73,6 +73,8 @@
 #include "tpu_sync/core/tpu_utils.h"
 #include "tpu_sync/kv_cache/kv_cache_manager_base.h"
 #include "tpu_sync/kv_cache/pool_layout.h"
+#include "tpu_sync/telemetry/metrics_api.h"
+#include "tpu_sync/telemetry/metrics_backend.h"
 #include "tpu_sync/transport/block_transport.h"
 #include "tpu_sync/transport/block_transport_delegate.h"
 
@@ -422,9 +424,14 @@ static CopyPlan BuildLoadCopyPlan(
   return plan;
 }
 
-static double DurationMs(std::chrono::steady_clock::time_point start,
-                         std::chrono::steady_clock::time_point end) {
+double DurationMs(std::chrono::steady_clock::time_point start,
+                  std::chrono::steady_clock::time_point end) {
   return std::chrono::duration<double, std::milli>(end - start).count();
+}
+
+void RecordTransferDuration(double duration_ms) {
+  telemetry::RaidenMetricStore::GetGlobalMetricStore().ObserveHistogram(
+      telemetry::metric_names::kTransferDurationMs, {}, duration_ms);
 }
 
 }  // namespace
@@ -693,6 +700,7 @@ absl::Status KVCacheManagerWithTransfer::RegisterActivePlan(
     recv_entry.total_blocks = total_blocks;
     recv_entry.num_completed_blocks = 0;
     recv_entry.deadline = DeadlineFromNow();
+    recv_entry.start_time = std::chrono::steady_clock::now();
 
     // Populate h2d_copy spec for unique destination blocks
     std::vector<int64_t> h2d_host_block_ids(unique_dst_blocks.begin(),
@@ -1395,6 +1403,7 @@ absl::Status KVCacheManagerWithTransfer::PoolReshardRegisterRecv(
   recv_entry.req_id = plan.req_id();
   recv_entry.is_pool_reshard = true;
   recv_entry.deadline = DeadlineFromNow();
+  recv_entry.start_time = std::chrono::steady_clock::now();
   recv_entry.chip_block_ids.assign(chip_block_ids.begin(),
                                    chip_block_ids.end());
   // Pool host mirrors cover the complete block-id space, so the wire lands at
@@ -1560,6 +1569,7 @@ void KVCacheManagerWithTransfer::StartRead(
     entry.req_id = req_id;
     entry.slot_idx = recv_slot;
     entry.deadline = DeadlineFromNow();
+    entry.start_time = std::chrono::steady_clock::now();
     entry.chip_block_ids = load_plan.h2d_local_block_ids;
     entry.total_blocks = load_plan.num_blocks;
     entry.num_completed_blocks = 0;
@@ -2584,6 +2594,8 @@ absl::Status KVCacheManagerWithTransfer::OnBlocksReceived(
   bool found = false;
   std::vector<int> accumulated_host_blocks;
 
+  std::chrono::steady_clock::time_point start_time;
+  bool should_record_duration = false;
   {
     absl::MutexLock lock(mu_);
     auto it = active_recv_entries_.find(uuid);
@@ -2610,6 +2622,9 @@ absl::Status KVCacheManagerWithTransfer::OnBlocksReceived(
           metrics_collector_->RecordLastPacket(uuid);
         }
         if (it->second.num_completed_layers == num_layers()) {
+          start_time = it->second.start_time;
+          should_record_duration = true;
+
           if (metrics_collector_) {
             metrics_collector_->RecordEnd(uuid);
           }
@@ -2623,6 +2638,11 @@ absl::Status KVCacheManagerWithTransfer::OnBlocksReceived(
         return absl::OkStatus();
       }
     }
+  }
+
+  if (should_record_duration) {
+    RecordTransferDuration(
+        DurationMs(start_time, std::chrono::steady_clock::now()));
   }
 
   if (!found) {
@@ -2754,6 +2774,8 @@ void KVCacheManagerWithTransfer::FinishPoolReshardRecvPool(
     // A completed upload may unblock deferred higher-order-rank pools.
     LaunchEligiblePoolH2ds(uuid);
   }
+  std::chrono::steady_clock::time_point start_time;
+  bool should_record_duration = false;
   if (finished) {
     absl::Status unregister = UnregisterActivePlan(uuid);
     if (!unregister.ok() && !absl::IsNotFound(unregister)) {
@@ -2767,9 +2789,16 @@ void KVCacheManagerWithTransfer::FinishPoolReshardRecvPool(
       failed_recving_.insert(it->second.req_id);
       active_recv_entries_.erase(it);
     } else {
+      start_time = it->second.start_time;
+      should_record_duration = true;
+
       it->second.network_completed = true;
       done_recving_.insert(it->second.req_id);
     }
+  }
+  if (should_record_duration) {
+    RecordTransferDuration(
+        DurationMs(start_time, std::chrono::steady_clock::now()));
   }
 }
 
@@ -2828,6 +2857,10 @@ absl::Status KVCacheManagerWithTransfer::OnLayerReceived(size_t layer_idx,
                 << ", numa=" << assigned_numa_node().value_or(-1);
       entry.num_completed_layers++;
       if (entry.num_completed_layers == num_layers()) {
+        // TODO: Find a way to optimize this by moving out of the mutex.
+        RecordTransferDuration(
+            DurationMs(entry.start_time, std::chrono::steady_clock::now()));
+
         if (metrics_collector) {
           metrics_collector->RecordH2dComplete(uuid);
         }

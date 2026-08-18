@@ -26,6 +26,7 @@
 
 #include <gmock/gmock.h>
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "xla/future.h"
 #include "xla/pjrt/pjrt_client.h"
@@ -33,11 +34,15 @@
 #include "xla/tsl/platform/test.h"
 #include "tpu_sync/core/raw_transfer_core.h"
 #include "tpu_sync/core/tpu_pjrt_manager.h"
+#include "tpu_sync/telemetry/metrics_backend.h"
+#include "tpu_sync/telemetry/mock_metrics_backend.h"
 
 namespace tpu_raiden {
 namespace {
 
 using ::absl_testing::IsOk;
+using ::testing::Gt;
+using ::testing::IsEmpty;
 
 class TestKVCacheManagerWithTransfer : public KVCacheManagerWithTransfer {
  public:
@@ -81,6 +86,16 @@ TEST(KVCacheManagerWithTransferTest, LocalOrchestratedTransfer) {
       pjrt_manager->BufferFromHost(host_data.data(), xla::F32, shape_dims));
 
   ASSERT_THAT(buffer->GetReadyFuture().Await(), IsOk());
+
+  auto mock_backend = std::make_unique<telemetry::MockMetricsBackend>();
+  telemetry::MockMetricsBackend* raw_mock = mock_backend.get();
+  EXPECT_CALL(*raw_mock,
+              ObserveHistogram(telemetry::metric_names::kTransferDurationMs,
+                               IsEmpty(), Gt(0.0)))
+      .Times(1);
+  // Register mock backend
+  telemetry::ScopedMetricsBackendReset scoped_metrics_reset(
+      std::move(mock_backend));
 
   // Create KVCacheManagerWithTransfer
   auto handle_or = raiden::RaidenBufferHandle::Acquire(buffer.get());

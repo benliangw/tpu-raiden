@@ -46,12 +46,25 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "mock_metrics_backend",
+    testonly = True,
+    hdrs = ["mock_metrics_backend.h"],
+    deps = [
+        ":metrics_api",
+        ":metrics_backend",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_for_library_testonly",
+    ],
+)
+
 cc_test(
     name = "metrics_api_test",
     srcs = ["metrics_api_test.cc"],
     deps = [
         ":metrics_api",
         ":metrics_backend",
+        ":mock_metrics_backend",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:status_matchers",
         "@com_google_absl//absl/strings",

@@ -30,6 +30,7 @@
 #include "absl/status/status_matchers.h"
 #include "absl/strings/string_view.h"
 #include "tpu_sync/telemetry/metrics_backend.h"
+#include "tpu_sync/telemetry/mock_metrics_backend.h"
 
 namespace tpu_raiden::telemetry {
 namespace {
@@ -87,22 +88,6 @@ static_assert(!std::is_move_constructible_v<MetricsBackend>,
 static_assert(!std::is_move_assignable_v<MetricsBackend>,
               "MetricsBackend must not be move assignable");
 
-class MockMetricsBackend : public MetricsBackend {
- public:
-  MOCK_METHOD(void, IncrementCounter,
-              (absl::string_view name, LabelSpan labels, uint64_t val),
-              (override, const));
-  MOCK_METHOD(void, SetGauge,
-              (absl::string_view name, LabelSpan labels, double val),
-              (override, const));
-  MOCK_METHOD(void, ObserveHistogram,
-              (absl::string_view name, LabelSpan labels, double val),
-              (override, const));
-  MOCK_METHOD(std::string, GetTextSnapshot, (), (override, const));
-  MOCK_METHOD((std::map<std::string, std::vector<double>>),
-              GetAndResetMetricSamples, (), (override));
-};
-
 class MetricsApiTest : public testing::Test {
  protected:
   void SetUp() override { store_.SetBackends({}); }
@@ -151,19 +136,34 @@ TEST_F(MetricsApiTest, MetricMetadataConstants) {
       "Cumulative total count of transfer failures across all interfaces.");
   EXPECT_EQ(metric_metadata::kTransferFailuresTotal.type, MetricType::kCounter);
 
+  // TransferDurationMs
+  EXPECT_EQ(metric_names::kTransferDurationMs, "transfer_duration_ms");
+  EXPECT_EQ(
+      metric_descriptions::kTransferDurationMs,
+      "Measures End-to-End (E2E) latency bound around the entire request in "
+      "milliseconds, including setup delays.");
+  EXPECT_EQ(metric_metadata::kTransferDurationMs.name, "transfer_duration_ms");
+  EXPECT_EQ(
+      metric_metadata::kTransferDurationMs.description,
+      "Measures End-to-End (E2E) latency bound around the entire request in "
+      "milliseconds, including setup delays.");
+  EXPECT_EQ(metric_metadata::kTransferDurationMs.type, MetricType::kHistogram);
+
   // Direction Labels
   EXPECT_EQ(metric_labels::kDirection, "direction");
   EXPECT_EQ(metric_labels::kDirectionPush, "push");
   EXPECT_EQ(metric_labels::kDirectionPull, "pull");
   EXPECT_EQ(metric_labels::kDirectionPullResponse, "pull_response");
 
+  // Error Code Labels
   EXPECT_EQ(metric_labels::kErrorCode, "error_code");
 
   // All Metrics
   EXPECT_THAT(metric_metadata::kAllMetrics,
               ElementsAre(metric_metadata::kSentBytesTotal,
                           metric_metadata::kReceivedBytesTotal,
-                          metric_metadata::kTransferFailuresTotal));
+                          metric_metadata::kTransferFailuresTotal,
+                          metric_metadata::kTransferDurationMs));
 }
 
 TEST_F(MetricsApiTest, FastPathExitWhenNoBackends) {
@@ -269,11 +269,10 @@ TEST_F(MetricsApiTest, GetMetricMetadataReturnsAllMetricsWhenBackendsActive) {
   store_.SetBackends(std::move(backends));
 
   std::vector<MetricMetadata> result = store_.GetMetricMetadata();
-  EXPECT_THAT(
-      result,
-      ElementsAre(metric_metadata::kSentBytesTotal,
-                  metric_metadata::kReceivedBytesTotal,
-                  metric_metadata::kTransferFailuresTotal));
+  EXPECT_THAT(result, ElementsAre(metric_metadata::kSentBytesTotal,
+                                  metric_metadata::kReceivedBytesTotal,
+                                  metric_metadata::kTransferFailuresTotal,
+                                  metric_metadata::kTransferDurationMs));
 }
 
 TEST_F(MetricsApiTest, GetMetricMetadataEmptyWhenNoBackends) {

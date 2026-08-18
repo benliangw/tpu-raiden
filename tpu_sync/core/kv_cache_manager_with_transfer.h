@@ -378,6 +378,7 @@ class KVCacheManagerWithTransfer : public kv_cache::KVCacheManagerBase {
     bool reshard_finalizing = false;
     std::vector<int> accumulated_host_block_ids;
     std::chrono::steady_clock::time_point deadline;
+    std::chrono::steady_clock::time_point start_time;
     std::vector<raiden::PjRtCopyFuture> h2d_futures;
     bool is_pool_reshard = false;
     std::set<size_t> expected_pool_indices;
