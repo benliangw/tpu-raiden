@@ -1,0 +1,499 @@
+# ---------------------------------------------------------------------------
+# Qwen3.5-4B Disaggregated Serving (Pure Disagg without Raiden)
+#
+# Topology:
+#   - prefill: TP4 on 1 node of TPU v7x (2x2x1)
+#   - decode:  TP4 on 1 node of TPU v7x (2x2x1)
+#   - transfer: TPUConnector (ZMQ + SHM / HMA)
+#   - model: Qwen/Qwen3.5-4B (BF16 native checkpoint from HF Hub)
+#   - code: mounted from /workspace/vllm-torchtpu/main
+# ---------------------------------------------------------------------------
+
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: vllm-qwen35-4b-disagg-zmq
+spec:
+  successPolicy:
+    operator: All
+    targetReplicatedJobs:
+      - benchmark
+  ttlSecondsAfterFinished: 300
+  replicatedJobs:
+    # ---------------------------------------------------------
+    # PREFILL + PROXY
+    # ---------------------------------------------------------
+    - name: prefill
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            metadata:
+              annotations:
+                gke-gcsfuse/volumes: "true"
+            spec:
+              dnsPolicy: ClusterFirstWithHostNet
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: 2x2x1
+                cloud.google.com/gke-tpu-accelerator: tpu7x
+              initContainers:
+                - name: tpu-node-setup
+                  image: busybox
+                  securityContext:
+                    privileged: true
+                  command: ["/bin/sh", "-c"]
+                  args:
+                    - |
+                      sysctl -w vm.max_map_count=8388608
+                      if [ -f /sys/module/vfio_iommu_type1/parameters/dma_entry_limit ]; then
+                        echo 2000000 > /sys/module/vfio_iommu_type1/parameters/dma_entry_limit
+                      fi
+              containers:
+              - name: vllm-tpu-prefill
+                image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:latest
+                imagePullPolicy: Always
+                command: ["/bin/bash", "-c"]
+                args:
+                - |
+                  set -eo pipefail
+                  export PYTHONPATH=/root/torchtpu-vllm/src:/root/torchtpu-vllm:${PYTHONPATH:-}
+                  export HF_HUB_ENABLE_HF_TRANSFER=0
+
+                  echo "===== Starting Qwen3.5-4B TP4 Prefill node ====="
+                  exec vllm serve \
+                    "$MODEL" \
+                    --served-model-name "$SERVED_MODEL" \
+                    --trust-remote-code \
+                    --seed 42 \
+                    --tensor-parallel-size 4 \
+                    --max-model-len 8192 \
+                    --max-num-batched-tokens 2048 \
+                    --gpu-memory-utilization 0.85 \
+                    --language-model-only \
+                    --limit-mm-per-prompt '{"image":0,"video":0}' \
+                    --no-disable-hybrid-kv-cache-manager \
+                    --attention-backend CUSTOM \
+                    --mamba-cache-mode align \
+                    --host 0.0.0.0 \
+                    --port 8000 \
+                    --kv-transfer-config '{"kv_connector":"TPUConnector","kv_connector_module_path":"vllm_torchtpu.distributed.kv_transfer.tpu_connector","kv_role":"kv_producer"}' \
+                    2>&1 | tee "$CDK_OUTPUT_DIR/prefill.log"
+                env:
+                  - name: JS_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                  - name: MODEL
+                    value: "Qwen/Qwen3.5-4B"
+                  - name: SERVED_MODEL
+                    value: "Qwen3.5-4B"
+                  # --- TPU environment ---
+                  - name: MODEL_IMPL_TYPE
+                    value: "vllm"
+                  - name: TPU_TOPOLOGY
+                    value: "2x2x1"
+                  - name: TPU_CHIPS_PER_HOST_BOUNDS
+                    value: "2,2,1"
+                  - name: TPU_HOST_BOUNDS
+                    value: "1,1,1"
+                  - name: TPU_LIBRARY_PATH
+                    value: ""
+                  - name: MEGASCALE_NUM_SLICES
+                    value: ""
+                  - name: MEGASCALE_SLICE_ID
+                    value: ""
+                  - name: TPU_PROCESS_ADDRESSES
+                    value: ""
+                  - name: TPU_WORKER_HOSTNAMES
+                    value: ""
+                  - name: TPU_PROCESS_PORT
+                    value: ""
+                  - name: MEGASCALE_COORDINATOR_ADDRESS
+                    value: ""
+                  - name: MEGASCALE_PORT
+                    value: ""
+                  # --- Kernel & Memory config ---
+                  - name: SKIP_JAX_PRECOMPILE
+                    value: "1"
+                  - name: VLLM_XLA_CHECK_RECOMPILATION
+                    value: "0"
+                  - name: USE_MOE_SPARSE_CORE
+                    value: "0"
+                  - name: TPU_GDN_CONV_STATE_TILE_PAD
+                    value: "1"
+                  - name: XLA_PYTHON_CLIENT_PREALLOCATE
+                    value: "false"
+                  - name: VLLM_ALLOW_LONG_MAX_MODEL_LEN
+                    value: "1"
+                  - name: VLLM_ENGINE_READY_TIMEOUT_S
+                    value: "1800"
+                  # --- ZMQ / HMA KV transfer ---
+                  - name: TPU_ENABLE_D2H_TRANSFER
+                    value: "1"
+                  - name: TPU_HMA_D2H_COPY_IMPL
+                    value: "device_put"
+                  - name: TPU_KV_SHM_POOL_GB
+                    value: "8"
+                  - name: TPU_KV_TRANSFER_PORT
+                    value: "9100"
+                  - name: TPU_SIDE_CHANNEL_PORT
+                    value: "9600"
+                volumeMounts:
+                  - name: hf-token-volume
+                    mountPath: /root/.cache/huggingface/token
+                    subPath: token
+                    readOnly: true
+                  - name: huggingface-storage
+                    mountPath: /root/.cache/huggingface/
+                  - name: dshm
+                    mountPath: /dev/shm
+                  - name: torchtpu-vllm-nfs
+                    mountPath: /root/torchtpu-vllm
+                  - name: vllm-nfs
+                    mountPath: /root/cloud-devkit/vllm
+                  - name: wheels-nfs
+                    mountPath: /root/wheels
+                    readOnly: true
+                securityContext:
+                  privileged: true
+                  capabilities:
+                    add:
+                    - IPC_LOCK
+                resources:
+                  limits:
+                    google.com/tpu: "4"
+                    memory: "500Gi"
+                    cpu: "200"
+                    ephemeral-storage: "100Gi"
+                  requests:
+                    google.com/tpu: "4"
+                    memory: "500Gi"
+                    cpu: "200"
+                    ephemeral-storage: "50Gi"
+                ports:
+                  - containerPort: 8000
+
+              - name: vllm-tpu-proxy
+                image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:latest
+                imagePullPolicy: Always
+                command: ["/bin/bash", "-c"]
+                args:
+                  - |
+                    PREFILLER_DNS="${JS_NAME}-prefill-0-0.${JS_NAME}"
+                    DECODER_DNS="${JS_NAME}-decode-0-0.${JS_NAME}"
+
+                    echo "Waiting for decode ready on $DECODER_DNS:7200..."
+                    until curl -sf "http://$DECODER_DNS:7200/health" > /dev/null 2>&1; do sleep 5; done
+                    echo "Decode is ready."
+
+                    echo "Waiting for prefill ready on $PREFILLER_DNS:8000..."
+                    until curl -sf "http://$PREFILLER_DNS:8000/health" > /dev/null 2>&1; do sleep 5; done
+                    echo "Prefill is ready."
+
+                    echo "Starting toy proxy on port 10000..."
+                    python3 /root/torchtpu-vllm/examples/disagg/toy_proxy_server.py \
+                      --host 0.0.0.0 \
+                      --port 10000 \
+                      --prefiller-host $PREFILLER_DNS \
+                      --prefiller-port 8000 \
+                      --decoder-host $DECODER_DNS \
+                      --decoder-port 7200
+                env:
+                - name: JS_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                volumeMounts:
+                  - name: torchtpu-vllm-nfs
+                    mountPath: /root/torchtpu-vllm
+                    readOnly: true
+                ports:
+                - containerPort: 10000
+                resources:
+                  requests: { cpu: "8", memory: "16Gi", ephemeral-storage: "1Gi" }
+                  limits: { cpu: "16", memory: "32Gi", ephemeral-storage: "2Gi" }
+
+              volumes:
+              - name: dshm
+                emptyDir:
+                  medium: Memory
+              - name: hf-token-volume
+                secret:
+                  secretName: vllm-hf-token
+                  items:
+                  - key: HF_TOKEN
+                    path: token
+              - name: huggingface-storage
+                ephemeral:
+                  volumeClaimTemplate:
+                    spec:
+                      storageClassName: "premium-rwo"
+                      accessModes: ["ReadWriteOnce"]
+                      resources:
+                        requests:
+                          storage: 100Gi
+              - name: torchtpu-vllm-nfs
+                nfs:
+                  server: 10.225.237.178
+                  path: /workspace/vllm-torchtpu/main
+              - name: vllm-nfs
+                nfs:
+                  server: 10.225.237.178
+                  path: /workspace/vllm
+              - name: wheels-nfs
+                nfs:
+                  server: 10.225.237.178
+                  path: /workspace/wheels
+
+    # ---------------------------------------------------------
+    # DECODE
+    # ---------------------------------------------------------
+    - name: decode
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            metadata:
+              annotations:
+                gke-gcsfuse/volumes: "true"
+            spec:
+              dnsPolicy: ClusterFirstWithHostNet
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: 2x2x1
+                cloud.google.com/gke-tpu-accelerator: tpu7x
+              initContainers:
+                - name: tpu-node-setup
+                  image: busybox
+                  securityContext:
+                    privileged: true
+                  command: ["/bin/sh", "-c"]
+                  args:
+                    - |
+                      sysctl -w vm.max_map_count=8388608
+                      if [ -f /sys/module/vfio_iommu_type1/parameters/dma_entry_limit ]; then
+                        echo 2000000 > /sys/module/vfio_iommu_type1/parameters/dma_entry_limit
+                      fi
+              containers:
+              - name: vllm-tpu-decode
+                image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:latest
+                imagePullPolicy: Always
+                command: ["/bin/bash", "-c"]
+                args:
+                - |
+                  set -eo pipefail
+                  export PYTHONPATH=/root/torchtpu-vllm/src:/root/torchtpu-vllm:${PYTHONPATH:-}
+                  export HF_HUB_ENABLE_HF_TRANSFER=0
+
+                  echo "===== Starting Qwen3.5-4B TP4 Decode node ====="
+                  exec vllm serve \
+                    "$MODEL" \
+                    --served-model-name "$SERVED_MODEL" \
+                    --trust-remote-code \
+                    --seed 42 \
+                    --tensor-parallel-size 4 \
+                    --max-model-len 8192 \
+                    --max-num-batched-tokens 2048 \
+                    --gpu-memory-utilization 0.85 \
+                    --language-model-only \
+                    --limit-mm-per-prompt '{"image":0,"video":0}' \
+                    --no-disable-hybrid-kv-cache-manager \
+                    --attention-backend CUSTOM \
+                    --mamba-cache-mode align \
+                    --host 0.0.0.0 \
+                    --port 7200 \
+                    --kv-transfer-config '{"kv_connector":"TPUConnector","kv_connector_module_path":"vllm_torchtpu.distributed.kv_transfer.tpu_connector","kv_role":"kv_consumer"}' \
+                    2>&1 | tee "$CDK_OUTPUT_DIR/decode.log"
+                env:
+                  - name: JS_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                  - name: MODEL
+                    value: "Qwen/Qwen3.5-4B"
+                  - name: SERVED_MODEL
+                    value: "Qwen3.5-4B"
+                  # --- TPU environment ---
+                  - name: MODEL_IMPL_TYPE
+                    value: "vllm"
+                  - name: TPU_TOPOLOGY
+                    value: "2x2x1"
+                  - name: TPU_CHIPS_PER_HOST_BOUNDS
+                    value: "2,2,1"
+                  - name: TPU_HOST_BOUNDS
+                    value: "1,1,1"
+                  - name: TPU_LIBRARY_PATH
+                    value: ""
+                  - name: MEGASCALE_NUM_SLICES
+                    value: ""
+                  - name: MEGASCALE_SLICE_ID
+                    value: ""
+                  - name: TPU_PROCESS_ADDRESSES
+                    value: ""
+                  - name: TPU_WORKER_HOSTNAMES
+                    value: ""
+                  - name: TPU_PROCESS_PORT
+                    value: ""
+                  - name: MEGASCALE_COORDINATOR_ADDRESS
+                    value: ""
+                  - name: MEGASCALE_PORT
+                    value: ""
+                  # --- Kernel & Memory config ---
+                  - name: SKIP_JAX_PRECOMPILE
+                    value: "1"
+                  - name: VLLM_XLA_CHECK_RECOMPILATION
+                    value: "0"
+                  - name: USE_MOE_SPARSE_CORE
+                    value: "0"
+                  - name: TPU_GDN_CONV_STATE_TILE_PAD
+                    value: "1"
+                  - name: XLA_PYTHON_CLIENT_PREALLOCATE
+                    value: "false"
+                  - name: VLLM_ALLOW_LONG_MAX_MODEL_LEN
+                    value: "1"
+                  - name: VLLM_ENGINE_READY_TIMEOUT_S
+                    value: "1800"
+                  # --- ZMQ / HMA KV transfer ---
+                  - name: TPU_ENABLE_D2H_TRANSFER
+                    value: "1"
+                  - name: TPU_HMA_D2H_COPY_IMPL
+                    value: "device_put"
+                  - name: TPU_KV_SHM_POOL_GB
+                    value: "8"
+                  - name: TPU_KV_TRANSFER_PORT
+                    value: "9100"
+                  - name: TPU_SIDE_CHANNEL_PORT
+                    value: "9600"
+                volumeMounts:
+                  - name: hf-token-volume
+                    mountPath: /root/.cache/huggingface/token
+                    subPath: token
+                    readOnly: true
+                  - name: huggingface-storage
+                    mountPath: /root/.cache/huggingface/
+                  - name: dshm
+                    mountPath: /dev/shm
+                  - name: torchtpu-vllm-nfs
+                    mountPath: /root/torchtpu-vllm
+                  - name: vllm-nfs
+                    mountPath: /root/cloud-devkit/vllm
+                  - name: wheels-nfs
+                    mountPath: /root/wheels
+                    readOnly: true
+                securityContext:
+                  privileged: true
+                  capabilities:
+                    add:
+                    - IPC_LOCK
+                resources:
+                  limits:
+                    google.com/tpu: "4"
+                    memory: "500Gi"
+                    cpu: "200"
+                    ephemeral-storage: "100Gi"
+                  requests:
+                    google.com/tpu: "4"
+                    memory: "500Gi"
+                    cpu: "200"
+                    ephemeral-storage: "50Gi"
+                ports:
+                  - containerPort: 7200
+
+              volumes:
+              - name: dshm
+                emptyDir:
+                  medium: Memory
+              - name: hf-token-volume
+                secret:
+                  secretName: vllm-hf-token
+                  items:
+                  - key: HF_TOKEN
+                    path: token
+              - name: huggingface-storage
+                ephemeral:
+                  volumeClaimTemplate:
+                    spec:
+                      storageClassName: "premium-rwo"
+                      accessModes: ["ReadWriteOnce"]
+                      resources:
+                        requests:
+                          storage: 100Gi
+              - name: torchtpu-vllm-nfs
+                nfs:
+                  server: 10.225.237.178
+                  path: /workspace/vllm-torchtpu/main
+              - name: vllm-nfs
+                nfs:
+                  server: 10.225.237.178
+                  path: /workspace/vllm
+              - name: wheels-nfs
+                nfs:
+                  server: 10.225.237.178
+                  path: /workspace/wheels
+
+    # ---------------------------------------------------------
+    # BENCHMARK
+    # ---------------------------------------------------------
+    - name: benchmark
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            spec:
+              restartPolicy: Never
+              containers:
+              - name: benchmark
+                image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/bench:reneezhu
+                imagePullPolicy: Always
+                command: ["/bin/bash", "-c"]
+                args:
+                  - |
+                    set -eo pipefail
+                    PREFILLER_DNS="${JS_NAME}-prefill-0-0.${JS_NAME}"
+                    DECODER_DNS="${JS_NAME}-decode-0-0.${JS_NAME}"
+
+                    echo "Waiting for proxy to be ready on $PREFILLER_DNS:10000..."
+                    until curl -sf "http://$PREFILLER_DNS:10000/health" > /dev/null 2>&1; do
+                      echo "Waiting for proxy health endpoint..."
+                      sleep 5
+                    done
+                    echo "Proxy is ready!"
+
+                    echo "===== Running Disagg Correctness Test ====="
+                    curl -sf "http://$PREFILLER_DNS:10000/v1/completions" \
+                      -H "Content-Type: application/json" \
+                      -d '{"model": "Qwen3.5-4B", "prompt": "Hello, my name is", "max_tokens": 16, "temperature": 0}' \
+                      | tee "$CDK_OUTPUT_DIR/smoke.json"
+
+                    echo "===== Running Disagg Benchmark ====="
+                    python3 benchmark_serving.py \
+                      --model="Qwen/Qwen3.5-4B" \
+                      --host="$PREFILLER_DNS" \
+                      --port=10000 \
+                      --backend=vllm \
+                      --dataset-name=random \
+                      --random-input-len=512 \
+                      --random-output-len=128 \
+                      --num-prompts=32 \
+                      --max-concurrency=8 \
+                      --ignore-eos \
+                      --request-rate=inf \
+                      2>&1 | tee "$CDK_OUTPUT_DIR/benchmark.log"
+
+                    echo "RESULT: PASS"
+                env:
+                  - name: JS_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+                resources:
+                  requests: { cpu: "4", memory: "8Gi" }
+                  limits: { cpu: "8", memory: "16Gi" }
