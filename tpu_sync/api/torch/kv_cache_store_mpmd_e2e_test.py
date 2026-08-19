@@ -394,7 +394,7 @@ def _worker_read_remote_main(argv):
               status=kv_cache_store.BlockStatus.HBM,
           ),
       ]
-      assert store_a.insert_and_lock(hashes, slices_a, on_host=False), "Failed to insert blocks to store_a"
+      assert store_a.insert(hashes, slices_a, on_host=False), "Failed to insert blocks to store_a"
 
     dist.barrier()
 

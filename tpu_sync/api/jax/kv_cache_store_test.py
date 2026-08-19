@@ -179,11 +179,15 @@ class KVCacheStoreTest(absltest.TestCase):
     # "one of these already existed" as a failure.
     self.assertTrue(controller.insert(hashes, slices, True))
     self.assertTrue(controller.insert(hashes, slices, True))
-    # Two inserts, two pins each; hand them back so delete() below can work.
+    # Two inserts granted two pins each; hand them all back -- these cases
+    # only need the blocks resident.
+    controller.release(hashes)
+    controller.release(hashes)
 
-    # 2. Lookup with a partial miss at the end
+    # 2. Lookup with a partial miss at the end. pin_found=False: these lookups
+    # only observe, so they take no pin and leave the LRU order alone.
     hashes_with_miss = [b"6001", b"6002", b"6003"]
-    lookup_res = controller.lookup(hashes_with_miss)
+    lookup_res = controller.lookup(hashes_with_miss, pin_found=False)
     self.assertLen(lookup_res, 2)
     self.assertEqual(lookup_res[0][0], b"6001")
     self.assertEqual(lookup_res[0][1].raiden_id.job_name, "inference_server")
@@ -191,14 +195,13 @@ class KVCacheStoreTest(absltest.TestCase):
 
     # Lookup with an early miss
     hashes_early_miss = [b"6001", b"6003", b"6002"]
-    lookup_res_early = controller.lookup(hashes_early_miss)
+    lookup_res_early = controller.lookup(hashes_early_miss, pin_found=False)
     self.assertLen(lookup_res_early, 1)
     self.assertEqual(lookup_res_early[0][0], b"6001")
 
-    # 3. Delete
-    self.assertTrue(
-        controller.insert(hashes, slices, True)
-    )  # Successful again
+    # 3. Re-insert once more: still succeeds, and still pins.
+    self.assertTrue(controller.insert(hashes, slices, True))
+    controller.release(hashes)
 
 
 
@@ -284,8 +287,9 @@ class KVCacheStoreTest(absltest.TestCase):
     ]
 
     self.assertTrue(controller.insert(hashes, slices, True))
+    controller.release(hashes)  # insert pins; these cases only need residency
 
-    lookup_res = controller.lookup(hashes)
+    lookup_res = controller.lookup(hashes, pin_found=False)
     self.assertLen(lookup_res, 2)
     self.assertEqual(lookup_res[0][0], large_hash)
     self.assertEqual(lookup_res[1][0], long_hash)
@@ -301,8 +305,9 @@ class KVCacheStoreTest(absltest.TestCase):
         kv_cache_store.RaidenId("local_job", "0", "kv_cache", 0),
     ]
     self.assertTrue(controller.insert(hashes, slices, True))
+    controller.release(hashes)  # insert pins; this case only needs residency
 
-    res = controller.lookup(hashes, enable_global=True)
+    res = controller.lookup(hashes, enable_global=True, pin_found=False)
     self.assertLen(res, 1)
     self.assertEqual(res[0][0], b"local_only")
     self.assertEqual(res[0][1].raiden_id.job_name, "local_job")
@@ -500,6 +505,10 @@ class KVCacheStoreTest(absltest.TestCase):
         )
     ]
     self.assertTrue(store.insert([b"hash2"], slices_2, True))
+    # insert() pins what it takes, but that pin is what a save() consumes.
+    # This flow reads instead -- lookup() -> load() -- so hand insert's pins
+    # back and let the lookup below grant the one the load spends.
+    store.release([b"hash1", b"hash2"])
 
     lookup_res = store.lookup([b"hash1", b"hash2"])
     self.assertLen(lookup_res, 2)
@@ -525,8 +534,8 @@ class KVCacheStoreTest(absltest.TestCase):
       np.testing.assert_array_equal(device_data[5], device_data[0])
       np.testing.assert_array_equal(device_data[6], device_data[1])
 
-    # Verify LRU Status Upgrade in Store
-    lookup_res1 = store.lookup([b"hash1"])
+    # Verify LRU Status Upgrade in Store. pin_found=False: observation only.
+    lookup_res1 = store.lookup([b"hash1"], pin_found=False)
     self.assertLen(lookup_res1, 1)
     self.assertEqual(
         lookup_res1[0][1].status, kv_cache_store.BlockStatus.HOST_AND_HBM
@@ -534,7 +543,7 @@ class KVCacheStoreTest(absltest.TestCase):
     self.assertEqual(lookup_res1[0][1].host_block_id, 3)
     self.assertEqual(lookup_res1[0][1].device_block_id, 5)
 
-    lookup_res2 = store.lookup([b"hash2"])
+    lookup_res2 = store.lookup([b"hash2"], pin_found=False)
     self.assertLen(lookup_res2, 1)
     self.assertEqual(
         lookup_res2[0][1].status, kv_cache_store.BlockStatus.HOST_AND_HBM
@@ -618,6 +627,10 @@ class KVCacheStoreTest(absltest.TestCase):
         )
     )
 
+    # insert() pinned the two entries; the read flow's pin comes from the
+    # lookup below, so hand insert's back first.
+    store.release(hashes)
+
     # lookup() pins the returned entries; load(..., slices=slices) consumes
     # the pin on success.
     looked_up = store.lookup(hashes)
@@ -649,16 +662,13 @@ class KVCacheStoreTest(absltest.TestCase):
         (hashes[0], 3, 5),
         (hashes[1], 4, 6),
     ):
-      res = store.lookup([hash_val])
+      res = store.lookup([hash_val], pin_found=False)
       self.assertLen(res, 1)
       self.assertEqual(
           res[0][1].status, kv_cache_store.BlockStatus.HOST_AND_HBM
       )
       self.assertEqual(res[0][1].host_block_id, expected_host)
       self.assertEqual(res[0][1].device_block_id, expected_device)
-
-    # The verification lookups above pinned what they returned; the save and
-    # load themselves consumed the pins they were given.
 
   def test_e2e_save(self):
     """Tests end-to-end save (D2H) and load (H2D) back on TPU."""
@@ -748,8 +758,9 @@ class KVCacheStoreTest(absltest.TestCase):
       time.sleep(0.1)
     self.assertTrue(done, "Save did not finish in time")
 
-    # Verify status in LRU is HOST_AND_HBM, and host_block_id is allocated
-    lookup_res1 = store.lookup([b"hash1"])
+    # Verify status in LRU is HOST_AND_HBM, and host_block_id is allocated.
+    # pin_found=False: observation only, no pin taken.
+    lookup_res1 = store.lookup([b"hash1"], pin_found=False)
     self.assertLen(lookup_res1, 1)
     self.assertEqual(
         lookup_res1[0][1].status, kv_cache_store.BlockStatus.HOST_AND_HBM
@@ -757,7 +768,7 @@ class KVCacheStoreTest(absltest.TestCase):
     host_block_id1 = lookup_res1[0][1].host_block_id
     self.assertGreaterEqual(host_block_id1, 0)
 
-    lookup_res2 = store.lookup([b"hash2"])
+    lookup_res2 = store.lookup([b"hash2"], pin_found=False)
     self.assertLen(lookup_res2, 1)
     self.assertEqual(
         lookup_res2[0][1].status, kv_cache_store.BlockStatus.HOST_AND_HBM
@@ -845,11 +856,17 @@ class KVCacheStoreTest(absltest.TestCase):
             True,
         )
     )
+    # The documented remote-save flow: insert only fabricates residency and
+    # hands its pin back; lookup() grants the pin save(dst) would consume.
+    store.release([b"a"])
+    self.assertLen(store.lookup([b"a"]), 1)
     self.assertFalse(
         store.save(
             [b"a"], kv_cache_store.RaidenId("wr_dst", "0", "kv_cache", 0)
         )
     )
+    # The refused save consumed nothing; give the lookup's pin back.
+    store.release([b"a"])
 
   def test_remote_save_all_exist_settles_done(self):
     src = self._make_registry_store("wr_src_allexist")
@@ -870,7 +887,13 @@ class KVCacheStoreTest(absltest.TestCase):
         for i in range(len(hashes))
     ]
     self.assertTrue(src.insert(hashes, src_slices, True))
+    src.release(hashes)  # insert fabricates residency; lookup grants the pin
     self.assertTrue(dst.insert(hashes, dst_slices, True))
+    dst.release(hashes)  # destination state only; nothing consumes these
+
+    # The documented remote-save flow: lookup() answers "host-resident here"
+    # AND grants the pin the successful save(dst) below consumes.
+    self.assertLen(src.lookup(hashes), len(hashes))
 
     # The destination already holds every offered hash. That is a SUCCESS:
     # hashes are content-addressed, so the peer having them is exactly the
@@ -902,6 +925,7 @@ class KVCacheStoreTest(absltest.TestCase):
             True,
         )
     )
+    src.release(hashes)  # insert fabricates residency; lookup grants the pin
     # Only one of the two.
     self.assertTrue(
         dst.insert(
@@ -914,7 +938,9 @@ class KVCacheStoreTest(absltest.TestCase):
             True,
         )
     )
+    dst.release([hashes[0]])  # destination state only
 
+    self.assertLen(src.lookup(hashes), len(hashes))
     self.assertTrue(src.save(hashes, dst_id))
     done, failed, pending, existing, unregistered = (
         src.poll_save_status()
@@ -948,6 +974,7 @@ class KVCacheStoreTest(absltest.TestCase):
             True,
         )
     )
+    src.release([binary_hash])  # insert fabricates residency
     self.assertTrue(
         dst.insert(
             [binary_hash],
@@ -959,7 +986,10 @@ class KVCacheStoreTest(absltest.TestCase):
             True,
         )
     )
+    dst.release([binary_hash])  # destination state only
 
+    # lookup() grants the pin the successful save(dst) consumes.
+    self.assertLen(src.lookup([binary_hash]), 1)
     self.assertTrue(src.save([binary_hash], dst_id))
     done, failed, _, _, _ = src.poll_save_status()
     self.assertCountEqual(done, [binary_hash])

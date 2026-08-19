@@ -224,8 +224,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     self.assertTrue(store.insert(hashes, slices, on_host=False))
 
     # Verify status in store is HBM
-    lookup_res = store.lookup(hashes)
-    store.release(hashes)
+    lookup_res = store.lookup(hashes, pin_found=False)
     self.assertLen(lookup_res, 2)
     self.assertEqual(lookup_res[0][1].status, kv_cache_store.BlockStatus.HBM)
     self.assertEqual(lookup_res[0][1].device_block_id, 0)
@@ -254,8 +253,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
         time.sleep(0.01)
 
     # Verify status in store is updated to HOST_AND_HBM
-    lookup_res = store.lookup(hashes)
-    store.release(hashes)
+    lookup_res = store.lookup(hashes, pin_found=False)
     self.assertLen(lookup_res, 2)
     self.assertEqual(
         lookup_res[0][1].status, kv_cache_store.BlockStatus.HOST_AND_HBM
@@ -435,8 +433,10 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
 
       # 5. Job B calls Lookup (enable_global=True)
       time.sleep(0.5)
-      lookup_res_b = store_b.lookup(hashes, enable_global=True)
-      store_b.release(hashes)
+      # Registry-resolved hits are REMOTE and never pinned locally.
+      lookup_res_b = store_b.lookup(
+          hashes, enable_global=True, pin_found=False
+      )
       self.assertLen(lookup_res_b, 2)
 
       # Verify REMOTE status and owner job_a
@@ -453,8 +453,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
       self.assertEqual(lookup_res_b[1][1].raiden_id, rid_a)
 
       # Verify correct source host block IDs
-      lookup_res_a = store_a.lookup(hashes)
-      store_a.release(hashes)
+      lookup_res_a = store_a.lookup(hashes, pin_found=False)
       self.assertEqual(
           lookup_res_b[0][1].host_block_id, lookup_res_a[0][1].host_block_id
       )
@@ -498,8 +497,6 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
       # local record of it either. Job B's cache is still a miss for these
       # hashes: the bytes live only in the device blocks it named.
       self.assertEmpty(store_b.lookup(hashes))
-
-      store_b.release(hashes)
 
       # 9. Verify byte-exact match on Job B TPU device
       try:
@@ -652,7 +649,8 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
       self.assertCountEqual(done, hashes)
       self.assertEmpty(failed)
       self.assertEmpty(existing)
-      store_a.release(hashes)
+      # No release: the successful remote save consumed the pin lookup()
+      # granted.
 
       # 3. Job B holds them locally, host-resident, as its own. lookup() resolves
       #    and pins the landed entries.

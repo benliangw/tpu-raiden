@@ -115,15 +115,21 @@ class KVCacheStoreTest(absltest.TestCase):
         kv_cache_store.RaidenId("inference_server", "1", "kv_cache", 0),
     ]
 
-    # 1. Insert
+    # 1. Insert. Re-inserting hashes that are already present succeeds:
+    # insert pins what is there and inserts what is not.
     self.assertTrue(controller.insert(hashes, slices, True))
     self.assertTrue(
         controller.insert(hashes, slices, True)
     )  # Already exists
+    # Two inserts granted two pins each; hand them all back -- these cases
+    # only need the blocks resident.
+    controller.release(hashes)
+    controller.release(hashes)
 
-    # 2. Lookup with a partial miss at the end
+    # 2. Lookup with a partial miss at the end. pin_found=False: observation
+    # only, no pin taken.
     hashes_with_miss = [b"6001", b"6002", b"6003"]
-    lookup_res = controller.lookup(hashes_with_miss)
+    lookup_res = controller.lookup(hashes_with_miss, pin_found=False)
     self.assertLen(lookup_res, 2)
     self.assertEqual(lookup_res[0][0], b"6001")
     self.assertEqual(lookup_res[0][1].raiden_id.job_name, "inference_server")
@@ -131,14 +137,13 @@ class KVCacheStoreTest(absltest.TestCase):
 
     # Lookup with an early miss
     hashes_early_miss = [b"6001", b"6003", b"6002"]
-    lookup_res_early = controller.lookup(hashes_early_miss)
+    lookup_res_early = controller.lookup(hashes_early_miss, pin_found=False)
     self.assertLen(lookup_res_early, 1)
     self.assertEqual(lookup_res_early[0][0], b"6001")
 
-    # 3. Delete
-    self.assertTrue(
-        controller.insert(hashes, slices, True)
-    )  # Successful again
+    # 3. Re-insert once more: still succeeds, and still pins.
+    self.assertTrue(controller.insert(hashes, slices, True))
+    controller.release(hashes)
 
 
 
@@ -157,8 +162,9 @@ class KVCacheStoreTest(absltest.TestCase):
     ]
 
     self.assertTrue(controller.insert(hashes, slices, True))
+    controller.release(hashes)  # insert pins; these cases only need residency
 
-    lookup_res = controller.lookup(hashes)
+    lookup_res = controller.lookup(hashes, pin_found=False)
     self.assertLen(lookup_res, 2)
     self.assertEqual(lookup_res[0][0], large_hash)
     self.assertEqual(lookup_res[1][0], long_hash)
@@ -174,8 +180,9 @@ class KVCacheStoreTest(absltest.TestCase):
         kv_cache_store.RaidenId("local_job", "0", "kv_cache", 0),
     ]
     self.assertTrue(controller.insert(hashes, slices, True))
+    controller.release(hashes)  # insert pins; this case only needs residency
 
-    res = controller.lookup(hashes, enable_global=True)
+    res = controller.lookup(hashes, enable_global=True, pin_found=False)
     self.assertLen(res, 1)
     self.assertEqual(res[0][0], b"local_only")
     self.assertEqual(res[0][1].raiden_id.job_name, "local_job")

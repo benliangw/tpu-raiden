@@ -886,9 +886,10 @@ TEST(KVCacheStoreTest, EvictRaceCondition) {
   size_t evicted = KVCacheStoreTest::Evict(store, {"local_1"});
   EXPECT_EQ(evicted, 0);
 
-  // Verify local_1 is still in the cache and pinned
+  // Verify local_1 is still in the cache and pinned. PeekLookup: the pin
+  // count above is the subject, so the check must not add one of its own.
   EXPECT_EQ(store.GetPinCount("local_1"), 1);
-  auto lookup_res = store.Lookup({"local_1"});
+  auto lookup_res = PeekLookup(store, {"local_1"});
   ASSERT_TRUE(lookup_res.ok());
   EXPECT_EQ(lookup_res->size(), 1);
 }
@@ -1166,7 +1167,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, SaveSuccess) {
   EXPECT_THAT(mock_mgr.last_dst_offsets, ElementsAre(0, 1));
 
   // Verify status in store is updated to HOST_AND_HBM
-  auto lookup_res = store.Lookup(hashes);
+  auto lookup_res = PeekLookup(store, hashes);
   ASSERT_TRUE(lookup_res.ok());
   ASSERT_EQ(lookup_res->size(), 2);
   EXPECT_EQ((*lookup_res)[0].second.status, BlockStatus::HOST_AND_HBM);
@@ -1228,7 +1229,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadSuccess) {
   EXPECT_THAT(mock_mgr.last_dst_offsets, ElementsAre(2, 3));
 
   // Verify status in store is updated to HOST_AND_HBM
-  auto lookup_res = store.Lookup(hashes);
+  auto lookup_res = PeekLookup(store, hashes);
   ASSERT_TRUE(lookup_res.ok());
   ASSERT_EQ(lookup_res->size(), 2);
   EXPECT_EQ((*lookup_res)[0].second.status, BlockStatus::HOST_AND_HBM);
@@ -1722,7 +1723,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, SaveMultiWorkerSuccess) {
   EXPECT_THAT(mock_mgr_1.last_src_offsets, ElementsAre(0, 1));
   EXPECT_THAT(mock_mgr_1.last_dst_offsets, ElementsAre(0, 1));
 
-  auto lookup_res = store.Lookup(hashes);
+  auto lookup_res = PeekLookup(store, hashes);
   ASSERT_TRUE(lookup_res.ok());
   ASSERT_EQ(lookup_res->size(), 2);
   EXPECT_EQ((*lookup_res)[0].second.status, BlockStatus::HOST_AND_HBM);
@@ -1791,7 +1792,7 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, LoadMultiWorkerSuccess) {
   EXPECT_THAT(mock_mgr_1.last_src_offsets, ElementsAre(0, 1));
   EXPECT_THAT(mock_mgr_1.last_dst_offsets, ElementsAre(2, 3));
 
-  auto lookup_res = store.Lookup(hashes);
+  auto lookup_res = PeekLookup(store, hashes);
   ASSERT_TRUE(lookup_res.ok());
   ASSERT_EQ(lookup_res->size(), 2);
   EXPECT_EQ((*lookup_res)[0].second.status, BlockStatus::HOST_AND_HBM);
@@ -1930,15 +1931,13 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, EvictByHashesHostAndHbmToErased) {
   // 4. Insert them as HOST_AND_HBM blocks locally
   ASSERT_TRUE(InsertResident(store, hashes, slices, true));
 
-  // Sanity check: verify they are lookable before evict
+  // Sanity check: verify they are lookable before evict. PeekLookup takes
+  // no pin, so the evict below still has something it is allowed to reclaim.
   {
-    auto lookup_res = store.Lookup({"hash_1", "hash_2"});
+    auto lookup_res = PeekLookup(store, {"hash_1", "hash_2"});
     ASSERT_TRUE(lookup_res.ok());
     ASSERT_EQ(lookup_res->size(), 2);
   }
-  // ...and give back the pins that check took, or the evict below has nothing
-  // it is allowed to reclaim.
-  store.Release({"hash_1", "hash_2"});
 
   // 5. Check locked blocks on controller
   auto* controller_ptr = KVCacheStoreTest::GetController(store);
@@ -1951,12 +1950,12 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, EvictByHashesHostAndHbmToErased) {
 
   // 7. Verify "hash_1" is erased and "hash_2" is unchanged
   {
-    auto lookup_res = store.Lookup({"hash_1"});
+    auto lookup_res = PeekLookup(store, {"hash_1"});
     ASSERT_TRUE(lookup_res.ok());
     ASSERT_EQ(lookup_res->size(), 0);
   }
   {
-    auto lookup_res = store.Lookup({"hash_2"});
+    auto lookup_res = PeekLookup(store, {"hash_2"});
     ASSERT_TRUE(lookup_res.ok());
     ASSERT_EQ(lookup_res->size(), 1);
     EXPECT_EQ((*lookup_res)[0].first, "hash_2");
@@ -2027,8 +2026,8 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, EvictByHashesHostToErased) {
   // Verify "hash_1" is completely erased, but "hash_2" is still there
   // Since Lookup stops at first miss, Lookup({"hash_1", "hash_2"}) should
   // return 0 items. Lookup({"hash_2"}) should return 1 item.
-  EXPECT_EQ(store.Lookup({"hash_1", "hash_2"})->size(), 0);
-  auto lookup_res = store.Lookup({"hash_2"});
+  EXPECT_EQ(PeekLookup(store, {"hash_1", "hash_2"})->size(), 0);
+  auto lookup_res = PeekLookup(store, {"hash_2"});
   ASSERT_TRUE(lookup_res.ok());
   ASSERT_EQ(lookup_res->size(), 1);
   EXPECT_EQ((*lookup_res)[0].first, "hash_2");
@@ -2231,19 +2230,19 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, ProactiveEvictionWithCandidates) {
       absl::SleepFor(absl::Milliseconds(10));
     }
   }
-  store.Release(hash_D);
+  // No release: the successful save consumed the pin the Lookup granted.
 
   // 7. Verify states:
   // - B should be erased (since it was HOST_AND_HBM and got evicted)
   // - A should remain in candidates (HOST_AND_HBM)
   // - D should be HOST_AND_HBM
   {
-    auto lookup_res = store.Lookup({"hash_B"});
+    auto lookup_res = PeekLookup(store, {"hash_B"});
     ASSERT_TRUE(lookup_res.ok());
     ASSERT_EQ(lookup_res->size(), 0);
   }
   {
-    auto lookup_res = store.Lookup({"hash_D"});
+    auto lookup_res = PeekLookup(store, {"hash_D"});
     ASSERT_TRUE(lookup_res.ok());
     ASSERT_EQ(lookup_res->size(), 1);
     EXPECT_EQ((*lookup_res)[0].second.status, BlockStatus::HOST_AND_HBM);
