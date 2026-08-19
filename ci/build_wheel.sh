@@ -81,8 +81,9 @@ if [[ "${BUILD_MODE}" == "torch" ]]; then
   DOCKER_MOUNTS+=(-v "${TORCH_TPU_SRC}:/torch_tpu")  # sibling ../torch_tpu == /torch_tpu
 fi
 
-# The in-container build: install clang-18 (XLA .ll targets) + CPU torch (shim
-# headers), then drive the existing build.sh for the wheel target.
+# The in-container build: install clang-18 (XLA .ll targets), libstdc++-12 (the
+# standard library clang compiles against) + CPU torch (shim headers), then
+# drive the existing build.sh for the wheel target.
 read -r -d '' INNER <<'INNER_EOF' || true
 set -exu -o pipefail
 export DEBIAN_FRONTEND=noninteractive
@@ -94,7 +95,13 @@ wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/sha
 echo "deb [signed-by=/usr/share/keyrings/llvm.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" \
   > /etc/apt/sources.list.d/llvm18.list
 apt-get update -qq
-apt-get install -y -qq clang-18 >/dev/null
+# clang ships no standard library of its own: it compiles against the newest
+# GCC installation present. The container carries only libstdc++ 11, which
+# predates parts of the C++20 library this code uses, so 12 is installed
+# alongside it and clang selects it automatically. Its runtime is already the
+# one the container ships (libstdc++.so.6.0.30), so nothing new is required at
+# load time.
+apt-get install -y -qq clang-18 libstdc++-12-dev >/dev/null
 ln -sf /usr/bin/clang-18 /usr/bin/clang
 ln -sf /usr/bin/clang++-18 /usr/bin/clang++
 clang --version | head -1
