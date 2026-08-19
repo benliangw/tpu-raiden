@@ -1,0 +1,26 @@
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1787110899.307269       1 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1787110899.317324       1 tpu_profiler_plugin.cc:707] PyTorch PrivateUse1ProfilerRegistry not found. Native TPU profiling will be disabled (this is expected on PyTorch < 2.12).
+I0000 00:00:1787110900.892117       1 device_rt.cc:124] PjRt runtime initialization deferred for tpu
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+INFO 08-19 03:41:41 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-19 03:41:41 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-19 03:41:41 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 08-19 03:41:42 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-19 03:41:42 [tpu_info.py:26] 
+INFO 08-19 03:41:42 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-19 03:41:42 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 08-19 03:41:42 [tpu_platform.py:1105] Pin memory is not supported on TPU.
+INFO 08-19 03:41:49 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-19 03:41:49 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+(APIServer pid=1) INFO 08-19 03:41:51 [api_utils.py:339] 
+(APIServer pid=1) INFO 08-19 03:41:51 [api_utils.py:339]        █     █     █▄   ▄█
+(APIServer pid=1) INFO 08-19 03:41:51 [api_utils.py:339]  ▄▄ ▄█ █     █     █ ▀▄▀ █  version 0.23.1rc1.dev927+gc0e8e1f12.d20260708
+(APIServer pid=1) INFO 08-19 03:41:51 [api_utils.py:339]   █▄█▀ █     █     █     █  model   Qwen/Qwen3.5-4B
+(APIServer pid=1) INFO 08-19 03:41:51 [api_utils.py:339]    ▀▀  ▀▀▀▀▀ ▀▀▀▀▀ ▀     ▀
+(APIServer pid=1) INFO 08-19 03:41:51 [api_utils.py:339] 
+(APIServer pid=1) INFO 08-19 03:41:51 [api_utils.py:273] non-default args: {'model_tag': 'Qwen/Qwen3.5-4B', 'model': 'Qwen/Qwen3.5-4B', 'max_model_len': 1024, 'tensor_parallel_size': 4, 'gpu_memory_utilization': 0.5, 'kv_cache_memory_bytes': 34359738368, 'enable_prefix_caching': False, 'language_model_only': True, 'limit_mm_per_prompt': {'image': 0, 'video': 0}, 'max_num_batched_tokens': 256, 'disable_hybrid_kv_cache_manager': False, 'kv_transfer_config': KVTransferConfig(kv_connector='TPUConnector', engine_id='6236abe4-2949-45aa-9a8b-a4c0e8a2e1a4', kv_buffer_device='tpu', kv_buffer_size=1000000000.0, kv_role='kv_producer', kv_rank=None, kv_parallel_size=1, kv_ip='127.0.0.1', kv_port=14579, kv_connector_extra_config={}, kv_connector_module_path='vllm_torchtpu.distributed.kv_transfer.tpu_connector', enable_permute_local_kv=False, kv_load_failure_policy='fail')}
+

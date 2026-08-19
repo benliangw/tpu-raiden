@@ -1,0 +1,95 @@
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1787110773.053026       1 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1787110773.158913       1 tpu_profiler_plugin.cc:707] PyTorch PrivateUse1ProfilerRegistry not found. Native TPU profiling will be disabled (this is expected on PyTorch < 2.12).
+I0000 00:00:1787110784.108645       1 device_rt.cc:124] PjRt runtime initialization deferred for tpu
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+INFO 08-19 03:39:44 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-19 03:39:44 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-19 03:39:44 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 08-19 03:39:49 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-19 03:39:49 [tpu_info.py:26] 
+INFO 08-19 03:39:49 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-19 03:39:49 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 08-19 03:39:49 [tpu_platform.py:1105] Pin memory is not supported on TPU.
+INFO 08-19 03:40:05 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-19 03:40:05 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+(APIServer pid=1) INFO 08-19 03:40:16 [api_utils.py:339] 
+(APIServer pid=1) INFO 08-19 03:40:16 [api_utils.py:339]        █     █     █▄   ▄█
+(APIServer pid=1) INFO 08-19 03:40:16 [api_utils.py:339]  ▄▄ ▄█ █     █     █ ▀▄▀ █  version 0.23.1rc1.dev927+gc0e8e1f12.d20260708
+(APIServer pid=1) INFO 08-19 03:40:16 [api_utils.py:339]   █▄█▀ █     █     █     █  model   Qwen/Qwen3.5-4B
+(APIServer pid=1) INFO 08-19 03:40:16 [api_utils.py:339]    ▀▀  ▀▀▀▀▀ ▀▀▀▀▀ ▀     ▀
+(APIServer pid=1) INFO 08-19 03:40:16 [api_utils.py:339] 
+(APIServer pid=1) INFO 08-19 03:40:16 [api_utils.py:273] non-default args: {'model_tag': 'Qwen/Qwen3.5-4B', 'port': 7200, 'model': 'Qwen/Qwen3.5-4B', 'max_model_len': 1024, 'tensor_parallel_size': 4, 'gpu_memory_utilization': 0.5, 'kv_cache_memory_bytes': 34359738368, 'enable_prefix_caching': False, 'language_model_only': True, 'limit_mm_per_prompt': {'image': 0, 'video': 0}, 'max_num_batched_tokens': 256, 'disable_hybrid_kv_cache_manager': False, 'kv_transfer_config': KVTransferConfig(kv_connector='TPUConnector', engine_id='e2329eb5-c254-4db0-a5d8-85b75d6f4334', kv_buffer_device='tpu', kv_buffer_size=1000000000.0, kv_role='kv_consumer', kv_rank=None, kv_parallel_size=1, kv_ip='127.0.0.1', kv_port=14579, kv_connector_extra_config={}, kv_connector_module_path='vllm_torchtpu.distributed.kv_transfer.tpu_connector', enable_permute_local_kv=False, kv_load_failure_policy='fail')}
+(APIServer pid=1) INFO 08-19 03:40:34 [model.py:619] Resolved architecture: Qwen3_5ForConditionalGeneration
+(APIServer pid=1) INFO 08-19 03:40:34 [model.py:1776] Using max model len 1024
+(APIServer pid=1) INFO 08-19 03:40:34 [scheduler.py:252] Chunked prefill is enabled with max_num_batched_tokens=256.
+(APIServer pid=1) INFO 08-19 03:40:34 [vllm.py:1061] Asynchronous scheduling is enabled.
+(APIServer pid=1) INFO 08-19 03:40:34 [kernel.py:292] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+(APIServer pid=1) INFO 08-19 03:40:36 [__init__.py:43] Applied TPU patch: allow PCP through GPU-specific V2 checks.
+(APIServer pid=1) INFO 08-19 03:40:36 [__init__.py:121] Applied TPU patch: include compiler hash in AOT cache key.
+(APIServer pid=1) INFO 08-19 03:40:36 [__init__.py:171] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold'] from the compile cache key.
+(APIServer pid=1) INFO 08-19 03:40:36 [__init__.py:201] Applied TPU patch: disable vLLM custom collective ops.
+(APIServer pid=1) INFO 08-19 03:40:36 [__init__.py:222] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+(APIServer pid=1) INFO 08-19 03:40:36 [__init__.py:254] Applied TPU patch: use explicit PCP collectives for monolithic MoE.
+(APIServer pid=1) INFO 08-19 03:40:36 [__init__.py:317] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+(APIServer pid=1) INFO 08-19 03:40:36 [__init__.py:456] Applied TPU patch: disable sequence-parallel MoE.
+(APIServer pid=1) INFO 08-19 03:40:36 [__init__.py:525] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+(APIServer pid=1) INFO 08-19 03:40:36 [__init__.py:439] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+(APIServer pid=1) INFO 08-19 03:40:36 [__init__.py:291] Applied TPU patch: host-side expert-map lookup.
+(APIServer pid=1) INFO 08-19 03:40:36 [__init__.py:969] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+(APIServer pid=1) Traceback (most recent call last):
+(APIServer pid=1)   File "/usr/local/bin/vllm", line 10, in <module>
+(APIServer pid=1)     sys.exit(main())
+(APIServer pid=1)              ^^^^^^
+(APIServer pid=1)   File "/root/cloud-devkit/vllm/vllm/entrypoints/cli/main.py", line 95, in main
+(APIServer pid=1)     args.dispatch_function(args)
+(APIServer pid=1)   File "/root/cloud-devkit/vllm/vllm/entrypoints/cli/serve.py", line 148, in cmd
+(APIServer pid=1)     uvloop.run(run_server(args))
+(APIServer pid=1)   File "/usr/local/lib/python3.12/site-packages/uvloop/__init__.py", line 96, in run
+(APIServer pid=1)     return __asyncio.run(
+(APIServer pid=1)            ^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/asyncio/runners.py", line 195, in run
+(APIServer pid=1)     return runner.run(main)
+(APIServer pid=1)            ^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/asyncio/runners.py", line 118, in run
+(APIServer pid=1)     return self._loop.run_until_complete(task)
+(APIServer pid=1)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+(APIServer pid=1)   File "/usr/local/lib/python3.12/site-packages/uvloop/__init__.py", line 48, in wrapper
+(APIServer pid=1)     return await main
+(APIServer pid=1)            ^^^^^^^^^^
+(APIServer pid=1)   File "/root/cloud-devkit/vllm/vllm/entrypoints/openai/api_server.py", line 759, in run_server
+(APIServer pid=1)     await run_server_worker(listen_address, sock, args, **uvicorn_kwargs)
+(APIServer pid=1)   File "/root/cloud-devkit/vllm/vllm/entrypoints/openai/api_server.py", line 773, in run_server_worker
+(APIServer pid=1)     async with build_async_engine_client(
+(APIServer pid=1)                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=1)     return await anext(self.gen)
+(APIServer pid=1)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/root/cloud-devkit/vllm/vllm/entrypoints/openai/api_server.py", line 139, in build_async_engine_client
+(APIServer pid=1)     async with build_async_engine_client_from_engine_args(
+(APIServer pid=1)                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=1)     return await anext(self.gen)
+(APIServer pid=1)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/root/cloud-devkit/vllm/vllm/entrypoints/openai/api_server.py", line 163, in build_async_engine_client_from_engine_args
+(APIServer pid=1)     vllm_config = engine_args.create_engine_config(usage_context=usage_context)
+(APIServer pid=1)                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/root/cloud-devkit/vllm/vllm/engine/arg_utils.py", line 2338, in create_engine_config
+(APIServer pid=1)     config = VllmConfig(
+(APIServer pid=1)              ^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/site-packages/pydantic/_internal/_dataclasses.py", line 121, in __init__
+(APIServer pid=1)     s.__pydantic_validator__.validate_python(ArgsKwargs(args, kwargs), self_instance=s)
+(APIServer pid=1)   File "/root/cloud-devkit/vllm/vllm/config/vllm.py", line 1404, in __post_init__
+(APIServer pid=1)     current_platform.check_and_update_config(self)
+(APIServer pid=1)   File "/root/torchtpu-vllm/src/vllm_torchtpu/platforms/tpu_platform.py", line 798, in check_and_update_config
+(APIServer pid=1)     apply_tpu_patches()
+(APIServer pid=1)   File "/root/torchtpu-vllm/src/vllm_torchtpu/platforms/tpu_platform.py", line 346, in apply_tpu_patches
+(APIServer pid=1)     _patch_vllm_offloading_config_build()
+(APIServer pid=1)   File "/root/torchtpu-vllm/src/vllm_torchtpu/__init__.py", line 599, in _patch_vllm_offloading_config_build
+(APIServer pid=1)     from vllm.distributed.kv_transfer.kv_connector.v1.offloading import \
+(APIServer pid=1) ImportError: cannot import name 'config' from 'vllm.distributed.kv_transfer.kv_connector.v1.offloading' (/root/cloud-devkit/vllm/vllm/distributed/kv_transfer/kv_connector/v1/offloading/__init__.py)
+
