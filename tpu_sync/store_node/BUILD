@@ -133,3 +133,32 @@ cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "kv_cache_evict_e2e_test",
+    srcs = ["kv_cache_evict_e2e_test.cc"],
+    copts = [
+        "-fno-strict-aliasing",
+        "-fexceptions",
+    ],
+    features = ["-use_header_modules"],
+    deps = [
+        ":kv_cache_host_store_node",
+        ":kv_transfer_spec_source",
+        "//tpu_sync/core:kv_cache_manager_with_transfer",
+        "//tpu_sync/core:kv_manager_holder",
+        "//tpu_sync/core:status_macros",
+        "//tpu_sync/core/controller:controller_client",
+        "//tpu_sync/core/controller:worker_service_server",
+        "//tpu_sync/kv_cache:kv_cache_store",
+        "//tpu_sync/kv_cache:kv_cache_store_backend",
+        "//tpu_sync/kv_cache:kv_cache_store_backend_factory",
+        "//tpu_sync/kv_cache:raiden_id",
+        "//tpu_sync/kv_cache/global_registry:test_util",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

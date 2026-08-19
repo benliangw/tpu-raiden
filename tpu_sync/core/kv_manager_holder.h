@@ -137,6 +137,22 @@ inline constexpr bool has_vector_h2h_read_explicit_v =
     has_vector_h2h_read_explicit<T>::value;
 
 template <typename T, typename = void>
+struct has_peer_h2h_read_explicit : std::false_type {};
+
+template <typename T>
+struct has_peer_h2h_read_explicit<
+    T, std::void_t<decltype(std::declval<T&>().H2hReadExplicit(
+           std::declval<std::string>(),
+           std::declval<const std::vector<int>&>(),
+           std::declval<const std::vector<int>&>(),
+           std::declval<const std::vector<uint8_t*>&>()))>> : std::true_type {
+};
+
+template <typename T>
+inline constexpr bool has_peer_h2h_read_explicit_v =
+    has_peer_h2h_read_explicit<T>::value;
+
+template <typename T, typename = void>
 struct has_vector_h2d_read : std::false_type {};
 
 template <typename T>
@@ -264,9 +280,20 @@ class KVManagerHolder {
     absl::StatusOr<raiden::PjRtCopyFuture> H2hRead(
         absl::string_view peer, const std::vector<int64_t>& src_offsets,
         const std::vector<int64_t>& dst_offsets) override {
-      (void)dst_offsets;  // H2hRead in KVCacheManagerBase auto-allocates
-                          // destination blocks.
       ASSIGN_OR_RETURN(std::vector<int> src_ids, SafeCastOffsets(src_offsets));
+      // When the caller named its destination blocks, land the data THERE:
+      // plain H2hRead auto-allocates destination blocks from the manager's
+      // own accounting, which neither matches the ids the caller reserved
+      // and committed to its directory nor respects blocks the controller
+      // already handed out.
+      if constexpr (internal::has_peer_h2h_read_explicit_v<T>) {
+        if (!dst_offsets.empty()) {
+          ASSIGN_OR_RETURN(std::vector<int> dst_ids,
+                           SafeCastOffsets(dst_offsets));
+          return impl_->H2hReadExplicit(std::string(peer), src_ids, dst_ids,
+                                        /*explicit_dst_ptrs=*/{});
+        }
+      }
       ASSIGN_OR_RETURN(auto res, impl_->H2hRead(std::string(peer), src_ids));
       return res.second;
     }
@@ -294,6 +321,16 @@ class KVManagerHolder {
           ASSIGN_OR_RETURN(std::vector<int> dst_ids,
                            SafeCastOffsets(dst_offsets));
           return impl_->H2hReadExplicit(remote_descriptors, src_ids, dst_ids);
+        }
+      } else if constexpr (internal::has_peer_h2h_read_explicit_v<T>) {
+        // No descriptor-shaped explicit read; the peer-string one lands the
+        // blocks just as precisely.
+        if (!dst_offsets.empty() && !remote_descriptors.empty()) {
+          ASSIGN_OR_RETURN(std::vector<int> dst_ids,
+                           SafeCastOffsets(dst_offsets));
+          return impl_->H2hReadExplicit(remote_descriptors[0].endpoint,
+                                        src_ids, dst_ids,
+                                        /*explicit_dst_ptrs=*/{});
         }
       }
       if constexpr (internal::has_vector_h2h_read_v<T>) {
