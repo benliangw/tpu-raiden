@@ -1,0 +1,723 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-prefill
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm-prefill
+  template:
+    metadata:
+      labels:
+        app: vllm-prefill
+    spec:
+      serviceAccountName: default
+      nodeSelector:
+        cloud.google.com/gke-tpu-topology: 2x2x1
+        cloud.google.com/gke-tpu-accelerator: tpu7x
+      hostNetwork: true                                                                                                                                
+      dnsPolicy: ClusterFirstWithHostNet
+      initContainers:
+      - name: tpu-node-setup
+        image: busybox
+        securityContext:
+          privileged: true
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            sysctl -w vm.max_map_count=8388608
+            if [ -f /sys/module/vfio_iommu_type1/parameters/dma_entry_limit ]; then
+              echo 2000000 > /sys/module/vfio_iommu_type1/parameters/dma_entry_limit
+              echo "Successfully increased dma_entry_limit to 2000000"
+            else
+              echo "Warning: vfio_iommu_type1 module parameter not found."
+            fi
+      containers:
+      - name: vllm-tpu
+        #image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/harut/vllm-torchtpu-raiden:v02
+        image: us-central1-docker.pkg.dev/cloud-ullm-inference-ci-cd/vllm-torchtpu-ci/vllm-torchtpu:f5ad5800abe94a4ade1867841311a4aa98aedf05
+        imagePullPolicy: Always
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            set -e
+            echo "--- raiden native preflight (fail fast on ABI mismatch) ---"
+            python3 - <<'PY'
+            from tpu_raiden.api.torch.kv_cache_manager import _torch_impl
+            impl = _torch_impl()
+            print("raiden native extension OK:", impl.__file__, flush=True)
+            PY
+
+            echo "--- starting raiden controller on :28000 ---"
+            cat > /tmp/raiden_controller.py <<'PY'
+            import sys
+            import time
+            from tpu_raiden.rpc.raiden_controller import RaidenController, RaidenControllerServer
+            controller = RaidenController(port=int(sys.argv[1]), request_registry_ttl_s=600.0)
+            server = RaidenControllerServer(controller)
+            server.start()
+            print(f"raiden controller ready on port {server.port}", flush=True)
+            while True:
+              time.sleep(1)
+            PY
+            python3 /tmp/raiden_controller.py 28000 &
+            sleep 3
+
+            python3 -c "import pathlib, vllm_torchtpu.worker.tpu_rank_binding as m; p = pathlib.Path(m.__file__); p.write_text(p.read_text().replace('def probe_pcp_local_rank_remap(', 'def _orig_probe_pcp_local_rank_remap(') + '\ndef probe_pcp_local_rank_remap(world_size, *a, **k):\n  return tuple(range(world_size))\n')"
+
+            exec vllm serve --seed=42 \
+              --model=Qwen/Qwen3.5-397B-A17B-FP8 \
+              --tensor-parallel-size=1 \
+              --prefill-context-parallel-size=8 \
+              --max-model-len=81920 \
+              --max-num-batched-tokens=32768 \
+              --long-prefill-token-threshold 32768 \
+              --max-num-seqs=1 \
+              --num-gpu-blocks-override 64 \
+              --port 8000 \
+              --no-async-scheduling \
+              --no-enable-prefix-caching \
+              --gpu-memory-utilization=0.92 \
+              --kv-cache-dtype=fp8 \
+              --enable-expert-parallel \
+              --quantization fp8 \
+              --attention-backend CUSTOM \
+              --block-size 8192 \
+              --mamba-cache-mode align \
+              --cp-kv-cache-interleave-size 256 \
+              --language-model-only \
+              --disable-custom-all-reduce \
+              --no-disable-hybrid-kv-cache-manager \
+              --return-tokens-as-token-ids \
+              --compilation-config '{"backend":"vllm_torchtpu.compilation.tpu_compiler.TpuCompilerAdaptor","compile_sizes":[4096], "inductor_compile_config":{"enable_auto_functionalized_v2":false,"size_asserts":false,"alignment_asserts":false,"scalar_asserts":false}}' \
+              --kv-transfer-config '{"kv_connector":"TPURaidenConnector","kv_connector_module_path":"vllm_torchtpu.distributed.kv_transfer.tpu_connector","kv_role":"kv_producer","kv_port":14579}'
+        # Manual debug
+        #args: [ "while true; do sleep 300; done;" ]
+        env:
+        - name: HF_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hf-token-secret
+              key: token
+        - name: HF_HOME
+          value: /usr/vllm
+        - name: VLLM_LOGGING_LEVEL
+          value: "DEBUG"
+        - name: VLLM_ENGINE_READY_TIMEOUT_S
+          value: "14400"
+        - name: VLLM_XLA_CACHE_PATH
+          value: "/usr/vllm/xla_cache"
+        - name: MODEL_IMPL_TYPE
+          value: "vllm"
+        - name: TPU_VLLM_SKIP_DYNAMIC_SMEM_NEGOTIATION_FLAG
+          value: "1"
+        - name: VLLM_XLA_CHECK_RECOMPILATION
+          value: "0"
+        - name: TORCHINDUCTOR_AUTOGRAD_CACHE
+          value: "0"
+        - name: TPU_PREMAPPED_BUFFER_SIZE
+          value: "17179869184"
+        - name: TPU_GDN_CONV_QK_PAIR_LAYOUT
+          value: "1"
+        # --- Raiden live-pair gates (from the live-pair script) ---
+        - name: TPU_VLLM_ENABLE_UNIFIED_BLOCK_POOL
+          value: "1"
+        - name: TPU_USE_RAIDEN_KV_CACHE_MANAGER
+          value: "1"
+        - name: TPU_RAIDEN_QWEN35_ADMISSION
+          value: "1"
+        - name: TPU_KV_RESHARD_TRANSPORT
+          value: "raiden"
+        - name: TPU_KV_RESHARD_DST_PAGE_TOKENS
+          value: "4096"
+        - name: TPU_RAIDEN_TRANSFER_PARALLELISM
+          value: "8"
+        - name: TPU_RAIDEN_CONTROLLER_ADDRESS
+          value: "vllm-service-prefill:28000"
+        - name: TPU_RAIDEN_JOB_NAME
+          value: "prefill"
+        - name: TPU_RAIDEN_ENGINE_ID
+          value: "prefill-engine"
+        - name: TPU_KV_TRANSFER_NAMESPACE
+          value: "prefill"
+        # --- kernel / model flags ---
+        - name: TPU_GDN_CONV_STATE_TILE_PAD
+          value: "1"
+        - name: XLA_PYTHON_CLIENT_PREALLOCATE
+          value: "false"
+        - name: VLLM_ALLOW_LONG_MAX_MODEL_LEN
+          value: "1"
+        - name: USE_BATCHED_RPA_KERNEL
+          value: "1"
+        - name: RAGGED_GATED_DELTA_RULE_IMPL
+          value: "chunked_kernel_v3_pd"
+        #- name: ONEHOT_MOE_PERMUTE_THRESHOLD
+        #  value: "1024"
+        #- name: TPU_RAGGED_GATHER_REDUCE_IMPL
+        #  value: "fallback"
+        #- name: TPU_RAGGED_GATHER_IMPL
+        #  value: "fallback"
+        - name: DP_SCHED_BATCH_PREFILL_MAX_ADMIT_PER_FLUSH
+          value: "0"
+        - name: TORCH_TPU_INTERNAL_TIER2_COMPILATION_CACHE
+          value: "disabled"
+        # --- HMA / transfer tuning ---
+        - name: TPU_ENABLE_D2H_TRANSFER
+          value: "1"
+        - name: TPU_HMA_D2H_COPY_IMPL
+          value: "device_put"
+        - name: TPU_HMA_MIN_DONE_RECVING_BATCH
+          value: "1"
+        - name: TPU_HMA_MAX_DONE_RECVING_BATCH
+          value: "1"
+        - name: TPU_HMA_MAX_INFLIGHT_D2H_SENDS
+          value: "1"
+        - name: TPU_HMA_MAX_INFLIGHT_PULLS
+          value: "8"
+        - name: TPU_MAX_HOST_KV_BUFFER_SIZE
+          value: "64"
+        - name: TPU_P2P_WAIT_PULL_TIMEOUT
+          value: "600"
+        - name: TPU_KV_SHM_POOL_GB
+          value: "8"
+        - name: TPU_KV_TRANSFER_PORT
+          value: "9100"
+        - name: TPU_SIDE_CHANNEL_PORT
+          value: "9600"
+        ports:
+        - containerPort: 8000
+        resources:
+          limits:
+            google.com/tpu: "4"
+            memory: "900Gi"
+            cpu: "220"
+            ephemeral-storage: "40Gi"
+          requests:
+            google.com/tpu: "4"
+            memory: "900Gi"
+            cpu: "220"
+            ephemeral-storage: "40Gi"
+        volumeMounts:
+        - name: dshm
+          mountPath: /dev/shm
+        - name: pvc-vllm-vol
+          mountPath: "/usr/vllm"
+      volumes:
+      - name: dshm
+        emptyDir:
+          medium: Memory
+      - name: pvc-vllm-vol
+        persistentVolumeClaim:
+          claimName: pvc-prefill
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-service-prefill
+  labels:
+    app: vllm-prefill
+spec:
+  type: ClusterIP
+  selector:
+    app: vllm-prefill
+  ports:
+  - name: http
+    protocol: TCP
+    port: 8000
+    targetPort: 8000
+  - name: raiden-controller
+    port: 28000
+    targetPort: 28000
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-decode
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm-decode
+  template:
+    metadata:
+      labels:
+        app: vllm-decode
+    spec:
+      serviceAccountName: default
+      nodeSelector:
+        cloud.google.com/gke-tpu-topology: 2x2x1
+        cloud.google.com/gke-tpu-accelerator: tpu7x
+      hostNetwork: true                                                                                                                                
+      dnsPolicy: ClusterFirstWithHostNet
+      initContainers:
+      - name: tpu-node-setup
+        image: busybox
+        securityContext:
+          privileged: true
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            sysctl -w vm.max_map_count=8388608
+            if [ -f /sys/module/vfio_iommu_type1/parameters/dma_entry_limit ]; then
+              echo 2000000 > /sys/module/vfio_iommu_type1/parameters/dma_entry_limit
+              echo "Successfully increased dma_entry_limit to 2000000"
+            else
+              echo "Warning: vfio_iommu_type1 module parameter not found."
+            fi
+      containers:
+      - name: vllm-tpu
+        #image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/harut/vllm-torchtpu-raiden:v02
+        image: us-central1-docker.pkg.dev/cloud-ullm-inference-ci-cd/vllm-torchtpu-ci/vllm-torchtpu:f5ad5800abe94a4ade1867841311a4aa98aedf05
+        imagePullPolicy: Always
+        command: [ "/bin/bash", "-c", "--" ]
+        args:
+          - |
+            set -e
+            echo "--- raiden native preflight (fail fast on ABI mismatch) ---"
+            python3 - <<'PY'
+            from tpu_raiden.api.torch.kv_cache_manager import _torch_impl
+            impl = _torch_impl()
+            print("raiden native extension OK:", impl.__file__, flush=True)
+            PY
+
+            echo "--- starting raiden controller on :28000 ---"
+            cat > /tmp/raiden_controller.py <<'PY'
+            import sys
+            import time
+            from tpu_raiden.rpc.raiden_controller import RaidenController, RaidenControllerServer
+            controller = RaidenController(port=int(sys.argv[1]), request_registry_ttl_s=600.0)
+            server = RaidenControllerServer(controller)
+            server.start()
+            print(f"raiden controller ready on port {server.port}", flush=True)
+            while True:
+                time.sleep(1)
+            PY
+            python3 /tmp/raiden_controller.py 28000 &
+            sleep 3 
+              
+            exec vllm serve --seed=42 \
+              --model=Qwen/Qwen3.5-397B-A17B-FP8 \
+              --tensor-parallel-size=1 \
+              --data-parallel-size=8 \
+              --enable-expert-parallel \
+              --max-model-len=81920 \
+              --max-num-batched-tokens=4384 \
+              --max-num-seqs=32 \
+              --num-gpu-blocks-override 64 \
+              --port 8000 \
+              --no-async-scheduling \
+              --no-enable-prefix-caching \
+              --gpu-memory-utilization=0.92 \
+              --kv-cache-dtype=fp8 \
+              --quantization fp8 \
+              --attention-backend CUSTOM \
+              --block-size 8192 \
+              --mamba-cache-mode align \
+              --language-model-only \
+              '--limit-mm-per-prompt={"image":0,"video":0}' \
+              '--default-chat-template-kwargs={"enable_thinking":false}' \
+              --compilation-config '{"backend":"vllm_torchtpu.compilation.tpu_compiler.TpuCompilerAdaptor","compile_sizes":[8,16,32,4352,4384],"inductor_compile_config":{"enable_auto_functionalized_v2":false,"size_asserts":false,"alignment_asserts":false,"scalar_asserts":false}}' \
+              --kv-transfer-config '{"kv_connector":"TPURaidenConnector","kv_connector_module_path":"vllm_torchtpu.distributed.kv_transfer.tpu_connector","kv_role":"kv_consumer","kv_port":14579}'
+        # Manual debug
+        #args: [ "while true; do sleep 300; done;" ]
+        env:
+        - name: HF_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hf-token-secret
+              key: token
+        - name: HF_HOME
+          value: /usr/vllm
+        - name: VLLM_LOGGING_LEVEL
+          value: "DEBUG"
+        - name: VLLM_ENGINE_READY_TIMEOUT_S
+          value: "14400"
+        - name: VLLM_XLA_CACHE_PATH
+          value: "/usr/vllm/xla_cache"
+        - name: MODEL_IMPL_TYPE
+          value: "vllm"
+        #- name: USE_MOE_SPARSE_CORE
+        #  value: "0"
+        - name: TPU_PREMAPPED_BUFFER_SIZE
+          value: "17179869184"
+        - name: TPU_GDN_CONV_QK_PAIR_LAYOUT
+          value: "1"
+        # --- Raiden live-pair gates (from the live-pair script) ---
+        - name: TPU_VLLM_ENABLE_UNIFIED_BLOCK_POOL
+          value: "1"
+        - name: TPU_USE_RAIDEN_KV_CACHE_MANAGER
+          value: "1"
+        - name: TPU_RAIDEN_QWEN35_ADMISSION
+          value: "1"
+        - name: TPU_KV_RESHARD_TRANSPORT
+          value: "raiden"
+        - name: TPU_KV_RESHARD_DST_PAGE_TOKENS
+          value: "4096"
+        - name: TPU_RAIDEN_TRANSFER_PARALLELISM
+          value: "8"
+        - name: TPU_RAIDEN_CONTROLLER_ADDRESS
+          value: "vllm-service-decode:28000"
+        - name: TPU_RAIDEN_JOB_NAME
+          value: "decode"
+        - name: TPU_RAIDEN_ENGINE_ID
+          value: "decode-engine"
+        - name: TPU_KV_TRANSFER_NAMESPACE
+          value: "decode"
+        # --- kernel / model flags ---
+        - name: TPU_GDN_CONV_STATE_TILE_PAD
+          value: "1"
+        - name: XLA_PYTHON_CLIENT_PREALLOCATE
+          value: "false"
+        - name: VLLM_ALLOW_LONG_MAX_MODEL_LEN
+          value: "1"
+        - name: USE_BATCHED_RPA_KERNEL
+          value: "1"
+        - name: RAGGED_GATED_DELTA_RULE_IMPL
+          value: "chunked_kernel_v3_pd"
+        #- name: ONEHOT_MOE_PERMUTE_THRESHOLD
+        #  value: "1024"
+        #- name: TPU_RAGGED_GATHER_REDUCE_IMPL
+        #  value: "fallback"
+        #- name: TPU_RAGGED_GATHER_IMPL
+        #  value: "fallback"
+        - name: DP_SCHED_BATCH_PREFILL_MAX_ADMIT_PER_FLUSH
+          value: "0"
+        - name: TORCH_TPU_INTERNAL_TIER2_COMPILATION_CACHE
+          value: "disabled"
+        # --- HMA / transfer tuning ---
+        - name: TPU_ENABLE_D2H_TRANSFER
+          value: "1"
+        - name: TPU_HMA_D2H_COPY_IMPL
+          value: "device_put"
+        - name: TPU_HMA_MIN_DONE_RECVING_BATCH
+          value: "1"
+        - name: TPU_HMA_MAX_DONE_RECVING_BATCH
+          value: "1"
+        - name: TPU_HMA_MAX_INFLIGHT_D2H_SENDS
+          value: "1"
+        - name: TPU_HMA_MAX_INFLIGHT_PULLS
+          value: "8"
+        - name: TPU_MAX_HOST_KV_BUFFER_SIZE
+          value: "64"
+        - name: TPU_P2P_WAIT_PULL_TIMEOUT
+          value: "600"
+        - name: TPU_KV_SHM_POOL_GB
+          value: "8"
+        - name: TPU_KV_TRANSFER_PORT
+          value: "9100"
+        - name: TPU_SIDE_CHANNEL_PORT
+          value: "9600"
+        ports:
+        - containerPort: 8000
+        resources:
+          limits:
+            google.com/tpu: "4"
+            memory: "900Gi"
+            cpu: "220"
+            ephemeral-storage: "40Gi"
+          requests:
+            google.com/tpu: "4"
+            memory: "900Gi"
+            cpu: "220"
+            ephemeral-storage: "40Gi"
+        volumeMounts:
+        - name: dshm
+          mountPath: /dev/shm
+        - name: pvc-vllm-vol
+          mountPath: "/usr/vllm"
+      volumes:
+      - name: dshm
+        emptyDir:
+          medium: Memory
+      - name: pvc-vllm-vol
+        persistentVolumeClaim:
+          claimName: pvc-decode
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-service-decode
+  labels:
+    app: vllm-decode
+spec:
+  type: ClusterIP
+  selector:
+    app: vllm-decode
+  ports:
+  - name: http
+    protocol: TCP
+    port: 8000
+    targetPort: 8000
+  - name: raiden-controller
+    port: 28000
+    targetPort: 28000
+
+
+### 📊 Performance Summary Matrix                                                                                                                    
+                                                                                                                                                       
+  #### 1. Total Token Throughput (Prefill + Decode tok/s)                                                                                              
+                                                                                                                                                       
+   Input Context Length        │ Concurrency 1               │ Concurrency 2               │ Concurrency 4               │ Scaling (C1 → C4)
+  ─────────────────────────────┼─────────────────────────────┼─────────────────────────────┼─────────────────────────────┼─────────────────────────────
+   8K (~8.5K tokens)           │ 353.74 tok/s                │ 691.48 tok/s                │ 1,357.08 tok/s              │ 🚀 3.84 × (Near-linear 4 ×)
+   32K (~34.3K tokens)         │ 1,235.32 tok/s              │ 2,414.51 tok/s              │ 4,647.14 tok/s              │ 🚀 3.76 × (Near-linear 4 ×)
+   64K (~68.7K tokens)         │ 2,277.72 tok/s              │ 4,446.45 tok/s              │ 8,618.76 tok/s              │ 🚀 3.78 × (Near-linear 4 ×)
+  
+  #### 2. Output Generation Token Rate (tok/s)
+  
+   Input Context Length        │ Concurrency 1               │ Concurrency 2               │ Concurrency 4               │ Peak (C4)
+  ─────────────────────────────┼─────────────────────────────┼─────────────────────────────┼─────────────────────────────┼─────────────────────────────
+   8K                          │ 37.71 tok/s                 │ 73.72 tok/s                 │ 144.68 tok/s                │ 160.00 tok/s
+   32K                         │ 35.77 tok/s                 │ 69.91 tok/s                 │ 134.56 tok/s                │ 152.00 tok/s
+   64K                         │ 33.47 tok/s                 │ 65.33 tok/s                 │ 126.63 tok/s                │ 148.00 tok/s
+  
+  #### 3. Steady-State Decode Step Latency (Median TPOT)
+  
+   Input Context Length        │ Concurrency 1               │ Concurrency 2               │ Concurrency 4               │ Golden Gate (<30  ms)
+  ─────────────────────────────┼─────────────────────────────┼─────────────────────────────┼─────────────────────────────┼─────────────────────────────
+   8K                          │ 25.44 ms                    │ 26.61 ms                    │ 26.72 ms                    │ 🟢 Passed
+   32K                         │ 26.01 ms                    │ 27.11 ms                    │ 27.89 ms                    │ 🟢 Passed
+   64K                         │ 26.92 ms                    │ 27.49 ms                    │ 28.16 ms                    │ 🟢 Passed
+  
+  #### 4. Time-to-First-Token (Median TTFT)
+  
+   Input Context Length        │ Concurrency 1               │ Concurrency 2               │ Concurrency 4               │ Concurrency Delta
+  ─────────────────────────────┼─────────────────────────────┼─────────────────────────────┼─────────────────────────────┼─────────────────────────────
+   8K                          │ 801.85 ms                   │ 854.47 ms                   │ 869.34 ms                   │ +67.5  ms (+8.4%)
+   32K                         │ 1,783.24 ms                 │ 1,843.84 ms                 │ 1,884.21 ms                 │ +101.0  ms (+5.7%)
+   64K                         │ 3,043.67 ms                 │ 3,079.74 ms                 │ 3,102.85 ms                 │ +59.2  ms (+1.9%)
+
+
+########## Input=8192 ##########
+============ Serving Benchmark Result ============
+Successful requests:                     64        
+Failed requests:                         0         
+Maximum request concurrency:             1         
+Benchmark duration (s):                  1737.82   
+Total input tokens:                      549201    
+Total generated tokens:                  65536     
+Request throughput (req/s):              0.04      
+Output token throughput (tok/s):         37.71     
+Peak output token throughput (tok/s):    41.00     
+Peak concurrent requests:                2.00      
+Total token throughput (tok/s):          353.74    
+---------------Time to First Token----------------
+Mean TTFT (ms):                          852.75    
+Median TTFT (ms):                        801.85    
+P99 TTFT (ms):                           1274.71   
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          25.71     
+Median TPOT (ms):                        25.44     
+P99 TPOT (ms):                           26.83     
+---------------Inter-token Latency----------------
+Mean ITL (ms):                           25.71     
+Median ITL (ms):                         25.66     
+P99 ITL (ms):                            28.60     
+==================================================
+============ Serving Benchmark Result ============
+Successful requests:                     64        
+Failed requests:                         0         
+Maximum request concurrency:             2         
+Benchmark duration (s):                  889.01    
+Total input tokens:                      549201    
+Total generated tokens:                  65536     
+Request throughput (req/s):              0.07      
+Output token throughput (tok/s):         73.72     
+Peak output token throughput (tok/s):    82.00     
+Peak concurrent requests:                4.00      
+Total token throughput (tok/s):          691.48    
+---------------Time to First Token----------------
+Mean TTFT (ms):                          860.96    
+Median TTFT (ms):                        854.47    
+P99 TTFT (ms):                           1128.35   
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          26.30     
+Median TPOT (ms):                        26.61     
+P99 TPOT (ms):                           26.97     
+---------------Inter-token Latency----------------
+Mean ITL (ms):                           26.30     
+Median ITL (ms):                         26.34     
+P99 ITL (ms):                            29.70     
+==================================================
+============ Serving Benchmark Result ============
+Successful requests:                     64        
+Failed requests:                         0         
+Maximum request concurrency:             4         
+Benchmark duration (s):                  452.99    
+Total input tokens:                      549201    
+Total generated tokens:                  65536     
+Request throughput (req/s):              0.14      
+Output token throughput (tok/s):         144.68    
+Peak output token throughput (tok/s):    160.00    
+Peak concurrent requests:                6.00      
+Total token throughput (tok/s):          1357.08   
+---------------Time to First Token----------------
+Mean TTFT (ms):                          931.32    
+Median TTFT (ms):                        869.34    
+P99 TTFT (ms):                           2411.08   
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          26.71     
+Median TPOT (ms):                        26.72     
+P99 TPOT (ms):                           27.40     
+---------------Inter-token Latency----------------
+Mean ITL (ms):                           26.71     
+Median ITL (ms):                         26.55     
+P99 ITL (ms):                            30.72     
+==================================================
+
+########## Input=32768 ##########
+
+============ Serving Benchmark Result ============
+Successful requests:                     64        
+Failed requests:                         0         
+Maximum request concurrency:             1         
+Benchmark duration (s):                  1832.14   
+Total input tokens:                      2197753   
+Total generated tokens:                  65536     
+Request throughput (req/s):              0.03      
+Output token throughput (tok/s):         35.77     
+Peak output token throughput (tok/s):    40.00     
+Peak concurrent requests:                2.00      
+Total token throughput (tok/s):          1235.32   
+---------------Time to First Token----------------
+Mean TTFT (ms):                          1673.45   
+Median TTFT (ms):                        1783.24   
+P99 TTFT (ms):                           1915.31   
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          26.35     
+Median TPOT (ms):                        26.01     
+P99 TPOT (ms):                           27.62     
+---------------Inter-token Latency----------------
+Mean ITL (ms):                           26.35     
+Median ITL (ms):                         26.13     
+P99 ITL (ms):                            29.65     
+==================================================
+============ Serving Benchmark Result ============
+Successful requests:                     64        
+Failed requests:                         0         
+Maximum request concurrency:             2         
+Benchmark duration (s):                  937.37    
+Total input tokens:                      2197753   
+Total generated tokens:                  65536     
+Request throughput (req/s):              0.07      
+Output token throughput (tok/s):         69.91     
+Peak output token throughput (tok/s):    80.00     
+Peak concurrent requests:                4.00      
+Total token throughput (tok/s):          2414.51   
+---------------Time to First Token----------------
+Mean TTFT (ms):                          1768.71   
+Median TTFT (ms):                        1843.84   
+P99 TTFT (ms):                           2877.01   
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          26.87     
+Median TPOT (ms):                        27.11     
+P99 TPOT (ms):                           27.87     
+---------------Inter-token Latency----------------
+Mean ITL (ms):                           26.87     
+Median ITL (ms):                         26.92     
+P99 ITL (ms):                            30.27     
+==================================================
+============ Serving Benchmark Result ============
+Successful requests:                     64        
+Failed requests:                         0         
+Maximum request concurrency:             4         
+Benchmark duration (s):                  487.03    
+Total input tokens:                      2197753   
+Total generated tokens:                  65536     
+Request throughput (req/s):              0.13      
+Output token throughput (tok/s):         134.56    
+Peak output token throughput (tok/s):    152.00    
+Peak concurrent requests:                6.00      
+Total token throughput (tok/s):          4647.14   
+---------------Time to First Token----------------
+Mean TTFT (ms):                          1958.80   
+Median TTFT (ms):                        1884.21   
+P99 TTFT (ms):                           5370.74   
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          27.67     
+Median TPOT (ms):                        27.89     
+P99 TPOT (ms):                           28.47     
+---------------Inter-token Latency----------------
+Mean ITL (ms):                           27.67     
+Median ITL (ms):                         27.60     
+P99 ITL (ms):                            31.65     
+==================================================
+
+########## Input=65536 ##########
+
+============ Serving Benchmark Result ============
+Successful requests:                     64        
+Failed requests:                         0         
+Maximum request concurrency:             1         
+Benchmark duration (s):                  1958.30   
+Total input tokens:                      4394915   
+Total generated tokens:                  65536     
+Request throughput (req/s):              0.03      
+Output token throughput (tok/s):         33.47     
+Peak output token throughput (tok/s):    39.00     
+Peak concurrent requests:                2.00      
+Total token throughput (tok/s):          2277.72   
+---------------Time to First Token----------------
+Mean TTFT (ms):                          3034.29   
+Median TTFT (ms):                        3043.67   
+P99 TTFT (ms):                           3151.55   
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          26.94     
+Median TPOT (ms):                        26.92     
+P99 TPOT (ms):                           27.64     
+---------------Inter-token Latency----------------
+Mean ITL (ms):                           26.94     
+Median ITL (ms):                         26.85     
+P99 ITL (ms):                            30.13     
+==================================================
+============ Serving Benchmark Result ============
+Successful requests:                     64        
+Failed requests:                         0         
+Maximum request concurrency:             2         
+Benchmark duration (s):                  1003.15   
+Total input tokens:                      4394915   
+Total generated tokens:                  65536     
+Request throughput (req/s):              0.06      
+Output token throughput (tok/s):         65.33     
+Peak output token throughput (tok/s):    76.00     
+Peak concurrent requests:                3.00      
+Total token throughput (tok/s):          4446.45   
+---------------Time to First Token----------------
+Mean TTFT (ms):                          3133.06   
+Median TTFT (ms):                        3079.74   
+P99 TTFT (ms):                           4118.20   
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          27.54     
+Median TPOT (ms):                        27.49     
+P99 TPOT (ms):                           28.76     
+---------------Inter-token Latency----------------
+Mean ITL (ms):                           27.54     
+Median ITL (ms):                         27.39     
+P99 ITL (ms):                            31.02     
+==================================================
+============ Serving Benchmark Result ============
+Successful requests:                     64        
+Failed requests:                         0         
+Maximum request concurrency:             4         
+Benchmark duration (s):                  517.53    
+Total input tokens:                      4394915   
+Total generated tokens:                  65536     
+Request throughput (req/s):              0.12      
+Output token throughput (tok/s):         126.63    
+Peak output token throughput (tok/s):    148.00    
+Peak concurrent requests:                5.00      
+Total token throughput (tok/s):          8618.76   
+---------------Time to First Token----------------
+Mean TTFT (ms):                          3335.00   
+Median TTFT (ms):                        3102.85   
+P99 TTFT (ms):                           8913.66   
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          28.15     
+Median TPOT (ms):                        28.16     
+P99 TPOT (ms):                           29.31     
+---------------Inter-token Latency----------------
+Mean ITL (ms):                           28.15     
+Median ITL (ms):                         27.94     
+P99 ITL (ms):                            32.73     
+==================================================
