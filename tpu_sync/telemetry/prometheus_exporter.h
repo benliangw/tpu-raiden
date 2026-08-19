@@ -16,30 +16,29 @@
 #define THIRD_PARTY_TPU_RAIDEN_TPU_SYNC_TELEMETRY_PROMETHEUS_EXPORTER_H_
 
 #include <cstdint>
-#include <iterator>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "prometheus/counter.h"
 #include "prometheus/family.h"
 #include "prometheus/gauge.h"
 #include "prometheus/histogram.h"
 #include "prometheus/registry.h"
-#include "absl/base/no_destructor.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/string_view.h"
 #include "tpu_sync/telemetry/metrics_backend.h"
 
-namespace tpu_raiden::telemetry {
+// Forward declaration of prometheus::Exposer.
+// Note: "prometheus/exposer.h" transitively includes CivetWeb ("civetweb.h"),
+// which requires -fexceptions and -use_header_modules. Forward-declaring
+// Exposer here prevents forcing those compiler constraints onto any library
+// that includes "prometheus_exporter.h".
+namespace prometheus {
+class Exposer;
+}  // namespace prometheus
 
-inline const prometheus::Histogram::BucketBoundaries&
-DefaultHistogramBuckets() {
-  static const absl::NoDestructor<prometheus::Histogram::BucketBoundaries>
-      kBuckets(prometheus::Histogram::BucketBoundaries(
-          std::begin(kDefaultHistogramBuckets),
-          std::end(kDefaultHistogramBuckets)));
-  return *kBuckets;
-}
+namespace tpu_raiden::telemetry {
 
 // Custom MetricsBackend that formats and exports TPU Raiden metrics to
 // prometheus-cpp.
@@ -53,10 +52,10 @@ DefaultHistogramBuckets() {
 // metric families.
 class PrometheusExporter : public MetricsBackend {
  public:
-  explicit PrometheusExporter(const prometheus::Histogram::BucketBoundaries&
-                                  custom_buckets = DefaultHistogramBuckets());
+  explicit PrometheusExporter(
+      const ExporterOptions& options = ExporterOptions{});
 
-  ~PrometheusExporter() override = default;
+  ~PrometheusExporter() override;
 
   PrometheusExporter(const PrometheusExporter&) = delete;
   PrometheusExporter& operator=(const PrometheusExporter&) = delete;
@@ -74,6 +73,11 @@ class PrometheusExporter : public MetricsBackend {
 
   std::string GetTextSnapshot() const override;
 
+  bool IsServerRunning() const;
+  // Returns the bound HTTP port if the server is running, or 0 if disabled or
+  // failed to bind. Useful for tests and runtime port inspection.
+  int GetBoundPort() const { return IsServerRunning() ? options_.port : 0; }
+
   const std::shared_ptr<prometheus::Registry>& GetRegistry() const {
     return registry_;
   }
@@ -88,7 +92,10 @@ class PrometheusExporter : public MetricsBackend {
   prometheus::Family<prometheus::Histogram>* GetHistogramFamily(
       absl::string_view name) const;
   std::shared_ptr<prometheus::Registry> registry_;
-  prometheus::Histogram::BucketBoundaries default_buckets_;
+  std::vector<double> default_buckets_;
+  ExporterOptions options_;
+
+  std::unique_ptr<prometheus::Exposer> exposer_;
 
   absl::flat_hash_map<absl::string_view,
                       prometheus::Family<prometheus::Counter>*>

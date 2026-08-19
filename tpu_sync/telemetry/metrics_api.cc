@@ -28,6 +28,7 @@
 #include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
+#include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
@@ -38,6 +39,35 @@
 #include "tpu_sync/telemetry/prometheus_exporter.h"
 
 namespace tpu_raiden::telemetry {
+
+namespace {
+
+int ResolveExporterPort() {
+  const char* env_port = std::getenv(kPrometheusPortEnvVar);
+  if (env_port != nullptr && *env_port != '\0') {
+    int parsed_port = 0;
+    if (absl::SimpleAtoi(env_port, &parsed_port) && parsed_port >= kMinPort &&
+        parsed_port <= kMaxPort) {
+      return parsed_port;
+    }
+    LOG(WARNING) << "Invalid port specified in " << kPrometheusPortEnvVar
+                 << ": '" << env_port << "'. Expected integer in range ["
+                 << kMinPort << ", " << kMaxPort
+                 << "]. Falling back to default port (" << kDefaultExporterPort
+                 << ").";
+  }
+  return kDefaultExporterPort;
+}
+
+std::string ResolveExporterHost() {
+  const char* env_host = std::getenv(kPrometheusHostEnvVar);
+  if (env_host != nullptr && *env_host != '\0') {
+    return std::string(env_host);
+  }
+  return std::string(kDefaultExporterHost);
+}
+
+}  // namespace
 
 RaidenMetricStore& RaidenMetricStore::GetGlobalMetricStore() {
   static absl::NoDestructor<RaidenMetricStore> global_store;
@@ -80,7 +110,11 @@ absl::Status RaidenMetricStore::InitializeFromBackendNames(
       continue;
     }
     if (name == kPrometheus) {
-      new_backends.push_back(std::make_unique<PrometheusExporter>());
+      new_backends.push_back(
+          std::make_unique<PrometheusExporter>(ExporterOptions{
+              .bind_address = ResolveExporterHost(),
+              .port = ResolveExporterPort(),
+          }));
     } else if (name == kBuffered) {
       new_backends.push_back(std::make_unique<BufferedMetricsExporter>());
     } else {

@@ -34,6 +34,8 @@ namespace tpu_raiden::telemetry {
 // Environment Variables START.
 inline constexpr char kTelemetryBackendsEnvVar[] =
     "TPU_RAIDEN_TELEMETRY_BACKENDS";
+inline constexpr char kPrometheusPortEnvVar[] = "TPU_RAIDEN_PROMETHEUS_PORT";
+inline constexpr char kPrometheusHostEnvVar[] = "TPU_RAIDEN_PROMETHEUS_HOST";
 // Environment Variables END.
 
 // Backend names START.

@@ -20,9 +20,7 @@ cc_library(
     name = "metrics_backend",
     hdrs = ["metrics_backend.h"],
     deps = [
-        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/types:span",
     ],
 )
@@ -47,6 +45,12 @@ cc_library(
 )
 
 cc_library(
+    name = "test_util",
+    testonly = True,
+    hdrs = ["test_util.h"],
+)
+
+cc_library(
     name = "mock_metrics_backend",
     testonly = True,
     hdrs = ["mock_metrics_backend.h"],
@@ -65,6 +69,7 @@ cc_test(
         ":metrics_api",
         ":metrics_backend",
         ":mock_metrics_backend",
+        ":test_util",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:status_matchers",
         "@com_google_absl//absl/strings",
@@ -76,11 +81,17 @@ cc_library(
     name = "metrics_3p_prometheus_exporter",
     srcs = ["prometheus_exporter.cc"],
     hdrs = ["prometheus_exporter.h"],
+    # -fexceptions is required because prometheus-cpp Exposer throws C++
+    # exceptions (std::runtime_error) on socket binding and initialization failure.
+    copts = ["-fexceptions"],
+    # Disables Clang header modules due to incompatibility with prometheus-cpp / CivetWeb headers.
+    features = ["-use_header_modules"],
     deps = [
         ":metrics_backend",
         "@com_github_jupp0r_prometheus_cpp//core",
-        "@com_google_absl//absl/base:no_destructor",
+        "@com_github_jupp0r_prometheus_cpp//pull",
         "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/log",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -91,6 +102,7 @@ cc_test(
     deps = [
         ":metrics_3p_prometheus_exporter",
         ":metrics_backend",
+        ":test_util",
         "@com_github_jupp0r_prometheus_cpp//core",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",

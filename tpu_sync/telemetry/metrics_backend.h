@@ -17,13 +17,10 @@
 
 #include <cstdint>
 #include <map>
-#include <memory>
 #include <string>
 #include <vector>
 
-#include "absl/base/thread_annotations.h"
 #include "absl/strings/string_view.h"
-#include "absl/synchronization/mutex.h"
 #include "absl/types/span.h"
 
 namespace tpu_raiden::telemetry {
@@ -38,6 +35,22 @@ inline constexpr double kDefaultHistogramBuckets[] = {
     0.1,    0.25,   0.5,    1.0,     2.5,     5.0,    10.0,
     25.0,   50.0,   100.0,  250.0,   500.0,   750.0,  1000.0,
     2500.0, 5000.0, 7500.0, 10000.0, 25000.0, 50000.0};
+
+inline constexpr int kDefaultExporterPort = 0;
+inline constexpr absl::string_view kDefaultExporterHost = "0.0.0.0";
+inline constexpr int kMinPort = 1;
+inline constexpr int kMaxPort = 65535;
+
+// Configuration options for metric exporters.
+struct ExporterOptions {
+  // Bind address for HTTP metric exporter. Defaults to "0.0.0.0".
+  std::string bind_address{kDefaultExporterHost};
+  // TCP port for HTTP metric exporter. If <= 0, HTTP serving is disabled.
+  int port = kDefaultExporterPort;
+  // Non-owning view of histogram bucket boundaries. Defaults to
+  // kDefaultHistogramBuckets and is copied by the exporter during construction.
+  absl::Span<const double> custom_buckets = kDefaultHistogramBuckets;
+};
 
 // Structure defining centralized metadata for a Raiden metric.
 struct MetricMetadata {

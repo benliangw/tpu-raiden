@@ -15,18 +15,22 @@
 #include "tpu_sync/telemetry/prometheus_exporter.h"
 
 #include <cstdint>
+#include <exception>
 #include <map>  // NOLINT: Required by prometheus-cpp client API.
 #include <memory>
 #include <string>
 #include <utility>
 
 #include "prometheus/counter.h"
+#include "prometheus/exposer.h"
 #include "prometheus/family.h"
 #include "prometheus/gauge.h"
 #include "prometheus/histogram.h"
 #include "prometheus/registry.h"
 #include "prometheus/text_serializer.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/log/log.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "tpu_sync/telemetry/metrics_backend.h"
@@ -46,6 +50,13 @@ std::map<std::string, std::string> ConvertLabels(LabelSpan labels) {
     result.emplace(key, value);
   }
   return result;
+}
+
+std::string JoinHostPort(absl::string_view host, int port) {
+  if (absl::StrContains(host, ':') && !absl::StartsWith(host, "[")) {
+    return absl::StrCat("[", host, "]:", port);
+  }
+  return absl::StrCat(host, ":", port);
 }
 
 }  // namespace
@@ -87,12 +98,36 @@ void PrometheusExporter::RegisterKnownFamilies() {
   }
 }
 
-PrometheusExporter::PrometheusExporter(
-    const prometheus::Histogram::BucketBoundaries& custom_buckets)
+PrometheusExporter::PrometheusExporter(const ExporterOptions& options)
     : registry_(std::make_shared<prometheus::Registry>()),
-      default_buckets_(custom_buckets) {
+      default_buckets_(options.custom_buckets.begin(),
+                       options.custom_buckets.end()),
+      options_(options) {
   RegisterKnownFamilies();
+
+  if (options_.port >= kMinPort && options_.port <= kMaxPort) {
+    std::string endpoint = JoinHostPort(options_.bind_address, options_.port);
+    // prometheus-cpp Exposer throws std::runtime_error on socket binding or
+    // initialization failure. Catching here prevents abnormal termination and
+    // allows graceful degradation with IsServerRunning() reporting false.
+    try {
+      exposer_ = std::make_unique<prometheus::Exposer>(endpoint);
+      exposer_->RegisterCollectable(registry_);
+    } catch (const std::exception& e) {
+      LOG(ERROR) << "Failed to start Prometheus HTTP exporter on " << endpoint
+                 << ": " << e.what();
+      exposer_.reset();
+    }
+  } else if (options_.port != 0) {
+    LOG(WARNING) << "Invalid port configured for Prometheus HTTP exporter: "
+                 << options_.port << ". Expected port in range [" << kMinPort
+                 << ", " << kMaxPort << "].";
+  }
 }
+
+PrometheusExporter::~PrometheusExporter() = default;
+
+bool PrometheusExporter::IsServerRunning() const { return exposer_ != nullptr; }
 
 prometheus::Family<prometheus::Counter>* PrometheusExporter::GetCounterFamily(
     absl::string_view name) const {

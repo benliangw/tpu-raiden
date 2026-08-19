@@ -54,6 +54,7 @@ py_test(
     srcs = ["telemetry_binding_test.py"],
     deps = [
         ":_telemetry_binding_test_ext",
+        "//third_party/py/portpicker",
         "@com_google_absl_py//absl/testing:absltest",
     ],
 )

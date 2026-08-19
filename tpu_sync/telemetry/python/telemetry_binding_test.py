@@ -15,6 +15,7 @@
 """Tests for TPU Raiden Python telemetry bindings."""
 
 from absl.testing import absltest
+import portpicker
 from tpu_sync.telemetry.python import _telemetry_binding_test_ext as telemetry_ext
 
 
@@ -188,6 +189,15 @@ class TelemetryBindingTest(absltest.TestCase):
     self.assertEqual(metadata, telemetry_ext.ALL_METRICS)
     samples = telemetry_ext.get_and_reset_metric_samples()
     self.assertEqual(samples, {})
+
+  def test_configure_telemetry_with_prometheus_port_env(self):
+    port = str(portpicker.pick_unused_port())
+    with absltest.mock.patch.dict(
+        "os.environ", {"TPU_RAIDEN_PROMETHEUS_PORT": port}
+    ):
+      telemetry_ext.configure_telemetry(["prometheus"])
+      snapshot = telemetry_ext.get_raiden_metrics_prometheus_text()
+      self.assertIn("# TYPE tpu_raiden_sent_bytes_total counter", snapshot)
 
 
 if __name__ == "__main__":
