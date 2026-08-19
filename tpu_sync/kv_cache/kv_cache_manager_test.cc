@@ -1248,32 +1248,8 @@ TEST(KVCacheManagerTest, BackgroundWorkerThreadDisabledByDefault) {
   EXPECT_EQ(manager.h2d_count_, 1);
 }
 
-// TODO: Move this class to a shared test util.
-class MockMetricsBackend : public telemetry::MetricsBackend {
- public:
-  MOCK_METHOD(void, IncrementCounter,
-              (absl::string_view name, telemetry::LabelSpan labels,
-               uint64_t val),
-              (override, const));
-  MOCK_METHOD(void, SetGauge,
-              (absl::string_view name, telemetry::LabelSpan labels, double val),
-              (override, const));
-  MOCK_METHOD(void, ObserveHistogram,
-              (absl::string_view name, telemetry::LabelSpan labels, double val),
-              (override, const));
-  MOCK_METHOD(std::string, GetTextSnapshot, (), (override, const));
-};
-
-struct TelemetryCleanup {
-  ~TelemetryCleanup() {
-    telemetry::RaidenMetricStore::GetGlobalMetricStore().SetBackends({});
-  }
-};
-
 TEST(KVCacheManagerTest, TelemetryMetricsObservedWhenEnabled) {
-  TelemetryCleanup cleanup;
-
-  auto mock_backend = std::make_unique<MockMetricsBackend>();
+  auto mock_backend = std::make_unique<telemetry::MockMetricsBackend>();
   auto* raw_backend = mock_backend.get();
 
   EXPECT_CALL(
@@ -1287,10 +1263,7 @@ TEST(KVCacheManagerTest, TelemetryMetricsObservedWhenEnabled) {
                        testing::_, testing::Ge(0.0)))
       .Times(testing::AtLeast(1));
 
-  std::vector<std::unique_ptr<telemetry::MetricsBackend>> backends;
-  backends.push_back(std::move(mock_backend));
-  telemetry::RaidenMetricStore::GetGlobalMetricStore().SetBackends(
-      std::move(backends));
+  telemetry::ScopedMetricsBackendReset scoped_reset(std::move(mock_backend));
 
   TestKVCacheManager manager(/*num_layers=*/1, /*num_shards=*/1,
                              /*slice_byte_size=*/128, /*host_blocks=*/2);
@@ -1307,7 +1280,7 @@ TEST(KVCacheManagerTest, TelemetryMetricsObservedWhenEnabled) {
 }
 
 TEST(KVCacheManagerTest, TelemetryMetricsSkippedWhenDisabled) {
-  TelemetryCleanup cleanup;
+  telemetry::ScopedMetricsBackendReset scoped_reset;
   telemetry::RaidenMetricStore::GetGlobalMetricStore().SetBackends({});
   EXPECT_FALSE(
       telemetry::RaidenMetricStore::GetGlobalMetricStore().HasBackends());
@@ -1327,9 +1300,7 @@ TEST(KVCacheManagerTest, TelemetryMetricsSkippedWhenDisabled) {
 }
 
 TEST(KVCacheManagerTest, D2hWritePipelinedTelemetryBatchObservation) {
-  TelemetryCleanup cleanup;
-
-  auto mock_backend = std::make_unique<MockMetricsBackend>();
+  auto mock_backend = std::make_unique<telemetry::MockMetricsBackend>();
   auto* raw_backend = mock_backend.get();
 
   // Exactly 1 observation for the entire batch of chunks, not 1 per chunk.
@@ -1339,10 +1310,7 @@ TEST(KVCacheManagerTest, D2hWritePipelinedTelemetryBatchObservation) {
                        testing::_, testing::Ge(0.0)))
       .Times(1);
 
-  std::vector<std::unique_ptr<telemetry::MetricsBackend>> backends;
-  backends.push_back(std::move(mock_backend));
-  telemetry::RaidenMetricStore::GetGlobalMetricStore().SetBackends(
-      std::move(backends));
+  telemetry::ScopedMetricsBackendReset scoped_reset(std::move(mock_backend));
 
   TestD2hKVCacheManager sender(/*num_layers=*/1, /*num_shards=*/1,
                                /*slice_byte_size=*/128, /*host_blocks=*/2);

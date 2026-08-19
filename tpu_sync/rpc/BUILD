@@ -101,8 +101,8 @@ py_library(
     deps = [
         ":controller_service_py_pb2",
         ":raiden_service_py_pb2",
-        "//third_party/py/absl/logging",
         "//tpu_sync/kv_cache:nd_slice_math",
+        "@com_google_absl_py//absl/logging",
     ],
 )
 

@@ -672,11 +672,11 @@ py_test(
     ],
     deps = [
         ":resharding_planner",
-        "//third_party/py/absl/logging",
         "//tpu_sync/api/jax:weight_synchronizer_jax_py",
         "//tpu_sync/rpc:raiden_controller",
         "//tpu_sync/rpc:raiden_service_py_pb2",
         "@com_google_absl_py//absl/flags",
+        "@com_google_absl_py//absl/logging",
         "@com_google_absl_py//absl/testing:absltest",
         "@com_google_absl_py//absl/testing:parameterized",
         "@jax//jax",
