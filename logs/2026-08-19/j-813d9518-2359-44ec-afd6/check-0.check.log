@@ -1,0 +1,36 @@
+None of PyTorch, TensorFlow >= 2.0, or Flax have been found. Models won't be available and only tokenizers, configuration and file/data utilities can be used.
+Namespace(backend='vllm', base_url=None, host='j-813d9518-2359-44ec-afd6-prefill-0-0.j-813d9518-2359-44ec-afd6', port=10000, endpoint='/v1/completions', dataset_name='random', dataset_path=None, max_concurrency=16, model='Qwen/Qwen3.5-4B', tokenizer=None, best_of=1, use_beam_search=False, num_prompts=32, logprobs=None, request_rate=inf, burstiness=1.0, seed=0, trust_remote_code=False, disable_tqdm=False, profile=False, save_result=False, save_detailed=False, metadata=None, result_dir=None, result_filename=None, ignore_eos=True, percentile_metrics='ttft,tpot,itl', metric_percentiles='99', goodput=None, sonnet_input_len=550, sonnet_output_len=150, sonnet_prefix_len=200, sharegpt_output_len=None, random_input_len=512, random_output_len=128, random_range_ratio=1.0, random_prefix_len=0, use_chat_template=False, hf_subset=None, hf_split=None, hf_output_len=None, tokenizer_mode='auto', served_model_name=None, lora_modules=None, num_warmups=0)
+-------------------  Input/Output Length Statistics  -------------------
+ input_lens : min=512   max=512   mean=512.00   avg_token_mismatch=0.00  
+ output_lens: min=128   max=128   mean=128.00  
+------------------------------------------------------------------------ 
+
+Starting initial single prompt test run...
+Traffic request rate: inf
+Burstiness factor: 1.0 (Poisson process)
+Maximum request concurrency: 16
+  0%|          | 0/32 [00:00<?, ?it/s]  3%|▎         | 1/32 [00:03<01:46,  3.44s/it] 19%|█▉        | 6/32 [00:03<00:11,  2.27it/s] 28%|██▊       | 9/32 [00:06<00:14,  1.56it/s] 38%|███▊      | 12/32 [00:06<00:08,  2.44it/s] 47%|████▋     | 15/32 [00:08<00:09,  1.83it/s] 53%|█████▎    | 17/32 [00:09<00:06,  2.23it/s] 59%|█████▉    | 19/32 [00:09<00:05,  2.39it/s] 66%|██████▌   | 21/32 [00:10<00:03,  2.76it/s] 69%|██████▉   | 22/32 [00:11<00:05,  1.98it/s] 75%|███████▌  | 24/32 [00:11<00:03,  2.55it/s] 81%|████████▏ | 26/32 [00:12<00:02,  2.67it/s] 88%|████████▊ | 28/32 [00:12<00:01,  3.38it/s] 91%|█████████ | 29/32 [00:13<00:01,  2.39it/s] 97%|█████████▋| 31/32 [00:13<00:00,  3.03it/s]100%|██████████| 32/32 [00:13<00:00,  2.30it/s]
+Starting main benchmark run...
+============ Serving Benchmark Result ============
+Successful requests:                     32        
+Benchmark duration (s):                  13.90     
+Total input tokens:                      16384     
+Total generated tokens:                  4096      
+Request throughput (req/s):              2.30      
+Output token throughput (tok/s):         294.70    
+Total Token throughput (tok/s):          1473.48   
+---------------Time to First Token----------------
+Mean TTFT (ms):                          4317.31   
+Median TTFT (ms):                        4468.12   
+P99 TTFT (ms):                           6996.02   
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          11.82     
+Median TPOT (ms):                        11.85     
+P99 TPOT (ms):                           17.25     
+---------------Inter-token Latency----------------
+Mean ITL (ms):                           11.82     
+Median ITL (ms):                         8.52      
+P99 ITL (ms):                            85.30     
+==================================================
+RESULT: PASS (32/32)
+
