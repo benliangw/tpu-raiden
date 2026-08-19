@@ -1,0 +1,237 @@
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: torchtpu-vllm-qwen35-397b-a17b-fp8-singlenode
+  annotations:
+    model_name: &model_name "Qwen/Qwen3.5-397B-A17B-FP8"
+spec:
+  successPolicy:
+    operator: All
+    targetReplicatedJobs:
+      - bench
+  replicatedJobs:
+    - name: vllm-server
+      replicas: 1
+      template:
+        spec:
+          completions: 1
+          backoffLimit: 0
+          template:
+            metadata:
+              annotations:
+                gke-gcsfuse/volumes: "true"
+              labels:
+                app: vllm-qwen35-397b-a17b-fp8-v7x-8
+            spec:
+              containers:
+              - name: vllm-server
+                # image:  us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/torchtpu-vllm:multihost-disagg-head
+                # image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/torchtpu-vllm:0615-test-qwen35
+                # image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/torchtpu-vllm:sarora-0616
+                # image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/torchtpu-vllm:sarora-at-288
+                # image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/torchtpu-vllm:docker-fix-288-3
+                image: us-central1-docker.pkg.dev/cloud-ullm-inference-ci-cd/vllm-torchtpu/torchtpu-vllm-dev:nightly-20260812
+                imagePullPolicy: Always
+                env:
+                - name: TPU_TOPOLOGY
+                  value: "2x2x1"
+                - name: MODEL_NAME
+                  value: *model_name
+                - name: RECIPE_NAME
+                  value: "vllm-qwen35-397b-a17b-fp8-v7x-dp16-sh"
+                - name: VLLM_LOGGING_LEVEL
+                  value: "DEBUG"
+                ## for a large model like 397b the default weights loading time(10 mins) is not enough.
+                - name: VLLM_ENGINE_READY_TIMEOUT_S
+                  value: "14400"
+                # Needed for Perfetto.
+                # - name: TPU_LIBRARY_PATH
+                #   value: "/root/cloud-devkit/base/bin/libtpu.so"
+                - name: TPU_VMODULE
+                  value: "tpu_pjrt_client=1,pjrt_stream_executor_client=1,tpu_pjrt_compiler_utils=1"
+                # - name: TPU_STDERR_LOG_LEVEL
+                #   value: "0"
+                # - name: TPU_MIN_LOG_LEVEL
+                #   value: "0"
+                # - name: TF_CPP_MIN_LOG_LEVEL
+                #   value: "0"
+                # Explicitly disable megascale
+                - name: MEGASCALE_NUM_SLICES
+                  value: ""
+                - name: MEGASCALE_SLICE_ID
+                  value: ""
+                - name: TPU_PROCESS_ADDRESSES
+                  value: ""
+                - name: TPU_WORKER_HOSTNAMES
+                  value: ""
+                - name: TPU_PROCESS_PORT
+                  value: ""
+                - name: MEGASCALE_COORDINATOR_ADDRESS
+                  value: ""
+                - name: MEGASCALE_PORT
+                  value: ""
+                - name: VLLM_XLA_CACHE_PATH
+                  value: "/mnt/xla-cache/sarora-cache/$(RECIPE_NAME)/$(MODEL_NAME)"
+                command: ["/bin/bash", "-c"]
+                args:
+                  - |
+                    if [ -n "$TPU_LIBRARY_PATH" ]; then
+                      echo "TPU_LIBRARY_PATH is set to $TPU_LIBRARY_PATH. Copying libtpu.so from GCS..."
+                      mkdir -p "$(dirname "$TPU_LIBRARY_PATH")"
+                      gcloud storage cp gs://cloud-devkit/libs/libtpu/20260521/libtpu.so $TPU_LIBRARY_PATH
+                      echo "Now try cp.."
+                      cp /mnt/xla-cache/libtpu.so "$TPU_LIBRARY_PATH"
+                    else
+                      echo "TPU_LIBRARY_PATH is not set. Skipping copy."
+                    fi
+                    echo "Print pwd"
+                    pwd
+                    echo "PYTHONPATH=$PYTHONPATH"
+                    echo "=== Environment Variables ==="
+                    printenv | sort
+                    echo "============================="
+                    echo "pip show"
+                    pip show fastapi
+                    pip show torch
+                    echo "*****************"
+                    # export VLLM_DISABLE_PROMETHEUS_INSTRUMENTATION=True
+                    echo "Starting vllm server..."
+                    vllm serve ${MODEL_NAME} \
+                    --tensor-parallel-size=1 \
+                    --data-parallel-size=8 \
+                    --max-model-len=10240 \
+                    --max-num-batched-tokens=4096 \
+                    --disable-custom-all-reduce \
+                    --max-num-seqs=512 \
+                    --block-size=256 \
+                    --port=8000 \
+                    --async-scheduling \
+                    --no-enable-prefix-caching \
+                    --limit-mm-per-prompt '{"image": 0, "video": 0}' \
+                    --gpu-memory-utilization=0.90 \
+                    --no-disable-hybrid-kv-cache-manager \
+                    --kv-cache-dtype=fp8 \
+                    --enable-expert-parallel
+                    # --quantization="fp8"
+                      
+                volumeMounts:
+                - name: hf-token-volume
+                  mountPath: /root/.cache/huggingface/token
+                  subPath: token
+                  readOnly: true
+                - name: huggingface-storage
+                  mountPath: /root/.cache/huggingface/
+                - name: dshm
+                  mountPath: /dev/shm
+                # - name: xla-cache-volume
+                #   mountPath: /mnt/xla-cache
+                # - name: torchtpu-vllm-code
+                #   mountPath: /root/tpu_inference
+                # - name: vllm-code
+                #   mountPath: /root/tpu_inference/vllm
+                resources:
+                  limits:
+                    memory: 512Gi
+                    cpu: "16"
+                    google.com/tpu: 4
+                  requests:
+                    memory: 512Gi
+                    cpu: "16"
+                    google.com/tpu: 4
+              volumes:
+              - name: hf-token-volume
+                secret:
+                  secretName: vllm-hf-token
+                  items:
+                  - key: HF_TOKEN      # The key inside your K8s secret
+                    path: token     # The filename created inside the volume
+              - name: huggingface-storage
+                ephemeral:
+                  volumeClaimTemplate:
+                    spec:
+                      storageClassName: "premium-rwo" # Uses your cloud's SSD provisioner
+                      accessModes: [ "ReadWriteOnce" ]
+                      resources:
+                        requests:
+                          storage: 512Gi
+              - name: dshm
+                emptyDir:
+                  medium: Memory
+              - name: xla-cache-volume
+                csi:
+                  driver: gcsfuse.csi.storage.gke.io
+                  volumeAttributes:
+                    bucketName: silkyarora-benchmark-results
+                    mountOptions: "implicit-dirs"
+              # - name: torchtpu-vllm-code
+              #   nfs:
+              #     server: 10.251.3.250
+              #     path: "/home/silkyarora/projects/torchtpu-vllm/"
+              # - name: vllm-code
+              #   nfs:
+              #     server: 10.251.3.250
+              #     path: "/home/silkyarora/projects/vllm-perfetto/vllm/vllm"
+              restartPolicy: Never
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: "2x2x1"
+                cloud.google.com/gke-tpu-accelerator: "tpu7x"
+
+    - name: bench
+      replicas: 1
+      template:
+        spec:
+          backoffLimit: 0
+          template:
+            spec:
+              containers:
+              - name: bench
+                image: vllm/vllm-tpu:nightly
+                imagePullPolicy: Always
+                command:
+                - /bin/bash
+                - -c
+                - |
+                    VLLM_SERVER_DNS="${JS_NAME}-vllm-server-0-0.${JS_NAME}"
+                    echo "Waiting for vLLM up"
+                    echo "Checking..http://${VLLM_SERVER_DNS}:8000/health"
+                    until curl -s http://${VLLM_SERVER_DNS}:8000/health > /dev/null; do
+                      sleep 5
+                    done
+
+                    echo "Running a test prompt..."
+                    curl http://${VLLM_SERVER_DNS}:8000/v1/completions \
+                      -H "Content-Type: application/json" \
+                      -d '{ "model": "${MODEL_NAME}",  "prompt": "Write a poem which is witty and funny and includes fruits like apples, banana and pineapple it must also some blah blah blah", "max_tokens": 200, "temperature": 0 }'
+                    echo ""
+
+                    echo "Starting bench in 5 seconds..."
+                    sleep 5
+
+                    echo "trace-start-event: name=benchmark ts=$(date +'%s.%N') pid=bench tid=bench"
+                    vllm bench serve \
+                      --backend vllm \
+                      --host=${VLLM_SERVER_DNS} \
+                      --port=8000 \
+                      --model ${MODEL_NAME} \
+                      --dataset-name=random \
+                      --random-input-len=1024 \
+                      --random-output-len=1024 \
+                      --random-range-ratio=0.8 \
+                      --num-prompts=320 \
+                      --max-concurrency=64 \
+                      --request-rate=inf \
+                      --ignore-eos \
+                      --percentile-metrics=ttft,tpot,itl,e2el
+                      # --warmup-mode=none
+                    echo "trace-end-event: name=benchmark ts=$(date +'%s.%N') pid=bench tid=bench"
+                env:
+                - name: RECIPE_NAME
+                  value: "vllm-qwen35-397b-a17b-fp8-v7x-16-sh"
+                - name: MODEL_NAME
+                  value: *model_name
+                - name: JS_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-name']
+
+
