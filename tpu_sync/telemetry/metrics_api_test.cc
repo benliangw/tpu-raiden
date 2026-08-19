@@ -165,6 +165,20 @@ TEST_F(MetricsApiTest, MetricMetadataConstants) {
       "milliseconds, including setup delays.");
   EXPECT_EQ(metric_metadata::kTransferDurationMs.type, MetricType::kHistogram);
 
+  // BufferAllocatedBytes
+  EXPECT_EQ(metric_names::kBufferAllocatedBytes, "buffer_allocated_bytes");
+  EXPECT_EQ(metric_descriptions::kBufferAllocatedBytes,
+            "Current host DRAM buffer capacity allocated in bytes for KV cache "
+            "staging "
+            "across all layers and shards.");
+  EXPECT_EQ(metric_metadata::kBufferAllocatedBytes.name,
+            "buffer_allocated_bytes");
+  EXPECT_EQ(metric_metadata::kBufferAllocatedBytes.description,
+            "Current host DRAM buffer capacity allocated in bytes for KV cache "
+            "staging "
+            "across all layers and shards.");
+  EXPECT_EQ(metric_metadata::kBufferAllocatedBytes.type, MetricType::kGauge);
+
   // Direction Labels
   EXPECT_EQ(metric_labels::kDirection, "direction");
   EXPECT_EQ(metric_labels::kDirectionPush, "push");
@@ -181,7 +195,8 @@ TEST_F(MetricsApiTest, MetricMetadataConstants) {
                           metric_metadata::kTransferFailuresTotal,
                           metric_metadata::kTransferDurationMs,
                           metric_metadata::kH2dTransferTimeMs,
-                          metric_metadata::kD2hTransferTimeMs));
+                          metric_metadata::kD2hTransferTimeMs,
+                          metric_metadata::kBufferAllocatedBytes));
 }
 
 TEST_F(MetricsApiTest, FastPathExitWhenNoBackends) {
@@ -317,7 +332,8 @@ TEST_F(MetricsApiTest, GetMetricMetadataReturnsAllMetricsWhenBackendsActive) {
                                   metric_metadata::kTransferFailuresTotal,
                                   metric_metadata::kTransferDurationMs,
                                   metric_metadata::kH2dTransferTimeMs,
-                                  metric_metadata::kD2hTransferTimeMs));
+                                  metric_metadata::kD2hTransferTimeMs,
+                                  metric_metadata::kBufferAllocatedBytes));
 }
 
 TEST_F(MetricsApiTest, GetMetricMetadataEmptyWhenNoBackends) {

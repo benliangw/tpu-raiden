@@ -61,6 +61,8 @@ inline constexpr absl::string_view kTransferDurationMs = "transfer_duration_ms";
 
 inline constexpr absl::string_view kH2dTransferTimeMs = "h2d_transfer_time_ms";
 inline constexpr absl::string_view kD2hTransferTimeMs = "d2h_transfer_time_ms";
+inline constexpr absl::string_view kBufferAllocatedBytes =
+    "buffer_allocated_bytes";
 
 }  // namespace metric_names
 
@@ -75,6 +77,9 @@ inline constexpr absl::string_view kTransferFailuresTotal =
 inline constexpr absl::string_view kTransferDurationMs =
     "Measures End-to-End (E2E) latency bound around the entire request in "
     "milliseconds, including setup delays.";
+inline constexpr absl::string_view kBufferAllocatedBytes =
+    "Current host DRAM buffer capacity allocated in bytes for KV cache staging "
+    "across all layers and shards.";
 
 inline constexpr absl::string_view kH2dTransferTimeMs =
     "Host-to-Device transfer latency in milliseconds.";
@@ -115,9 +120,15 @@ inline constexpr MetricMetadata kD2hTransferTimeMs{
     .description = metric_descriptions::kD2hTransferTimeMs,
     .type = MetricType::kHistogram};
 
+inline constexpr MetricMetadata kBufferAllocatedBytes{
+    .name = metric_names::kBufferAllocatedBytes,
+    .description = metric_descriptions::kBufferAllocatedBytes,
+    .type = MetricType::kGauge};
+
 inline constexpr MetricMetadata kAllMetrics[] = {
-    kSentBytesTotal,     kReceivedBytesTotal, kTransferFailuresTotal,
-    kTransferDurationMs, kH2dTransferTimeMs,  kD2hTransferTimeMs,
+    kSentBytesTotal,       kReceivedBytesTotal, kTransferFailuresTotal,
+    kTransferDurationMs,   kH2dTransferTimeMs,  kD2hTransferTimeMs,
+    kBufferAllocatedBytes,
 };
 }  // namespace metric_metadata
 

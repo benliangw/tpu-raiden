@@ -15,6 +15,7 @@
 #ifndef THIRD_PARTY_TPU_RAIDEN_KV_CACHE_KV_CACHE_MANAGER_BASE_H_
 #define THIRD_PARTY_TPU_RAIDEN_KV_CACHE_KV_CACHE_MANAGER_BASE_H_
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -391,6 +392,9 @@ class KVCacheManagerBase : public tpu_raiden::RaidenManagerBase {
   uint8_t* GetBlockHostPointer(size_t layer_idx, size_t shard_idx,
                                int block_id) override;
 
+  // Returns the total number of bytes allocated in host DRAM.
+  size_t GetAllocatedHostDramBytes() const;
+
  protected:
   const PJRT_Api* c_api_ = nullptr;
   const PJRT_RawBuffer_Extension* extension_ = nullptr;
@@ -485,6 +489,9 @@ class KVCacheManagerBase : public tpu_raiden::RaidenManagerBase {
       std::optional<size_t> layer_idx = std::nullopt,
       std::optional<size_t> shard_idx = std::nullopt);
 
+  // Updates the allocated buffer occupancy metrics.
+  void UpdateAllocatedOccupancyMetric() const;
+
  private:
   // Asynchronous on-chip H2D offload enqueued to the background worker queue.
   virtual absl::StatusOr<raiden::PjRtCopyFuture> H2dAsyncDispatch(
@@ -574,6 +581,13 @@ class KVCacheManagerBase : public tpu_raiden::RaidenManagerBase {
   // True if background FFI dispatching is enabled via the
   // RAIDEN_ENABLE_ASYNC_DISPATCH environment variable.
   bool enable_background_ = false;
+
+  // Mutex guarding allocated_host_dram_bytes_.
+  mutable absl::Mutex allocated_host_dram_bytes_mu_;
+
+  // Running total of allocated host DRAM bytes.
+  size_t allocated_host_dram_bytes_
+      ABSL_GUARDED_BY(allocated_host_dram_bytes_mu_) = 0;
 
   // Initializes background worker thread if RAIDEN_ENABLE_ASYNC_DISPATCH is
   // enabled.

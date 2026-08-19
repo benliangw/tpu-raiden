@@ -31,10 +31,12 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/strings/string_view.h"
 #include "tpu_sync/core/raw_transfer_core.h"
+#include "tpu_sync/core/raiden_manager_base.h"
 #include "tpu_sync/kv_cache/kv_cache_manager_base.h"
 #include "tpu_sync/rpc/raiden_service.pb.h"
 #include "tpu_sync/telemetry/metrics_api.h"
 #include "tpu_sync/telemetry/metrics_backend.h"
+#include "tpu_sync/telemetry/mock_metrics_backend.h"
 #include "tpu_sync/transport/block_transport.h"
 
 namespace tpu_raiden {
@@ -65,6 +67,9 @@ class TestKVCacheManager : public KVCacheManagerBase {
     buffer_holds_[layer_idx].physical_size = physical_size;
     major_dim_size_ = major_dim_size;
   }
+
+  using KVCacheManagerBase::layers_;
+  using KVCacheManagerBase::UpdateAllocatedOccupancyMetric;
 };
 
 // Pool with one strided live region per block: live [0, 32) and [64, 96)
@@ -1359,6 +1364,71 @@ TEST(KVCacheManagerTest, D2hWritePipelinedTelemetryBatchObservation) {
       sender.D2hWrite(receiver_peer, src_device_offsets, src_host_offsets,
                       dst_host_offsets, copy_sizes));
   EXPECT_OK(res.Await());
+}
+
+TEST(KVCacheManagerTest, BufferAllocatedHostDramTelemetry) {
+  auto mock_backend = std::make_unique<telemetry::MockMetricsBackend>();
+  telemetry::MockMetricsBackend* raw_mock = mock_backend.get();
+  telemetry::ScopedMetricsBackendReset scoped_reset(std::move(mock_backend));
+
+  // Expect initial gauge sets in constructor:
+  // num_layers = 2, num_shards = 2, slice_byte_size = 128, host_blocks = 4
+  // total allocated host dram = 2 * 2 * (4 * 128) = 2048 bytes
+  EXPECT_CALL(
+      *raw_mock,
+      SetGauge(testing::Eq(telemetry::metric_names::kBufferAllocatedBytes),
+               testing::IsEmpty(), testing::DoubleEq(2048.0)))
+      .Times(testing::AtLeast(1));
+
+  TestKVCacheManager manager(/*num_layers=*/2, /*num_shards=*/2,
+                             /*slice_byte_size=*/128,
+                             /*host_blocks=*/4);
+
+  EXPECT_EQ(manager.GetAllocatedHostDramBytes(), 2048);
+}
+
+TEST(KVCacheManagerTest, BufferAllocatedHostDramMaintenance) {
+  auto mock_backend = std::make_unique<telemetry::MockMetricsBackend>();
+  telemetry::MockMetricsBackend* raw_mock = mock_backend.get();
+  telemetry::ScopedMetricsBackendReset scoped_reset(std::move(mock_backend));
+
+  // Initial gauge set in constructor (2 * 2 * 4 * 128 = 2048 bytes).
+  EXPECT_CALL(
+      *raw_mock,
+      SetGauge(testing::Eq(telemetry::metric_names::kBufferAllocatedBytes),
+               testing::IsEmpty(), testing::DoubleEq(2048.0)))
+      .Times(1);
+
+  TestKVCacheManager manager(/*num_layers=*/2, /*num_shards=*/2,
+                             /*slice_byte_size=*/128,
+                             /*host_blocks=*/4);
+
+  EXPECT_EQ(manager.GetAllocatedHostDramBytes(), 2048);
+
+  // Calling RegisterPools grows layer 0 host mirror from 4*128 to 8*128 bytes
+  // per shard (2 shards = +1024 bytes -> 3072 bytes total).
+  EXPECT_CALL(
+      *raw_mock,
+      SetGauge(testing::Eq(telemetry::metric_names::kBufferAllocatedBytes),
+               testing::IsEmpty(), testing::DoubleEq(3072.0)))
+      .Times(1);
+  manager.SetLayerPhysicalSizeForTest(/*layer_idx=*/0,
+                                      /*physical_size=*/1024,
+                                      /*major_dim_size=*/1);
+  absl::Status status = manager.RegisterPools(
+      {DensePool("kind_a", /*storage_index=*/0, /*base_offset=*/0,
+                 /*stride=*/128, /*num_blocks=*/8)});
+  ASSERT_TRUE(status.ok()) << status.ToString();
+  EXPECT_EQ(manager.GetAllocatedHostDramBytes(), 3072);
+
+  // Subsequent call to UpdateAllocatedOccupancyMetric maintains and reports
+  // the running value (3072).
+  EXPECT_CALL(
+      *raw_mock,
+      SetGauge(testing::Eq(telemetry::metric_names::kBufferAllocatedBytes),
+               testing::IsEmpty(), testing::DoubleEq(3072.0)))
+      .Times(1);
+  manager.UpdateAllocatedOccupancyMetric();
 }
 
 }  // namespace

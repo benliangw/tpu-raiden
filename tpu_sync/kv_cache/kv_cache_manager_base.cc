@@ -34,6 +34,7 @@
 #include <vector>
 
 #include "absl/base/thread_annotations.h"
+#include "absl/cleanup/cleanup.h"
 #include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -272,6 +273,7 @@ KVCacheManagerBase::KVCacheManagerBase(
 
   layers_.reserve(num_layers_);
   buffer_holds_.reserve(num_layers_);
+  size_t total_host_dram_bytes = 0;
 
   for (size_t layer_idx = 0; layer_idx < num_layers_; ++layer_idx) {
     const auto& dst_buffers = layer_buffers[layer_idx];
@@ -349,11 +351,16 @@ KVCacheManagerBase::KVCacheManagerBase(
                 << shard_info.host_size;
       }
 
+      total_host_dram_bytes += shard_info.host_size;
       device_info.holds.push_back(dst_buffer);
       layer_info.shards.push_back(std::move(shard_info));
     }
     layers_.push_back(std::move(layer_info));
     buffer_holds_.push_back(std::move(device_info));
+  }
+  {
+    absl::MutexLock lock(allocated_host_dram_bytes_mu_);
+    allocated_host_dram_bytes_ = total_host_dram_bytes;
   }
 
   constexpr size_t kPoolSize = 4;
@@ -361,6 +368,7 @@ KVCacheManagerBase::KVCacheManagerBase(
   push_pool_ = std::make_shared<NumaThreadPool>(kPoolSize);
   pull_pool_ = std::make_unique<NumaThreadPool>(kPoolSize);
   InitBackgroundWorker();
+  UpdateAllocatedOccupancyMetric();
 }
 
 KVCacheManagerBase::KVCacheManagerBase(
@@ -376,6 +384,7 @@ KVCacheManagerBase::KVCacheManagerBase(
   semaphore_ = std::make_unique<xla::Semaphore>(std::max<int>(4, parallelism));
 
   layers_.reserve(num_layers_);
+  size_t total_host_dram_bytes = 0;
   for (size_t layer_idx = 0; layer_idx < num_layers_; ++layer_idx) {
     LayerInfoBase layer_info;
     layer_info.shards.reserve(num_shards_);
@@ -422,9 +431,14 @@ KVCacheManagerBase::KVCacheManagerBase(
         shard_info.host_size = alloc_size;
       }
 
+      total_host_dram_bytes += shard_info.host_size;
       layer_info.shards.push_back(std::move(shard_info));
     }
     layers_.push_back(std::move(layer_info));
+  }
+  {
+    absl::MutexLock lock(allocated_host_dram_bytes_mu_);
+    allocated_host_dram_bytes_ = total_host_dram_bytes;
   }
   constexpr size_t kPoolSize = 4;
   dma_pool_ = std::make_unique<NumaThreadPool>(kPoolSize);
@@ -432,6 +446,7 @@ KVCacheManagerBase::KVCacheManagerBase(
   pull_pool_ = std::make_unique<NumaThreadPool>(kPoolSize);
   InitTransportServer();
   InitBackgroundWorker();
+  UpdateAllocatedOccupancyMetric();
 }
 
 void KVCacheManagerBase::InitBackgroundWorker() {
@@ -1195,18 +1210,27 @@ absl::StatusOr<raiden::PjRtCopyFuture> KVCacheManagerBase::H2hReadExplicit(
 void KVCacheManagerBase::SetExternalHostBuffer(
     const std::vector<raiden::BufferHoldAndAlias>& buffer_holds) {
   size_t idx = 0;
+  size_t old_total = 0;
+  size_t new_total = 0;
   for (size_t l = 0; l < num_layers_; ++l) {
     for (size_t sh = 0; sh < num_shards_; ++sh) {
       if (idx < buffer_holds.size()) {
         void* host_ptr = buffer_holds[idx].GetHostPointer();
         if (host_ptr) {
+          old_total += layers_[l].shards[sh].host_size;
+          const size_t new_size = buffer_holds[idx].GetOnDeviceSizeInBytes();
+          new_total += new_size;
           layers_[l].shards[sh].host_ptr = reinterpret_cast<uint8_t*>(host_ptr);
-          layers_[l].shards[sh].host_size =
-              buffer_holds[idx].GetOnDeviceSizeInBytes();
+          layers_[l].shards[sh].host_size = new_size;
         }
         idx++;
       }
     }
+  }
+  {
+    absl::MutexLock lock(allocated_host_dram_bytes_mu_);
+    allocated_host_dram_bytes_ =
+        allocated_host_dram_bytes_ - old_total + new_total;
   }
   // Host geometry changed: drop any lazily built implicit pools so the next
   // pool access rebuilds them against the new buffers.
@@ -1214,6 +1238,7 @@ void KVCacheManagerBase::SetExternalHostBuffer(
   if (!explicit_pools_) {
     pools_.clear();
   }
+  UpdateAllocatedOccupancyMetric();
 }
 
 absl::Status KVCacheManagerBase::H2dDirect(
@@ -1569,11 +1594,22 @@ absl::Status KVCacheManagerBase::EnsureHostMirrorCovers(size_t storage_idx,
   if (storage_idx >= layers_.size() || needed_bytes <= 0) {
     return absl::OkStatus();
   }
+  size_t old_total = 0;
+  size_t new_total = 0;
+  auto update_bytes_on_exit = absl::MakeCleanup([this, &old_total, &new_total] {
+    if (old_total != new_total) {
+      absl::MutexLock lock(allocated_host_dram_bytes_mu_);
+      allocated_host_dram_bytes_ =
+          allocated_host_dram_bytes_ - old_total + new_total;
+    }
+  });
+
   for (auto& shard_info : layers_[storage_idx].shards) {
     if (static_cast<int64_t>(shard_info.host_size) >= needed_bytes) {
       continue;
     }
     const size_t alloc_size = static_cast<size_t>(needed_bytes);
+    const size_t prev_size = shard_info.host_size;
     if (host_allocator_) {
       ASSIGN_OR_RETURN(HostBufferAllocation allocation,
                        host_allocator_(alloc_size, nullptr));
@@ -1589,6 +1625,8 @@ absl::Status KVCacheManagerBase::EnsureHostMirrorCovers(size_t storage_idx,
       shard_info.host_size = allocation.size;
       shard_info.host_owner = std::move(allocation.owner);
       shard_info.owned_host_buffer = {nullptr, [](void*) {}};
+      old_total += prev_size;
+      new_total += allocation.size;
     } else {
       void* ptr = nullptr;
       if (posix_memalign(&ptr, 64, alloc_size) != 0) {
@@ -1605,6 +1643,8 @@ absl::Status KVCacheManagerBase::EnsureHostMirrorCovers(size_t storage_idx,
       shard_info.host_ptr = shard_info.owned_host_buffer.get();
       shard_info.host_size = alloc_size;
       shard_info.host_owner.reset();
+      old_total += prev_size;
+      new_total += alloc_size;
     }
   }
   return absl::OkStatus();
@@ -1662,9 +1702,12 @@ absl::Status KVCacheManagerBase::RegisterPools(std::vector<PoolSpec> pools) {
       }
     }
   }
-  absl::MutexLock l(pools_mu_);
-  pools_ = std::move(pools);
-  explicit_pools_ = true;
+  {
+    absl::MutexLock l(pools_mu_);
+    pools_ = std::move(pools);
+    explicit_pools_ = true;
+  }
+  UpdateAllocatedOccupancyMetric();
   return absl::OkStatus();
 }
 
@@ -2565,6 +2608,21 @@ absl::StatusOr<raiden::PjRtCopyFuture> KVCacheManagerBase::D2h(
   return D2hSyncDispatch(src_offsets_major_dim, dst_offsets_major_dim,
                          copy_sizes_major_dim, slot_idx, target_layer_idx,
                          target_shard_idx);
+}
+
+size_t KVCacheManagerBase::GetAllocatedHostDramBytes() const {
+  absl::MutexLock lock(allocated_host_dram_bytes_mu_);
+  return allocated_host_dram_bytes_;
+}
+
+void KVCacheManagerBase::UpdateAllocatedOccupancyMetric() const {
+  if (!telemetry::RaidenMetricStore::GetGlobalMetricStore().HasBackends()) {
+    return;
+  }
+  const size_t total_host_dram = GetAllocatedHostDramBytes();
+  telemetry::RaidenMetricStore::GetGlobalMetricStore().SetGauge(
+      telemetry::metric_names::kBufferAllocatedBytes, {},
+      static_cast<double>(total_host_dram));
 }
 
 }  // namespace kv_cache
