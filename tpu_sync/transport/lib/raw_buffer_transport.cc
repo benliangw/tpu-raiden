@@ -47,6 +47,7 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/types/span.h"
 #include "tpu_sync/transport/buffer_push_task.h"
+#include "tpu_sync/transport/lib/transport_adapter.h"
 
 #ifndef IOV_MAX
 #define IOV_MAX 1024
@@ -557,12 +558,8 @@ absl::Status RawBufferTransport::RegisterExpectedLayerChunks(
   return absl::OkStatus();
 }
 
-absl::Status RawBufferTransport::PushBuffer(absl::string_view peer,
-                                            size_t buffer_id,
-                                            size_t dst_shard_idx,
-                                            size_t dst_offset_bytes,
-                                            const uint8_t* data_ptr,
-                                            size_t size_bytes, uint64_t uuid) {
+absl::Status RawBufferTransport::ProcessSocketBufferPush(
+    absl::string_view peer, const Request& request) {
   if (peer.empty()) {
     return absl::InvalidArgumentError(
         "Destination peer address cannot be empty");
@@ -573,23 +570,31 @@ absl::Status RawBufferTransport::PushBuffer(absl::string_view peer,
   auto fd_cleaner =
       absl::MakeCleanup([&] { conn_pool_.Return(ok_to_pool, fd, peer); });
 
+  const uint8_t opcode = request.socket_opcode;
+  const uint64_t uuid = request.uuid;
+
+  if (opcode != kOpBufferPush) {
+    return absl::InvalidArgumentError(
+        absl::StrCat("Unsupported buffer push opcode: ", opcode));
+  }
+
   ChunkHeader header = {};
   header.version = 1;
   header.op = kOpBufferPush;
-  header.buffer_id = static_cast<uint16_t>(buffer_id);
-  header.remote_id = static_cast<uint32_t>(dst_offset_bytes);
-  header.local_id = static_cast<uint32_t>(dst_shard_idx);
-  header.count_or_size = static_cast<uint32_t>(size_bytes);
+  header.buffer_id = static_cast<uint16_t>(request.layer_idx);
+  header.remote_id = request.remote_id;
+  header.local_id = request.local_id;
+  header.count_or_size = static_cast<uint32_t>(request.len);
   header.uuid = uuid;
 
   VLOG(1) << "Pushing chunk to peer=" << peer << " uuid=" << uuid
-          << " dst_shard=" << dst_shard_idx
-          << " dst_offset=" << dst_offset_bytes << " size=" << size_bytes;
+          << " dst_shard=" << request.local_id
+          << " dst_offset=" << request.remote_id << " size=" << request.len;
 
   const auto s_header = SerializeChunkHeader(header);
   const std::array<struct iovec, 2> iovs = {
       iovec(const_cast<char*>(s_header.data()), s_header.size()),
-      iovec(const_cast<uint8_t*>(data_ptr), size_bytes),
+      iovec(request.laddr, request.len),
   };
   RETURN_IF_ERROR(WriteVExact(fd, iovs));
 

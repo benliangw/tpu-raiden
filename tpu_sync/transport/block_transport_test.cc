@@ -14,9 +14,12 @@
 
 #include "tpu_sync/transport/block_transport.h"
 
+#include <unistd.h>
+
 #include <algorithm>
 #include <atomic>
 #include <chrono>  // NOLINT
+#include <csignal>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -51,8 +54,11 @@ namespace transport {
 namespace {
 
 using ::absl_testing::StatusIs;
+using ::testing::Each;
+using ::testing::Eq;
 using ::testing::HasSubstr;
 using ::testing::Not;
+using ::testing::Pointwise;
 
 constexpr absl::Duration kMetricPollingTimeout = absl::Seconds(5);
 constexpr absl::Duration kMetricPollingInterval = absl::Milliseconds(10);
@@ -1081,6 +1087,66 @@ TEST(BlockTransportTest, MultiShardPushLayerMajor) {
       }
     }
   }
+}
+
+TEST(BlockTransportTest, PushBufferCorrectness) {
+  constexpr size_t size = 64 * 1024;
+  MockDelegate src(size);
+  MockDelegate dst(size);
+
+  BlockTransport src_transport(&src, 0);
+  BlockTransport dst_transport(&dst, 0);
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+  constexpr size_t kLen = 62 * 1024;
+  constexpr size_t kDstOffset = 512;
+  std::vector<uint8_t> push_payload(kLen);
+  for (size_t i = 0; i < kLen; ++i) {
+    push_payload[i] = static_cast<uint8_t>((i % 255) + 1);
+  }
+  const std::string dst_addr =
+      absl::StrCat("localhost:", dst_transport.local_port());
+  const auto push_res = src_transport.PushBuffer(
+      dst_addr, /*buffer_id=*/0, /*dst_shard_idx=*/0,
+      /*dst_offset_bytes=*/kDstOffset, push_payload.data(), push_payload.size(),
+      /*uuid=*/0);
+  EXPECT_OK(push_res) << push_res.message();
+
+  const uint8_t* dst_buf = dst.GetHostPointer(0, 0);
+  EXPECT_THAT(absl::MakeConstSpan(dst_buf, kDstOffset), Each(Eq(0)));
+  EXPECT_THAT(absl::MakeConstSpan(dst_buf + kDstOffset, kLen),
+              Pointwise(Eq(), absl::MakeConstSpan(push_payload)));
+  EXPECT_THAT(absl::MakeConstSpan(dst_buf + kDstOffset + kLen,
+                                  size - kDstOffset - kLen),
+              Each(Eq(0)));
+}
+
+TEST(BlockTransportTest, PollEINTRIsBenign) {
+  // Set up src/dst buffers.
+  constexpr size_t size = 4096;
+  MockDelegate src(size);
+  MockDelegate dst(size);
+
+  // Create two transports.
+  BlockTransport src_transport(&src, 0);
+  BlockTransport dst_transport(&dst, 0);
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+  // Register a dummy signal handler.
+  signal(SIGUSR1, [](int) {});
+  // Send a signal to the process to interrupt some poll() calls with EINTR.
+  kill(getpid(), SIGUSR1);
+
+  // Perform a push to verify the connection worker didn't die.
+  const std::string dst_addr =
+      absl::StrCat("localhost:", dst_transport.local_port());
+  const std::vector<uint8_t> push_payload(1024, 0xAB);
+  constexpr size_t kDstOffset = 512;
+  const auto push_res = src_transport.PushBuffer(
+      dst_addr, /*buffer_id=*/0, /*dst_shard_idx=*/0,
+      /*dst_offset_bytes=*/kDstOffset, push_payload.data(), push_payload.size(),
+      /*uuid=*/0);
+  EXPECT_OK(push_res) << push_res.message();
 }
 
 }  // namespace

@@ -126,41 +126,6 @@ TEST(RawBufferTransportTest, PullBufferCorrectness) {
               Each(Eq(0)));
 }
 
-TEST(RawBufferTransportTest, PushBufferCorrectness) {
-  // Set up src/dst buffers.
-  constexpr size_t size = 64 * 1024;
-  RawMockDelegate src(size);
-  RawMockDelegate dst(size);
-  RandomNonZero(src.DataSpan());
-
-  // Pre-condition: all the dst bytes are not equal to the src.
-  ASSERT_THAT(dst.DataSpan(), Pointwise(Ne(), src.DataSpan()));
-
-  // Create two transports.
-  RawBufferTransport src_transport(&src, kLocalPort);
-  RawBufferTransport dst_transport(&dst, kLocalPort);
-  std::this_thread::sleep_for(std::chrono::milliseconds(50));
-
-  // Push a buffer segment from src to dst.
-  constexpr size_t kLen = 62 * 1024;
-  constexpr size_t kDstOffset = 512;
-  std::vector<uint8_t> push_payload(kLen);
-  RandomNonZero(absl::MakeSpan(push_payload));
-  const std::string dst_addr = GetIpPort(dst_transport);
-  const auto push_res =
-      src_transport.PushBuffer(dst_addr, kBufferId, kDstShardIdx, kDstOffset,
-                               push_payload.data(), push_payload.size(),
-                               /*uuid=*/0);
-  EXPECT_OK(push_res) << push_res.message();
-
-  // Post-condition: only the copied dst bytes are equal to the src.
-  EXPECT_THAT(dst.DataSpan(0, kDstOffset), Each(Eq(0)));
-  EXPECT_THAT(dst.DataSpan(kDstOffset, kLen),
-              Pointwise(Eq(), absl::MakeConstSpan(push_payload)));
-  EXPECT_THAT(dst.DataSpan(kDstOffset + kLen, size - kDstOffset - kLen),
-              Each(Eq(0)));
-}
-
 TEST(RawBufferTransportTest, PushBuffersCorrectness) {
   // Set up src/dst buffers.
   constexpr size_t size = 128 * 1024;
@@ -237,33 +202,6 @@ TEST(RawBufferTransportTest, PushBuffersCorrectness) {
   EXPECT_THAT(dst2.DataSpan(8192, payload4.size()),
               Pointwise(Eq(), absl::MakeConstSpan(payload4)));
   EXPECT_TRUE(dst2.on_data_received());
-}
-
-TEST(RawBufferTransportTest, PollEINTRIsBenign) {
-  // Set up src/dst buffers.
-  constexpr size_t size = 4096;
-  RawMockDelegate src(size);
-  RawMockDelegate dst(size);
-
-  // Create two transports.
-  RawBufferTransport src_transport(&src, 0);
-  RawBufferTransport dst_transport(&dst, 0);
-  std::this_thread::sleep_for(std::chrono::milliseconds(50));
-
-  // Register a dummy signal handler.
-  signal(SIGUSR1, [](int) {});
-  // Send a signal to the process to interrupt some poll() calls with EINTR.
-  kill(getpid(), SIGUSR1);
-
-  // Perform a push to verify the connection worker didn't die.
-  const std::string dst_addr = GetIpPort(dst_transport);
-  const std::vector<uint8_t> push_payload(1024, 0xAB);
-  constexpr size_t kDstOffset = 512;
-  const auto push_res =
-      src_transport.PushBuffer(dst_addr, kBufferId, kDstShardIdx, kDstOffset,
-                               push_payload.data(), push_payload.size(),
-                               /*uuid=*/0);
-  EXPECT_OK(push_res) << push_res.message();
 }
 
 TEST(RawBufferTransportTest, RejectsOutOfBounds) {

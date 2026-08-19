@@ -91,6 +91,7 @@ cc_library(
         ":chunk",
         ":chunk_serializer",
         ":raw_buffer_transport_delegate",
+        ":transport_adapter",
         "//tpu_sync/core:status_macros",
         "//tpu_sync/transport:buffer_push_task",
         "//tpu_sync/transport/lib/conn:pool",
