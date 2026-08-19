@@ -28,7 +28,6 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-resources = None
 from tpu_sync.api.jax import kv_cache_manager
 from tpu_sync.api.jax import kv_cache_store
 
@@ -41,10 +40,6 @@ def _pick_unused_port():
   with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.bind(("localhost", 0))
     return s.getsockname()[1]
-
-
-def find_free_port() -> int:
-  return _pick_unused_port()
 
 
 def get_local_ip() -> str:
@@ -70,16 +65,6 @@ def start_servers():
 
   _registry_port = _pick_unused_port()
 
-  this_dir = os.path.dirname(os.path.abspath(__file__))
-  registry_binary = os.path.abspath(
-      os.path.join(
-          this_dir,
-          "..",
-          "..",
-          "kv_cache",
-          "global_registry",
-          "global_registry_server",
-      )
   )
   extra_flags = []
 
@@ -128,7 +113,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
   @classmethod
   def setUpClass(cls):
     super().setUpClass()
-    cls.controller_port = find_free_port()
+    cls.controller_port = _pick_unused_port()
 
   def setUp(self):
     super().setUp()
@@ -205,7 +190,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     expected_ref = host_data
 
     # 2. Get free port for controller
-    controller_port = find_free_port()
+    controller_port = _pick_unused_port()
 
     # Calculate shard size in bytes
     block_elements = 128 * 8 * 8 * 128
@@ -278,9 +263,14 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     # Wait for save completion
     done = False
     while not done:
-      save_done, save_failed, _, _, _ = store.poll_save_status()
+      save_done, save_failed, _, save_existing, save_unregistered = (
+          store.poll_save_status()
+      )
       if save_failed:
         raise RuntimeError(f"Async Save failed: {save_failed}")
+      # A local save never produces the remote-only outcomes.
+      self.assertEmpty(save_existing)
+      self.assertEmpty(save_unregistered)
       if save_done:
         done = True
       if not done:
@@ -339,10 +329,10 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
   def test_e2e_without_multi_numa(self):
     self._run_e2e_test(enable_multi_numa=False)
 
-  @unittest.skip("Multi-NUMA test skipped in sandboxed test env due to port contention")
-
-  @unittest.skip("skip")
-  @unittest.skip("Cannot run multi-numa in sandbox")
+  @unittest.skip(
+      "multi-NUMA needs a dedicated multi-NUMA machine; port contention"
+      " in the sandbox otherwise. Re-enable when the hardware lands."
+  )
   def test_e2e_with_multi_numa(self):
     self._run_e2e_test(enable_multi_numa=True)
 
@@ -355,10 +345,10 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
   def test_e2e_with_slices_without_multi_numa(self):
     self._run_e2e_test(enable_multi_numa=False, use_slices=True)
 
-  @unittest.skip("Multi-NUMA test skipped in sandboxed test env due to port contention")
-
-  @unittest.skip("skip")
-  @unittest.skip("Cannot run multi-numa in sandbox")
+  @unittest.skip(
+      "multi-NUMA needs a dedicated multi-NUMA machine; port contention"
+      " in the sandbox otherwise. Re-enable when the hardware lands."
+  )
   def test_e2e_with_slices_with_multi_numa(self):
     self._run_e2e_test(enable_multi_numa=True, use_slices=True)
 
@@ -410,9 +400,9 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     num_shards = len(self.devices)
     shard_size_bytes = (block_elements * 4) // num_shards
 
-    controller_port = find_free_port()
-    worker_port_a = find_free_port()
-    worker_port_b = find_free_port()
+    controller_port = _pick_unused_port()
+    worker_port_a = _pick_unused_port()
+    worker_port_b = _pick_unused_port()
 
     # 2. Create Job A's KVCacheStore & KVCacheManager
     rid_a = kv_cache_store.RaidenId("job_a", "0", "cache_a", 0)
@@ -437,7 +427,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
         node_id=producer_node_id,
     )
 
-    controller_port_b = find_free_port()
+    controller_port_b = _pick_unused_port()
     # 3. Create Job B's KVCacheStore & KVCacheManager
     rid_b = kv_cache_store.RaidenId("job_b", "0", "cache_b", 0)
     store_b = kv_cache_store.KVCacheStore(
@@ -623,12 +613,12 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
   def _run_remote_read_to_hbm_test(self, enable_multi_numa: bool, use_slices: bool = False):
     """Job A saves; Job B pulls straight into scattered device blocks.
 
-    Covers, on real TPU and byte-exactly: save (D2H), read_remote to HBM
-    (remote host -> local host staging -> local device), the resulting
-    HOST_AND_HBM state, and load (H2D) from the host copy that the pull left
-    behind as its staging hop.
+    Covers, on real TPU and byte-exactly: save (D2H) on the producer, then
+    read_remote straight into the consumer's HBM. The staging host blocks go
+    back to the pool: nothing is recorded locally, no host copy is left
+    behind, and a later local load() of the same hashes is refused.
     """
-    if enable_multi_numa and len(self.devices) <= 4:
+    if enable_multi_numa and len(self.devices) > 4:
       self.skipTest(
           "Multi-NUMA E2E test is not supported on single-host shared device "
           f"configurations (devices={len(self.devices)}). Skipping."
@@ -668,10 +658,10 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     num_shards = len(self.devices)
     shard_size_bytes = (block_elements * 4) // num_shards
 
-    controller_port = find_free_port()
-    controller_port_b = find_free_port()
-    worker_port_a = find_free_port()
-    worker_port_b = find_free_port()
+    controller_port = _pick_unused_port()
+    controller_port_b = _pick_unused_port()
+    worker_port_a = _pick_unused_port()
+    worker_port_b = _pick_unused_port()
 
     rid_a = kv_cache_store.RaidenId("job_hbm_a", "0", "cache_a", 0)
     store_a = kv_cache_store.KVCacheStore(
@@ -850,7 +840,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
           store.poll_save_status()
       )
       if done or failed:
-        return done, failed, existing
+        return done, failed, existing, unregistered
       if not pending:
         raise RuntimeError("remote write vanished without a verdict")
       time.sleep(0.01)
@@ -861,7 +851,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
       producer_node_id: int = 0,
       consumer_node_id: int = 0,
       expect_write_success: bool = True,
-      preload_destination: bool = False,
+      preload_count: int = 0,
   ):
     """Job A offers blocks it owns; Job B pulls them and keeps them.
 
@@ -898,9 +888,9 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     num_shards = len(self.devices)
     shard_size_bytes = (block_elements * 4) // num_shards
 
-    controller_port = find_free_port()
-    worker_port_a = find_free_port()
-    worker_port_b = find_free_port()
+    controller_port = _pick_unused_port()
+    worker_port_a = _pick_unused_port()
+    worker_port_b = _pick_unused_port()
 
     tag = f"write_{uuid.uuid4().hex[:8]}"
     rid_a = kv_cache_store.RaidenId(f"{tag}_job_a", "0", f"{tag}_cache_a", 0)
@@ -925,7 +915,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
         node_id=producer_node_id,
     )
 
-    controller_port_b = find_free_port()
+    controller_port_b = _pick_unused_port()
     rid_b = kv_cache_store.RaidenId(f"{tag}_job_b", "0", f"{tag}_cache_b", 0)
     store_b = kv_cache_store.KVCacheStore(
         capacity=4,
@@ -972,25 +962,28 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     self.assertTrue(store_a.save(hashes))
     self._await_terminal(store_a.poll_save_status, len(hashes), "Job A save")
 
-    if preload_destination:
-      # The destination already holds everything offered. A SUCCESS that moves
-      # no bytes, and the one case where the source's blocks never travel.
+    preloaded = hashes[:preload_count]
+    if preloaded:
+      # The destination already holds a prefix of what will be offered.
+      # Holding ALL of it makes the offer a SUCCESS that moves no bytes;
+      # holding a strict subset makes it a FAILURE that reports the overlap,
+      # because the destination does not do partial writes.
       self.assertTrue(
           store_b.insert(
-              hashes,
+              preloaded,
               [
                   kv_cache_store.RaidenBlockId(
                       rid_b,
                       host_block_id=i,
                       status=kv_cache_store.BlockStatus.HOST,
                   )
-                  for i in range(num_blocks)
+                  for i in range(len(preloaded))
               ],
               on_host=True,
           )
       )
       # Destination state only: nothing here consumes insert's pins.
-      store_b.release(hashes)
+      store_b.release(preloaded)
 
     # 2. Job A offers them. Returns once Job B has decided, not once the bytes
     #    have moved.
@@ -1001,7 +994,21 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     # spends, so the two calls are one workflow rather than a re-pin hack.
     self.assertLen(store_a.lookup(hashes), len(hashes))
     self.assertTrue(store_a.save(hashes, rid_b))
-    done, failed, existing = self._await_write_terminal(store_a, hashes)
+    done, failed, existing, unregistered = self._await_write_terminal(
+        store_a, hashes
+    )
+
+    if 0 < preload_count < len(hashes):
+      # Partial overlap, with real residency on both sides: the whole batch
+      # fails, and `existing` names exactly the prefix the destination held
+      # -- the list the caller needs to decide what to re-offer.
+      self.assertCountEqual(failed, hashes)
+      self.assertEmpty(done)
+      self.assertCountEqual(existing, preloaded)
+      self.assertEmpty(unregistered)
+      # The failed offer consumed nothing; hand lookup's pins back.
+      store_a.release(hashes)
+      return
 
     if not expect_write_success:
       self.assertNotEmpty(
@@ -1013,6 +1020,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     self.assertCountEqual(done, hashes)
     self.assertEmpty(failed)
     self.assertEmpty(existing)
+    self.assertEmpty(unregistered)
     # No release: the successful remote save consumed the pin lookup() granted.
 
     # 3. Job B holds them locally, host-resident, as its own.
@@ -1021,7 +1029,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     for _, slice_b in lookup_b:
       self.assertEqual(slice_b.status, kv_cache_store.BlockStatus.HOST)
 
-    if preload_destination:
+    if preloaded:
       # Nothing was transferred, so there is nothing of Job A's to compare.
       return
 
@@ -1041,16 +1049,10 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     )
 
   def test_remote_write_e2e(self):
+    # Single-host matching node_ids (the defaults): exercises the node_id
+    # plumbing end to end, including the destination's
+    # host_blocks_to_allocate branch.
     self._run_remote_write_e2e_test()
-
-  def test_remote_write_e2e_matching_node_id(self):
-    # Single-host matching node_ids: exercises the node_id plumbing end to end,
-    # including the destination's host_blocks_to_allocate branch.
-    self._run_remote_write_e2e_test(
-        producer_node_id=0,
-        consumer_node_id=0,
-        expect_write_success=True,
-    )
 
   def test_remote_write_e2e_mismatched_node_id_fails(self):
     # The destination pairs each of its workers with the source worker holding
@@ -1067,22 +1069,28 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     # The destination already holds every offered hash. SUCCESS with no
     # transfer: hashes are content-addressed, so the peer having them is
     # exactly the post-condition the caller wanted.
-    self._run_remote_write_e2e_test(preload_destination=True)
+    self._run_remote_write_e2e_test(preload_count=2)
+
+  def test_remote_write_e2e_partial_exist_reports_the_overlap(self):
+    # The destination holds one of the two offered hashes -- with real bytes
+    # and a real registry, unlike the control-plane unit test. The batch
+    # fails whole and `existing` names the overlap.
+    self._run_remote_write_e2e_test(preload_count=1)
 
   def test_remote_read_to_hbm_without_multi_numa(self):
     self._run_remote_read_to_hbm_test(enable_multi_numa=False)
 
-  @unittest.skip("Multi-NUMA test skipped in sandboxed test env due to port contention")
-  @unittest.skip("Cannot run multi-numa in sandbox")
+  @unittest.skip(
+      "multi-NUMA needs a dedicated multi-NUMA machine; port contention"
+      " in the sandbox otherwise. Re-enable when the hardware lands."
+  )
   def test_remote_read_to_hbm_with_multi_numa(self):
     self._run_remote_read_to_hbm_test(enable_multi_numa=True)
 
-  
-  @unittest.skip("Multi-NUMA test skipped in sandboxed test env due to port contention")
-
-  
-  @unittest.skip("skip")
-  @unittest.skip("Cannot run multi-numa in sandbox")
+  @unittest.skip(
+      "multi-NUMA needs a dedicated multi-NUMA machine; port contention"
+      " in the sandbox otherwise. Re-enable when the hardware lands."
+  )
   def test_remote_read_to_hbm_with_slices_with_multi_numa(self):
     self._run_remote_read_to_hbm_test(enable_multi_numa=True, use_slices=True)
 
@@ -1093,18 +1101,20 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
   def test_remote_read_e2e_with_slices_without_multi_numa(self):
     self._run_remote_read_e2e_test(enable_multi_numa=False, use_slices=True)
 
-  @unittest.skip("Multi-NUMA test skipped in sandboxed test env due to port contention")
-
-  @unittest.skip("skip")
-  @unittest.skip("Cannot run multi-numa in sandbox")
+  @unittest.skip(
+      "multi-NUMA needs a dedicated multi-NUMA machine; port contention"
+      " in the sandbox otherwise. Re-enable when the hardware lands."
+  )
   def test_remote_read_e2e_with_slices_with_multi_numa(self):
     self._run_remote_read_e2e_test(enable_multi_numa=True, use_slices=True)
 
   def test_remote_read_e2e_without_multi_numa(self):
     self._run_remote_read_e2e_test(enable_multi_numa=False)
 
-  @unittest.skip("Multi-NUMA test skipped in sandboxed test env due to port contention")
-  @unittest.skip("Cannot run multi-numa in sandbox")
+  @unittest.skip(
+      "multi-NUMA needs a dedicated multi-NUMA machine; port contention"
+      " in the sandbox otherwise. Re-enable when the hardware lands."
+  )
   def test_remote_read_e2e_with_multi_numa(self):
     self._run_remote_read_e2e_test(enable_multi_numa=True)
 
@@ -1152,8 +1162,8 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
 
     num_shards = len(self.devices)
     shard_size_bytes = (128 * 8 * 8 * 128 * 4) // num_shards
-    controller_port_a = find_free_port()
-    controller_port_b = find_free_port()
+    controller_port_a = _pick_unused_port()
+    controller_port_b = _pick_unused_port()
 
     # Source (Job A): running + registered, but never saves any block, so its
     # LRU has no HOST-resident blocks.
@@ -1173,7 +1183,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
         max_blocks=num_blocks,
         num_slots=2,
         unsafe_skip_buffer_lock=self.skip_lock,
-        raiden_worker_port=find_free_port(),
+        raiden_worker_port=_pick_unused_port(),
         raiden_controller_address=f"localhost:{controller_port_a}",
         worker_id="worker_a",
     )
@@ -1195,7 +1205,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
         max_blocks=num_blocks,
         num_slots=2,
         unsafe_skip_buffer_lock=self.skip_lock,
-        raiden_worker_port=find_free_port(),
+        raiden_worker_port=_pick_unused_port(),
         raiden_controller_address=f"localhost:{controller_port_b}",
         worker_id="worker_b",
         host_blocks_to_allocate=4,
@@ -1250,8 +1260,8 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
 
     num_shards = len(self.devices)
     shard_size_bytes = (128 * 8 * 8 * 128 * 4) // num_shards
-    controller_port_a = find_free_port()
-    controller_port_b = find_free_port()
+    controller_port_a = _pick_unused_port()
+    controller_port_b = _pick_unused_port()
 
     rid_a = kv_cache_store.RaidenId("ws_job_a", "0", "cache_a", 0)
     store_a = kv_cache_store.KVCacheStore(
@@ -1269,7 +1279,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
         max_blocks=num_blocks,
         num_slots=2,
         unsafe_skip_buffer_lock=self.skip_lock,
-        raiden_worker_port=find_free_port(),
+        raiden_worker_port=_pick_unused_port(),
         raiden_controller_address=f"localhost:{controller_port_a}",
         worker_id="worker_a",
     )
@@ -1306,7 +1316,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
         max_blocks=num_blocks,
         num_slots=2,
         unsafe_skip_buffer_lock=self.skip_lock,
-        raiden_worker_port=find_free_port(),
+        raiden_worker_port=_pick_unused_port(),
         raiden_controller_address=f"localhost:{controller_port_b}",
         worker_id="worker_b",
         host_blocks_to_allocate=4,
@@ -1356,7 +1366,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     tpu_cache = jax.device_put(jnp.array(host_data), tpu_sharding)
     jax.block_until_ready(tpu_cache)
 
-    controller_port = find_free_port()
+    controller_port = _pick_unused_port()
     block_elements = 128 * 8 * 8 * 128
     shard_size_bytes = (block_elements * 4) // self.num_devices
 

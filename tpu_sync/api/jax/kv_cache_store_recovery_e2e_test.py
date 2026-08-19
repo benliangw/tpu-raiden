@@ -187,7 +187,8 @@ def _phase_b(expect_recovery: bool):
 
   lookup_res = store.lookup(_HASHES)
   if not expect_recovery:
-    store.release(_HASHES)
+    # Nothing was returned, so nothing is pinned and there is nothing to
+    # release.
     assert not lookup_res, f"expected a cold start, got hits: {lookup_res}"
     print(_PHASE_B_COLD_MARKER, flush=True)
     return

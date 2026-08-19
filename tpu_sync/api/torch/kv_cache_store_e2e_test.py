@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""E2E test for JAX KVCacheStore with TPUs."""
+"""E2E test for Torch KVCacheStore with TPUs."""
 
 import os
 import socket
@@ -27,7 +27,6 @@ import numpy as np
 import torch
 import torch_tpu
 
-resources = None
 from tpu_sync.api.torch import kv_cache_manager
 from tpu_sync.api.torch import kv_cache_store
 
@@ -66,16 +65,6 @@ def start_servers():
 
   _registry_port = _pick_unused_port()
 
-  this_dir = os.path.dirname(os.path.abspath(__file__))
-  registry_binary = os.path.abspath(
-      os.path.join(
-          this_dir,
-          "..",
-          "..",
-          "kv_cache",
-          "global_registry",
-          "global_registry_server",
-      )
   )
   extra_flags = []
 
@@ -244,9 +233,14 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     # Wait for save completion
     done = False
     while not done:
-      save_done, save_failed, _, _, _ = store.poll_save_status()
+      save_done, save_failed, _, save_existing, save_unregistered = (
+          store.poll_save_status()
+      )
       if save_failed:
         raise RuntimeError(f"Async Save failed: {save_failed}")
+      # A local save never produces the remote-only outcomes.
+      self.assertEmpty(save_existing)
+      self.assertEmpty(save_unregistered)
       if save_done:
         done = True
       if not done:
@@ -649,6 +643,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
       self.assertCountEqual(done, hashes)
       self.assertEmpty(failed)
       self.assertEmpty(existing)
+      self.assertEmpty(unregistered)
       # No release: the successful remote save consumed the pin lookup()
       # granted.
 
@@ -989,7 +984,7 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
         break
       time.sleep(0.01)
     self.assertCountEqual(done, hashes)
-    store.release(hashes)
+    # No release: the successful save consumed the pin insert() granted.
     del built
 
 

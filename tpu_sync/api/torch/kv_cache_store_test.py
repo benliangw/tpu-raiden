@@ -20,7 +20,6 @@ import unittest
 
 from absl.testing import absltest
 
-resources = None
 from tpu_sync.api.torch import kv_cache_store
 
 
@@ -31,27 +30,7 @@ def _pick_unused_port():
 
 
 def _registry_binary_path():
-  this_dir = os.path.dirname(os.path.abspath(__file__))
-  return os.path.abspath(
-      os.path.join(
-          this_dir,
-          "..",
-          "..",
-          "kv_cache",
-          "global_registry",
-          "global_registry_server",
-      )
   )
-  this_dir = os.path.dirname(os.path.abspath(__file__))
-  return os.path.abspath(
-      os.path.join(
-          this_dir,
-          "..",
-          "..",
-          "kv_cache",
-          "global_registry",
-          "global_registry_server",
-      )
   )
 
 

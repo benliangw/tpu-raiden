@@ -57,6 +57,11 @@ struct MockTransferManager {
   std::vector<int64_t> last_staging_offsets;
   std::vector<int64_t> last_copy_sizes;
 
+  // Scripts every transfer to fail, so failure-path logic (pin retention,
+  // failed-list reporting, block release) can be exercised on CPU where a
+  // real transfer cannot run at all.
+  bool fail_transfers = false;
+
   absl::StatusOr<raiden::PjRtCopyFuture> D2h(
       const std::vector<int64_t>& src_offsets,
       const std::vector<int64_t>& dst_offsets,
@@ -65,6 +70,7 @@ struct MockTransferManager {
     last_src_offsets = src_offsets;
     last_dst_offsets = dst_offsets;
     last_copy_sizes = copy_sizes;
+    if (fail_transfers) return absl::InternalError("scripted transfer failure");
     return raiden::PjRtCopyFuture();
   }
 
@@ -102,6 +108,7 @@ struct MockTransferManager {
     last_src_offsets = src_offsets;
     last_dst_offsets = dst_offsets;
     last_copy_sizes = copy_sizes;
+    if (fail_transfers) return absl::InternalError("scripted transfer failure");
     return raiden::PjRtCopyFuture();
   }
 
@@ -165,11 +172,6 @@ struct MockTransferManager {
 // the worker received, so a test can assert that path was actually triggered
 // with the shards intact.
 struct ShardAwareMockTransferManager : MockTransferManager {
-  // Scripts every transfer to fail, so failure-path logic (release-on-error,
-  // discard, retryability) can be exercised on CPU where a real transfer
-  // cannot run at all.
-  bool fail_transfers = false;
-
   // Keep the base string overloads visible (the vector declarations below would
   // otherwise hide them, and KVManagerHolder still references the string form).
   using MockTransferManager::H2dRead;

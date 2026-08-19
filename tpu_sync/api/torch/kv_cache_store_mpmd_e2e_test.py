@@ -835,35 +835,8 @@ class KVCacheStoreMpmdE2ETest(absltest.TestCase):
     if failed:
       self.fail("One or more workers failed in write_remote MPMD test!")
 
-  def test_expected_worker_count_zero_does_not_block(self):
-    """The default must stay non-blocking."""
-    start = time.time()
-    store = kv_cache_store.KVCacheStore(
-        capacity=4, num_shards=1, store_server_ip="127.0.0.1"
-    )
-    self.assertLess(time.time() - start, 30.0)
-    self.assertTrue(store.raiden_controller_address)
-
-  def test_expected_worker_count_times_out_when_no_worker_registers(self):
-    """Workers that never arrive must fail AT CONSTRUCTION with timeout."""
-    os.environ["RAIDEN_EXPECTED_WORKERS_TIMEOUT_S"] = "2"
-    try:
-      start = time.time()
-      with self.assertRaises(RuntimeError) as cm:
-        kv_cache_store.KVCacheStore(
-            capacity=4,
-            num_shards=1,
-            store_server_ip="127.0.0.1",
-            expected_worker_count=1,
-        )
-      elapsed = time.time() - start
-    finally:
-      del os.environ["RAIDEN_EXPECTED_WORKERS_TIMEOUT_S"]
-
-    self.assertIn("timed out waiting for", str(cm.exception).lower())
-    self.assertIn("worker", str(cm.exception).lower())
-    self.assertGreaterEqual(elapsed, 2.0)
-    self.assertLess(elapsed, 60.0)
+  # The expected_worker_count barrier tests live in kv_cache_store_test.py;
+  # they spawn no MPMD workers, so duplicating them here added nothing.
 
 
 def main(argv):
