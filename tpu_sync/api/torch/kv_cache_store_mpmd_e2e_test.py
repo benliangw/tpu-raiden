@@ -835,6 +835,48 @@ class KVCacheStoreMpmdE2ETest(absltest.TestCase):
     if failed:
       self.fail("One or more workers failed in write_remote MPMD test!")
 
+  def _drive_read_remote(self, use_slices: bool):
+    world_size = 8
+    prepare_tpu_environment(world_size)
+    master_port = pick_unused_ports(1)[0]
+    controller_port_a = pick_unused_ports(1)[0]
+    controller_port_b = pick_unused_ports(1)[0]
+
+    procs = []
+    for rank in range(world_size):
+      env = os.environ.copy()
+      cmd = [
+          sys.argv[0],
+          "--run_worker",
+          "--worker_mode=read_remote",
+          f"--rank={rank}",
+          f"--world_size={world_size}",
+          f"--master_port={master_port}",
+          f"--controller_port={controller_port_a}",
+          f"--controller_port_b={controller_port_b}",
+          f"--registry_port={_registry_port}",
+      ]
+      if use_slices:
+        cmd.append("--use_slices")
+      procs.append(subprocess.Popen(cmd, env=env))
+
+    failed = False
+    for p in procs:
+      p.wait()
+      if p.returncode != 0:
+        failed = True
+
+    if failed:
+      self.fail("One or more workers failed in read_remote MPMD test!")
+
+  def test_mpmd_8rank_e2e_read_remote(self):
+    self._drive_read_remote(use_slices=False)
+
+  def test_mpmd_8rank_e2e_read_remote_with_slices(self):
+    # The peer load through load(slices=REMOTE): the worker body always
+    # asserted the records-nothing contract, but no driver dispatched it.
+    self._drive_read_remote(use_slices=True)
+
   # The expected_worker_count barrier tests live in kv_cache_store_test.py;
   # they spawn no MPMD workers, so duplicating them here added nothing.
 

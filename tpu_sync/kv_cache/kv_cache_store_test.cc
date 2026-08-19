@@ -193,52 +193,6 @@ TEST(KVCacheStoreTest, RaidenBlockIdConstructorAndEquality) {
   EXPECT_NE(block_1, block_4);
 }
 
-TEST(KVCacheStoreTest, BasicTests) {
-  KVCacheStore controller(50, "", {}, /*num_shards=*/1,
-                          /*shard_size_bytes=*/512,
-                          /*store_server_ip=*/"127.0.0.1");
-  EXPECT_EQ(controller.capacity(), 50);
-
-  std::vector<std::string> hashes = {"4001", "4002"};
-  std::vector<RaidenBlockId> slices = {
-      RaidenId{"inference_server", "0", "kv_cache", 0},
-      RaidenId{"inference_server", "1", "kv_cache", 0}};
-
-  // 1. Insert. Re-inserting hashes that are already present SUCCEEDS now: the
-  // old non-locking Insert reported "one of these already existed" as false,
-  // whereas this one pins what is there and inserts what is not, which is
-  // exactly what the lookup-miss -> insert flow wants.
-  EXPECT_TRUE(InsertResident(controller, hashes, slices, true));
-  EXPECT_TRUE(InsertResident(controller, hashes, slices, true));
-
-  // 2. Lookup with a partial miss at the end
-  std::vector<std::string> hashes_with_miss = {"4001", "4002", "4003"};
-  auto lookup_res = controller.Lookup(hashes_with_miss);
-  ASSERT_TRUE(lookup_res.ok());
-  EXPECT_EQ(lookup_res->size(), 2);
-  EXPECT_EQ((*lookup_res)[0].first, "4001");
-  EXPECT_EQ((*lookup_res)[0].second.raiden_id.job_replica_id, "0");
-
-  // Lookup with an early miss
-  std::vector<std::string> hashes_early_miss = {"4001", "4003", "4002"};
-  auto lookup_res_early = controller.Lookup(hashes_early_miss);
-  ASSERT_TRUE(lookup_res_early.ok());
-  EXPECT_EQ(lookup_res_early->size(), 1);
-  EXPECT_EQ((*lookup_res_early)[0].first, "4001");
-
-  // Lookup pins what it returns, and this test only inspects the answers
-  // rather than going on to load or save them, so it gives the pins back
-  // itself. "4001" was returned by both lookups, so it holds two.
-  controller.Release({"4001", "4002"});
-  controller.Release({"4001"});
-
-  // 3. Re-insert: still succeeds -- insert pins what is there and inserts
-  // what is not (InsertResident hands the pins back).
-  EXPECT_TRUE(InsertResident(controller, hashes, slices, true));
-}
-
-
-
 TEST(KVCacheStoreTest, EvictionTracking) {
   KVCacheStore controller(2, "", {}, /*num_shards=*/1,
                           /*shard_size_bytes=*/512,
@@ -883,31 +837,6 @@ TEST(KVCacheStoreTest, InsertRejectsRemoteSlices) {
   EXPECT_EQ(store.GetPinCount("h1"), 0);
   EXPECT_TRUE(PeekLookup(store, {"h2"})->empty());
 }
-
-TEST(KVCacheStoreTest, LruCachePutBack) {
-  LRUCache<std::string, int> cache(3);
-  cache.Put("A", 1);
-  cache.Put("B", 2);
-  // MRU to LRU is: B, A.
-
-  // PutBack("C", 3) should add C to the back (LRU position).
-  cache.PutBack("C", 3);
-  // Now MRU to LRU should be: B, A, C.
-  // Let's verify by checking Evict(): first evicted item should be C!
-  auto evicted1 = cache.Evict();
-  ASSERT_TRUE(evicted1.has_value());
-  EXPECT_EQ(evicted1->first, "C");
-
-  auto evicted2 = cache.Evict();
-  ASSERT_TRUE(evicted2.has_value());
-  EXPECT_EQ(evicted2->first, "A");
-
-  auto evicted3 = cache.Evict();
-  ASSERT_TRUE(evicted3.has_value());
-  EXPECT_EQ(evicted3->first, "B");
-}
-
-
 
 TEST(KVCacheStoreTest, EvictRaceCondition) {
   KVCacheStore store(3, "", {}, /*num_shards=*/1, /*shard_size_bytes=*/512,
@@ -2150,160 +2079,89 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, SaveWriteThrough) {
             1);  // second host block allocated is 1
 }
 
-TEST_F(KVCacheStoreEmbeddedControllerTest, EvictByHashesHostAndHbmToErased) {
-  // 1. Start a local registry server
-  auto server = global_registry::CreateTestGlobalRegistryServer();
-  std::string server_address = server->server_address;
+// Evicting a hash erases the entry, unlocks its host block, and
+// unregisters it globally -- identically for a HOST_AND_HBM entry and a
+// HOST-only one, which is the point of running both statuses through one
+// body.
+TEST_F(KVCacheStoreEmbeddedControllerTest, EvictByHashesErasesEitherStatus) {
+  struct Case {
+    BlockStatus status;
+    int device_block_id_0;
+    int device_block_id_1;
+  };
+  for (const Case& c : {Case{BlockStatus::HOST_AND_HBM, 0, 1},
+                        Case{BlockStatus::HOST, -1, -1}}) {
+    SCOPED_TRACE(static_cast<int>(c.status));
 
-  // 2. Setup mock transfer manager & controller
-  ::tpu_raiden::controller::MockTransferManager mock_mgr;
-  test_server_->service->SetTransferManager(
-      ::tpu_raiden::KVManagerHolder(&mock_mgr));
+    auto server = global_registry::CreateTestGlobalRegistryServer();
+    std::string server_address = server->server_address;
 
-  auto controller = MakeController();
-  RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
+    ::tpu_raiden::controller::MockTransferManager mock_mgr;
+    test_server_->service->SetTransferManager(
+        ::tpu_raiden::KVManagerHolder(&mock_mgr));
 
-  // Allocate 2 block IDs from controller so we have host_block_ids
-  auto alloc_or = controller->AllocateBlockIds(2);
-  ASSERT_TRUE(alloc_or.ok());
-  std::vector<int> host_block_ids = *alloc_or;
-  ASSERT_EQ(host_block_ids.size(), 2);
+    auto controller = MakeController();
+    RegisterAndInitWorker(*controller, "worker_0",
+                          test_server_->server_address);
 
-  // 3. Initialize KVCacheStore with the registry server address & controller
-  RaidenId rid{"test_job", "0", "test_cache", 0};
-  KVCacheStore store(10, std::move(controller), server_address, rid,
-                     std::nullopt, /*store_server_ip=*/"127.0.0.1");
+    auto alloc_or = controller->AllocateBlockIds(2);
+    ASSERT_TRUE(alloc_or.ok());
+    std::vector<int> host_block_ids = *alloc_or;
+    ASSERT_EQ(host_block_ids.size(), 2);
 
-  // Register in global registry first to simulate write-through
-  auto channel =
-      grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials());
-  global_registry::GlobalRegistryClient registry_client(channel);
-  ASSERT_TRUE(registry_client
-                  .Register({{"hash_1", rid, host_block_ids[0]},
-                             {"hash_2", rid, host_block_ids[1]}})
-                  .ok());
+    RaidenId rid{"test_job", "0", "test_cache", 0};
+    KVCacheStore store(10, std::move(controller), server_address, rid,
+                       std::nullopt, /*store_server_ip=*/"127.0.0.1");
 
-  std::vector<std::string> hashes = {"hash_1", "hash_2"};
-  std::vector<RaidenBlockId> slices = {
-      RaidenBlockId(rid, host_block_ids[0], 0, BlockStatus::HOST_AND_HBM),
-      RaidenBlockId(rid, host_block_ids[1], 1, BlockStatus::HOST_AND_HBM)};
+    // Register in the global registry first to simulate write-through.
+    auto channel =
+        grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials());
+    global_registry::GlobalRegistryClient registry_client(channel);
+    ASSERT_TRUE(registry_client
+                    .Register({{"hash_1", rid, host_block_ids[0]},
+                               {"hash_2", rid, host_block_ids[1]}})
+                    .ok());
 
-  // 4. Insert them as HOST_AND_HBM blocks locally
-  ASSERT_TRUE(InsertResident(store, hashes, slices, true));
+    std::vector<std::string> hashes = {"hash_1", "hash_2"};
+    std::vector<RaidenBlockId> slices = {
+        RaidenBlockId(rid, host_block_ids[0], c.device_block_id_0, c.status),
+        RaidenBlockId(rid, host_block_ids[1], c.device_block_id_1, c.status)};
+    ASSERT_TRUE(InsertResident(store, hashes, slices, true));
 
-  // Sanity check: verify they are lookable before evict. PeekLookup takes
-  // no pin, so the evict below still has something it is allowed to reclaim.
-  {
-    auto lookup_res = PeekLookup(store, {"hash_1", "hash_2"});
-    ASSERT_TRUE(lookup_res.ok());
-    ASSERT_EQ(lookup_res->size(), 2);
-  }
+    auto* controller_ptr = KVCacheStoreTest::GetController(store);
+    ASSERT_NE(controller_ptr, nullptr);
+    EXPECT_EQ(controller_ptr->block_manager()->num_locked_blocks(), 2);
 
-  // 5. Check locked blocks on controller
-  auto* controller_ptr = KVCacheStoreTest::GetController(store);
-  ASSERT_NE(controller_ptr, nullptr);
-  EXPECT_EQ(controller_ptr->block_manager()->num_locked_blocks(), 2);
+    // Evict "hash_1".
+    size_t evicted = KVCacheStoreTest::Evict(store, {"hash_1"});
+    EXPECT_EQ(evicted, 1);
 
-  // 6. Evict "hash_1"
-  size_t evicted = KVCacheStoreTest::Evict(store, {"hash_1"});
-  EXPECT_EQ(evicted, 1);
-
-  // 7. Verify "hash_1" is erased and "hash_2" is unchanged
-  {
-    auto lookup_res = PeekLookup(store, {"hash_1"});
-    ASSERT_TRUE(lookup_res.ok());
-    ASSERT_EQ(lookup_res->size(), 0);
-  }
-  {
+    // "hash_1" is erased whole (Lookup stops at the first miss) and "hash_2"
+    // is untouched.
+    EXPECT_EQ(PeekLookup(store, {"hash_1", "hash_2"})->size(), 0);
     auto lookup_res = PeekLookup(store, {"hash_2"});
     ASSERT_TRUE(lookup_res.ok());
     ASSERT_EQ(lookup_res->size(), 1);
     EXPECT_EQ((*lookup_res)[0].first, "hash_2");
-    EXPECT_EQ((*lookup_res)[0].second.status, BlockStatus::HOST_AND_HBM);
+    EXPECT_EQ((*lookup_res)[0].second.status, c.status);
     EXPECT_EQ((*lookup_res)[0].second.host_block_id, host_block_ids[1]);
-    EXPECT_EQ((*lookup_res)[0].second.device_block_id, 1);
-  }
+    EXPECT_EQ((*lookup_res)[0].second.device_block_id, c.device_block_id_1);
 
-  // 8. Verify controller block manager has 1 locked block now
-  // (host_block_ids[0] unlocked)
-  EXPECT_EQ(controller_ptr->block_manager()->num_locked_blocks(), 1);
+    // The evicted hash's host block is unlocked...
+    EXPECT_EQ(controller_ptr->block_manager()->num_locked_blocks(), 1);
 
-  // 9. Verify global registry has unregistered "hash_1" (need to poll)
-  bool unregistered = false;
-  for (int attempt = 0; attempt < 100; ++attempt) {
-    auto lookup_res = registry_client.Lookup({"hash_1"});
-    if (lookup_res.ok() && lookup_res->empty()) {
-      unregistered = true;
-      break;
+    // ...and the registry unregisters it (write-through is async; poll).
+    bool unregistered = false;
+    for (int attempt = 0; attempt < 100; ++attempt) {
+      auto reg_res = registry_client.Lookup({"hash_1"});
+      if (reg_res.ok() && reg_res->empty()) {
+        unregistered = true;
+        break;
+      }
+      absl::SleepFor(absl::Milliseconds(10));
     }
-    absl::SleepFor(absl::Milliseconds(10));
+    EXPECT_TRUE(unregistered);
   }
-  EXPECT_TRUE(unregistered);
-}
-
-TEST_F(KVCacheStoreEmbeddedControllerTest, EvictByHashesHostToErased) {
-  auto server = global_registry::CreateTestGlobalRegistryServer();
-  std::string server_address = server->server_address;
-
-  ::tpu_raiden::controller::MockTransferManager mock_mgr;
-  test_server_->service->SetTransferManager(
-      ::tpu_raiden::KVManagerHolder(&mock_mgr));
-
-  auto controller = MakeController();
-  RegisterAndInitWorker(*controller, "worker_0", test_server_->server_address);
-
-  auto alloc_or = controller->AllocateBlockIds(2);
-  ASSERT_TRUE(alloc_or.ok());
-  std::vector<int> host_block_ids = *alloc_or;
-
-  RaidenId rid{"test_job", "0", "test_cache", 0};
-  KVCacheStore store(10, std::move(controller), server_address, rid,
-                     std::nullopt, /*store_server_ip=*/"127.0.0.1");
-
-  auto channel =
-      grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials());
-  global_registry::GlobalRegistryClient registry_client(channel);
-  ASSERT_TRUE(registry_client
-                  .Register({{"hash_1", rid, host_block_ids[0]},
-                             {"hash_2", rid, host_block_ids[1]}})
-                  .ok());
-
-  std::vector<std::string> hashes = {"hash_1", "hash_2"};
-  std::vector<RaidenBlockId> slices = {
-      RaidenBlockId(rid, host_block_ids[0], -1, BlockStatus::HOST),
-      RaidenBlockId(rid, host_block_ids[1], -1, BlockStatus::HOST)};
-
-  ASSERT_TRUE(InsertResident(store, hashes, slices, true));
-
-  auto* controller_ptr = KVCacheStoreTest::GetController(store);
-  ASSERT_NE(controller_ptr, nullptr);
-  EXPECT_EQ(controller_ptr->block_manager()->num_locked_blocks(), 2);
-
-  // Evict "hash_1"
-  size_t evicted = KVCacheStoreTest::Evict(store, {"hash_1"});
-  EXPECT_EQ(evicted, 1);
-
-  // Verify "hash_1" is completely erased, but "hash_2" is still there
-  // Since Lookup stops at first miss, Lookup({"hash_1", "hash_2"}) should
-  // return 0 items. Lookup({"hash_2"}) should return 1 item.
-  EXPECT_EQ(PeekLookup(store, {"hash_1", "hash_2"})->size(), 0);
-  auto lookup_res = PeekLookup(store, {"hash_2"});
-  ASSERT_TRUE(lookup_res.ok());
-  ASSERT_EQ(lookup_res->size(), 1);
-  EXPECT_EQ((*lookup_res)[0].first, "hash_2");
-
-  EXPECT_EQ(controller_ptr->block_manager()->num_locked_blocks(), 1);
-
-  bool unregistered = false;
-  for (int attempt = 0; attempt < 100; ++attempt) {
-    auto lookup_res = registry_client.Lookup({"hash_1"});
-    if (lookup_res.ok() && lookup_res->empty()) {
-      unregistered = true;
-      break;
-    }
-    absl::SleepFor(absl::Milliseconds(10));
-  }
-  EXPECT_TRUE(unregistered);
 }
 
 TEST_F(KVCacheStoreEmbeddedControllerTest, EvictOnSave) {

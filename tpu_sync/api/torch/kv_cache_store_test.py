@@ -29,9 +29,53 @@ def _pick_unused_port():
     return s.getsockname()[1]
 
 
+
+
+# Global variables for subprocesses
+_registry_process = None
+_registry_port = None
+
+
 def _registry_binary_path():
+  pass
+
+
+def setUpModule():
+  global _registry_process
+  global _registry_port
+  _registry_port = _pick_unused_port()
+
+  registry_binary = _registry_binary_path()
+  extra_flags = []
+
+  print(f"Starting Registry on port {_registry_port}")
+  reg_log = open("/tmp/raiden_registry.log", "w")
+  _registry_process = subprocess.Popen(
+      [
+          registry_binary,
+          f"--port={_registry_port}",
+      ]
+      + extra_flags,
+      stdout=reg_log,
+      stderr=subprocess.STDOUT,
   )
-  )
+
+  # Give them some time to start
+  time.sleep(2)
+
+
+def tearDownModule():
+  if _registry_process:
+    code = _registry_process.poll()
+    if code is not None and code != 0:
+      print(f"--- Registry exited with {code} ---")
+      try:
+        with open("/tmp/raiden_registry.log", "r") as f:
+          print(f.read())
+      except OSError as e:
+        print(f"Failed to read registry log: {e}")
+    _registry_process.terminate()
+    _registry_process.wait()
 
 
 class KVCacheStoreTest(absltest.TestCase):
@@ -246,6 +290,339 @@ class KVCacheStoreTest(absltest.TestCase):
     res = controller.lookup(hashes, enable_global=True)
     self.assertEmpty(res)
 
+
+  def test_insert_rejects_remote_slices(self):
+    # The LRU cache holds LOCAL blocks only; a REMOTE slice names a block on
+    # another node. The whole batch is refused before anything is touched, so
+    # not even the local member is inserted or pinned.
+    controller = kv_cache_store.KVCacheStore(
+        capacity=20, num_shards=1, store_server_ip="127.0.0.1"
+    )
+    local_id = kv_cache_store.RaidenId("inference_server", "0", "kv_cache", 0)
+    slices = [
+        kv_cache_store.RaidenBlockId(
+            local_id, 1, kv_cache_store.BlockStatus.HOST
+        ),
+        kv_cache_store.RaidenBlockId(
+            kv_cache_store.RaidenId("peer_job", "0", "kv_cache", 0),
+            42,
+            kv_cache_store.BlockStatus.REMOTE,
+        ),
+    ]
+    with self.assertRaises(ValueError):
+      controller.insert([b"local_h", b"remote_h"], slices, True)
+
+    # Nothing was inserted, the local member included.
+    self.assertEmpty(controller.lookup([b"local_h"], pin_found=False))
+    self.assertEmpty(controller.lookup([b"remote_h"], pin_found=False))
+
+  def test_lookup_pin_found_false_does_not_pin(self):
+    # pin_found=False is the observation mode: same answer, no pin taken.
+    # Pins are not directly visible from Python, so use what they gate: an
+    # insert refuses when pinned entries leave it no reclaimable space.
+    def make_full_store():
+      store = kv_cache_store.KVCacheStore(
+          capacity=2, num_shards=1, store_server_ip="127.0.0.1"
+      )
+      rid = kv_cache_store.RaidenId("inference_server", "0", "kv_cache", 0)
+      slices = [
+          kv_cache_store.RaidenBlockId(
+              rid, 1, kv_cache_store.BlockStatus.HOST
+          ),
+          kv_cache_store.RaidenBlockId(
+              rid, 2, kv_cache_store.BlockStatus.HOST
+          ),
+      ]
+      self.assertTrue(store.insert([b"h1", b"h2"], slices, True))
+      store.release([b"h1", b"h2"])  # resident but unpinned
+      return store, rid
+
+    # Observation: no pin taken, so both entries stay evictable and a new
+    # insert succeeds by evicting one of them.
+    store, rid = make_full_store()
+    res = store.lookup([b"h1", b"h2"], pin_found=False)
+    self.assertLen(res, 2)
+    new_slice = [
+        kv_cache_store.RaidenBlockId(rid, 3, kv_cache_store.BlockStatus.HOST)
+    ]
+    self.assertTrue(store.insert([b"h3"], new_slice, True))
+
+    # Control: the default lookup pins both, and the same insert is refused
+    # because nothing evictable is left.
+    store, rid = make_full_store()
+    res = store.lookup([b"h1", b"h2"])
+    self.assertLen(res, 2)
+    new_slice = [
+        kv_cache_store.RaidenBlockId(rid, 3, kv_cache_store.BlockStatus.HOST)
+    ]
+    self.assertFalse(store.insert([b"h3"], new_slice, True))
+    store.release([b"h1", b"h2"])
+
+  def test_refused_operations_retain_the_pin(self):
+    # A FAILED or refused operation never spends the pin: giving up is the
+    # caller's decision. Pins are not directly visible from Python, so use
+    # what they gate -- at capacity 2 with both entries pinned, an insert of
+    # a third hash is refused; once the pins are handed back it goes through.
+    store = kv_cache_store.KVCacheStore(
+        capacity=2, num_shards=1, store_server_ip="127.0.0.1"
+    )
+    rid = kv_cache_store.RaidenId("inference_server", "0", "kv_cache", 0)
+    hashes = [b"h1", b"h2"]
+    slices = [
+        kv_cache_store.RaidenBlockId(
+            rid,
+            host_block_id=-1,
+            device_block_id=i,
+            status=kv_cache_store.BlockStatus.HBM,
+        )
+        for i in range(2)
+    ]
+    # insert() pins; the local save below is REFUSED (no workers are
+    # registered in this unit environment, and h1/h2 name device blocks no
+    # manager owns), so nothing consumes them.
+    self.assertTrue(store.insert(hashes, slices, False))
+    if store.save(hashes):
+      # Submission succeeded; the transfer itself must then fail.
+      deadline = time.time() + 30
+      while time.time() < deadline:
+        _, failed, pending, _, _ = store.poll_save_status()
+        if failed:
+          break
+        self.assertNotEmpty(pending)
+        time.sleep(0.01)
+      self.assertNotEmpty(failed)
+
+    probe = [
+        kv_cache_store.RaidenBlockId(rid, 3, kv_cache_store.BlockStatus.HOST)
+    ]
+    self.assertFalse(
+        store.insert([b"h3"], probe, True),
+        "the refused save must have left h1/h2 pinned",
+    )
+    store.release(hashes)
+    self.assertTrue(
+        store.insert([b"h3"], probe, True),
+        "after the hand-back the entries must be evictable again",
+    )
+
+  def test_unpinned_load_is_refused(self):
+    # Resident but unpinned is refused: the pin a successful load consumes
+    # has to exist on entry. Only lookup() (or insert()) grants it.
+    store = kv_cache_store.KVCacheStore(
+        capacity=4, num_shards=1, store_server_ip="127.0.0.1"
+    )
+    rid = kv_cache_store.RaidenId("inference_server", "0", "kv_cache", 0)
+    slices = [
+        kv_cache_store.RaidenBlockId(rid, 0, kv_cache_store.BlockStatus.HOST)
+    ]
+    self.assertTrue(store.insert([b"h1"], slices, True))
+    store.release([b"h1"])  # resident, unpinned
+
+    self.assertFalse(store.load([b"h1"], [0]))
+
+  def test_local_save_requires_hbm_residency(self):
+    # A local save reads the bytes out of HBM; a host-only entry has nothing
+    # there to save. Refused, and the refusal spends no pin.
+    store = kv_cache_store.KVCacheStore(
+        capacity=4, num_shards=1, store_server_ip="127.0.0.1"
+    )
+    rid = kv_cache_store.RaidenId("inference_server", "0", "kv_cache", 0)
+    slices = [
+        kv_cache_store.RaidenBlockId(rid, 0, kv_cache_store.BlockStatus.HOST)
+    ]
+    self.assertTrue(store.insert([b"h1"], slices, True))
+
+    self.assertFalse(store.save([b"h1"]))
+    # insert's pin survives the refusal; hand it back.
+    store.release([b"h1"])
+
+  def test_remote_save_refuses_an_hbm_only_block(self):
+    # No two-hop: a remote save pulls the bytes out of host DRAM. A block
+    # living only in HBM must be saved locally first.
+    src = self._make_registry_store("wr_src_hbm_only")
+    dst = self._make_registry_store("wr_dst_hbm_only")
+    slices = [
+        kv_cache_store.RaidenBlockId(
+            src.raiden_id,
+            host_block_id=-1,
+            device_block_id=0,
+            status=kv_cache_store.BlockStatus.HBM,
+        )
+    ]
+    self.assertTrue(src.insert([b"h1"], slices, False))
+
+    self.assertFalse(src.save([b"h1"], dst.raiden_id))
+    src.release([b"h1"])
+
+  def _make_registry_store(self, job_name, capacity=20):
+    return kv_cache_store.KVCacheStore(
+        capacity=capacity,
+        global_registry_address=f"localhost:{_registry_port}",
+        raiden_id=kv_cache_store.RaidenId(job_name, "0", "kv_cache", 0),
+        num_shards=1,
+        store_server_ip="127.0.0.1",
+    )
+
+  def test_remote_save_requires_a_registry(self):
+    # No global registry address: nothing to resolve the destination through,
+    # and nothing to make the blocks reachable once they landed.
+    store = kv_cache_store.KVCacheStore(
+        capacity=20, num_shards=1, store_server_ip="127.0.0.1"
+    )
+    src_id = kv_cache_store.RaidenId("wr_noreg", "0", "kv_cache", 0)
+    self.assertTrue(
+        store.insert(
+            [b"a"],
+            [
+                kv_cache_store.RaidenBlockId(
+                    src_id, 0, kv_cache_store.BlockStatus.HOST
+                )
+            ],
+            True,
+        )
+    )
+    # The documented remote-save flow: insert only fabricates residency and
+    # hands its pin back; lookup() grants the pin save(dst) would consume.
+    store.release([b"a"])
+    self.assertLen(store.lookup([b"a"]), 1)
+    self.assertFalse(
+        store.save(
+            [b"a"], kv_cache_store.RaidenId("wr_dst", "0", "kv_cache", 0)
+        )
+    )
+    # The refused save consumed nothing; give the lookup's pin back.
+    store.release([b"a"])
+
+  def test_remote_save_all_exist_settles_done(self):
+    src = self._make_registry_store("wr_src_allexist")
+    dst = self._make_registry_store("wr_dst_allexist")
+    dst_id = dst.raiden_id
+
+    hashes = [b"wr_a", b"wr_b"]
+    src_slices = [
+        kv_cache_store.RaidenBlockId(
+            src.raiden_id, i, kv_cache_store.BlockStatus.HOST
+        )
+        for i in range(len(hashes))
+    ]
+    dst_slices = [
+        kv_cache_store.RaidenBlockId(
+            dst_id, 5 + i, kv_cache_store.BlockStatus.HOST
+        )
+        for i in range(len(hashes))
+    ]
+    self.assertTrue(src.insert(hashes, src_slices, True))
+    src.release(hashes)  # insert fabricates residency; lookup grants the pin
+    self.assertTrue(dst.insert(hashes, dst_slices, True))
+    dst.release(hashes)  # destination state only; nothing consumes these
+
+    # The documented remote-save flow: lookup() answers "host-resident here"
+    # AND grants the pin the successful save(dst) below consumes.
+    self.assertLen(src.lookup(hashes), len(hashes))
+
+    # The destination already holds every offered hash. That is a SUCCESS:
+    # hashes are content-addressed, so the peer having them is exactly the
+    # post-condition the caller wanted, and no bytes move.
+    self.assertTrue(src.save(hashes, dst_id))
+    done, failed, pending, existing, unregistered = (
+        src.poll_save_status()
+    )
+    self.assertCountEqual(done, hashes)
+    self.assertEmpty(failed)
+    self.assertEmpty(pending)
+    self.assertEmpty(existing)
+    self.assertEmpty(unregistered)
+
+  def test_remote_save_partial_exist_reports_the_overlap(self):
+    src = self._make_registry_store("wr_src_partial")
+    dst = self._make_registry_store("wr_dst_partial")
+    dst_id = dst.raiden_id
+
+    hashes = [b"wr_p_a", b"wr_p_b"]
+    self.assertTrue(
+        src.insert(
+            hashes,
+            [
+                kv_cache_store.RaidenBlockId(
+                    src.raiden_id, i, kv_cache_store.BlockStatus.HOST
+                )
+                for i in range(len(hashes))
+            ],
+            True,
+        )
+    )
+    src.release(hashes)  # insert fabricates residency; lookup grants the pin
+    # Only one of the two.
+    self.assertTrue(
+        dst.insert(
+            [hashes[0]],
+            [
+                kv_cache_store.RaidenBlockId(
+                    dst_id, 5, kv_cache_store.BlockStatus.HOST
+                )
+            ],
+            True,
+        )
+    )
+    dst.release([hashes[0]])  # destination state only
+
+    self.assertLen(src.lookup(hashes), len(hashes))
+    self.assertTrue(src.save(hashes, dst_id))
+    done, failed, pending, existing, unregistered = (
+        src.poll_save_status()
+    )
+    self.assertEmpty(done)
+    self.assertCountEqual(failed, hashes)
+    self.assertEmpty(pending)
+    # The fourth element is the whole reason this poller returns five: the
+    # caller decides whether to reissue with the remainder, and needs to know
+    # what the remainder is. The store does not retry on its own.
+    self.assertCountEqual(existing, [hashes[0]])
+    self.assertEmpty(unregistered)
+
+  def test_remote_save_carries_a_non_utf8_hash(self):
+    # Real block hashes are raw digests, essentially never valid UTF-8. These
+    # travel through the bindings as bytes and over the wire as proto `bytes`;
+    # while those fields were declared `string` the sender serialized happily
+    # and the receiver rejected the whole message.
+    binary_hash = os.urandom(32)
+    src = self._make_registry_store("wr_src_binary")
+    dst = self._make_registry_store("wr_dst_binary")
+    dst_id = dst.raiden_id
+
+    self.assertTrue(
+        src.insert(
+            [binary_hash],
+            [
+                kv_cache_store.RaidenBlockId(
+                    src.raiden_id, 0, kv_cache_store.BlockStatus.HOST
+                )
+            ],
+            True,
+        )
+    )
+    src.release([binary_hash])  # insert fabricates residency
+    self.assertTrue(
+        dst.insert(
+            [binary_hash],
+            [
+                kv_cache_store.RaidenBlockId(
+                    dst_id, 5, kv_cache_store.BlockStatus.HOST
+                )
+            ],
+            True,
+        )
+    )
+    dst.release([binary_hash])  # destination state only
+
+    # lookup() grants the pin the successful save(dst) consumes.
+    self.assertLen(src.lookup([binary_hash]), 1)
+    self.assertTrue(src.save([binary_hash], dst_id))
+    done, failed, _, existing, unregistered = src.poll_save_status()
+    self.assertCountEqual(done, [binary_hash])
+    self.assertEmpty(failed)
+    self.assertEmpty(existing)
+    self.assertEmpty(unregistered)
 
   def test_save_and_load_mocked(self):
     controller = kv_cache_store.KVCacheStore(

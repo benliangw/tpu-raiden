@@ -65,7 +65,7 @@ def start_servers():
 
   _registry_port = _pick_unused_port()
 
-  )
+  pass
   extra_flags = []
 
   print(f"Starting Registry on port {_registry_port}")

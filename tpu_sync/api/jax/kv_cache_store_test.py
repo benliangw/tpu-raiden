@@ -49,8 +49,7 @@ _registry_port = None
 
 
 def _registry_binary_path():
-  )
-  )
+  pass
 
 
 def setUpModule():

@@ -388,6 +388,29 @@ TEST(LRUCacheTest, GetAndPinBasic) {
   EXPECT_TRUE(cache.Contains(2));
 }
 
+TEST(LRUCacheTest, PutBackAddsAtTheLruEnd) {
+  LRUCache<std::string, int> cache(3);
+  cache.Put("A", 1);
+  cache.Put("B", 2);
+  // MRU to LRU is: B, A.
+
+  // PutBack("C", 3) should add C to the back (LRU position).
+  cache.PutBack("C", 3);
+  // Now MRU to LRU should be: B, A, C.
+  // Let's verify by checking Evict(): first evicted item should be C!
+  auto evicted1 = cache.Evict();
+  ASSERT_TRUE(evicted1.has_value());
+  EXPECT_EQ(evicted1->first, "C");
+
+  auto evicted2 = cache.Evict();
+  ASSERT_TRUE(evicted2.has_value());
+  EXPECT_EQ(evicted2->first, "A");
+
+  auto evicted3 = cache.Evict();
+  ASSERT_TRUE(evicted3.has_value());
+  EXPECT_EQ(evicted3->first, "B");
+}
+
 }  // namespace
 }  // namespace kv_cache
 }  // namespace tpu_raiden

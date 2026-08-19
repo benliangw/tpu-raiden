@@ -65,7 +65,7 @@ def start_servers():
 
   _registry_port = _pick_unused_port()
 
-  )
+  pass
   extra_flags = []
 
   global _reg_log_file
@@ -455,51 +455,88 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
           lookup_res_b[1][1].host_block_id, lookup_res_a[1][1].host_block_id
       )
 
-      # 6. Job B reads straight from Job A into its own device blocks. The
+      # 6. Job B pulls straight from Job A into its own device blocks. The
       # source coordinates come from the lookup answer, so nothing needs to be
-      # inserted into Job B's cache first.
+      # inserted into Job B's cache first. Two transports cover the same
+      # contract: read_remote, and the slices form of load() -- the only
+      # sanctioned peer path in load.
       slices_b = [lookup_res_b[0][1], lookup_res_b[1][1]]
-      self.assertTrue(store_b.read_remote(hashes, slices_b, [0, 1]))
+      if use_slices:
+        # lookup only synthesised the REMOTE answer; no pin exists and the
+        # peer load neither needs nor consumes one.
+        self.assertTrue(store_b.load(hashes, [0, 1], slices=slices_b))
+        done = False
+        while not done:
+          load_done, load_failed, _ = store_b.poll_load_status()
+          if load_failed:
+            raise RuntimeError(f"Job B peer load failed: {load_failed}")
+          if len(load_done) == 2:
+            done = True
+          if not done:
+            time.sleep(0.01)
+      else:
+        self.assertTrue(store_b.read_remote(hashes, slices_b, [0, 1]))
 
-      if not expect_read_success:
-        failed = False
-        for _ in range(500):
-          _, read_failed, _ = store_b.poll_remote_read_status()
+        if not expect_read_success:
+          failed = False
+          for _ in range(500):
+            _, read_failed, _ = store_b.poll_remote_read_status()
+            if read_failed:
+              self.assertEqual(set(read_failed), set(hashes))
+              failed = True
+              break
+            time.sleep(0.01)
+          self.assertTrue(
+              failed,
+              "expected read_remote to fail on producer/consumer node_id mismatch",
+          )
+          return
+
+        # Wait for ReadRemote completion
+        done = False
+        while not done:
+          read_done, read_failed, _ = store_b.poll_remote_read_status()
           if read_failed:
-            self.assertEqual(set(read_failed), set(hashes))
-            failed = True
-            break
-          time.sleep(0.01)
-        self.assertTrue(
-            failed,
-            "expected read_remote to fail on producer/consumer node_id mismatch",
-        )
-        return
+            raise RuntimeError(f"Job B ReadRemote failed: {read_failed}")
+          if len(read_done) == 2:
+            done = True
+          if not done:
+            time.sleep(0.01)
 
-      # Wait for ReadRemote completion
-      done = False
-      while not done:
-        read_done, read_failed, _ = store_b.poll_remote_read_status()
-        if read_failed:
-          raise RuntimeError(f"Job B ReadRemote failed: {read_failed}")
-        if len(read_done) == 2:
-          done = True
-        if not done:
-          time.sleep(0.01)
-
-      # 8. The read is already in HBM -- there is no second Load step, and no
-      # local record of it either. Job B's cache is still a miss for these
+      # 8. The bytes are already in HBM -- there is no second Load step, and
+      # no local record of it either. Job B's cache is still a miss for these
       # hashes: the bytes live only in the device blocks it named.
       self.assertEmpty(store_b.lookup(hashes))
+      # No host copy was left behind either, so a later LOCAL load of the
+      # same hashes has nothing to read from and is refused. Pulling is not a
+      # way to warm the local cache; a caller that wants a host copy must
+      # save() what it pulled.
+      self.assertFalse(
+          store_b.load(hashes, [2, 3]),
+          "the pull must not leave a host copy behind",
+      )
 
-      # 9. Verify byte-exact match on Job B TPU device
+      # 9. Verify byte-exact match on Job B TPU device, and that the pull
+      # touched ONLY the destination blocks: 2 and 3 stay as created.
       try:
         torch.tpu.synchronize()
       except (AttributeError, RuntimeError):
         pass
-      np.testing.assert_array_equal(tpu_cache_b[0:2].cpu().numpy(), host_data_a[0:2])
+      actual_b = tpu_cache_b.cpu().numpy()
+      np.testing.assert_array_equal(actual_b[0:2], host_data_a[0:2])
+      np.testing.assert_array_equal(
+          actual_b[2:4],
+          zeros_b[2:4],
+          err_msg="sentinel device blocks were clobbered by the pull",
+      )
     finally:
       del manager_a, manager_b, store_a, store_b
+
+  def test_remote_read_e2e_with_slices(self):
+    # The same pull, through load(slices=REMOTE) -- the only peer path in
+    # load(). Before this driver existed the use_slices branch was dead and
+    # the torch suite had no live coverage of the peer load at all.
+    self._run_remote_read_e2e_test(use_slices=True)
 
   def _run_remote_write_e2e_test(
       self,
