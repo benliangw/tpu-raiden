@@ -1,0 +1,225 @@
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: vllm-qwen35-disagg-demo
+spec:
+  successPolicy:
+    operator: All
+    targetReplicatedJobs:
+      - check
+  ttlSecondsAfterFinished: 300
+  replicatedJobs:
+    - name: prefill
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            metadata:
+              annotations:
+                gke-gcsfuse/volumes: "true"
+            spec:
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: 2x2x1
+                cloud.google.com/gke-tpu-accelerator: tpu7x
+              initContainers:
+                - name: tpu-node-setup
+                  image: busybox
+                  securityContext:
+                    privileged: true
+                  command: ["/bin/sh", "-c"]
+                  args:
+                    - |
+                      sysctl -w vm.max_map_count=8388608
+                      if [ -f /sys/module/vfio_iommu_type1/parameters/dma_entry_limit ]; then
+                        echo 2000000 > /sys/module/vfio_iommu_type1/parameters/dma_entry_limit
+                      fi
+              containers:
+              - name: vllm-tpu-prefill
+                image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:benliangw-hma-b8706a94
+                imagePullPolicy: IfNotPresent
+                command: ["/bin/bash", "-c"]
+                args:
+                - |
+                  exec vllm serve \
+                    "Qwen/Qwen3.5-35B-A3B" \
+                    --tensor-parallel-size=4 \
+                    --max-model-len=4096 \
+                    --max-num-batched-tokens=4096 \
+                    --gpu-memory-utilization=0.5 \
+                    --kv-cache-dtype=fp8 \
+                    --block-size=4096 \
+                    --mamba-cache-mode=align \
+                    --attention-backend=CUSTOM \
+                    --no-async-scheduling \
+                    --language-model-only \
+                    --kv-cache-memory-bytes 34359738368 \
+                    --kv-transfer-config '{"kv_connector":"TPUConnectorHMA","kv_connector_module_path":"vllm_torchtpu.distributed.kv_transfer.tpu_connector","kv_role":"kv_producer"}'
+                env:
+                  - {name: VLLM_ENGINE_READY_TIMEOUT_S, value: "1800"}
+                  - {name: USE_MOE_SPARSE_CORE, value: "0"}
+                  - {name: LIBTPU_INIT_ARGS, value: "--xla_tpu_scoped_vmem_limit_kib=65536 --xla_tpu_enable_latency_hiding_scheduler=false"}
+                  - {name: TPU_TOPOLOGY, value: "2x2x1"}
+                  - {name: TPU_CHIPS_PER_HOST_BOUNDS, value: "2,2,1"}
+                  - {name: TPU_HOST_BOUNDS, value: "1,1,1"}
+                  - {name: MEGASCALE_NUM_SLICES, value: ""}
+                  - {name: MEGASCALE_SLICE_ID, value: ""}
+                  - {name: TPU_PROCESS_ADDRESSES, value: ""}
+                  - {name: TPU_WORKER_HOSTNAMES, value: ""}
+                  - {name: TPU_PROCESS_PORT, value: ""}
+                  - {name: MEGASCALE_COORDINATOR_ADDRESS, value: ""}
+                  - {name: MEGASCALE_PORT, value: ""}
+                volumeMounts:
+                  - {name: hf-token-volume, mountPath: /root/.cache/huggingface/token, subPath: token, readOnly: true}
+                  - {name: huggingface-storage, mountPath: /root/.cache/huggingface/}
+                  - {name: dshm, mountPath: /dev/shm}
+                securityContext:
+                  privileged: true
+                  capabilities: {add: [IPC_LOCK]}
+                resources:
+                  limits: {google.com/tpu: "4", memory: "500Gi", cpu: "200"}
+                  requests: {google.com/tpu: "4", memory: "500Gi", cpu: "200"}
+                ports: [{containerPort: 8000}]
+              - name: vllm-tpu-proxy
+                image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:benliangw-hma-b8706a94
+                imagePullPolicy: IfNotPresent
+                command: ["/bin/bash", "-c"]
+                args:
+                  - |
+                    PREFILLER_DNS="${JS_NAME}-prefill-0-0.${JS_NAME}"
+                    DECODER_DNS="${JS_NAME}-decode-0-0.${JS_NAME}"
+                    until curl -s http://$DECODER_DNS:7200/health > /dev/null 2>&1; do sleep 10; done
+                    until curl -s http://$PREFILLER_DNS:8000/health > /dev/null 2>&1; do sleep 10; done
+                    python3 /root/cloud-devkit/vllm-torchtpu/examples/disagg/toy_proxy_server.py \
+                      --host 0.0.0.0 --port 10000 \
+                      --prefiller-host $PREFILLER_DNS --prefiller-port 8000 \
+                      --decoder-host $DECODER_DNS --decoder-port 7200
+                env:
+                  - {name: JS_NAME, valueFrom: {fieldRef: {fieldPath: "metadata.labels['jobset.sigs.k8s.io/jobset-name']"}}}
+                ports: [{containerPort: 10000}]
+                resources: {requests: {cpu: "8", memory: "16Gi"}, limits: {cpu: "16", memory: "32Gi"}}
+              restartPolicy: Never
+              volumes:
+              - {name: dshm, emptyDir: {medium: Memory}}
+              - name: hf-token-volume
+                secret: {secretName: vllm-hf-token, items: [{key: HF_TOKEN, path: token}]}
+              - name: huggingface-storage
+                ephemeral:
+                  volumeClaimTemplate:
+                    spec: {storageClassName: "premium-rwo", accessModes: ["ReadWriteOnce"], resources: {requests: {storage: 256Gi}}}
+    - name: decode
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            metadata:
+              annotations:
+                gke-gcsfuse/volumes: "true"
+            spec:
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: 2x2x1
+                cloud.google.com/gke-tpu-accelerator: tpu7x
+              initContainers:
+                - name: tpu-node-setup
+                  image: busybox
+                  securityContext:
+                    privileged: true
+                  command: ["/bin/sh", "-c"]
+                  args:
+                    - |
+                      sysctl -w vm.max_map_count=8388608
+                      if [ -f /sys/module/vfio_iommu_type1/parameters/dma_entry_limit ]; then
+                        echo 2000000 > /sys/module/vfio_iommu_type1/parameters/dma_entry_limit
+                      fi
+              containers:
+              - name: vllm-tpu-decode
+                image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:benliangw-hma-b8706a94
+                imagePullPolicy: IfNotPresent
+                command: ["/bin/bash", "-c"]
+                args:
+                - |
+                  exec vllm serve \
+                    "Qwen/Qwen3.5-35B-A3B" \
+                    --tensor-parallel-size=4 \
+                    --max-model-len=4096 \
+                    --max-num-batched-tokens=4096 \
+                    --gpu-memory-utilization=0.5 \
+                    --kv-cache-dtype=fp8 \
+                    --block-size=4096 \
+                    --mamba-cache-mode=align \
+                    --attention-backend=CUSTOM \
+                    --no-async-scheduling \
+                    --port=7200 \
+                    --language-model-only \
+                    --kv-cache-memory-bytes 34359738368 \
+                    --kv-transfer-config '{"kv_connector":"TPUConnectorHMA","kv_connector_module_path":"vllm_torchtpu.distributed.kv_transfer.tpu_connector","kv_role":"kv_consumer"}'
+                env:
+                  - {name: VLLM_ENGINE_READY_TIMEOUT_S, value: "1800"}
+                  - {name: USE_MOE_SPARSE_CORE, value: "0"}
+                  - {name: LIBTPU_INIT_ARGS, value: "--xla_tpu_scoped_vmem_limit_kib=65536 --xla_tpu_enable_latency_hiding_scheduler=false"}
+                  - {name: TPU_TOPOLOGY, value: "2x2x1"}
+                  - {name: TPU_CHIPS_PER_HOST_BOUNDS, value: "2,2,1"}
+                  - {name: TPU_HOST_BOUNDS, value: "1,1,1"}
+                  - {name: MEGASCALE_NUM_SLICES, value: ""}
+                  - {name: MEGASCALE_SLICE_ID, value: ""}
+                  - {name: TPU_PROCESS_ADDRESSES, value: ""}
+                  - {name: TPU_WORKER_HOSTNAMES, value: ""}
+                  - {name: TPU_PROCESS_PORT, value: ""}
+                  - {name: MEGASCALE_COORDINATOR_ADDRESS, value: ""}
+                  - {name: MEGASCALE_PORT, value: ""}
+                volumeMounts:
+                  - {name: hf-token-volume, mountPath: /root/.cache/huggingface/token, subPath: token, readOnly: true}
+                  - {name: huggingface-storage, mountPath: /root/.cache/huggingface/}
+                  - {name: dshm, mountPath: /dev/shm}
+                securityContext:
+                  privileged: true
+                  capabilities: {add: [IPC_LOCK]}
+                resources:
+                  limits: {google.com/tpu: "4", memory: "500Gi", cpu: "200"}
+                  requests: {google.com/tpu: "4", memory: "500Gi", cpu: "200"}
+                ports: [{containerPort: 7200}]
+              restartPolicy: Never
+              volumes:
+              - {name: dshm, emptyDir: {medium: Memory}}
+              - name: hf-token-volume
+                secret: {secretName: vllm-hf-token, items: [{key: HF_TOKEN, path: token}]}
+              - name: huggingface-storage
+                ephemeral:
+                  volumeClaimTemplate:
+                    spec: {storageClassName: "premium-rwo", accessModes: ["ReadWriteOnce"], resources: {requests: {storage: 256Gi}}}
+    - name: check
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            spec:
+              restartPolicy: Never
+              containers:
+              - name: check
+                image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/bench:reneezhu
+                imagePullPolicy: Always
+                command: ["/bin/bash", "-c"]
+                args:
+                  - |
+                    PREFILLER_DNS="${JS_NAME}-prefill-0-0.${JS_NAME}"
+                    DECODER_DNS="${JS_NAME}-decode-0-0.${JS_NAME}"
+                    until curl -s http://$PREFILLER_DNS:8000/health > /dev/null; do sleep 5; done
+                    until curl -s http://$DECODER_DNS:7200/health > /dev/null; do sleep 5; done
+                    until curl -s http://$PREFILLER_DNS:10000/healthcheck > /dev/null; do sleep 5; done
+                    python3 benchmark_serving.py \
+                      --model=Qwen/Qwen3.5-35B-A3B --host=$PREFILLER_DNS --port=10000 --backend=vllm \
+                      --dataset-name=random --random-input-len=512 --random-output-len=128 \
+                      --num-prompts=32 --max-concurrency=16 --ignore-eos --request-rate=inf \
+                      2>&1 | tee /tmp/bench.log
+                    grep -qE "^Successful requests:[[:space:]]+32" /tmp/bench.log \
+                      && echo "RESULT: PASS (32/32)" || { echo "RESULT: FAIL"; exit 1; }
+                env:
+                  - {name: JS_NAME, valueFrom: {fieldRef: {fieldPath: "metadata.labels['jobset.sigs.k8s.io/jobset-name']"}}}

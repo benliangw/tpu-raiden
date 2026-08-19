@@ -1,0 +1,109 @@
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1787117620.259147       1 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1787117620.325667       1 device_rt.cc:128] PjRt runtime initialization deferred for tpu
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+INFO 08-19 05:33:40 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-19 05:33:40 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-19 05:33:40 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 08-19 05:33:41 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-19 05:33:41 [tpu_info.py:26] 
+INFO 08-19 05:33:41 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x-8 | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-19 05:33:41 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 08-19 05:33:41 [tpu_platform.py:1105] Pin memory is not supported on TPU.
+INFO 08-19 05:33:50 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-19 05:33:50 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+(APIServer pid=1) INFO 08-19 05:34:01 [api_utils.py:345] 
+(APIServer pid=1) INFO 08-19 05:34:01 [api_utils.py:345]        █     █     █▄   ▄█
+(APIServer pid=1) INFO 08-19 05:34:01 [api_utils.py:345]  ▄▄ ▄█ █     █     █ ▀▄▀ █  version 0.27.0
+(APIServer pid=1) INFO 08-19 05:34:01 [api_utils.py:345]   █▄█▀ █     █     █     █  model   Qwen/Qwen3.5-35B-A3B
+(APIServer pid=1) INFO 08-19 05:34:01 [api_utils.py:345]    ▀▀  ▀▀▀▀▀ ▀▀▀▀▀ ▀     ▀
+(APIServer pid=1) INFO 08-19 05:34:01 [api_utils.py:345] 
+(APIServer pid=1) INFO 08-19 05:34:01 [api_utils.py:273] non-default args: {'model_tag': 'Qwen/Qwen3.5-35B-A3B', 'port': 7200, 'model': 'Qwen/Qwen3.5-35B-A3B', 'max_model_len': 4096, 'attention_backend': 'CUSTOM', 'tensor_parallel_size': 4, 'block_size': 4096, 'gpu_memory_utilization': 0.5, 'kv_cache_memory_bytes': 34359738368, 'kv_cache_dtype': 'fp8', 'mamba_cache_mode': 'align', 'language_model_only': True, 'max_num_batched_tokens': 4096, 'async_scheduling': False, 'kv_transfer_config': KVTransferConfig(kv_connector='TPUConnectorHMA', engine_id='48b787dc-1471-43b9-83fb-892e8effcadd', kv_buffer_device='tpu', kv_buffer_size=1000000000.0, kv_role='kv_consumer', kv_rank=None, kv_parallel_size=1, kv_ip='127.0.0.1', kv_port=14579, kv_connector_extra_config={}, kv_connector_module_path='vllm_torchtpu.distributed.kv_transfer.tpu_connector', enable_permute_local_kv=False, kv_load_failure_policy='fail')}
+(APIServer pid=1) INFO 08-19 05:34:11 [model.py:645] Resolved architecture: Qwen3_5MoeForConditionalGeneration
+(APIServer pid=1) INFO 08-19 05:34:11 [model.py:1883] Using max model len 4096
+(APIServer pid=1) [ERROR] `min_frames` is part of Qwen3VLVideoProcessorInitKwargs, but not documented. Make sure to add it to the docstring of the function in /usr/local/lib/python3.12/site-packages/transformers/models/qwen3_vl/video_processing_qwen3_vl.py.
+(APIServer pid=1) [ERROR] `max_frames` is part of Qwen3VLVideoProcessorInitKwargs, but not documented. Make sure to add it to the docstring of the function in /usr/local/lib/python3.12/site-packages/transformers/models/qwen3_vl/video_processing_qwen3_vl.py.
+(APIServer pid=1) INFO 08-19 05:34:14 [registry.py:134] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+(APIServer pid=1) INFO 08-19 05:34:14 [model.py:842] Disabled mm_prefix attention mode because multimodal inputs are configuration-disabled. Attention backends without mm_prefix support may now be selected.
+(APIServer pid=1) INFO 08-19 05:34:14 [cache.py:296] Using fp8 data type to store kv cache. It reduces the GPU memory footprint and boosts the performance. Meanwhile, it may cause accuracy drop without a proper scaling factor
+(APIServer pid=1) INFO 08-19 05:34:14 [scheduler.py:242] Chunked prefill is enabled with max_num_batched_tokens=4096.
+(APIServer pid=1) WARNING 08-19 05:34:14 [config.py:653] Mamba cache mode is set to 'none' when prefix caching is disabled
+(APIServer pid=1) INFO 08-19 05:34:14 [kernel.py:306] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+(APIServer pid=1) INFO 08-19 05:34:14 [__init__.py:43] Applied TPU patch: allow PCP through GPU-specific V2 checks.
+(APIServer pid=1) INFO 08-19 05:34:14 [__init__.py:121] Applied TPU patch: include compiler hash in AOT cache key.
+(APIServer pid=1) INFO 08-19 05:34:14 [__init__.py:171] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold'] from the compile cache key.
+(APIServer pid=1) INFO 08-19 05:34:14 [__init__.py:201] Applied TPU patch: disable vLLM custom collective ops.
+(APIServer pid=1) INFO 08-19 05:34:14 [__init__.py:222] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+(APIServer pid=1) INFO 08-19 05:34:14 [__init__.py:254] Applied TPU patch: use explicit PCP collectives for monolithic MoE.
+(APIServer pid=1) INFO 08-19 05:34:14 [__init__.py:317] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+(APIServer pid=1) INFO 08-19 05:34:14 [__init__.py:456] Applied TPU patch: disable sequence-parallel MoE.
+(APIServer pid=1) INFO 08-19 05:34:14 [__init__.py:525] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+(APIServer pid=1) INFO 08-19 05:34:14 [__init__.py:439] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+(APIServer pid=1) INFO 08-19 05:34:14 [__init__.py:291] Applied TPU patch: host-side expert-map lookup.
+(APIServer pid=1) INFO 08-19 05:34:14 [__init__.py:969] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+(APIServer pid=1) INFO 08-19 05:34:14 [__init__.py:659] Applied TPU patch: PCP-aware OffloadingConfig build.
+(APIServer pid=1) INFO 08-19 05:34:14 [__init__.py:719] Applied TPU patch: OffloadingConnector TPU spec construction.
+(APIServer pid=1) INFO 08-19 05:34:14 [__init__.py:755] Applied TPU patch: accurate layer counts for Kimi-K3 / KDA hybrid models.
+(APIServer pid=1) INFO 08-19 05:34:14 [__init__.py:97] Applied TPU patch: reconcile hybrid producer prefix hits.
+(APIServer pid=1) INFO 08-19 05:34:14 [__init__.py:1265] Applied LIFO free-block patch (pre-vllm#48017 order) to BlockPool
+(APIServer pid=1) INFO 08-19 05:34:14 [__init__.py:472] Applied TPU patch: disable DP microbatching.
+(APIServer pid=1) INFO 08-19 05:34:14 [__init__.py:564] Applied TPU patch: MultiprocExecutor worker binding env.
+(APIServer pid=1) INFO 08-19 05:34:14 [__init__.py:1008] Applied TPU patch: recursive reset_compile_wrapper for per-layer compilation.
+(APIServer pid=1) INFO 08-19 05:34:14 [__init__.py:1071] Applied TPU patch: PiecewiseBackend tensor-dim-0 bucket dispatch.
+(APIServer pid=1) INFO 08-19 05:34:14 [__init__.py:1115] Applied TPU patch: per-instance compile-artifact cache isolation (compile_prefix keyed off self.prefix).
+(APIServer pid=1) INFO 08-19 05:34:14 [__init__.py:1169] Applied TPU patch: bypass DFlash V2 runner check on TPU.
+(APIServer pid=1) INFO 08-19 05:34:14 [__init__.py:1194] Applied TPU patch: bypass V2 model runner Triton check.
+(APIServer pid=1) INFO 08-19 05:34:14 [model_loader_patches.py:293] Applied TPU patch: EP-sharded Run:AI weight streaming (fetch only local experts when the EP weight filter is on).
+(APIServer pid=1) INFO 08-19 05:34:14 [tpu_platform.py:170] TorchTPU eager mode configured: DEFER_AND_FUSE (previous=DEFER_NEVER)
+(APIServer pid=1) INFO 08-19 05:34:14 [tpu_platform.py:1201] Using token paddings: [16, 32, 64, 128, 256, 512, 1024, 2048, 4096]
+(APIServer pid=1) INFO 08-19 05:34:14 [tpu_platform.py:988] Force using TpuMultiprocExecutor for TPU on single host with tensor/pipeline/PCP parallelism.
+(APIServer pid=1) Traceback (most recent call last):
+(APIServer pid=1)   File "/usr/local/bin/vllm", line 10, in <module>
+(APIServer pid=1)     sys.exit(main())
+(APIServer pid=1)              ^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/cli/main.py", line 97, in main
+(APIServer pid=1)     args.dispatch_function(args)
+(APIServer pid=1)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/cli/serve.py", line 152, in cmd
+(APIServer pid=1)     uvloop.run(run_server(args))
+(APIServer pid=1)   File "/usr/local/lib/python3.12/site-packages/uvloop/__init__.py", line 96, in run
+(APIServer pid=1)     return __asyncio.run(
+(APIServer pid=1)            ^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/asyncio/runners.py", line 195, in run
+(APIServer pid=1)     return runner.run(main)
+(APIServer pid=1)            ^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/asyncio/runners.py", line 118, in run
+(APIServer pid=1)     return self._loop.run_until_complete(task)
+(APIServer pid=1)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+(APIServer pid=1)   File "/usr/local/lib/python3.12/site-packages/uvloop/__init__.py", line 48, in wrapper
+(APIServer pid=1)     return await main
+(APIServer pid=1)            ^^^^^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 764, in run_server
+(APIServer pid=1)     await run_server_worker(listen_address, sock, args, **uvicorn_kwargs)
+(APIServer pid=1)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 778, in run_server_worker
+(APIServer pid=1)     async with build_async_engine_client(
+(APIServer pid=1)                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=1)     return await anext(self.gen)
+(APIServer pid=1)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 132, in build_async_engine_client
+(APIServer pid=1)     async with build_async_engine_client_from_engine_args(
+(APIServer pid=1)                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=1)     return await anext(self.gen)
+(APIServer pid=1)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 156, in build_async_engine_client_from_engine_args
+(APIServer pid=1)     vllm_config = engine_args.create_engine_config(usage_context=usage_context)
+(APIServer pid=1)                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/site-packages/vllm/engine/arg_utils.py", line 2464, in create_engine_config
+(APIServer pid=1)     config = VllmConfig(
+(APIServer pid=1)              ^^^^^^^^^^^
+(APIServer pid=1)   File "/usr/local/lib/python3.12/site-packages/pydantic/_internal/_dataclasses.py", line 121, in __init__
+(APIServer pid=1)     s.__pydantic_validator__.validate_python(ArgsKwargs(args, kwargs), self_instance=s)
+(APIServer pid=1) pydantic_core._pydantic_core.ValidationError: 1 validation error for VllmConfig
+(APIServer pid=1)   Assertion failed, TPU only supports the following KV connectors: {'OffloadingConnector', 'TPUMultiConnector', 'TPUConnector', 'TPURaidenConnector', 'TPURaidenOffloadingConnector'}, but got 'TPUConnectorHMA'. [type=assertion_error, input_value=ArgsKwargs((), {'model_co... 'shutdown_timeout': 0}), input_type=ArgsKwargs]
+(APIServer pid=1)     For further information visit https://errors.pydantic.dev/2.13/v/assertion_error
+
