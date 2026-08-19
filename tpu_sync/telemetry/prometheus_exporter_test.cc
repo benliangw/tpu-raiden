@@ -54,6 +54,8 @@ TEST(PrometheusExporterTest, RecordAndExportFormat) {
   exporter.IncrementCounter(metric_names::kTransferFailuresTotal,
                             failure_labels, 2);
 
+  // Record histogram observation
+  exporter.ObserveHistogram(metric_names::kH2dTransferTimeMs, {}, 12.5);
   std::string output = exporter.GetTextSnapshot();
 
   EXPECT_THAT(output, HasSubstr("# TYPE tpu_raiden_sent_bytes_total counter"));
@@ -65,6 +67,48 @@ TEST(PrometheusExporterTest, RecordAndExportFormat) {
   EXPECT_THAT(output,
               HasSubstr("tpu_raiden_transfer_failures_total{direction=\"pull\","
                         "error_code=\"DEADLINE_EXCEEDED\"} 2"));
+
+  EXPECT_THAT(output,
+              HasSubstr("# TYPE tpu_raiden_h2d_transfer_time_ms histogram"));
+  EXPECT_THAT(
+      output,
+      HasSubstr("tpu_raiden_h2d_transfer_time_ms_bucket{le=\"25.000000\"} 1"));
+  EXPECT_THAT(
+      output,
+      HasSubstr(
+          "tpu_raiden_h2d_transfer_time_ms_bucket{le=\"5000.000000\"} 1"));
+}
+
+TEST(PrometheusExporterTest, MetricSpecificCustomBuckets) {
+  PrometheusExporter exporter;
+  exporter.ObserveHistogram(metric_names::kH2dTransferTimeMs, {}, 1.5);
+  exporter.ObserveHistogram(metric_names::kD2hTransferTimeMs, {}, 250.0);
+
+  std::string output = exporter.GetTextSnapshot();
+
+  // Verify custom millisecond buckets for H2D
+  EXPECT_THAT(
+      output,
+      HasSubstr("tpu_raiden_h2d_transfer_time_ms_bucket{le=\"0.100000\"} 0"));
+  EXPECT_THAT(
+      output,
+      HasSubstr("tpu_raiden_h2d_transfer_time_ms_bucket{le=\"2.500000\"} 1"));
+  EXPECT_THAT(
+      output,
+      HasSubstr(
+          "tpu_raiden_h2d_transfer_time_ms_bucket{le=\"5000.000000\"} 1"));
+
+  // Verify custom millisecond buckets for D2H
+  EXPECT_THAT(
+      output,
+      HasSubstr("tpu_raiden_d2h_transfer_time_ms_bucket{le=\"100.000000\"} 0"));
+  EXPECT_THAT(
+      output,
+      HasSubstr("tpu_raiden_d2h_transfer_time_ms_bucket{le=\"250.000000\"} 1"));
+  EXPECT_THAT(
+      output,
+      HasSubstr(
+          "tpu_raiden_d2h_transfer_time_ms_bucket{le=\"5000.000000\"} 1"));
 }
 
 TEST(PrometheusExporterTest, UnmappedMetricIgnored) {

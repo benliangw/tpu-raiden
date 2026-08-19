@@ -17,8 +17,10 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -27,8 +29,12 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
+#include "absl/strings/string_view.h"
+#include "tpu_sync/core/raw_transfer_core.h"
 #include "tpu_sync/kv_cache/kv_cache_manager_base.h"
 #include "tpu_sync/rpc/raiden_service.pb.h"
+#include "tpu_sync/telemetry/metrics_api.h"
+#include "tpu_sync/telemetry/metrics_backend.h"
 #include "tpu_sync/transport/block_transport.h"
 
 namespace tpu_raiden {
@@ -104,9 +110,7 @@ PoolSpec DensePool(const std::string& tag, size_t storage_index,
   };
 }
 
-TEST(KVCacheManagerTest, CompilesAndLinksSuccessfully) {
-  EXPECT_TRUE(true);
-}
+TEST(KVCacheManagerTest, CompilesAndLinksSuccessfully) { EXPECT_TRUE(true); }
 
 TEST(KVCacheManagerTest, RegisterPoolsValidatesAgainstStorage) {
   TestKVCacheManager manager(/*num_layers=*/2, /*num_shards=*/1,
@@ -1237,6 +1241,124 @@ TEST(KVCacheManagerTest, BackgroundWorkerThreadDisabledByDefault) {
   ASSERT_TRUE(f1.ok());
   absl::MutexLock lock(manager.mu_);
   EXPECT_EQ(manager.h2d_count_, 1);
+}
+
+// TODO: Move this class to a shared test util.
+class MockMetricsBackend : public telemetry::MetricsBackend {
+ public:
+  MOCK_METHOD(void, IncrementCounter,
+              (absl::string_view name, telemetry::LabelSpan labels,
+               uint64_t val),
+              (override, const));
+  MOCK_METHOD(void, SetGauge,
+              (absl::string_view name, telemetry::LabelSpan labels, double val),
+              (override, const));
+  MOCK_METHOD(void, ObserveHistogram,
+              (absl::string_view name, telemetry::LabelSpan labels, double val),
+              (override, const));
+  MOCK_METHOD(std::string, GetTextSnapshot, (), (override, const));
+};
+
+struct TelemetryCleanup {
+  ~TelemetryCleanup() {
+    telemetry::RaidenMetricStore::GetGlobalMetricStore().SetBackends({});
+  }
+};
+
+TEST(KVCacheManagerTest, TelemetryMetricsObservedWhenEnabled) {
+  TelemetryCleanup cleanup;
+
+  auto mock_backend = std::make_unique<MockMetricsBackend>();
+  auto* raw_backend = mock_backend.get();
+
+  EXPECT_CALL(
+      *raw_backend,
+      ObserveHistogram(testing::Eq(telemetry::metric_names::kH2dTransferTimeMs),
+                       testing::_, testing::Ge(0.0)))
+      .Times(testing::AtLeast(1));
+  EXPECT_CALL(
+      *raw_backend,
+      ObserveHistogram(testing::Eq(telemetry::metric_names::kD2hTransferTimeMs),
+                       testing::_, testing::Ge(0.0)))
+      .Times(testing::AtLeast(1));
+
+  std::vector<std::unique_ptr<telemetry::MetricsBackend>> backends;
+  backends.push_back(std::move(mock_backend));
+  telemetry::RaidenMetricStore::GetGlobalMetricStore().SetBackends(
+      std::move(backends));
+
+  TestKVCacheManager manager(/*num_layers=*/1, /*num_shards=*/1,
+                             /*slice_byte_size=*/128, /*host_blocks=*/2);
+  std::vector<int64_t> offsets = {0};
+  std::vector<int64_t> sizes = {1};
+
+  ASSERT_OK_AND_ASSIGN(raiden::PjRtCopyFuture h2d_res,
+                       manager.H2d(offsets, offsets, sizes));
+  EXPECT_OK(h2d_res.Await());
+
+  ASSERT_OK_AND_ASSIGN(raiden::PjRtCopyFuture d2h_res,
+                       manager.D2h(offsets, offsets, sizes));
+  EXPECT_OK(d2h_res.Await());
+}
+
+TEST(KVCacheManagerTest, TelemetryMetricsSkippedWhenDisabled) {
+  TelemetryCleanup cleanup;
+  telemetry::RaidenMetricStore::GetGlobalMetricStore().SetBackends({});
+  EXPECT_FALSE(
+      telemetry::RaidenMetricStore::GetGlobalMetricStore().HasBackends());
+
+  TestKVCacheManager manager(/*num_layers=*/1, /*num_shards=*/1,
+                             /*slice_byte_size=*/128, /*host_blocks=*/2);
+  std::vector<int64_t> offsets = {0};
+  std::vector<int64_t> sizes = {1};
+
+  ASSERT_OK_AND_ASSIGN(raiden::PjRtCopyFuture h2d_res,
+                       manager.H2d(offsets, offsets, sizes));
+  EXPECT_OK(h2d_res.Await());
+
+  ASSERT_OK_AND_ASSIGN(raiden::PjRtCopyFuture d2h_res,
+                       manager.D2h(offsets, offsets, sizes));
+  EXPECT_OK(d2h_res.Await());
+}
+
+TEST(KVCacheManagerTest, D2hWritePipelinedTelemetryBatchObservation) {
+  TelemetryCleanup cleanup;
+
+  auto mock_backend = std::make_unique<MockMetricsBackend>();
+  auto* raw_backend = mock_backend.get();
+
+  // Exactly 1 observation for the entire batch of chunks, not 1 per chunk.
+  EXPECT_CALL(
+      *raw_backend,
+      ObserveHistogram(testing::Eq(telemetry::metric_names::kD2hTransferTimeMs),
+                       testing::_, testing::Ge(0.0)))
+      .Times(1);
+
+  std::vector<std::unique_ptr<telemetry::MetricsBackend>> backends;
+  backends.push_back(std::move(mock_backend));
+  telemetry::RaidenMetricStore::GetGlobalMetricStore().SetBackends(
+      std::move(backends));
+
+  TestD2hKVCacheManager sender(/*num_layers=*/1, /*num_shards=*/1,
+                               /*slice_byte_size=*/128, /*host_blocks=*/2);
+  TestKVCacheManager receiver(/*num_layers=*/1, /*num_shards=*/1,
+                              /*slice_byte_size=*/128, /*host_blocks=*/2);
+
+  const std::optional<int> receiver_port = receiver.local_port();
+  ASSERT_TRUE(receiver_port.has_value());
+  std::string receiver_peer =
+      absl::StrCat(receiver.local_ip(), ":", *receiver_port);
+
+  std::vector<int64_t> src_device_offsets = {0, 1};
+  std::vector<int64_t> src_host_offsets = {0, 1};
+  std::vector<int64_t> dst_host_offsets = {0, 1};
+  std::vector<int64_t> copy_sizes = {1, 1};
+
+  ASSERT_OK_AND_ASSIGN(
+      raiden::PjRtCopyFuture res,
+      sender.D2hWrite(receiver_peer, src_device_offsets, src_host_offsets,
+                      dst_host_offsets, copy_sizes));
+  EXPECT_OK(res.Await());
 }
 
 }  // namespace

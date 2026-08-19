@@ -93,6 +93,14 @@ TEST(KVCacheManagerWithTransferTest, LocalOrchestratedTransfer) {
               ObserveHistogram(telemetry::metric_names::kTransferDurationMs,
                                IsEmpty(), Gt(0.0)))
       .Times(1);
+  EXPECT_CALL(*raw_mock,
+              ObserveHistogram(telemetry::metric_names::kD2hTransferTimeMs,
+                               IsEmpty(), Gt(0.0)))
+      .Times(1);
+  EXPECT_CALL(*raw_mock,
+              ObserveHistogram(telemetry::metric_names::kH2dTransferTimeMs,
+                               IsEmpty(), Gt(0.0)))
+      .Times(1);
   // Register mock backend
   telemetry::ScopedMetricsBackendReset scoped_metrics_reset(
       std::move(mock_backend));
