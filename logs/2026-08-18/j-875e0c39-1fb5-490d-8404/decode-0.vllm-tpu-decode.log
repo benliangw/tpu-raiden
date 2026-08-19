@@ -1,0 +1,119 @@
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1787115056.852400       1 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+I0000 00:00:1787115057.187582       1 device_rt.cc:128] PjRt runtime initialization deferred for tpu
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+INFO 08-19 04:50:57 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-19 04:50:57 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-19 04:50:57 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 08-19 04:51:01 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-19 04:51:01 [tpu_info.py:26] 
+INFO 08-19 04:51:01 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-19 04:51:01 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 08-19 04:51:01 [tpu_platform.py:1105] Pin memory is not supported on TPU.
+INFO 08-19 04:51:15 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-19 04:51:15 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+INFO 08-19 04:51:23 [serve.py:123] Defaulting api_server_count to data_parallel_size (4).
+INFO 08-19 04:51:23 [api_utils.py:345] 
+INFO 08-19 04:51:23 [api_utils.py:345]        █     █     █▄   ▄█
+INFO 08-19 04:51:23 [api_utils.py:345]  ▄▄ ▄█ █     █     █ ▀▄▀ █  version 0.27.0
+INFO 08-19 04:51:23 [api_utils.py:345]   █▄█▀ █     █     █     █  model   Qwen/Qwen3.5-4B
+INFO 08-19 04:51:23 [api_utils.py:345]    ▀▀  ▀▀▀▀▀ ▀▀▀▀▀ ▀     ▀
+INFO 08-19 04:51:23 [api_utils.py:345] 
+INFO 08-19 04:51:23 [api_utils.py:273] non-default args: {'model_tag': 'Qwen/Qwen3.5-4B', 'api_server_count': 4, 'port': 7200, 'model': 'Qwen/Qwen3.5-4B', 'trust_remote_code': True, 'seed': 42, 'max_model_len': 65536, 'attention_backend': 'CUSTOM', 'tensor_parallel_size': 2, 'data_parallel_size': 4, 'data_parallel_size_local': 4, 'disable_custom_all_reduce': True, 'block_size': 4096, 'gpu_memory_utilization': 0.9, 'kv_cache_dtype': 'fp8', 'enable_prefix_caching': False, 'mamba_cache_mode': 'align', 'language_model_only': True, 'max_num_batched_tokens': 4096, 'max_num_seqs': 16, 'async_scheduling': False, 'kv_transfer_config': KVTransferConfig(kv_connector='TPURaidenConnector', engine_id='e0ca1234-6216-4662-b313-79caadd724a9', kv_buffer_device='tpu', kv_buffer_size=1000000000.0, kv_role='kv_consumer', kv_rank=None, kv_parallel_size=1, kv_ip='127.0.0.1', kv_port=14579, kv_connector_extra_config={}, kv_connector_module_path='vllm_torchtpu.distributed.kv_transfer.tpu_connector', enable_permute_local_kv=False, kv_load_failure_policy='fail')}
+INFO 08-19 04:51:35 [model.py:645] Resolved architecture: Qwen3_5ForConditionalGeneration
+INFO 08-19 04:51:35 [model.py:1883] Using max model len 65536
+[ERROR] `min_frames` is part of Qwen3VLVideoProcessorInitKwargs, but not documented. Make sure to add it to the docstring of the function in /usr/local/lib/python3.12/site-packages/transformers/models/qwen3_vl/video_processing_qwen3_vl.py.
+[ERROR] `max_frames` is part of Qwen3VLVideoProcessorInitKwargs, but not documented. Make sure to add it to the docstring of the function in /usr/local/lib/python3.12/site-packages/transformers/models/qwen3_vl/video_processing_qwen3_vl.py.
+INFO 08-19 04:51:37 [registry.py:134] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+INFO 08-19 04:51:37 [model.py:842] Disabled mm_prefix attention mode because multimodal inputs are configuration-disabled. Attention backends without mm_prefix support may now be selected.
+INFO 08-19 04:51:37 [cache.py:296] Using fp8 data type to store kv cache. It reduces the GPU memory footprint and boosts the performance. Meanwhile, it may cause accuracy drop without a proper scaling factor
+INFO 08-19 04:51:37 [scheduler.py:242] Chunked prefill is enabled with max_num_batched_tokens=4096.
+WARNING 08-19 04:51:37 [config.py:653] Mamba cache mode is set to 'none' when prefix caching is disabled
+INFO 08-19 04:51:37 [kernel.py:306] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+INFO 08-19 04:51:37 [__init__.py:43] Applied TPU patch: allow PCP through GPU-specific V2 checks.
+INFO 08-19 04:51:37 [__init__.py:121] Applied TPU patch: include compiler hash in AOT cache key.
+INFO 08-19 04:51:37 [__init__.py:171] Applied TPU patch: exclude diagnostics-only additional_config keys ['phased_profiler_decode_only_kv_len_threshold'] from the compile cache key.
+INFO 08-19 04:51:37 [__init__.py:201] Applied TPU patch: disable vLLM custom collective ops.
+INFO 08-19 04:51:37 [__init__.py:222] Applied TPU patch: DefaultMoERunner uses direct _moe_forward.
+INFO 08-19 04:51:37 [__init__.py:254] Applied TPU patch: use explicit PCP collectives for monolithic MoE.
+INFO 08-19 04:51:37 [__init__.py:317] Applied TPU patch: disable dynamic compile_ranges (static compile_sizes only).
+INFO 08-19 04:51:37 [__init__.py:456] Applied TPU patch: disable sequence-parallel MoE.
+INFO 08-19 04:51:37 [__init__.py:525] Applied TPU patch: scope non-EP MoE TP inside each DP engine.
+INFO 08-19 04:51:37 [__init__.py:439] Applied TPU patch: defer RowParallelLinear bias past TP all_reduce.
+INFO 08-19 04:51:37 [__init__.py:291] Applied TPU patch: host-side expert-map lookup.
+INFO 08-19 04:51:37 [__init__.py:969] Applied TPU patch: hybrid full-attention + Mamba PCP block sizes.
+INFO 08-19 04:51:37 [__init__.py:659] Applied TPU patch: PCP-aware OffloadingConfig build.
+INFO 08-19 04:51:37 [__init__.py:719] Applied TPU patch: OffloadingConnector TPU spec construction.
+INFO 08-19 04:51:37 [__init__.py:755] Applied TPU patch: accurate layer counts for Kimi-K3 / KDA hybrid models.
+INFO 08-19 04:51:37 [__init__.py:97] Applied TPU patch: reconcile hybrid producer prefix hits.
+INFO 08-19 04:51:37 [__init__.py:1265] Applied LIFO free-block patch (pre-vllm#48017 order) to BlockPool
+INFO 08-19 04:51:37 [__init__.py:472] Applied TPU patch: disable DP microbatching.
+INFO 08-19 04:51:37 [__init__.py:564] Applied TPU patch: MultiprocExecutor worker binding env.
+INFO 08-19 04:51:37 [__init__.py:1008] Applied TPU patch: recursive reset_compile_wrapper for per-layer compilation.
+INFO 08-19 04:51:37 [__init__.py:1071] Applied TPU patch: PiecewiseBackend tensor-dim-0 bucket dispatch.
+INFO 08-19 04:51:37 [__init__.py:1115] Applied TPU patch: per-instance compile-artifact cache isolation (compile_prefix keyed off self.prefix).
+INFO 08-19 04:51:38 [__init__.py:1169] Applied TPU patch: bypass DFlash V2 runner check on TPU.
+INFO 08-19 04:51:38 [__init__.py:1194] Applied TPU patch: bypass V2 model runner Triton check.
+INFO 08-19 04:51:38 [model_loader_patches.py:293] Applied TPU patch: EP-sharded Run:AI weight streaming (fetch only local experts when the EP weight filter is on).
+INFO 08-19 04:51:38 [tpu_platform.py:170] TorchTPU eager mode configured: DEFER_AND_FUSE (previous=DEFER_NEVER)
+INFO 08-19 04:51:38 [tpu_platform.py:1201] Using token paddings: [16, 32, 64, 128, 256, 512, 1024, 2048, 4096]
+INFO 08-19 04:51:38 [tpu_platform.py:988] Force using TpuMultiprocExecutor for TPU on single host with tensor/pipeline/PCP parallelism.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1787115102.666026     570 pjrt_api.cc:119] GetPjrtApi was found for TPU at /usr/local/lib/python3.12/site-packages/libtpu/libtpu.so
+Successfully renamed PrivateUse1 backend to 'tpu'. Device: device(type='tpu')
+Registered Python module for 'tpu'.
+Device type: tpu, Device index: default
+Initializing TPU distributed runtime
+INFO 08-19 04:51:42 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 08-19 04:51:42 [__init__.py:54] - torchtpu -> vllm_torchtpu.platforms:register_tpu_platform
+INFO 08-19 04:51:42 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+ERROR 08-19 04:51:43 [tpu_info.py:26] Unable to poll TPU GCE Metadata. Got status code: 404 and content: Not Found
+ERROR 08-19 04:51:43 [tpu_info.py:26] 
+INFO 08-19 04:51:43 [__init__.py:18] TPU info: node_name=None | tpu_type=tpu7x | worker_id=0 | num_chips=8 | num_cores_per_chip=2
+INFO 08-19 04:51:43 [__init__.py:237] Platform plugin torchtpu is activated
+WARNING 08-19 04:51:43 [tpu_platform.py:1105] Pin memory is not supported on TPU.
+INFO 08-19 04:51:46 [importing.py:53] Triton is installed but 0 active driver(s) found (expected 1). Disabling Triton to prevent runtime errors.
+INFO 08-19 04:51:46 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+INFO 08-19 04:51:46 [utils.py:1108] Started DP Coordinator process (PID: 570)
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/utils.py", line 338, in get_physical_gpu_ids_for_local_dp_rank
+    current_platform.device_id_to_physical_device_id(i)
+  File "/usr/local/lib/python3.12/site-packages/vllm/platforms/interface.py", line 309, in device_id_to_physical_device_id
+    physical_device_id = device_ids[device_id]
+                         ~~~~~~~~~~^^^^^^^^^^^
+IndexError: list index out of range
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/usr/local/bin/vllm", line 10, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/cli/main.py", line 97, in main
+    args.dispatch_function(args)
+  File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/cli/serve.py", line 148, in cmd
+    run_multi_api_server(args)
+  File "/usr/local/lib/python3.12/site-packages/vllm/entrypoints/cli/serve.py", line 329, in run_multi_api_server
+    with launch_core_engines(vllm_config, executor_class, log_stats, addresses) as (
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/utils.py", line 1176, in launch_core_engines
+    local_engine_manager = CoreEngineProcManager(
+                           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/utils.py", line 193, in __init__
+    set_assigned_physical_gpu_ids_for_dp_rank(
+  File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/utils.py", line 297, in set_assigned_physical_gpu_ids_for_dp_rank
+    physical_gpu_ids = get_physical_gpu_ids_for_local_dp_rank(
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/vllm/v1/engine/utils.py", line 345, in get_physical_gpu_ids_for_local_dp_rank
+    raise Exception(
+Exception: Error computing device indices for TPU_VISIBLE_CHIPS: local range: [4, 6) base value: "0,1,2,3"
+INFO 08-19 04:51:46 [utils.py:612] [shutdown] Process manager: send sigterm to process EngineCore_DP0
+INFO 08-19 04:51:46 [utils.py:612] [shutdown] Process manager: send sigterm to process EngineCore_DP1
+INFO 08-19 04:51:46 [utils.py:612] [shutdown] Process manager: send sigterm to process VLLM_DP_Coordinator
+
