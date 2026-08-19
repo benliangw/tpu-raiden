@@ -17,12 +17,9 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <iterator>
 #include <memory>
-#include <optional>
 #include <stdexcept>
 #include <string>
-#include <thread>
 #include <utility>
 #include <vector>
 
@@ -37,7 +34,6 @@
 #include "xla/pjrt/c/pjrt_c_api_raw_buffer_extension.h"
 #include "xla/pjrt/c/pjrt_c_api_raw_buffer_external.h"
 #include "xla/pjrt/c_api_client/pjrt_c_api_client.h"
-#include "xla/pjrt/common_pjrt_client.h"
 #include "xla/pjrt/pjrt_client.h"
 #include "xla/pjrt/raw_buffer.h"
 #include "xla/shape.h"
@@ -483,31 +479,53 @@ struct PjRtCopyFuture {
     return status;
   }
 
+  // Carries one PJRT event's completion into its own promise. The bundle
+  // reference keeps the event alive -- the bundle destructor destroys it --
+  // until the callback has run.
+  struct EventPromiseCtx {
+    xla::Promise<> promise;
+    std::shared_ptr<PjRtEventBundle> bundle;
+  };
+
   template <typename F>
   void OnReady(F&& f) {
     if (!future.IsValid() && !event_bundles.empty()) {
-      auto [promise, fut] = xla::MakePromise();
-      future = fut;
-      std::thread([promise = std::move(promise),
-                   bundles = event_bundles]() mutable {
-        for (const auto& b : bundles) {
-          if (!b || !b->c_api) continue;
-          for (PJRT_Event* e : b->events) {
-            if (e != nullptr) {
-              PJRT_Event_Await_Args aw;
-              aw.struct_size = PJRT_Event_Await_Args_STRUCT_SIZE;
-              aw.extension_start = nullptr;
-              aw.event = e;
-              PJRT_Error* err = b->c_api->PJRT_Event_Await(&aw);
-              if (err != nullptr) {
-                promise.Set(PjrtErrorToStatusLocal(b->c_api, err));
-                return;
-              }
+      // One PJRT completion callback per event, joined into a single future.
+      // Callbacks run on PJRT completion threads, so no thread is held per
+      // in-flight copy.
+      std::vector<xla::Future<>> event_futures;
+      for (const auto& b : event_bundles) {
+        if (!b || !b->c_api) continue;
+        for (PJRT_Event* e : b->events) {
+          if (e == nullptr) continue;
+          auto [promise, fut] = xla::MakePromise();
+          event_futures.push_back(std::move(fut));
+          auto* ctx = new EventPromiseCtx{std::move(promise), b};
+          PJRT_Event_OnReady_Args oa;
+          oa.struct_size = PJRT_Event_OnReady_Args_STRUCT_SIZE;
+          oa.extension_start = nullptr;
+          oa.event = e;
+          oa.user_arg = ctx;
+          oa.callback = +[](PJRT_Error* error, void* user_arg) {
+            std::unique_ptr<EventPromiseCtx> cb_ctx(
+                static_cast<EventPromiseCtx*>(user_arg));
+            if (error != nullptr) {
+              cb_ctx->promise.Set(
+                  PjrtErrorToStatusLocal(cb_ctx->bundle->c_api, error));
+            } else {
+              cb_ctx->promise.Set();
             }
+          };
+          PJRT_Error* rerr = b->c_api->PJRT_Event_OnReady(&oa);
+          if (rerr != nullptr) {
+            // The callback will never fire for this event.
+            ctx->promise.Set(PjrtErrorToStatusLocal(b->c_api, rerr));
+            delete ctx;
           }
         }
-        promise.Set();
-      }).detach();
+      }
+      // With no live events this is an already-successful future.
+      future = xla::JoinFutures(event_futures);
     }
 
     if (future.IsValid()) {
@@ -521,14 +539,9 @@ struct PjRtCopyFuture {
       });
       return;
     }
-    // Event-only (offload) path: callers normally poll via IsReady/Await;
-    // resolve synchronously here for the rare OnReady caller.
-    absl::Status s = Await();
-    if (s.ok()) {
-      std::forward<F>(f)(absl::StatusOr<BufferHolders>(holds));
-    } else {
-      std::forward<F>(f)(absl::StatusOr<BufferHolders>(s));
-    }
+    // Reached only with no future and no events, i.e. nothing to complete
+    // against: run the callback with the buffers the caller already holds.
+    std::forward<F>(f)(absl::StatusOr<BufferHolders>(holds));
   }
 
   absl::Status Await() {

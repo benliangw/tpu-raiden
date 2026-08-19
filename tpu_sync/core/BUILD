@@ -241,8 +241,6 @@ cc_library(
         "@com_google_absl//absl/types:span",
         # buildcleaner: keep
         "@xla//xla/pjrt/c:pjrt_c_api_raw_buffer_external",
-        # buildcleaner: keep
-        "@com_google_absl//absl/synchronization",
         "@xla//xla/tsl/concurrency:async_value",
     ],
 )
@@ -544,9 +542,12 @@ cc_test(
     deps = [
         ":raw_transfer_core",
         ":tpu_pjrt_manager",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/types:span",
         "@xla//xla:future",
         "@xla//xla/pjrt:pjrt_client",
+        "@xla//xla/pjrt/c:pjrt_c_api_hdrs",
         "@xla//xla/tsl/platform:statusor",
         "@xla//xla/tsl/platform:test",
         "@xla//xla/tsl/platform:test_main",
