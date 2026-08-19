@@ -1,0 +1,312 @@
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: vllm-qwen35-4b-disagg-raiden-demo
+spec:
+  successPolicy:
+    operator: All
+    targetReplicatedJobs:
+      - check
+  ttlSecondsAfterFinished: 300
+  replicatedJobs:
+    - name: prefill
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            metadata:
+              annotations:
+                gke-gcsfuse/volumes: "true"
+            spec:
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: 2x2x1
+                cloud.google.com/gke-tpu-accelerator: tpu7x
+              initContainers:
+                - name: tpu-node-setup
+                  image: busybox
+                  securityContext:
+                    privileged: true
+                  command: ["/bin/sh", "-c"]
+                  args:
+                    - |
+                      sysctl -w vm.max_map_count=8388608
+                      if [ -f /sys/module/vfio_iommu_type1/parameters/dma_entry_limit ]; then
+                        echo 2000000 > /sys/module/vfio_iommu_type1/parameters/dma_entry_limit
+                      fi
+              containers:
+              - name: vllm-tpu-prefill
+                image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:benliangw-head-7a2a0ce
+                imagePullPolicy: IfNotPresent
+                command: ["/bin/bash", "-c"]
+                args:
+                - |
+                  set -e
+                  ulimit -c 0
+                  python3 /root/cloud-devkit/vllm-torchtpu/examples/disagg/run_raiden_controller.py --port 27000 > /tmp/raiden_controller.log 2>&1 &
+                  for i in $(seq 1 60); do
+                    grep -q "is running" /tmp/raiden_controller.log && break
+                    sleep 1
+                  done
+                  grep -q "is running" /tmp/raiden_controller.log || { echo "raiden controller failed to start"; cat /tmp/raiden_controller.log; exit 1; }
+                  export TPU_RAIDEN_CONTROLLER_ADDRESS="${POD_IP}:27000"
+                  export VLLM_HOST_IP="${POD_IP}"
+                  exec vllm serve \
+                    "Qwen/Qwen3.5-4B" \
+                    --trust-remote-code \
+                    --seed=42 \
+                    --max-model-len=65536 \
+                    --block-size=4096 \
+                    --disable-custom-all-reduce \
+                    --gpu-memory-utilization=0.9 \
+                    --kv-cache-dtype=fp8 \
+                    --language-model-only \
+                    --attention-backend=CUSTOM \
+                    --mamba-cache-mode=align \
+                    --no-enable-log-requests \
+                    --no-enable-prefix-caching \
+                    --no-async-scheduling \
+                    --tensor-parallel-size=1 \
+                    --max-num-batched-tokens=4096 \
+                    --max-num-seqs=16 \
+                    --prefill-context-parallel-size=8 \
+                    --cp-kv-cache-interleave-size=256 \
+                    --kv-transfer-config '{"kv_connector":"TPURaidenConnector","kv_connector_module_path":"vllm_torchtpu.distributed.kv_transfer.tpu_connector","kv_role":"kv_producer","kv_port":14579}'
+                env:
+                  - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+                  - {name: VLLM_LOGGING_LEVEL, value: "INFO"}
+                  - {name: VLLM_ENGINE_READY_TIMEOUT_S, value: "7200"}
+                  - {name: JAX_PLATFORMS, value: "tpu,cpu"}
+                  - {name: PJRT_DEVICE, value: TPU}
+                  - {name: TPU_BACKEND_TYPE, value: jax}
+                  - {name: VLLM_XLA_CHECK_RECOMPILATION, value: "0"}
+                  - {name: TPU_VLLM_SKIP_DYNAMIC_SMEM_NEGOTIATION_FLAG, value: "1"}
+                  - {name: TPU_VLLM_ENABLE_UNIFIED_BLOCK_POOL, value: "1"}
+                  - {name: TPU_USE_RAIDEN_KV_CACHE_MANAGER, value: "1"}
+                  - {name: TPU_RAIDEN_QWEN35_ADMISSION, value: "1"}
+                  - {name: TPU_KV_RESHARD_TRANSPORT, value: "raiden"}
+                  - {name: TPU_RAIDEN_TRANSFER_PARALLELISM, value: "8"}
+                  - {name: TPU_GDN_CONV_QK_PAIR_LAYOUT, value: "1"}
+                  - {name: XLA_PYTHON_CLIENT_PREALLOCATE, value: "false"}
+                  - {name: VLLM_ALLOW_LONG_MAX_MODEL_LEN, value: "1"}
+                  - {name: TPU_PREMAPPED_BUFFER_SIZE, value: "17179869184"}
+                  - {name: TPU_P2P_WAIT_PULL_TIMEOUT, value: "600"}
+                  - {name: TPU_KV_SHM_POOL_GB, value: "8"}
+                  - {name: TPU_KV_TRANSFER_PORT, value: "9100"}
+                  - {name: TPU_SIDE_CHANNEL_PORT, value: "9600"}
+                  - {name: TORCH_TPU_INTERNAL_TIER2_COMPILATION_CACHE, value: "disabled"}
+                  - {name: TPU_KV_TRANSFER_NAMESPACE, value: "demo_prefill"}
+                  - {name: TPU_RAIDEN_JOB_NAME, value: "prefill"}
+                  - {name: TPU_RAIDEN_ENGINE_ID, value: "demo-prefill-engine"}
+                  - {name: USE_MOE_SPARSE_CORE, value: "0"}
+                  - {name: LIBTPU_INIT_ARGS, value: "--xla_tpu_scoped_vmem_limit_kib=65536 --xla_tpu_enable_latency_hiding_scheduler=false"}
+                  - {name: TPU_TOPOLOGY, value: "2x2x1"}
+                  - {name: TPU_CHIPS_PER_HOST_BOUNDS, value: "2,2,1"}
+                  - {name: TPU_HOST_BOUNDS, value: "1,1,1"}
+                  - {name: TPU_ACCELERATOR_TYPE, value: "tpu7x"}
+                  - {name: MEGASCALE_NUM_SLICES, value: ""}
+                  - {name: MEGASCALE_SLICE_ID, value: ""}
+                  - {name: TPU_PROCESS_ADDRESSES, value: ""}
+                  - {name: TPU_WORKER_HOSTNAMES, value: ""}
+                  - {name: TPU_PROCESS_PORT, value: ""}
+                  - {name: MEGASCALE_COORDINATOR_ADDRESS, value: ""}
+                  - {name: MEGASCALE_PORT, value: ""}
+                  - {name: RAY_LOG_TO_STDERR, value: "1"}
+                volumeMounts:
+                  - {name: hf-token-volume, mountPath: /root/.cache/huggingface/token, subPath: token, readOnly: true}
+                  - {name: huggingface-storage, mountPath: /root/.cache/huggingface/}
+                  - {name: dshm, mountPath: /dev/shm}
+                securityContext:
+                  privileged: true
+                  capabilities: {add: [IPC_LOCK]}
+                resources:
+                  limits: {google.com/tpu: "4", memory: "850Gi", cpu: "200"}
+                  requests: {google.com/tpu: "4", memory: "850Gi", cpu: "200"}
+                ports: [{containerPort: 8000}]
+              - name: vllm-tpu-proxy
+                image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:benliangw-head-7a2a0ce
+                imagePullPolicy: IfNotPresent
+                command: ["/bin/bash", "-c"]
+                args:
+                  - |
+                    PREFILLER_DNS="${JS_NAME}-prefill-0-0.${JS_NAME}"
+                    DECODER_DNS="${JS_NAME}-decode-0-0.${JS_NAME}"
+                    until curl -s http://$DECODER_DNS:7200/health > /dev/null 2>&1; do sleep 10; done
+                    until curl -s http://$PREFILLER_DNS:8000/health > /dev/null 2>&1; do sleep 10; done
+                    python3 /root/cloud-devkit/vllm-torchtpu/examples/disagg/toy_proxy_server.py \
+                      --host 0.0.0.0 --port 10000 \
+                      --prefiller-host $PREFILLER_DNS --prefiller-port 8000 \
+                      --decoder-host $DECODER_DNS --decoder-port 7200
+                env:
+                  - {name: JS_NAME, valueFrom: {fieldRef: {fieldPath: "metadata.labels['jobset.sigs.k8s.io/jobset-name']"}}}
+                ports: [{containerPort: 10000}]
+                resources: {requests: {cpu: "8", memory: "16Gi"}, limits: {cpu: "16", memory: "32Gi"}}
+              restartPolicy: Never
+              volumes:
+              - {name: dshm, emptyDir: {medium: Memory}}
+              - name: hf-token-volume
+                secret: {secretName: vllm-hf-token, items: [{key: HF_TOKEN, path: token}]}
+              - name: huggingface-storage
+                ephemeral:
+                  volumeClaimTemplate:
+                    spec: {storageClassName: "premium-rwo", accessModes: ["ReadWriteOnce"], resources: {requests: {storage: 256Gi}}}
+    - name: decode
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            metadata:
+              annotations:
+                gke-gcsfuse/volumes: "true"
+            spec:
+              nodeSelector:
+                cloud.google.com/gke-tpu-topology: 2x2x1
+                cloud.google.com/gke-tpu-accelerator: tpu7x
+              initContainers:
+                - name: tpu-node-setup
+                  image: busybox
+                  securityContext:
+                    privileged: true
+                  command: ["/bin/sh", "-c"]
+                  args:
+                    - |
+                      sysctl -w vm.max_map_count=8388608
+                      if [ -f /sys/module/vfio_iommu_type1/parameters/dma_entry_limit ]; then
+                        echo 2000000 > /sys/module/vfio_iommu_type1/parameters/dma_entry_limit
+                      fi
+              containers:
+              - name: vllm-tpu-decode
+                image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/vllm-torchtpu-benliangw_google_com:benliangw-head-7a2a0ce
+                imagePullPolicy: IfNotPresent
+                command: ["/bin/bash", "-c"]
+                args:
+                - |
+                  set -e
+                  ulimit -c 0
+                  python3 /root/cloud-devkit/vllm-torchtpu/examples/disagg/run_raiden_controller.py --port 28000 > /tmp/raiden_controller.log 2>&1 &
+                  for i in $(seq 1 60); do
+                    grep -q "is running" /tmp/raiden_controller.log && break
+                    sleep 1
+                  done
+                  grep -q "is running" /tmp/raiden_controller.log || { echo "raiden controller failed to start"; cat /tmp/raiden_controller.log; exit 1; }
+                  export TPU_RAIDEN_CONTROLLER_ADDRESS="${POD_IP}:28000"
+                  export VLLM_HOST_IP="${POD_IP}"
+                  unset TPU_VISIBLE_CHIPS
+                  exec vllm serve \
+                    "Qwen/Qwen3.5-4B" \
+                    --trust-remote-code \
+                    --seed=42 \
+                    --max-model-len=65536 \
+                    --block-size=4096 \
+                    --disable-custom-all-reduce \
+                    --gpu-memory-utilization=0.9 \
+                    --kv-cache-dtype=fp8 \
+                    --language-model-only \
+                    --attention-backend=CUSTOM \
+                    --mamba-cache-mode=align \
+                    --no-enable-log-requests \
+                    --no-enable-prefix-caching \
+                    --no-async-scheduling \
+                    --port=7200 \
+                    --tensor-parallel-size=2 \
+                    --max-num-batched-tokens=4096 \
+                    --max-num-seqs=16 \
+                    --data-parallel-size=4 \
+                    --data-parallel-size-local=4 \
+                    --kv-transfer-config '{"kv_connector":"TPURaidenConnector","kv_connector_module_path":"vllm_torchtpu.distributed.kv_transfer.tpu_connector","kv_role":"kv_consumer","kv_port":14579}'
+                env:
+                  - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+                  - {name: VLLM_LOGGING_LEVEL, value: "INFO"}
+                  - {name: VLLM_ENGINE_READY_TIMEOUT_S, value: "7200"}
+                  - {name: JAX_PLATFORMS, value: "tpu,cpu"}
+                  - {name: PJRT_DEVICE, value: TPU}
+                  - {name: TPU_BACKEND_TYPE, value: jax}
+                  - {name: VLLM_XLA_CHECK_RECOMPILATION, value: "0"}
+                  - {name: TPU_VLLM_SKIP_DYNAMIC_SMEM_NEGOTIATION_FLAG, value: "1"}
+                  - {name: TPU_VLLM_ENABLE_UNIFIED_BLOCK_POOL, value: "1"}
+                  - {name: TPU_USE_RAIDEN_KV_CACHE_MANAGER, value: "1"}
+                  - {name: TPU_RAIDEN_QWEN35_ADMISSION, value: "1"}
+                  - {name: TPU_KV_RESHARD_TRANSPORT, value: "raiden"}
+                  - {name: TPU_RAIDEN_TRANSFER_PARALLELISM, value: "8"}
+                  - {name: TPU_GDN_CONV_QK_PAIR_LAYOUT, value: "1"}
+                  - {name: XLA_PYTHON_CLIENT_PREALLOCATE, value: "false"}
+                  - {name: VLLM_ALLOW_LONG_MAX_MODEL_LEN, value: "1"}
+                  - {name: TPU_PREMAPPED_BUFFER_SIZE, value: "17179869184"}
+                  - {name: TPU_P2P_WAIT_PULL_TIMEOUT, value: "600"}
+                  - {name: TPU_KV_SHM_POOL_GB, value: "8"}
+                  - {name: TPU_KV_TRANSFER_PORT, value: "9100"}
+                  - {name: TPU_SIDE_CHANNEL_PORT, value: "9600"}
+                  - {name: TORCH_TPU_INTERNAL_TIER2_COMPILATION_CACHE, value: "disabled"}
+                  - {name: TPU_KV_TRANSFER_NAMESPACE, value: "demo_decode"}
+                  - {name: TPU_RAIDEN_JOB_NAME, value: "decode"}
+                  - {name: TPU_RAIDEN_ENGINE_ID, value: "demo-decode-engine"}
+                  - {name: USE_MOE_SPARSE_CORE, value: "0"}
+                  - {name: LIBTPU_INIT_ARGS, value: "--xla_tpu_scoped_vmem_limit_kib=65536 --xla_tpu_enable_latency_hiding_scheduler=false"}
+                  - {name: TPU_TOPOLOGY, value: "2x2x1"}
+                  - {name: TPU_CHIPS_PER_HOST_BOUNDS, value: "2,2,1"}
+                  - {name: TPU_HOST_BOUNDS, value: "1,1,1"}
+                  - {name: TPU_ACCELERATOR_TYPE, value: "tpu7x"}
+                  - {name: MEGASCALE_NUM_SLICES, value: ""}
+                  - {name: MEGASCALE_SLICE_ID, value: ""}
+                  - {name: TPU_PROCESS_ADDRESSES, value: ""}
+                  - {name: TPU_WORKER_HOSTNAMES, value: ""}
+                  - {name: TPU_PROCESS_PORT, value: ""}
+                  - {name: MEGASCALE_COORDINATOR_ADDRESS, value: ""}
+                  - {name: MEGASCALE_PORT, value: ""}
+                  - {name: RAY_LOG_TO_STDERR, value: "1"}
+                volumeMounts:
+                  - {name: hf-token-volume, mountPath: /root/.cache/huggingface/token, subPath: token, readOnly: true}
+                  - {name: huggingface-storage, mountPath: /root/.cache/huggingface/}
+                  - {name: dshm, mountPath: /dev/shm}
+                securityContext:
+                  privileged: true
+                  capabilities: {add: [IPC_LOCK]}
+                resources:
+                  limits: {google.com/tpu: "4", memory: "850Gi", cpu: "200"}
+                  requests: {google.com/tpu: "4", memory: "850Gi", cpu: "200"}
+                ports: [{containerPort: 7200}]
+              restartPolicy: Never
+              volumes:
+              - {name: dshm, emptyDir: {medium: Memory}}
+              - name: hf-token-volume
+                secret: {secretName: vllm-hf-token, items: [{key: HF_TOKEN, path: token}]}
+              - name: huggingface-storage
+                ephemeral:
+                  volumeClaimTemplate:
+                    spec: {storageClassName: "premium-rwo", accessModes: ["ReadWriteOnce"], resources: {requests: {storage: 256Gi}}}
+    - name: check
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 0
+          template:
+            spec:
+              restartPolicy: Never
+              containers:
+              - name: check
+                image: us-central1-docker.pkg.dev/cloud-tpu-inference-test/vllm-tpu-rdna/bench:reneezhu
+                imagePullPolicy: Always
+                command: ["/bin/bash", "-c"]
+                args:
+                  - |
+                    PREFILLER_DNS="${JS_NAME}-prefill-0-0.${JS_NAME}"
+                    DECODER_DNS="${JS_NAME}-decode-0-0.${JS_NAME}"
+                    until curl -s http://$PREFILLER_DNS:8000/health > /dev/null; do sleep 5; done
+                    until curl -s http://$DECODER_DNS:7200/health > /dev/null; do sleep 5; done
+                    until curl -s http://$PREFILLER_DNS:10000/healthcheck > /dev/null; do sleep 5; done
+                    python3 benchmark_serving.py \
+                      --model=Qwen/Qwen3.5-4B --host=$PREFILLER_DNS --port=10000 --backend=vllm \
+                      --dataset-name=random --random-input-len=512 --random-output-len=128 \
+                      --num-prompts=32 --max-concurrency=16 --ignore-eos --request-rate=inf \
+                      2>&1 | tee /tmp/bench.log
+                    grep -qE "^Successful requests:[[:space:]]+32" /tmp/bench.log \
+                      && echo "RESULT: PASS (32/32)" || { echo "RESULT: FAIL"; exit 1; }
+                env:
+                  - {name: JS_NAME, valueFrom: {fieldRef: {fieldPath: "metadata.labels['jobset.sigs.k8s.io/jobset-name']"}}}
