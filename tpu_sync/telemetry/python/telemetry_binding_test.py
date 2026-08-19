@@ -14,8 +14,12 @@
 
 """Tests for TPU Raiden Python telemetry bindings."""
 
+import os
+from unittest import mock
+
 from absl.testing import absltest
 import portpicker
+
 from tpu_sync.telemetry.python import _telemetry_binding_test_ext as telemetry_ext
 
 
@@ -98,7 +102,72 @@ class TelemetryBindingTest(absltest.TestCase):
     with self.assertRaises(TypeError):
       telemetry_ext.configure_telemetry([123])
     with self.assertRaises(TypeError):
+      telemetry_ext.configure_telemetry(["prometheus", 123])
+
+  def test_configure_telemetry_no_args_initializes_from_environment_unset(self):
+    with mock.patch.dict(os.environ, {}, clear=True):
+      telemetry_ext.configure_telemetry()
+      self.assertEqual(telemetry_ext.get_metric_metadata(), [])
+      self.assertEqual(telemetry_ext.get_raiden_metrics_prometheus_text(), "")
+
+  def test_configure_telemetry_no_args_initializes_from_environment_prometheus(
+      self,
+  ):
+    with mock.patch.dict(
+        os.environ, {"TPU_RAIDEN_TELEMETRY_BACKENDS": "prometheus"}
+    ):
+      telemetry_ext.configure_telemetry()
+      self.assertEqual(
+          telemetry_ext.get_metric_metadata(), telemetry_ext.ALL_METRICS
+      )
+      snapshot = telemetry_ext.get_raiden_metrics_prometheus_text()
+      self.assertIn("# TYPE tpu_raiden_sent_bytes_total counter", snapshot)
+
+  def test_configure_telemetry_none_initializes_from_environment_buffered(self):
+    with mock.patch.dict(
+        os.environ, {"TPU_RAIDEN_TELEMETRY_BACKENDS": "buffered"}
+    ):
       telemetry_ext.configure_telemetry(None)
+      self.assertEqual(
+          telemetry_ext.get_metric_metadata(), telemetry_ext.ALL_METRICS
+      )
+      samples = telemetry_ext.get_and_reset_metric_samples()
+      self.assertEqual(samples, {})
+
+  def test_configure_telemetry_no_args_initializes_from_environment_multiple(
+      self,
+  ):
+    with mock.patch.dict(
+        os.environ, {"TPU_RAIDEN_TELEMETRY_BACKENDS": "prometheus,buffered"}
+    ):
+      telemetry_ext.configure_telemetry()
+      self.assertEqual(
+          telemetry_ext.get_metric_metadata(), telemetry_ext.ALL_METRICS
+      )
+      snapshot = telemetry_ext.get_raiden_metrics_prometheus_text()
+      self.assertIn("# TYPE tpu_raiden_sent_bytes_total counter", snapshot)
+
+  def test_configure_telemetry_environment_unknown_backend_raises_value_error(
+      self,
+  ):
+    with mock.patch.dict(
+        os.environ, {"TPU_RAIDEN_TELEMETRY_BACKENDS": "invalid_backend"}
+    ):
+      with self.assertRaisesRegex(
+          ValueError,
+          "Failed to initialize from environment: Unknown telemetry backend:"
+          " invalid_backend",
+      ):
+        telemetry_ext.configure_telemetry()
+
+  def test_configure_telemetry_environment_no_op_if_already_initialized(self):
+    telemetry_ext.configure_telemetry(["prometheus"])
+    with mock.patch.dict(
+        os.environ, {"TPU_RAIDEN_TELEMETRY_BACKENDS": "invalid_backend"}
+    ):
+      telemetry_ext.configure_telemetry()
+      snapshot = telemetry_ext.get_raiden_metrics_prometheus_text()
+      self.assertIn("# TYPE tpu_raiden_sent_bytes_total counter", snapshot)
 
   def test_metric_type_enum(self):
     self.assertTrue(hasattr(telemetry_ext.MetricType, "COUNTER"))

@@ -15,6 +15,7 @@
 #include "tpu_sync/telemetry/python/telemetry_binding.h"
 
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -23,8 +24,9 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include <nanobind/nanobind.h>
-#include <nanobind/operators.h>   // IWYU pragma: keep
-#include <nanobind/stl/map.h>     // IWYU pragma: keep
+#include <nanobind/operators.h>  // IWYU pragma: keep
+#include <nanobind/stl/map.h>  // IWYU pragma: keep
+#include <nanobind/stl/optional.h>  // IWYU pragma: keep
 #include <nanobind/stl/string.h>  // IWYU pragma: keep
 #include <nanobind/stl/vector.h>  // IWYU pragma: keep
 #include "tpu_sync/telemetry/metrics_api.h"
@@ -84,18 +86,32 @@ void BindTelemetryApi(nb::module_& m) {
 
   m.def(
       "configure_telemetry",
-      [](const std::vector<std::string>& backends) {
-        std::vector<absl::string_view> backend_views(backends.begin(),
-                                                     backends.end());
-        absl::Status status = RaidenMetricStore::GetGlobalMetricStore()
-                                  .InitializeFromBackendNames(backend_views);
-        if (!status.ok()) {
+      [](const std::optional<std::vector<std::string>>& backends) {
+        if (!backends.has_value()) {
+          if (absl::Status status = RaidenMetricStore::GetGlobalMetricStore()
+                                        .InitializeFromEnvironment();
+              !status.ok()) {
+            throw nb::value_error(
+                absl::StrCat("Failed to initialize from environment: ",
+                             status.message())
+                    .c_str());
+          }
+          return;
+        }
+        std::vector<absl::string_view> backend_views(backends->begin(),
+                                                     backends->end());
+        if (absl::Status status =
+                RaidenMetricStore::GetGlobalMetricStore()
+                    .InitializeFromBackendNames(backend_views);
+            !status.ok()) {
           throw nb::value_error(std::string(status.message()).c_str());
         }
       },
-      nb::arg("backends"), nb::call_guard<nb::gil_scoped_release>(),
-      "Configures active C++ telemetry backends given a sequence of backend "
-      "names (e.g. list or tuple).");
+      nb::arg("backends") = nb::none(),
+      nb::call_guard<nb::gil_scoped_release>(),
+      "Configures active C++ telemetry backends given an optional sequence of "
+      "backend names (e.g. list or tuple). If omitted or None, initializes "
+      "from the TPU_RAIDEN_TELEMETRY_BACKENDS environment variable.");
 
   m.def(
       "get_raiden_metrics_prometheus_text",
