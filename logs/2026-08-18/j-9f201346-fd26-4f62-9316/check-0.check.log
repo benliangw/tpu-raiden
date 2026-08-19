@@ -1,0 +1,38 @@
+None of PyTorch, TensorFlow >= 2.0, or Flax have been found. Models won't be available and only tokenizers, configuration and file/data utilities can be used.
+Namespace(backend='vllm', base_url=None, host='j-9f201346-fd26-4f62-9316-prefill-0-0.j-9f201346-fd26-4f62-9316', port=10000, endpoint='/v1/completions', dataset_name='random', dataset_path=None, max_concurrency=16, model='Qwen/Qwen3.5-35B-A3B', tokenizer=None, best_of=1, use_beam_search=False, num_prompts=32, logprobs=None, request_rate=inf, burstiness=1.0, seed=0, trust_remote_code=False, disable_tqdm=False, profile=False, save_result=False, save_detailed=False, metadata=None, result_dir=None, result_filename=None, ignore_eos=True, percentile_metrics='ttft,tpot,itl', metric_percentiles='99', goodput=None, sonnet_input_len=550, sonnet_output_len=150, sonnet_prefix_len=200, sharegpt_output_len=None, random_input_len=512, random_output_len=128, random_range_ratio=1.0, random_prefix_len=0, use_chat_template=False, hf_subset=None, hf_split=None, hf_output_len=None, tokenizer_mode='auto', served_model_name=None, lora_modules=None, num_warmups=0)
+-------------------  Input/Output Length Statistics  -------------------
+ input_lens : min=512   max=512   mean=512.00   avg_token_mismatch=0.00  
+ output_lens: min=128   max=128   mean=128.00  
+------------------------------------------------------------------------ 
+
+Starting initial single prompt test run...
+Traffic request rate: inf
+Burstiness factor: 1.0 (Poisson process)
+Maximum request concurrency: 16
+  0%|          | 0/32 [00:00<?, ?it/s]  3%|▎         | 1/32 [00:02<01:15,  2.43s/it] 28%|██▊       | 9/32 [00:02<00:05,  4.19it/s] 53%|█████▎    | 17/32 [00:03<00:02,  6.91it/s] 75%|███████▌  | 24/32 [00:04<00:01,  6.26it/s] 81%|████████▏ | 26/32 [00:05<00:00,  6.04it/s]100%|██████████| 32/32 [00:05<00:00,  6.32it/s]
+/bench_serving/benchmark_serving.py:484: UserWarning: All requests failed. This is likely due to a misconfiguration on the benchmark arguments.
+  metrics, actual_output_lens = calculate_metrics(
+Starting main benchmark run...
+============ Serving Benchmark Result ============
+Successful requests:                     0         
+Benchmark duration (s):                  5.06      
+Total input tokens:                      0         
+Total generated tokens:                  0         
+Request throughput (req/s):              0.00      
+Output token throughput (tok/s):         0.00      
+Total Token throughput (tok/s):          0.00      
+---------------Time to First Token----------------
+Mean TTFT (ms):                          0.00      
+Median TTFT (ms):                        0.00      
+P99 TTFT (ms):                           0.00      
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          0.00      
+Median TPOT (ms):                        0.00      
+P99 TPOT (ms):                           0.00      
+---------------Inter-token Latency----------------
+Mean ITL (ms):                           0.00      
+Median ITL (ms):                         0.00      
+P99 ITL (ms):                            0.00      
+==================================================
+RESULT: FAIL
+
