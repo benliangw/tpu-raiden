@@ -81,6 +81,12 @@ BuildLocalWorkerEndpoints(controller::RaidenController* ctrl) {
   return result;
 }
 
+// True for the codes an RPC fails with when the channel itself is the
+// problem, as opposed to the peer's handler answering with an error.
+bool IsTransportError(const absl::Status& status) {
+  return absl::IsUnavailable(status) || absl::IsDeadlineExceeded(status);
+}
+
 }  // namespace
 
 HostOffloadBackend::HostOffloadBackend(
@@ -766,9 +772,15 @@ HostOffloadBackend::BeginWriteRemote(
                         absl::ToInt64Milliseconds(requested_deadline))
           .Await();
   if (!response_or.ok()) {
-    // The peer may have restarted on a new port; drop the cached client so
-    // the next attempt re-resolves instead of redialling a dead one.
-    InvalidateStoreClient(dst_raiden_id);
+    // On a transport error the peer may have restarted on a new port; drop
+    // the store client so the next attempt re-resolves instead of
+    // redialling a dead one. An application answer -- e.g. the
+    // RESOURCE_EXHAUSTED refusing a batch the peer cannot fit -- proves the
+    // peer is alive on this channel, and refusals cluster exactly when a
+    // reconnect is most wasteful: under memory pressure.
+    if (IsTransportError(response_or.status())) {
+      InvalidateStoreClient(dst_raiden_id);
+    }
     return response_or.status();
   }
 
@@ -804,7 +816,10 @@ HostOffloadBackend::PollWriteRemote(const RaidenId& dst_raiden_id,
 
   auto response_or = client->PollWriteRemote(operation_id).Await();
   if (!response_or.ok()) {
-    InvalidateStoreClient(dst_raiden_id);
+    // Same rule as BeginWriteRemote: only a suspect channel is dropped.
+    if (IsTransportError(response_or.status())) {
+      InvalidateStoreClient(dst_raiden_id);
+    }
     return response_or.status();
   }
 

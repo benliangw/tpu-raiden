@@ -14,6 +14,7 @@
 
 #include "tpu_sync/kv_cache/kv_cache_store_client.h"
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -32,6 +33,16 @@
 
 namespace tpu_raiden {
 namespace kv_cache {
+namespace {
+
+// RPC deadline for WriteRemote and PollWriteRemote. Both handlers answer
+// from local state without waiting on the transfer, so this only needs to
+// cover bookkeeping plus network latency. Without it, a peer that accepts
+// connections but never answers would hang the caller -- and the evict
+// sweep shares its thread with the store's heartbeats.
+constexpr std::chrono::seconds kRpcDeadline{10};
+
+}  // namespace
 
 KVCacheStoreClient::KVCacheStoreClient(
     std::shared_ptr<::grpc::ChannelInterface> channel)
@@ -152,6 +163,7 @@ KVCacheStoreClient::WriteRemote(
   auto [promise, future] =
       tsl::MakePromise<::tpu_raiden::kv_cache::proto::WriteRemoteResponse>();
   auto context = std::make_shared<grpc::ClientContext>();
+  context->set_deadline(std::chrono::system_clock::now() + kRpcDeadline);
   auto response =
       std::make_shared<::tpu_raiden::kv_cache::proto::WriteRemoteResponse>();
 
@@ -185,6 +197,7 @@ KVCacheStoreClient::PollWriteRemote(uint64_t operation_id) {
   auto [promise, future] = tsl::MakePromise<
       ::tpu_raiden::kv_cache::proto::PollWriteRemoteResponse>();
   auto context = std::make_shared<grpc::ClientContext>();
+  context->set_deadline(std::chrono::system_clock::now() + kRpcDeadline);
   auto response = std::make_shared<
       ::tpu_raiden::kv_cache::proto::PollWriteRemoteResponse>();
 

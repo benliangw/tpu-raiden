@@ -3815,6 +3815,9 @@ class FakeDestinationService
     absl::MutexLock lock(mutex_);
     ++write_calls_;
     requested_deadline_ms_ = request->deadline_ms();
+    if (!write_status_.ok()) {
+      return write_status_;
+    }
     response->set_operation_id(kOperationId);
     response->set_exist_state(exist_state_);
     response->set_granted_deadline_ms(request->deadline_ms());
@@ -3845,6 +3848,13 @@ class FakeDestinationService
     exist_state_ = state;
   }
 
+  // Non-OK makes WriteRemote answer with that status instead of accepting,
+  // the way a full destination answers RESOURCE_EXHAUSTED.
+  void SetWriteRemoteStatus(::grpc::Status status) {
+    absl::MutexLock lock(mutex_);
+    write_status_ = std::move(status);
+  }
+
   int write_calls() const {
     absl::MutexLock lock(mutex_);
     return write_calls_;
@@ -3861,6 +3871,7 @@ class FakeDestinationService
   ::tpu_raiden::kv_cache::proto::WriteExistState exist_state_
       ABSL_GUARDED_BY(mutex_) =
           ::tpu_raiden::kv_cache::proto::WRITE_EXIST_STATE_UNSPECIFIED;
+  ::grpc::Status write_status_ ABSL_GUARDED_BY(mutex_) = ::grpc::Status::OK;
   int write_calls_ ABSL_GUARDED_BY(mutex_) = 0;
   int poll_calls_ ABSL_GUARDED_BY(mutex_) = 0;
   int64_t requested_deadline_ms_ ABSL_GUARDED_BY(mutex_) = 0;
@@ -4173,6 +4184,72 @@ TEST_F(RemoteWriteSourceTest, CommittedIsReportedAsDone) {
   EXPECT_TRUE(failed.empty());
   EXPECT_TRUE(unregistered.empty());
   EXPECT_TRUE(existing.empty());
+}
+
+// A refusal is an application answer, not a channel failure: the peer is
+// alive on this exact connection, so the store client survives and the next
+// offer skips the registry resolve and the reconnect -- which would otherwise
+// land under the same memory pressure that caused the refusal.
+TEST_F(RemoteWriteSourceTest, ARefusalKeepsTheStoreClient) {
+  RaidenId src{"rw_src_refusal", "0", "kv", 0};
+  RaidenId dst{"rw_dst_refusal", "0", "kv", 0};
+  auto src_store = MakeStore(src);
+  Populate(*src_store, src, {"a"});
+  StartFakeDestination(dst);
+
+  ::tpu_raiden::kv_cache::proto::PollWriteRemoteResponse verdict;
+  verdict.set_state(
+      ::tpu_raiden::kv_cache::proto::PollWriteRemoteResponse::COMMITTED);
+  verdict.add_committed_hashes("a");
+  fake_destination_.SetPollResponse(verdict);
+
+  fake_destination_.SetWriteRemoteStatus(::grpc::Status(
+      ::grpc::StatusCode::RESOURCE_EXHAUSTED, "no free landing blocks"));
+  auto refused = src_store->Save({"a"}, dst);
+  EXPECT_TRUE(absl::IsResourceExhausted(refused)) << refused.ToString();
+
+  // Unregistering the peer makes re-resolution impossible, so the second
+  // offer can only reach the destination through the client kept from the
+  // first one.
+  ASSERT_TRUE(client_->UnregisterStore(dst).ok());
+  fake_destination_.SetWriteRemoteStatus(::grpc::Status::OK);
+  EXPECT_TRUE(src_store->Save({"a"}, dst).ok());
+  EXPECT_EQ(fake_destination_.write_calls(), 2);
+  AwaitWriteSettled(*src_store);
+}
+
+// A channel-level failure is the one case the store client must NOT
+// survive: the peer may be back under a new address, and only a fresh
+// resolve finds it.
+TEST_F(RemoteWriteSourceTest, ATransportErrorInvalidatesTheStoreClient) {
+  RaidenId src{"rw_src_transport", "0", "kv", 0};
+  RaidenId dst{"rw_dst_transport", "0", "kv", 0};
+  auto src_store = MakeStore(src);
+  Populate(*src_store, src, {"a", "b"});
+  StartFakeDestination(dst);
+
+  ::tpu_raiden::kv_cache::proto::PollWriteRemoteResponse verdict;
+  verdict.set_state(
+      ::tpu_raiden::kv_cache::proto::PollWriteRemoteResponse::COMMITTED);
+  verdict.add_committed_hashes("a");
+  verdict.add_committed_hashes("b");
+  fake_destination_.SetPollResponse(verdict);
+
+  // A first offer establishes the store client for dst.
+  ASSERT_TRUE(src_store->Save({"a"}, dst).ok());
+  AwaitWriteSettled(*src_store);
+
+  fake_destination_server_->Shutdown();
+  auto down = src_store->Save({"b"}, dst);
+  EXPECT_TRUE(absl::IsUnavailable(down)) << down.ToString();
+
+  // The destination comes back under the same identity on a fresh port. A
+  // client kept across the transport error would still dial the dead
+  // one; this offer succeeds only by re-resolving.
+  ASSERT_TRUE(client_->UnregisterStore(dst).ok());
+  StartFakeDestination(dst);
+  EXPECT_TRUE(src_store->Save({"b"}, dst).ok());
+  AwaitWriteSettled(*src_store);
 }
 
 // Aged out, or the destination restarted. Indistinguishable from "never
