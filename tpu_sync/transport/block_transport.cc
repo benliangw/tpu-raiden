@@ -1015,15 +1015,15 @@ absl::Status BlockTransport::ProcessSocketPush(
   const uint8_t major_order = first.major_order;
   const size_t block_count = static_cast<size_t>(count_or_size);
 
-  auto status_or_fd = raw_transport_.conn_pool().Borrow(peer, local_ip);
-  if (!status_or_fd.ok()) {
-    return status_or_fd.status();
+  auto borrowed_fd = raw_transport_.BorrowConnection(peer, local_ip);
+  if (!borrowed_fd.ok()) {
+    return borrowed_fd.status();
   }
 
-  const int fd = status_or_fd.value();
+  const int fd = borrowed_fd.value();
   bool ok_to_pool = false;
   auto fd_cleaner = absl::MakeCleanup([&] {
-    raw_transport_.conn_pool().Return(ok_to_pool, fd, peer, local_ip);
+    raw_transport_.ReturnConnection(ok_to_pool, fd, peer, local_ip);
   });
 
   lib::ChunkHeader header = {};
@@ -1154,16 +1154,16 @@ void BlockTransport::H2hReadWorker(
     const std::vector<uint8_t*>& explicit_dst_ptrs,
     std::vector<absl::Status>& statuses, MajorOrder major_order,
     BlockReceivedCallback on_block_received, uint64_t uuid) {
-  auto status_or_fd = raw_transport_.conn_pool().Borrow(peer, local_ip);
-  if (!status_or_fd.ok()) {
-    statuses[stream_idx] = status_or_fd.status();
+  auto borrowed_fd = raw_transport_.BorrowConnection(peer, local_ip);
+  if (!borrowed_fd.ok()) {
+    statuses[stream_idx] = borrowed_fd.status();
     return;
   }
 
-  const int fd = status_or_fd.value();
+  const int fd = borrowed_fd.value();
   bool ok_to_pool = false;
   auto fd_cleaner = absl::MakeCleanup([&] {
-    raw_transport_.conn_pool().Return(ok_to_pool, fd, peer, local_ip);
+    raw_transport_.ReturnConnection(ok_to_pool, fd, peer, local_ip);
   });
 
   size_t SF = block_delegate_->shard_factor();

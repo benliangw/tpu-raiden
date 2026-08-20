@@ -30,6 +30,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/functional/any_invocable.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/types/span.h"
@@ -75,8 +76,17 @@ class RawBufferTransport final {
   // Return the local IP addresses.
   absl::Span<const std::string> local_ips() const { return local_ips_; }
 
-  // Return the connection pool that manages the sockets that connect to peers.
-  ConnPool& conn_pool() { return conn_pool_; }
+  // Borrows a connection from the connection pool.
+  absl::StatusOr<int> BorrowConnection(absl::string_view peer,
+                                       absl::string_view local_ip = "") {
+    return conn_pool_.Borrow(peer, local_ip);
+  }
+
+  // Returns a connection to the connection pool.
+  void ReturnConnection(bool ok_to_pool, int fd, absl::string_view peer,
+                        absl::string_view local_ip = "") {
+    conn_pool_.Return(ok_to_pool, fd, peer, local_ip);
+  }
 
   // Synchronously pulls a buffer identified by `buffer_id` from the remote
   // `peer`, by sending out a `kOpBufferPull ChunkHeader` and then receiving
