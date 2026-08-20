@@ -15,6 +15,7 @@
 #include "tpu_sync/frameworks/torch/weight_synchronizer.h"
 
 #include <optional>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -29,22 +30,21 @@ WeightSynchronizer::WeightSynchronizer(
     const std::vector<std::vector<at::Tensor>>& device_tensors,
     std::optional<int> local_port, int parallelism,
     std::optional<int> listener_port, std::optional<std::string> bind_ip,
-    bool unsafe_skip_buffer_lock)
+    bool unsafe_skip_buffer_lock, bool auto_h2d)
     : WeightSynchronizer(
           UnpackTorchTensors(device_tensors, unsafe_skip_buffer_lock),
           local_port, parallelism, listener_port, bind_ip,
-          unsafe_skip_buffer_lock) {}
+          unsafe_skip_buffer_lock, auto_h2d) {}
 
-WeightSynchronizer::WeightSynchronizer(UnpackedTensors unpacked,
-                                       std::optional<int> local_port,
-                                       int parallelism,
-                                       std::optional<int> listener_port,
-                                       std::optional<std::string> bind_ip,
-                                       bool unsafe_skip_buffer_lock)
+WeightSynchronizer::WeightSynchronizer(
+    UnpackedTensors unpacked, std::optional<int> local_port, int parallelism,
+    std::optional<int> listener_port, std::optional<std::string> bind_ip,
+    bool unsafe_skip_buffer_lock, bool auto_h2d)
     : weight_sync::WeightSynchronizerBase(
           std::move(unpacked.buffers), local_port,
           /*external_host_ptrs=*/std::nullopt, unsafe_skip_buffer_lock,
-          parallelism, listener_port, bind_ip),
+          parallelism, listener_port, bind_ip,
+          /*layer_names=*/{}, auto_h2d),
       buffer_refs_(std::move(unpacked.refs)) {}
 
 WeightSynchronizer::~WeightSynchronizer() = default;

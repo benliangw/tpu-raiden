@@ -16,10 +16,11 @@
 #define THIRD_PARTY_TPU_RAIDEN_TPU_SYNC_FRAMEWORKS_TORCH_WEIGHT_SYNCHRONIZER_H_
 
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "ATen/core/TensorBody.h"
-#include "torch_tpu/eager/tensor_to_buffer.h"
+#include "torch_tpu/eager/device_buffer.h"
 #include "tpu_sync/frameworks/torch/torch_utils.h"
 #include "tpu_sync/weight_sync/weight_synchronizer_base.h"
 
@@ -34,7 +35,8 @@ class WeightSynchronizer : public weight_sync::WeightSynchronizerBase {
                      int parallelism = 1,
                      std::optional<int> listener_port = std::nullopt,
                      std::optional<std::string> bind_ip = std::nullopt,
-                     bool unsafe_skip_buffer_lock = true);
+                     bool unsafe_skip_buffer_lock = true,
+                     bool auto_h2d = false);
 
   ~WeightSynchronizer() override;
 
@@ -44,7 +46,7 @@ class WeightSynchronizer : public weight_sync::WeightSynchronizerBase {
   WeightSynchronizer(UnpackedTensors unpacked, std::optional<int> local_port,
                      int parallelism, std::optional<int> listener_port,
                      std::optional<std::string> bind_ip,
-                     bool unsafe_skip_buffer_lock);
+                     bool unsafe_skip_buffer_lock, bool auto_h2d);
 
   std::vector<torch_tpu::DeviceBufferRef> buffer_refs_;
 };

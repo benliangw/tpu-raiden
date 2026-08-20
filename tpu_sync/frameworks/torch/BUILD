@@ -55,10 +55,12 @@ cc_library(
     linkopts = ["-Wl,--allow-shlib-undefined"],
     visibility = ["//visibility:public"],
     deps = [
+        # buildcleaner: keep
+        ":torch_tpu_device_buffer_headers",
         ":torch_tpu_tensor_to_buffer_headers",
         ":torch_utils",
-        "//tpu_sync/weight_sync:weight_synchronizer_base",
         "@torch_tpu//shims/torch:aten_headers",
+        "//tpu_sync/weight_sync:weight_synchronizer_base",
     ],
 )
 

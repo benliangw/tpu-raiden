@@ -43,6 +43,8 @@ class WeightSynchronizer:
       parallelism: int = 1,
       listener_port: Optional[int] = None,
       bind_ip: Optional[str] = None,
+      unsafe_skip_buffer_lock: bool = True,
+      auto_h2d: bool = False,
   ):
     """Instantiates the PyTorch Weight Synchronizer shims.
 
@@ -54,27 +56,35 @@ class WeightSynchronizer:
       parallelism: Parallel TCP sockets workers count.
       listener_port: RPC control listener port.
       bind_ip: Sockets server bind IP address.
+      unsafe_skip_buffer_lock: Whether to bypass buffer lock safety.
+      auto_h2d: Automatically execute H2D ingestion upon data arrival.
     """
     self._impl = _weight_synchronizer.WeightSynchronizer(
-        device_tensors, local_port, parallelism, listener_port, bind_ip
+        device_tensors,
+        local_port,
+        parallelism,
+        listener_port,
+        bind_ip,
+        unsafe_skip_buffer_lock,
+        auto_h2d,
     )
 
   def push_weights(self, peers: List[str]) -> None:
-    """Trainer pushing current model weights to peer inference server coordinates E2E."""
+    """Trainer pushes model weights to peer inference server coordinates."""
     self._impl.PushWeights(peers)
 
   def d2h(self) -> None:
-    """Triggers asynchronous Device-to-Host (D2H) copy of current weights to Host buffer."""
+    """Triggers asynchronous D2H copy of current weights to Host buffer."""
     self._impl.D2h()
 
   def h2d(self) -> None:
-    """Triggers asynchronous Host-to-Device (H2D) copy of weights from Host buffer to Device."""
+    """Triggers asynchronous H2D copy of weights from Host buffer to Device."""
     self._impl.H2d()
 
   def get_host_buffer(
       self, layer_idx: int = 0, shard_idx: int = 0
   ) -> torch.Tensor:
-    """Returns a zero-copy Host-side CPU PyTorch Tensor view of the C++ staging buffer.
+    """Returns a zero-copy Host CPU PyTorch Tensor view of staging buffer.
 
     Args:
       layer_idx: Target layer index to fetch.
