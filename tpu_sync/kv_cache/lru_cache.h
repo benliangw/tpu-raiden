@@ -84,8 +84,14 @@ class LRUCache {
   // If the key already exists, its value is updated and promoted to Most
   // Recently Used (MRU).
   // If the key is new and inserting it exceeds capacity, the unpinned Least
-  // Recently Used (LRU) item is automatically evicted. Returns the evicted
-  // key-value pair if an eviction occurred, or std::nullopt.
+  // Recently Used (LRU) item is demoted to the eviction-candidate list (it
+  // stays in the map, invisible to Peek, though Get/GetAndPin/Pin still find
+  // it and resurrect it into the active list, until Erase reclaims it) and
+  // returned as the "evicted" pair; std::nullopt otherwise.
+  // CAVEAT: when nothing is evictable (every entry pinned), the new key is
+  // NOT inserted and std::nullopt is still returned -- indistinguishable
+  // from a plain success. A caller that must know checks available_space()
+  // beforehand or verifies the key afterwards.
   std::optional<std::pair<Key, Value>> Put(Key key, Value value) {
     auto it = map_.find(key);
     if (it != map_.end()) {
@@ -180,6 +186,10 @@ class LRUCache {
 
   // Retrieves a pointer to the stored value for the given key and increments
   // its reference pin count. Returns nullptr if absent.
+  // Unlike Peek, this FINDS an eviction candidate: pinning one splices it
+  // out of the candidate list, un-queueing it from eviction. A caller that
+  // must not resurrect candidates Peeks first and pins only on a non-null
+  // answer.
   Value* GetAndPin(const Key& key) {
     auto it = map_.find(key);
     if (it == map_.end()) {
@@ -201,11 +211,15 @@ class LRUCache {
   // Increments the reference pin count for the given key.
   // Pinned items are protected entirely against automated LRU eviction.
   // Returns true if the key exists and was successfully pinned.
+  // Delegates to GetAndPin, including its candidate-resurrection behaviour.
   bool Pin(const Key& key) { return GetAndPin(key) != nullptr; }
 
-  // Decrements the reference pin count for the given key.
-  // When pin count reaches 0, the item is eligible for normal LRU eviction.
-  // Returns true if the key exists and was successfully unpinned.
+  // Decrements the reference pin count for the given key, clamping at zero.
+  // When the count reaches 0 the item returns to the active list at the MRU
+  // position -- so a pin/unpin round trip reorders the LRU -- and becomes
+  // eligible for normal eviction again.
+  // Returns true whenever the key exists, whether or not a pin was actually
+  // dropped: the return value cannot detect an over-release.
   bool Unpin(const Key& key) {
     auto it = map_.find(key);
     if (it == map_.end()) {

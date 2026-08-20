@@ -51,7 +51,8 @@ class ControllerServer {
 
   void SetWorkerRegistry(std::shared_ptr<WorkerRegistry> worker_registry);
 
-  // Registers the ReadRemote step-6a verify/pin and unpin hooks on the hosted
+  // Registers the source-side verify/pin and unpin hooks (which a peer's
+  // ReadRemote lease acquisition and release run against) on the hosted
   // service.
   void SetReadRemoteHooks(
       RaidenControllerServiceImpl::ValidateAndPinCallback validate_and_pin,

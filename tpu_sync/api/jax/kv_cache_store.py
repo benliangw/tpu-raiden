@@ -207,6 +207,10 @@ class KVCacheStore:
     ignores them, so one fleet-wide environment block is safe.
 
     Args:
+      capacity: Maximum number of cache blocks this store can hold.
+      global_registry_address: Address of the global registry service; empty
+        for a standalone local store.
+      raiden_id: Optional RaidenId identifying this store instance.
       num_shards: Shard count for this store's RaidenController; must be
         >= 1.
       store_server_ip: IP that peers use to reach this store. Bind-and-
@@ -214,6 +218,7 @@ class KVCacheStore:
         bind it, and it is the host published to the global registry. Must be
         an IP (or hostname) this process can bind -- not empty, not a
         wildcard.
+      shard_size_bytes: Size in bytes of each shard buffer; 0 uses default.
       raiden_controller_port: Port for this store's RaidenController; 0 lets
         gRPC choose. Note that the IP address of the controller reuses
         store_server_ip.
@@ -249,7 +254,7 @@ class KVCacheStore:
 
   @property
   def store_server_address(self) -> str:
-    """"host:port" published to the global registry, or "" if undiscoverable."""
+    """\"host:port\" published to the global registry, or \"\" if undiscoverable."""
     return self._impl.store_server_address
 
   def lookup(
@@ -284,6 +289,10 @@ class KVCacheStore:
     Returns:
       A list of tuples containing the block hash and the matching
       RaidenBlockId replica, halting immediately upon the first cache miss.
+
+    Raises:
+      RuntimeError: if the underlying lookup failed outright (a backend
+        error, not a cache miss).
     """
     raw_res = self._impl.lookup(block_hashes, enable_global, pin_found)
     final_res = []
@@ -338,6 +347,7 @@ class KVCacheStore:
 
 
   def capacity(self) -> int:
+    """Returns the maximum capacity of the store in blocks."""
     return self._impl.capacity()
 
 
@@ -347,6 +357,9 @@ class KVCacheStore:
     Released hashes become eligible for LRU eviction when capacity is
     exceeded. The cache holds LOCAL entries only -- insert() enforces that --
     so release needs no status handling.
+
+    Args:
+      block_hashes: List of block hashes to release.
     """
     self._impl.release(block_hashes)
 
@@ -355,11 +368,11 @@ class KVCacheStore:
       block_hashes: list[bytes],
       dst_raiden_id: RaidenId | None = None,
   ) -> bool:
-    """Saves blocks out of this node's HBM asynchronously.
+    """Saves blocks asynchronously, either locally or to a peer.
 
     Where to depends on dst_raiden_id:
-      omitted -- LOCAL save, device (HBM) to host (DRAM). Each block must be
-                 HBM-resident here.
+      omitted -- LOCAL save, device (HBM) to host (DRAM). Each block must have
+                 status HBM here -- one already on host has nothing to save.
       given   -- REMOTE save: offer the blocks to that peer, which takes its
                  own copy. Each block must already be HOST-resident here,
                  because the bytes are pulled out of host DRAM. There is no
@@ -418,7 +431,7 @@ class KVCacheStore:
     and remote blocks must all refer to the same peer.
 
     `device_block_ids` is the destination and must name one device block per hash.
-    
+
     PIN CONTRACT:
       local source  -- every hash must be pinned on entry (lookup() is what
                        normally grants that pin), and a SUCCESSFUL load
@@ -498,8 +511,9 @@ class KVCacheStore:
   def poll_load_status(self) -> tuple[list[bytes], list[bytes], list[bytes]]:
     """Polls the status of all active asynchronous Load operations.
 
-    For completed transfers, it advances the LRU block states to HOST_AND_HBM
-    and updates their device block locations.
+    For completed LOCAL transfers, it advances the LRU block states to
+    HOST_AND_HBM and updates their device block locations. A completed REMOTE
+    load is only reported here -- it records nothing locally.
 
     Returns:
       A tuple of (done, failed, pending), where:

@@ -1028,8 +1028,10 @@ void RaidenController::PullAndRelease(
   std::vector<Buffer> staging_buffers;
   if (to_hbm) {
     // remote host src -> local host staging -> local device dst. The host
-    // landing blocks double as the staging hop, which is why the committed
-    // state is HOST_AND_HBM and a later local load() can reuse the host copy.
+    // blocks are a staging hop only, not a destination the caller keeps:
+    // KVCacheStore returns them to the pool once the read settles, success or
+    // failure, and records nothing for them -- the caller's device blocks are
+    // the read's only product.
     dst_buffers.reserve(state->dst_device_block_ids.size());
     for (int32_t id : state->dst_device_block_ids) {
       dst_buffers.emplace_back(id, std::vector<BufferShard>{}, std::nullopt,

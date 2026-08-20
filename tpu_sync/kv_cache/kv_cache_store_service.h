@@ -65,9 +65,10 @@ class KVCacheStoreServiceImpl
       const ::tpu_raiden::kv_cache::proto::FetchRequest* request,
       ::tpu_raiden::kv_cache::proto::FetchResponse* response) override;
 
-  // Accepts an offer of blocks from a peer: decides whether the write is worth
-  // doing, allocates landing blocks, issues the pull, and answers with an
-  // operation id. Never waits for the bytes.
+  // Accepts an offer of blocks from a peer -- the destination side of that
+  // peer's save(dst): decides whether the write is worth doing, allocates
+  // landing blocks, issues the pull, and answers with an operation id. Never
+  // waits for the bytes.
   ::grpc::Status WriteRemote(
       ::grpc::ServerContext* context,
       const ::tpu_raiden::kv_cache::proto::WriteRemoteRequest* request,
@@ -150,7 +151,9 @@ class KVCacheStoreServiceImpl
     absl::Duration granted_deadline;
 
     // The landing blocks return to the pool exactly once, from whichever path
-    // reaches them first. COMMITTED never sets this: the LRU owns them then.
+    // reaches them first. COMMITTED and STORED_UNREGISTERED never release
+    // them -- the cache owns the blocks then, and they are marked released so
+    // no later path frees them out from under it.
     bool blocks_released = false;
     // When to next log a warning that a free is still deferred; only
     // meaningful while blocks are outstanding.

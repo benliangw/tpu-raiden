@@ -20,12 +20,12 @@ import enum
 class BlockStatus(enum.Enum):
   """Represents the residency status and location of a KV cache block."""
 
+  # Residency only. Whether a block is pinned is tracked separately by the
+  # LRU pin count, not by its status.
   INIT = 0  # Unallocated / Empty block slot in the directory.
   REMOTE = 1  # Discovered on a remote peer; not present in local memory.
-  HBM = 2  # Resident and pinned in local TPU HBM device memory.
-  HOST = (
-      3  # Resident in local Host DRAM staging memory; unpinned and evictable.
-  )
+  HBM = 2  # Resident in local TPU HBM device memory only (not on host).
+  HOST = 3  # Resident in local Host DRAM only (not in HBM).
   HOST_AND_HBM = (
       4  # Resident in both local Host DRAM and TPU HBM device memory.
   )

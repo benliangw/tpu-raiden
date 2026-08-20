@@ -24,14 +24,19 @@ option java_outer_classname = "KVCacheStoreServiceProto";
 
 // Service exposing remote access to KV cache block transfers.
 service KVCacheStoreService {
-  // Fetches remote KV cache blocks to local host memory or device memory.
+  // The wire half of a peer's load() of REMOTE blocks: the caller asks this
+  // node to copy blocks out of its host DRAM into the caller's host landing
+  // blocks (host_block_ids). Requires HOST/HOST_AND_HBM residency here at the
+  // source; the caller performs its own H2D afterwards.
   rpc Fetch(FetchRequest) returns (FetchResponse);
 
   // --- Remote write (source-offered, destination-pulled) -------------------
   //
-  // WriteRemote makes a peer take a copy of blocks this node owns. The use
-  // case is proactive eviction: a node under memory pressure offers cold
-  // blocks to a peer, then frees them locally.
+  // WriteRemote makes a peer take a copy of blocks this node owns. These two
+  // RPCs are the wire transport behind KVCacheStore's save to a destination
+  // (save(hashes, dst)), not a caller-facing API of their own. The use case
+  // is proactive eviction: a node under memory pressure offers cold blocks to
+  // a peer, then frees them locally.
   //
   //   WriteRemote      the SOURCE offers. The destination tests what it
   //                    already holds, allocates landing blocks
@@ -61,14 +66,14 @@ message FetchRequest {
   // the wire, which real (binary) block hashes fail.
   repeated bytes block_hashes = 1;
 
-  // Optional: Physical device block IDs on the destination TPU.
-  // - If NON-EMPTY: Target memory is device buffer (HBM). Must match
-  // block_hashes length.
-  // - If EMPTY: Target memory is local host buffer (DRAM).
+  // Optional: Physical device block IDs on the destination TPU. The server
+  // does not consume them: the bytes always land in host_block_ids, and the
+  // caller performs its own H2D after this RPC completes.
+  // - If NON-EMPTY: Must match block_hashes length.
   repeated int32 device_block_ids = 2;
 
-  // Optional: Host block IDs as a sanity check.
-  // - If NON-EMPTY: Must match block_hashes size.
+  // Required: the caller's host landing blocks the bytes are written into.
+  // Must match block_hashes size.
   repeated int32 host_block_ids = 3;
 
   // Target destination info: Unique RaidenId of the client node initiating the

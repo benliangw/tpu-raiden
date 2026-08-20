@@ -14,7 +14,6 @@
 
 """Raiden KV Cache Store API for PyTorch."""
 
-import enum
 from typing import Any
 
 from tpu_sync.api.torch import torch_tpu_common_loader
@@ -31,12 +30,9 @@ _impl = torch_abi.load_extension(
 # pylint: enable=g-import-not-at-top
 
 
-class BlockStatus(enum.Enum):
-  INIT = 0
-  REMOTE = 1
-  HOST = 2
-  HBM = 3
-  HOST_AND_HBM = 4
+from tpu_sync.api import common
+
+BlockStatus = common.BlockStatus
 
 
 class RaidenId:
@@ -225,6 +221,10 @@ class KVCacheStore:
     ignores them, so one fleet-wide environment block is safe.
 
     Args:
+      capacity: Maximum number of cache blocks this store can hold.
+      global_registry_address: Address of the global registry service; empty
+        for a standalone local store.
+      raiden_id: Optional RaidenId identifying this store instance.
       num_shards: Shard count for this store's RaidenController; must be
         >= 1.
       store_server_ip: IP that peers use to reach this store. Bind-and-
@@ -232,6 +232,7 @@ class KVCacheStore:
         bind it, and it is the host published to the global registry. Must be
         an IP (or hostname) this process can bind -- not empty, not a
         wildcard.
+      shard_size_bytes: Size in bytes of each shard buffer; 0 uses default.
       raiden_controller_port: Port for this store's RaidenController; 0 lets
         gRPC choose. Note that the IP address of the controller reuses
         store_server_ip.
@@ -267,7 +268,7 @@ class KVCacheStore:
 
   @property
   def store_server_address(self) -> str:
-    """"host:port" published to the global registry, or "" if undiscoverable."""
+    """\"host:port\" published to the global registry, or \"\" if undiscoverable."""
     return self._impl.store_server_address
 
   def lookup(
@@ -302,6 +303,10 @@ class KVCacheStore:
     Returns:
       A list of tuples containing the block hash and the matching
       RaidenBlockId replica, halting immediately upon the first cache miss.
+
+    Raises:
+      RuntimeError: if the underlying lookup failed outright (a backend
+        error, not a cache miss).
     """
     raw_res = self._impl.lookup(block_hashes, enable_global, pin_found)
     final_res = []
@@ -352,12 +357,9 @@ class KVCacheStore:
       raw_slices.append(s._impl)  # pylint: disable=protected-access
     return self._impl.insert(block_hashes, raw_slices, on_host)
 
-
-
-
   def capacity(self) -> int:
+    """Returns the maximum capacity of the store in blocks."""
     return self._impl.capacity()
-
 
   def release(self, block_hashes: list[bytes]) -> None:
     """Releases previously pinned block hashes.
@@ -365,86 +367,54 @@ class KVCacheStore:
     Released hashes become eligible for LRU eviction when capacity is
     exceeded. The cache holds LOCAL entries only -- insert() enforces that --
     so release needs no status handling.
-    """
-    self._impl.release(block_hashes)
-
-  def read_remote(
-      self,
-      block_hashes: list[bytes],
-      slices: list[RaidenBlockId],
-      device_block_ids: list[int],
-  ) -> bool:
-    """Reads REMOTE blocks from their owning peers straight into local HBM.
-
-    Returns as soon as the reads are issued; poll with
-    poll_remote_read_status().
-
-    This store's cache is neither consulted nor modified. The hashes need not
-    be present locally and need not be pinned; nothing is inserted on success
-    and nothing is left behind on failure. The bytes land ONLY in the given
-    device blocks -- no local host copy is kept, so a later local load() of the
-    same hash is still a miss.
-
-    Compare with load(): both bring a peer's block into local HBM. Use load()
-    when the hash may be resident locally and you want the store to decide; use
-    read_remote() when you already hold the source coordinates and want no
-    local record of the transfer.
-
-    Requires a global registry: it is what maps the owning peer to the
-    controller address this store acquires its read lease from. A store built
-    without a global_registry_address fails every read.
 
     Args:
-      block_hashes: Block hashes to read.
-      slices: One REMOTE RaidenBlockId per hash, naming where to read from.
-        Only two fields are used -- raiden_id (the owning peer) and
-        host_block_id (the block on that peer) -- so a lookup() answer can be
-        passed straight through.
-      device_block_ids: One local device block id per hash. Mandatory.
-        On FAILURE their contents are UNDEFINED: they are written before the
-        source's verdict is known. Treat them as scratch until the read
-        reports success.
-
-    Returns:
-      True if successfully launched.
+      block_hashes: List of block hashes to release.
     """
-    raw_slices = []
-    for s in slices:
-      if isinstance(s, RaidenId):
-        s = RaidenBlockId(raiden_id=s)
-      raw_slices.append(s._impl)  # pylint: disable=protected-access
-    return self._impl.read_remote(block_hashes, raw_slices, device_block_ids)
-
-  def poll_remote_read_status(
-      self,
-  ) -> tuple[list[bytes], list[bytes], list[bytes]]:
-    """Polls the status of all active remote reads.
-
-    Returns:
-      A tuple of (done, failed, pending), where:
-        done: List of block hashes whose remote read successfully completed.
-        failed: List of block hashes whose remote read failed.
-        pending: List of block hashes whose remote read is still in progress.
-    """
-    return self._impl.poll_remote_read_status()
+    self._impl.release(block_hashes)
 
   def save(
       self,
       block_hashes: list[bytes],
       dst_raiden_id: RaidenId | None = None,
   ) -> bool:
-    """Saves blocks out of this node's HBM asynchronously.
+    """Saves blocks asynchronously, either locally or to a peer.
 
-    Omit dst_raiden_id for a local save (HBM -> host DRAM); pass a peer to
-    offer the blocks to it, which requires them to be host-resident here
-    already. Both are polled with poll_save_status().
+    Where to depends on dst_raiden_id:
+      omitted -- LOCAL save, device (HBM) to host (DRAM). Each block must have
+                 status HBM here -- one already on host has nothing to save.
+      given   -- REMOTE save: offer the blocks to that peer, which takes its
+                 own copy. Each block must already be HOST-resident here,
+                 because the bytes are pulled out of host DRAM. There is no
+                 two-hop: a block only in HBM must be saved locally first.
+
+    Both kinds are polled with poll_save_status().
 
     PIN CONTRACT: every hash must be pinned on entry -- lookup() grants that
     pin for a remote save, insert() for a local one -- and a SUCCESSFUL save
     consumes exactly one pin per hash. Do not release afterwards. A FAILED
-    save does not consume it. A remote save also takes a separate internal pin
-    for as long as the destination may still be reading; that one is not
-    yours.
+    save does not consume it: the entry stays pinned so you can retry or
+    release deliberately.
+
+    A remote save also takes a SEPARATE internal pin for as long as the
+    destination may still be reading. That one is not yours.
+
+    A remote save requires a global registry at both ends -- that is how the
+    destination is resolved, and how the blocks become reachable once they
+    land.
+
+    IMPORTANT: a remote destination allocates landing blocks from FREE blocks
+    only and never evicts to make room, so a peer whose cache is warm refuses
+    every offer. Destination-side eviction is separate, unimplemented work.
+
+    Args:
+      block_hashes: List of block hashes to save.
+      dst_raiden_id: Omit for a local save; pass a peer to offer them to it.
+
+    Returns:
+      True if successfully launched, False if validation failed. For a remote
+      save a True return does NOT mean the peer has the blocks -- poll for
+      that.
     """
     raw_dst = (
         None
@@ -471,7 +441,7 @@ class KVCacheStore:
     and remote blocks must all refer to the same peer.
 
     `device_block_ids` is the destination and must name one device block per hash.
-    
+
     PIN CONTRACT:
       local source  -- every hash must be pinned on entry (lookup() is what
                        normally grants that pin), and a SUCCESSFUL load
@@ -513,16 +483,112 @@ class KVCacheStore:
   ) -> tuple[list[bytes], list[bytes], list[bytes], list[bytes], list[bytes]]:
     """Polls the status of all active Save operations, local and remote.
 
-    Returns (done, failed, pending, existing, unregistered). The last two
-    annotate REMOTE failures rather than being outcomes of their own -- a hash
-    in either also appears in `failed` -- and are empty for local saves.
-    `existing` is what a destination already held when it refused a partial
-    batch; `unregistered` is a destination that HAS the bytes but could not
-    publish them, so no lookup will find them there.
+    For completed local transfers it advances the LRU block states to
+    HOST_AND_HBM and updates their host block locations; for failed ones it
+    releases the allocated host blocks. For remote saves it asks each
+    destination for a verdict.
+
+    Returns:
+      A tuple of (done, failed, pending, existing, unregistered). The last two
+      annotate REMOTE failures rather than being outcomes of their own, and
+      are empty for local saves:
+        done: Hashes whose save completed. For a remote save that means the
+          destination now holds AND has published them, including the case
+          where it already had them -- hashes are content-addressed, so a peer
+          having them is the post-condition the caller wanted. This is the
+          only result that makes it safe to drop a local copy.
+        failed: Hashes whose save did not succeed.
+        pending: Hashes whose save is still in progress. Note this means
+          different things on the two paths: for a local save it is bounded by
+          a DMA, for a remote one by the destination answering or the ~30s
+          HOLD window elapsing.
+        existing: Hashes a destination already held when it refused a PARTIAL
+          batch. This store does not reissue with the remainder -- doing so is
+          the caller's decision, and this is the list it needs to make it.
+        unregistered: The destination HAS these -- the transfer succeeded --
+          but could not publish them, so no lookup will find them there. They
+          are reported failed because the safe default is to keep your own
+          copy: freeing it would move the block from findable-here to
+          findable-nowhere. A caller that only needed the peer to hold the
+          bytes may treat this as success; a caller that was about to free its
+          copy must not.
+
+    A hash in `existing` or `unregistered` also appears in `failed`, not
+    instead of it.
     """
     return self._impl.poll_save_status()
 
   def poll_load_status(self) -> tuple[list[bytes], list[bytes], list[bytes]]:
-    """Polls the status of all active asynchronous Load operations."""
+    """Polls the status of all active asynchronous Load operations.
+
+    For completed LOCAL transfers, it advances the LRU block states to
+    HOST_AND_HBM and updates their device block locations. A completed REMOTE
+    load is only reported here -- it records nothing locally.
+
+    Returns:
+      A tuple of (done, failed, pending), where:
+        done: List of block hashes whose Load transfer successfully completed.
+        failed: List of block hashes whose Load transfer failed.
+        pending: List of block hashes whose Load transfer is still in progress.
+    """
     return self._impl.poll_load_status()
 
+  def read_remote(
+      self,
+      block_hashes: list[bytes],
+      slices: list[RaidenBlockId],
+      device_block_ids: list[int],
+  ) -> bool:
+    """Reads REMOTE blocks from their owning peers straight into local HBM.
+
+    Returns as soon as the reads are issued; poll with
+    poll_remote_read_status().
+
+    This store's cache is neither consulted nor modified. The hashes need not
+    be present locally and need not be pinned; nothing is inserted on success
+    and nothing is left behind on failure. The bytes land ONLY in the given
+    device blocks -- no local host copy is kept, so a later local load() of the
+    same hash is still a miss.
+
+    Compare with load(): both bring a peer's block into local HBM. Use load()
+    when the hash may be resident locally and you want the store to decide; use
+    read_remote() when you already hold the source coordinates and want no
+    local record of the transfer.
+
+    Requires a global registry: it is what maps the owning peer to the
+    controller address this store acquires its read lease from. A store built
+    without a global_registry_address fails every read.
+
+    Args:
+      block_hashes: Block hashes to read.
+      slices: One REMOTE RaidenBlockId per hash, naming where to read from. Only
+        two fields are used -- raiden_id (the owning peer) and host_block_id
+        (the block on that peer) -- so a lookup() answer can be passed straight
+        through.
+      device_block_ids: One local device block id per hash. Mandatory. On
+        FAILURE their contents are UNDEFINED: they are written before the
+        source's verdict is known. Treat them as scratch until the read reports
+        success.
+
+    Returns:
+      True if successfully launched.
+    """
+    raw_slices = []
+    for s in slices:
+      if isinstance(s, RaidenId):
+        s = RaidenBlockId(raiden_id=s)
+      raw_slices.append(s._impl)  # pylint: disable=protected-access
+    return self._impl.read_remote(block_hashes, raw_slices, device_block_ids)
+
+  def poll_remote_read_status(
+      self,
+  ) -> tuple[list[bytes], list[bytes], list[bytes]]:
+    """Polls the status of all active remote reads.
+
+    Returns:
+      A tuple of (done, failed, pending), where:
+        done: List of block hashes whose remote read successfully completed.
+        failed: List of block hashes whose remote read failed.
+        pending: List of block hashes whose remote read is still in progress.
+    """
+    return self._impl.poll_remote_read_status()

@@ -88,6 +88,7 @@ py_library(
     srcs = ["kv_cache_store.py"],
     visibility = ["//visibility:public"],
     deps = [
+        "//tpu_sync/api:common",
         ":torch_abi",
         ":torch_tpu_common_loader",
         "@torch_tpu//torch_tpu",

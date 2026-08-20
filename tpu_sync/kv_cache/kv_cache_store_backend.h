@@ -79,7 +79,10 @@ using BlockSliceList = std::vector<std::pair<std::string, RaidenBlockId>>;
 // Options controlling lookup behavior across storage backends.
 struct LookupOptions {
   // Controls whether the lookup is allowed to query the global registry.
-  // Default is true.
+  // Default is true HERE, serving the internal backend call sites; the
+  // application-level KVCacheStore::Lookup(hashes, enable_global, pin_found)
+  // defaults it to false instead, because the registry query is a blocking
+  // RPC a caller should opt into.
   bool enable_global = true;
 
   // Controls whether a block cached remotely may sit between two blocks cached
@@ -129,7 +132,10 @@ class KVCacheStoreBackend {
                              absl::Span<const int32_t> device_block_ids,
                              absl::Span<const RaidenBlockId> slices = {}) = 0;
 
-  // Inserts key-block mappings into the backend.
+  // Inserts key-block mappings into the backend. Backend-internal: the store
+  // facade does not expose this form -- KVCacheStore::Insert() maps to
+  // InsertAndLock below -- and its remaining callers are internal (the
+  // store's pollers rewrite a completed entry through it).
   // Returns:
   //   - bool: true if all hashes were newly inserted (none already existed)
   //   - BlockSliceList: entries evicted from this backend during insertion
@@ -139,6 +145,7 @@ class KVCacheStoreBackend {
 
   // Pins existing hashes and inserts & locks new hashes if space permits.
   // Performs complete rollback on failure. Returns true on full success.
+  // This is the operation behind the store's public Insert().
   virtual bool InsertAndLock(absl::Span<const std::string> block_hashes,
                              absl::Span<const RaidenBlockId> slices,
                              bool on_host) = 0;
@@ -146,15 +153,23 @@ class KVCacheStoreBackend {
   // Reverts an InsertAndLock operation: unpins hashes, erases non-host blocks
   // whose pin count drops to 0, and restores candidate evictions.
   // Returns the number of deleted blocks.
+  // Backend-internal: the store facade no longer exposes it; its remaining
+  // store-level use is rolling back a multi-backend Insert when a later
+  // tier refuses.
   virtual size_t ReleaseAndDelete(
       absl::Span<const std::string> block_hashes) = 0;
 
-  // Explicitly deletes cached block entries from the backend.
+  // Explicitly deletes cached block entries from the backend, skipping
+  // pinned ones. Backend-internal bookkeeping: the store's public API has
+  // no caller-driven removal -- reclamation is the store's own eviction.
   virtual void Delete(absl::Span<const std::string> block_hashes,
                       absl::Span<const RaidenBlockId> slices) = 0;
 
   // Pins block hashes to protect them from LRU eviction.
   // Returns true if all hashes exist and were successfully pinned.
+  // Backend-internal: application code acquires pins through the store's
+  // Lookup()/Insert(); this is for the store's own extra pins (a peer's
+  // read lease, a remote save's internal pin, the evict sweep).
   virtual bool Pin(absl::Span<const std::string> block_hashes) = 0;
 
   // Releases (unpins) previously pinned block hashes. Absent hashes are not
@@ -196,8 +211,6 @@ class KVCacheStoreBackend {
   // testing/diagnostics).
   virtual std::vector<std::string> GetEvictCandidateKeys() const { return {}; }
 
-  // The peer-facing KVCacheStoreService server this backend hosts, if any.
-  // Returning non-null tells the owning KVCacheStore to publish THIS server
   // --- Remote write (WriteRemote) ------------------------------------------
   //
   // These four exist because a WriteRemote handler holds only this interface,

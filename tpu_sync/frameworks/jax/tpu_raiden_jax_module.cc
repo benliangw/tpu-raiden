@@ -609,9 +609,9 @@ NB_MODULE(_tpu_raiden_jax, m) {
       .def("poll_save_status",
            [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self) {
              // Poll drains whatever futures completed and can make blocking
-             // RPCs on the way -- a global-registry lookup on the load path,
-             // one call per outstanding remote write. Holding the GIL across
-             // that stalls every Python thread, not just this one.
+             // RPCs on the way -- one verdict call per outstanding remote
+             // save. Holding the GIL across that stalls every Python thread,
+             // not just this one.
              //
              // Released around the C++ call ONLY. The nb::bytes below are
              // Python objects, so building them and letting std::make_tuple

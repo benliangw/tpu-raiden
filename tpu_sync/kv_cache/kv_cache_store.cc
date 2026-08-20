@@ -241,9 +241,10 @@ absl::StatusOr<std::unique_ptr<KVCacheStore>> KVCacheStore::Create(
 
   RETURN_IF_ERROR(ValidateBackends(backends));
 
-  // CreateTag: the constructor itself must not wire the controller (and
-  // FATAL on failure) -- that would defeat Create()'s whole purpose of
-  // returning a recoverable Status. Create() does the wiring below instead.
+  // The private constructor used here deliberately does no controller
+  // wiring (the public ones do, and FATAL on failure) -- that would defeat
+  // Create()'s whole purpose of returning a recoverable Status. Create()
+  // does the wiring below instead.
   auto store = absl::WrapUnique(new KVCacheStore(
       std::move(backends), effective_raiden_id, std::move(raiden_controller),
       store_server_ip, global_registry_address));
@@ -415,8 +416,8 @@ KVCacheStore::KVCacheStore(ReshardSidecarTag) {}
 absl::StatusOr<std::unique_ptr<KVCacheStore>>
 KVCacheStore::CreateReshardSidecar(int reshard_port,
                                    double request_registry_ttl_s) {
-  // W1: reshard-only mode. Deliberately bypasses ValidateConstructionRules
-  // and ValidateBackends — this store serves no offload tier, publishes no
+  // Reshard-only sidecar mode. Deliberately bypasses
+  // ValidateConstructionRules and ValidateBackends — this store serves no offload tier, publishes no
   // registry record, and builds no controller submodule; its only surface
   // is the reshard plane's framed listener. The full-store validation
   // paths above stay byte-identical.
@@ -2124,8 +2125,8 @@ void KVCacheStore::PollSavesInternal(std::vector<SaveState> ready_saves) {
     if (status.ok()) {
       std::vector<global_registry::Registration> write_through_regs;
       write_through_regs.reserve(state.block_hashes.size());
-      // Hoisted: the caller pins these hashes hold are consumed below, on a
-      // path that may run after this scope ends.
+      // Hoisted out of the lookup scope: the caller's pins on these hashes
+      // are consumed below, on a path that may run after this scope ends.
       std::vector<std::string> update_hashes;
       auto lookup_or = backend()->Lookup(state.block_hashes,
                                          LookupOptions{.enable_global = false});

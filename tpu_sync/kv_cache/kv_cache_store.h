@@ -245,7 +245,9 @@ class KVCacheStore {
 
   // Overload accepting LookupOptions for granular control. Unlike the overload
   // above, pin_found defaults to false here, so this is what internal callers
-  // and pure observers use.
+  // and pure observers use. The struct's enable_global default is also the
+  // opposite (true, not false), so a bare LookupOptions{} does query the
+  // registry when one is configured.
   absl::StatusOr<BlockSliceList> Lookup(
       const std::vector<std::string>& block_hashes,
       const LookupOptions& options);
@@ -286,11 +288,12 @@ class KVCacheStore {
   // check is performed here.
   void Release(const std::vector<std::string>& block_hashes);
 
-  // Saves blocks out of this node's HBM, asynchronously. Where to depends on
+  // Saves blocks, asynchronously. Source and destination depend on
   // `dst_raiden_id`:
   //
   //   absent  -- LOCAL save, device (HBM) to host (DRAM). Requires each block
-  //              to be HBM-resident here.
+  //              to have status HBM here; one already host-resident
+  //              (HOST_AND_HBM) has nothing left to save and is refused.
   //   present -- REMOTE save: offer the blocks to that peer, which takes its
   //              own copy. Requires each block to be HOST-resident here
   //              already, because the bytes are pulled out of host DRAM. There
@@ -349,9 +352,10 @@ class KVCacheStore {
   // `device_block_ids` is the destination and must name one device block per
   // hash.
   //
-  // If `slices` is non-empty, the caller's pre-looked up RaidenBlockIds are
-  // used directly. Remote loads re-resolve hashes at the peer, ignoring the
-  // rest of `slices`.
+  // `slices` carries the caller's pre-looked up RaidenBlockIds, one per hash;
+  // a lookup() answer can be passed straight through. A local load uses their
+  // host_block_ids directly. A remote load takes only the peer's identity
+  // from them -- the hashes are re-resolved at the peer.
   //
   // PIN CONTRACT -- NOT the same as the overload above; the two sources
   // genuinely differ:
@@ -528,7 +532,7 @@ class KVCacheStore {
   absl::StatusOr<size_t> RecoverFromLocalManifest();
 
  private:
-  // Tag for the W1 reshard-only construction (no backends, no wiring).
+  // Tag for the reshard-sidecar-only construction (no backends, no wiring).
   struct ReshardSidecarTag {};
   explicit KVCacheStore(ReshardSidecarTag);
 
@@ -539,8 +543,9 @@ class KVCacheStore {
       absl::string_view store_server_ip = "",
       absl::string_view global_registry_address = "");
 
-  // Registers ValidateAndPinHostBlocks/UnpinHostBlocks as ReadRemote step-6a
-  // hooks on raiden_controller_ (no-op if there is no controller).
+  // Registers ValidateAndPinHostBlocks/UnpinHostBlocks on raiden_controller_
+  // as the source-side hooks that a peer's ReadRemote lease acquisition and
+  // release run against this store's LRU (no-op if there is no controller).
   void RegisterReadRemoteHooks();
 
   // Evicts host blocks by their logical block hashes.

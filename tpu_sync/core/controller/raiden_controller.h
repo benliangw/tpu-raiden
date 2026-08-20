@@ -71,17 +71,11 @@ class RaidenController {
   // on every registering worker for the Legacy Physical/BufferProto mode
   // (Allocate/AllocateBuffers below). `preprovision_worker_buffers` = false
   // skips that pre-creation.
-  // Creates a fully initialized RaidenController for the given unit.
-  // The RaidenController sets up its own ControllerService and local
-  // LogicalBlockManager. Workers will dynamically register with it.
   //
-  // `num_blocks` drives two independent things: the size of the logical-block
-  // ledger (AllocateBlockIds), and how many physical buffers are pre-created
-  // on every registering worker for the Legacy Physical/BufferProto mode
-  // (Allocate/AllocateBuffers below). `preprovision_worker_buffers` = false
-  // skips that pre-creation.
-  //
-  // 120). Leave it 0 when workers register only after Create() returns.
+  // `expected_worker_count` > 0 makes initialization block until that many
+  // workers have registered, failing after RAIDEN_EXPECTED_WORKERS_TIMEOUT_S
+  // seconds (default 120). Leave it 0 when workers register only after
+  // Create() returns.
   //
   // TODO: Remove preprovision_worker_buffers and legacy
   // Physical/BufferProto mode.
@@ -172,9 +166,9 @@ class RaidenController {
   // dst_device_block_ids selects the mode:
   //   empty            -> ReadRemote-to-Host. Bytes land in dst_host_block_ids.
   //   size == hashes   -> ReadRemote-to-HBM. Bytes land in the caller's device
-  //                       blocks, with dst_host_block_ids as the staging hop
-  //                       (so the host copy is valid too, and a later local
-  //                       load() can reuse it).
+  //                       blocks, with dst_host_block_ids as a staging hop the
+  //                       caller reclaims afterwards (KVCacheStore frees them
+  //                       once the read settles and records nothing for them).
   //   any other size   -> InvalidArgument, before anything is pinned.
   //
   // src_host_block_ids is ADVISORY (registry-derived, possibly stale); the
@@ -187,9 +181,10 @@ class RaidenController {
   //
   // In HBM mode the caller's device blocks are written before the verdict is
   // known, so a discarded read leaves them holding undefined bytes. That is by
-  // design: nothing in the LRU ever points at them (failed hashes are never
-  // promoted), and callers overwrite device blocks when they reuse them.
-  // Treat supplied device blocks as scratch until the read reports success.
+  // design: nothing in the LRU ever points at them (a remote read records
+  // nothing in the store -- the caller alone tracks the device blocks), and
+  // callers overwrite device blocks when they reuse them. Treat supplied
+  // device blocks as scratch until the read reports success.
   tsl::Future<> ReadRemote(
       absl::string_view src_controller_address,
       const std::vector<int32_t>& src_host_block_ids,
@@ -209,9 +204,12 @@ class RaidenController {
     RaidenController* ctrl ABSL_GUARDED_BY(mu) = nullptr;
   };
 
-  // Registers the ReadRemote step-6a verify/pin and unpin hooks (invoked when
-  // this controller acts as the SOURCE of a remote read). Forwards to the
-  // hosted ControllerService.
+  // Registers the source-side ReadRemote hooks, invoked when this controller
+  // acts as the SOURCE of a remote read: AcquireReadLease calls the first to
+  // validate the requested hashes and pin their host blocks, and lease
+  // release/expiry calls the second to unpin them. KVCacheStore registers its
+  // ValidateAndPinHostBlocks/UnpinHostBlocks here. Forwards to the hosted
+  // ControllerService.
   void SetReadRemoteHooks(
       core::controller::RaidenControllerServiceImpl::ValidateAndPinCallback
           validate_and_pin,
@@ -297,7 +295,7 @@ class RaidenController {
       private_controller_server_;
   // The active ControllerServer hosting this controller's service (either
   // private_controller_server_ or the shared singleton). Used to register the
-  // ReadRemote step-6a hooks after construction. Not owned.
+  // ReadRemote verify/pin and unpin hooks after construction. Not owned.
   core::controller::ControllerServer* active_server_ = nullptr;
 
   // Channel cache, keyed by address -- not a directory. A peer that restarts on

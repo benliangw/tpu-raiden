@@ -721,9 +721,11 @@ NB_MODULE(_tpu_raiden_torch, m) {
       .def("poll_remote_read_status",
            [](tpu_raiden::kv_cache::KVCacheStoreWrapper& self) {
              // Poll drains whatever futures completed and can make blocking
-             // RPCs on the way -- a global-registry lookup on the load path,
-             // one call per outstanding remote write. Holding the GIL across
-             // that stalls every Python thread, not just this one.
+             // RPCs on the way -- every poll entry point drains every
+             // operation kind, so even this read-status poll makes one
+             // verdict call per outstanding remote save. Holding the GIL
+             // across that stalls every Python thread,
+             // not just this one.
              //
              // Released around the C++ call ONLY. The nb::bytes below are
              // Python objects, so building them and letting std::make_tuple
@@ -785,7 +787,7 @@ NB_MODULE(_tpu_raiden_torch, m) {
              // Released around the C++ call ONLY. The subsequent nb::bytes
              // initialization happens with the GIL held (nb::call_guard
              // is wrong here since it would span the whole lambda).
-             // See poll_save_status for the detailed stall analysis.
+             // See poll_remote_read_status for the detailed stall analysis.
              // Five vectors. `existing` and `unregistered` annotate REMOTE
              // save failures rather than being outcomes of their own, and are
              // empty for local saves. See KVCacheStore::PollSaveStatus.
@@ -830,7 +832,7 @@ NB_MODULE(_tpu_raiden_torch, m) {
              // Released around the C++ call ONLY. The subsequent nb::bytes
              // initialization happens with the GIL held (nb::call_guard
              // is wrong here since it would span the whole lambda).
-             // See poll_save_status for the detailed stall analysis.
+             // See poll_remote_read_status for the detailed stall analysis.
              std::vector<std::string> done, failed, pending;
              {
                nb::gil_scoped_release release;

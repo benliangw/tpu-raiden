@@ -4,11 +4,11 @@ from typing import Any, overload
 class BlockStatus(enum.Enum):
   INIT = ...
   REMOTE = ...
-  HOST = ...
   HBM = ...
+  HOST = ...
   # A load that sourced from local DRAM ends here; one that sourced from a
-  # peer ends at HBM instead, because its landing blocks are freed and no host
-  # copy is kept.
+  # peer leaves no local entry at all -- its landing blocks are freed and no
+  # host copy is kept.
   HOST_AND_HBM = ...
 
 class RaidenId:
@@ -18,7 +18,7 @@ class RaidenId:
   data_replica_idx: int
   def __init__(
       self,
-      job_name: str,
+      job_name: str = '',
       job_replica_id: str = '',
       data_name: str = '',
       data_replica_idx: int = 0,
@@ -108,11 +108,12 @@ class KVCacheStore:
       block_hashes: list[bytes],
       dst_raiden_id: RaidenId | None = ...,
   ) -> bool:
-    """Saves blocks out of this node's HBM asynchronously.
+    """Saves blocks asynchronously, either locally or to a peer.
 
-    Omit dst_raiden_id for a local save (HBM -> host DRAM); pass one to offer
-    the blocks to that peer, which requires them to be host-resident here
-    already. Poll both with poll_save_status.
+    Omit dst_raiden_id for a local save (HBM -> host DRAM), which requires each
+    block to have status HBM; pass one to offer the blocks to that peer, which
+    requires them to be host-resident here already. Poll both with
+    poll_save_status.
     """
     ...
   @overload
@@ -145,9 +146,10 @@ class KVCacheStore:
     `device_block_ids` is the destination and must name one device block per hash.
 
     If `slices` is provided, the caller's pre-looked up RaidenBlockIds are
-    used directly. Note that blocks in `slices` must be already pinned
-    externally (when Loading from local host), and remote loads will re-resolve
-    hashes at the peer, ignoring `slices`.
+    used directly. A LOCAL source requires every hash to be pinned (lookup
+    grants that pin) and a successful load consumes it; a REMOTE source needs
+    no pin, consumes none, and records nothing locally -- it re-resolves
+    hashes at the peer, using `slices` only for the source's identity.
     """
     ...
   def poll_save_status(

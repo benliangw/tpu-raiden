@@ -29,7 +29,7 @@ namespace tpu_raiden {
 namespace kv_cache {
 
 // The StoreMonitorConfig a Python-driven store runs with. The bindings
-// expose no monitor arguments; like the shm wiring above, the knobs come
+// expose no monitor arguments; like the shm wiring below, the knobs come
 // from the environment:
 //   RAIDEN_ENABLE_STORE_MONITOR       "true"/"1" runs the StoreMonitor
 //   RAIDEN_ENABLE_EVICT_SWEEP         "true"/"1" runs the evict sweep

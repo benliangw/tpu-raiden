@@ -51,7 +51,8 @@ class KVCacheStoreClient {
           client_worker_endpoints = {});
 
   // Asynchronous non-blocking WriteRemote RPC: offer `block_hashes` to the
-  // peer this client is connected to. The peer decides, allocates landing
+  // peer this client is connected to -- the source side of KVCacheStore's
+  // save to a destination. The peer decides, allocates landing
   // blocks and starts pulling; it does NOT wait for the bytes, so the
   // returned future resolves as soon as the offer is accepted or refused.
   //

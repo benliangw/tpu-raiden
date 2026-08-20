@@ -123,8 +123,9 @@ class HostOffloadBackend : public KVCacheStoreBackend {
                      absl::Span<const int32_t> device_block_ids,
                      absl::Span<const RaidenBlockId> slices = {}) override;
 
-  // --- Remote write (WriteRemote); see KVCacheStoreBackend for why each of
-  // these exists rather than reusing Lookup/Insert/Delete.
+  // --- Remote write (WriteRemote), the transport under KVCacheStore::Save
+  // with a destination; see KVCacheStoreBackend for why each of these
+  // exists rather than reusing Lookup/Insert/Delete.
   std::vector<std::string> AlreadyPresentHostResident(
       absl::Span<const std::string> block_hashes) const override;
 
@@ -140,8 +141,9 @@ class HostOffloadBackend : public KVCacheStoreBackend {
 
   // --- Remote write, source side ------------------------------------------
   //
-  // The two halves of the source's role. The synchronous half offers blocks
-  // and comes back with the destination's decision; the polling half asks
+  // The two halves of the source's role in the store's Save(dst) flow. The
+  // synchronous half offers blocks and comes back with the destination's
+  // decision; the polling half asks
   // what became of an accepted offer. Neither owns the retry cadence or the
   // pins -- KVCacheStore does, because it is what holds the blocks.
 
