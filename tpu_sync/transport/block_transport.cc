@@ -22,6 +22,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cstdint>
 #include <cstring>
@@ -378,15 +379,15 @@ absl::Status BlockTransport::HandleIncomingPush(
   if (header.op == 1) {
     ASSIGN_OR_RETURN(allocated_ids, block_delegate_->AllocateBlocks(
                                         header.count_or_size, header.uuid));
-    RETURN_IF_ERROR(WriteExact(client_fd, allocated_ids.data(),
-                               header.count_or_size * sizeof(int)));
+    const std::vector<uint8_t> s_ids = lib::SerializeBlockIds(allocated_ids);
+    RETURN_IF_ERROR(WriteExact(client_fd, s_ids.data(), s_ids.size()));
   } else {
-    allocated_ids.resize(header.count_or_size, 0);
-    RETURN_IF_ERROR(ReadExact(client_fd, allocated_ids.data(),
-                              header.count_or_size * sizeof(int)));
-    src_block_ids.resize(header.count_or_size, 0);
-    RETURN_IF_ERROR(ReadExact(client_fd, src_block_ids.data(),
-                              header.count_or_size * sizeof(int)));
+    std::vector<uint8_t> ids_buf(header.count_or_size * sizeof(uint32_t));
+    RETURN_IF_ERROR(ReadExact(client_fd, ids_buf.data(), ids_buf.size()));
+    allocated_ids = lib::DeserializeBlockIds(ids_buf);
+
+    RETURN_IF_ERROR(ReadExact(client_fd, ids_buf.data(), ids_buf.size()));
+    src_block_ids = lib::DeserializeBlockIds(ids_buf);
     uint8_t ack = 1;
     RETURN_IF_ERROR(WriteExact(client_fd, &ack, 1));
   }
@@ -397,9 +398,9 @@ absl::Status BlockTransport::HandleIncomingPush(
       header.count_or_size, [&](size_t l, size_t sh, size_t k) -> absl::Status {
         ABSL_DCHECK_LT(k, allocated_ids.size());
         const int dst_id = allocated_ids[k];
-        uint32_t sender_size = 0;
-        RETURN_IF_ERROR(
-            ReadExact(client_fd, &sender_size, sizeof(sender_size)));
+        uint8_t size_buf[lib::kChunkSizeFieldSize];
+        RETURN_IF_ERROR(ReadExact(client_fd, size_buf, sizeof(size_buf)));
+        const uint32_t sender_size = lib::DeserializeChunkSize(size_buf);
 
         const int64_t block_id_val = dst_id;
         int64_t src_bid = -1;
@@ -631,7 +632,9 @@ void BlockTransport::TriggerNextSendStep(
           }
 
           uint32_t total_size = GetChunksTotalSize(chunks);
-          s = WriteExact(state->client_fd, &total_size, sizeof(total_size));
+          const std::array<uint8_t, lib::kChunkSizeFieldSize> s_size =
+              lib::SerializeChunkSize(total_size);
+          s = WriteExact(state->client_fd, s_size.data(), s_size.size());
           if (!s.ok()) {
             LOG(ERROR) << "Write size failed: " << s.ToString();
             shutdown(state->client_fd, SHUT_RDWR);
@@ -1041,10 +1044,12 @@ absl::Status BlockTransport::ProcessSocketPush(
 
   if (socket_opcode == 6) {
     ABSL_DCHECK_LE(block_offset + block_count, dst_block_ids.size());
-    RETURN_IF_ERROR(WriteExact(fd, &dst_block_ids[block_offset],
-                               block_count * sizeof(int)));
-    RETURN_IF_ERROR(WriteExact(fd, &src_block_ids[block_offset],
-                               block_count * sizeof(int)));
+    const auto s_dst_ids = lib::SerializeBlockIds(
+        {dst_block_ids.data() + block_offset, block_count});
+    RETURN_IF_ERROR(WriteExact(fd, s_dst_ids.data(), s_dst_ids.size()));
+    const auto s_src_ids = lib::SerializeBlockIds(
+        {src_block_ids.data() + block_offset, block_count});
+    RETURN_IF_ERROR(WriteExact(fd, s_src_ids.data(), s_src_ids.size()));
     uint8_t ack = 0;
     s = ReadExact(fd, &ack, 1);
     if (!s.ok() || ack != 1) {
@@ -1054,9 +1059,10 @@ absl::Status BlockTransport::ProcessSocketPush(
       allocated_ids[block_offset + k] = dst_block_ids[block_offset + k];
     }
   } else {
-    std::vector<int> stream_allocated_ids(block_count, 0);
-    RETURN_IF_ERROR(
-        ReadExact(fd, stream_allocated_ids.data(), block_count * sizeof(int)));
+    std::vector<uint8_t> ids_buf(block_count * sizeof(uint32_t));
+    RETURN_IF_ERROR(ReadExact(fd, ids_buf.data(), ids_buf.size()));
+    const std::vector<int> stream_allocated_ids =
+        lib::DeserializeBlockIds(ids_buf);
 
     for (size_t k = 0; k < block_count; ++k) {
       ABSL_DCHECK_LT(block_offset + k, allocated_ids.size());
@@ -1080,7 +1086,9 @@ absl::Status BlockTransport::ProcessSocketPush(
         ++j;
       }
 
-      RETURN_IF_ERROR(WriteExact(fd, &total_size, sizeof(total_size)));
+      const std::array<uint8_t, lib::kChunkSizeFieldSize> s_size =
+          lib::SerializeChunkSize(total_size);
+      RETURN_IF_ERROR(WriteExact(fd, s_size.data(), s_size.size()));
       if (total_size > 0) {
         RETURN_IF_ERROR(WriteVExact(fd, absl::MakeSpan(iov)));
         stream_bytes_sent += total_size;
@@ -1309,8 +1317,9 @@ void BlockTransport::H2hReadWorker(
             expected_size += chunk.size;
           }
 
-          uint32_t sender_size = 0;
-          RETURN_IF_ERROR(ReadExact(fd, &sender_size, sizeof(sender_size)));
+          uint8_t size_buf[lib::kChunkSizeFieldSize];
+          RETURN_IF_ERROR(ReadExact(fd, size_buf, sizeof(size_buf)));
+          const uint32_t sender_size = lib::DeserializeChunkSize(size_buf);
 
           if (sender_size != expected_size) {
             return absl::InternalError(absl::StrCat(

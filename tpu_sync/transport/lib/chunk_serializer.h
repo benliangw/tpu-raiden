@@ -15,8 +15,10 @@
 #ifndef THIRD_PARTY_TPU_RAIDEN_TPU_SYNC_TRANSPORT_LIB_CHUNK_SERIALIZER_H_
 #define THIRD_PARTY_TPU_RAIDEN_TPU_SYNC_TRANSPORT_LIB_CHUNK_SERIALIZER_H_
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 #include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
@@ -29,6 +31,7 @@ namespace tpu_raiden::transport::lib {
 
 inline constexpr size_t kChunkHeaderSize = 64;
 inline constexpr size_t kMaxMetadataSize = 24;
+inline constexpr size_t kChunkSizeFieldSize = sizeof(uint32_t);
 
 inline constexpr uint16_t kRaidenMagic =
     static_cast<uint16_t>(flatbuf::Constant_MAGIC);
@@ -61,6 +64,19 @@ absl::InlinedVector<char, kMaxMetadataSize> SerializeChunkMetadata(
 // Parses the chunk metadata from its serialized binary bytes.
 absl::StatusOr<ChunkMetadata> DeserializeChunkMetadata(
     absl::Span<const char> bytes, uint16_t ver);
+
+// Serializes a span of integer block IDs to a byte vector.
+std::vector<uint8_t> SerializeBlockIds(absl::Span<const int> ids);
+
+// Parses a vector of integer block IDs from its serialized binary bytes.
+std::vector<int> DeserializeBlockIds(absl::Span<const uint8_t> bytes);
+
+// Serializes a 32-bit chunk size to a 4-byte array.
+std::array<uint8_t, kChunkSizeFieldSize> SerializeChunkSize(
+    uint32_t size_bytes);
+
+// Parses a 32-bit chunk size from its serialized binary bytes.
+uint32_t DeserializeChunkSize(absl::Span<const uint8_t> bytes);
 
 }  // namespace tpu_raiden::transport::lib
 

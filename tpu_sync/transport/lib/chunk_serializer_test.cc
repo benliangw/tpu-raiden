@@ -15,6 +15,7 @@
 #include "tpu_sync/transport/lib/chunk_serializer.h"
 
 #include <cstdint>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -143,6 +144,39 @@ TEST(ChunkMetadataSerializerTest, DeserializeLittleEndian) {
 
   EXPECT_THAT(DeserializeChunkMetadata(wire, /*ver=*/1),
               IsOkAndHolds(MakeSampleMetadataV1()));
+}
+
+TEST(BlockIdsSerializerTest, SerializeAndDeserialize) {
+  const std::vector<int> original = {0, 1, -1, 42, 0x12345678, -12345678};
+  const auto bytes = SerializeBlockIds(original);
+
+  EXPECT_EQ(DeserializeBlockIds(bytes), original);
+}
+
+TEST(BlockIdsSerializerTest, SerializeToLittleEndian) {
+  const std::vector<int> original = {0x12345678, 0x01020304};
+  const auto bytes = SerializeBlockIds(original);
+  ASSERT_EQ(bytes.size(), 8);
+
+  const uint8_t expected_wire[8] = {
+      0x78, 0x56, 0x34, 0x12, 0x04, 0x03, 0x02, 0x01,
+  };
+  EXPECT_THAT(bytes, ElementsAreArray(expected_wire));
+}
+
+TEST(ChunkSizeSerializerTest, SerializeAndDeserialize) {
+  for (uint32_t original : {0u, 1u, 1024u, 0x12345678u, 0xFFFFFFFFu}) {
+    const auto bytes = SerializeChunkSize(original);
+    EXPECT_EQ(DeserializeChunkSize(bytes), original);
+  }
+}
+
+TEST(ChunkSizeSerializerTest, SerializeToLittleEndian) {
+  const auto bytes = SerializeChunkSize(0x12345678);
+  ASSERT_EQ(bytes.size(), 4);
+
+  const uint8_t expected_wire[4] = {0x78, 0x56, 0x34, 0x12};
+  EXPECT_THAT(bytes, ElementsAreArray(expected_wire));
 }
 
 }  // namespace

@@ -55,6 +55,7 @@ cc_library(
     deps = [
         ":chunk",
         ":chunk_cc_fbs",
+        "//third_party/flatbuffers",
         "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/status",

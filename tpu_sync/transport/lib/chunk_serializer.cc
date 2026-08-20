@@ -14,8 +14,10 @@
 
 #include "tpu_sync/transport/lib/chunk_serializer.h"
 
+#include <array>
 #include <cstdint>
 #include <cstring>
+#include <vector>
 
 #include "absl/container/inlined_vector.h"
 #include "absl/log/check.h"
@@ -23,6 +25,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
+#include "flatbuffers/include/flatbuffers/base.h"
 #include "tpu_sync/transport/lib/chunk.h"
 #include "tpu_sync/transport/lib/chunk_generated.h"
 
@@ -137,6 +140,43 @@ absl::StatusOr<ChunkMetadata> DeserializeChunkMetadata(absl::Span<const char> s,
           absl::StrCat("Unsupported chunk metadata flatbuf version: ", ver));
   }
   return metadata;
+}
+
+std::vector<uint8_t> SerializeBlockIds(absl::Span<const int> ids) {
+  std::vector<uint8_t> buf(ids.size() * sizeof(uint32_t));
+  for (size_t i = 0; i < ids.size(); ++i) {
+    uint32_t val = flatbuffers::EndianScalar(static_cast<uint32_t>(ids[i]));
+    std::memcpy(buf.data() + i * sizeof(uint32_t), &val, sizeof(uint32_t));
+  }
+  return buf;
+}
+
+std::vector<int> DeserializeBlockIds(absl::Span<const uint8_t> bytes) {
+  DCHECK_EQ(bytes.size() % sizeof(uint32_t), 0);
+  const size_t count = bytes.size() / sizeof(uint32_t);
+  std::vector<int> ids;
+  ids.reserve(count);
+  for (size_t i = 0; i < count; ++i) {
+    uint32_t val = 0;
+    std::memcpy(&val, bytes.data() + i * sizeof(uint32_t), sizeof(uint32_t));
+    ids.push_back(static_cast<int>(flatbuffers::EndianScalar(val)));
+  }
+  return ids;
+}
+
+std::array<uint8_t, kChunkSizeFieldSize> SerializeChunkSize(
+    uint32_t size_bytes) {
+  std::array<uint8_t, kChunkSizeFieldSize> buf;
+  uint32_t val = flatbuffers::EndianScalar(size_bytes);
+  std::memcpy(buf.data(), &val, sizeof(uint32_t));
+  return buf;
+}
+
+uint32_t DeserializeChunkSize(absl::Span<const uint8_t> bytes) {
+  DCHECK_EQ(bytes.size(), kChunkSizeFieldSize);
+  uint32_t val = 0;
+  std::memcpy(&val, bytes.data(), sizeof(uint32_t));
+  return flatbuffers::EndianScalar(val);
 }
 
 }  // namespace tpu_raiden::transport::lib
