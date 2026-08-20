@@ -59,6 +59,21 @@ ABSL_FLAG(size_t, raiden_weight_sync_host_buffer_scratchpad_size, 256 * 1024,
 
 namespace tpu_raiden {
 namespace weight_sync {
+namespace {
+
+// Allocates an uninitialized shared buffer, using
+// std::make_shared_for_overwrite when supported (C++20), falling back to
+// std::shared_ptr<uint8_t[]>(new uint8_t[size]).
+inline std::shared_ptr<uint8_t[]> MakeSharedBufferForOverwrite(size_t size) {
+#if defined(__cpp_lib_smart_ptr_for_overwrite) && \
+    __cpp_lib_smart_ptr_for_overwrite >= 202002L
+  return std::make_shared_for_overwrite<uint8_t[]>(size);
+#else
+  return std::shared_ptr<uint8_t[]>(new uint8_t[size]);
+#endif
+}
+
+}  // namespace
 
 WeightSynchronizerBase::WeightSynchronizerBase(
     const std::vector<std::vector<raiden::RaidenBufferHandle>>& layer_buffers,
@@ -345,8 +360,7 @@ absl::StatusOr<raiden::PjRtCopyFuture> WeightSynchronizerBase::H2dLayer(
       size_t physical_bytes =
           tpu_raiden::weight_sync::GetTiledBufferElements(shard_hold.shape) *
           itemsize;
-      auto temp_buffer =
-          std::make_shared_for_overwrite<uint8_t[]>(physical_bytes);
+      auto temp_buffer = MakeSharedBufferForOverwrite(physical_bytes);
       auto tile_start = absl::Now();
       auto status = tpu_raiden::weight_sync::TileBuffer(
           shard_info.host_ptr, temp_buffer.get(), shard_hold.shape,
@@ -462,8 +476,7 @@ absl::StatusOr<raiden::PjRtCopyFuture> WeightSynchronizerBase::D2hLayer(
       size_t physical_bytes =
           tpu_raiden::weight_sync::GetTiledBufferElements(shard_hold.shape) *
           itemsize;
-      auto temp_buffer =
-          std::make_shared_for_overwrite<uint8_t[]>(physical_bytes);
+      auto temp_buffer = MakeSharedBufferForOverwrite(physical_bytes);
       uint8_t* temp_buffer_ptr = temp_buffer.get();
 
       xla::Future<> copy_future =
