@@ -25,7 +25,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
-#include "flatbuffers/include/flatbuffers/base.h"
+#include "flatbuffers/base.h"
 #include "tpu_sync/transport/lib/chunk.h"
 #include "tpu_sync/transport/lib/chunk_generated.h"
 
