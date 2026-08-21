@@ -403,7 +403,6 @@ bool HostOffloadBackend::InsertAndLock(
     return false;
   }
 
-  size_t eviction_count = 0;
   for (auto it = new_indices.rbegin(); it != new_indices.rend(); ++it) {
     size_t i = *it;
     const std::string& hash = block_hashes[i];
@@ -413,15 +412,14 @@ bool HostOffloadBackend::InsertAndLock(
         ClearMetadataEntry(*stale);
       }
     }
-    std::optional<std::pair<std::string, RaidenBlockId>> evicted;
+    // Put's displaced entry is discarded: a displaced entry becomes an
+    // eviction candidate that still holds its host block, and GetEvictableKeys
+    // finds it there. Nothing puts a displaced entry back.
     if (i < slices.size()) {
-      evicted = lru_cache_.Put(hash, slices[i]);
+      lru_cache_.Put(hash, slices[i]);
       SetMetadataEntry(hash, slices[i]);
     } else {
-      evicted = lru_cache_.Put(hash, RaidenBlockId());
-    }
-    if (evicted.has_value()) {
-      eviction_count++;
+      lru_cache_.Put(hash, RaidenBlockId());
     }
   }
 
@@ -441,16 +439,10 @@ bool HostOffloadBackend::InsertAndLock(
         }
         lru_cache_.Erase(block_hashes[j]);
       }
-      for (size_t j = 0; j < eviction_count; ++j) {
-        lru_cache_.RestoreLastCandidate();
-      }
       return false;
     }
   }
 
-  if (eviction_count > 0) {
-    pending_eviction_counts_[GetSortedHashes(block_hashes)] = eviction_count;
-  }
   return true;
 }
 
@@ -471,18 +463,6 @@ size_t HostOffloadBackend::ReleaseAndDelete(
       lru_cache_.Erase(hash);
       deleted_blocks++;
     }
-  }
-
-  size_t restoration_count = 0;
-  auto it = pending_eviction_counts_.find(GetSortedHashes(block_hashes));
-  if (it != pending_eviction_counts_.end()) {
-    restoration_count = it->second;
-    pending_eviction_counts_.erase(it);
-  }
-
-  size_t to_restore = std::min(deleted_blocks, restoration_count);
-  for (size_t i = 0; i < to_restore; ++i) {
-    lru_cache_.RestoreLastCandidate();
   }
 
   return deleted_blocks;
@@ -535,10 +515,12 @@ bool HostOffloadBackend::Pin(absl::Span<const std::string> block_hashes) {
 
 void HostOffloadBackend::Release(absl::Span<const std::string> block_hashes) {
   absl::MutexLock lock(mutex_);
+  // Reverse order so that block_hashes[0] ends up nearest the MRU end: Unpin
+  // splices an entry to the front of the active list, and the first hash of a
+  // prefix chain is the one most worth keeping.
   for (auto it = block_hashes.rbegin(); it != block_hashes.rend(); ++it) {
     lru_cache_.Unpin(*it);
   }
-  pending_eviction_counts_.erase(GetSortedHashes(block_hashes));
 }
 
 int HostOffloadBackend::GetPinCount(const std::string& hash) const {
@@ -1258,12 +1240,6 @@ void HostOffloadBackend::ClearMetadataEntry(const RaidenBlockId& block) {
   }
 }
 
-std::vector<std::string> HostOffloadBackend::GetSortedHashes(
-    absl::Span<const std::string> hashes) const {
-  std::vector<std::string> sorted(hashes.begin(), hashes.end());
-  std::sort(sorted.begin(), sorted.end());
-  return sorted;
-}
 }  // namespace kv_cache
 }  // namespace tpu_raiden
 

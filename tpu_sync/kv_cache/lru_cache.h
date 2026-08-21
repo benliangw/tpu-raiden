@@ -56,11 +56,24 @@ class LRUCache {
   // Returns the maximum capacity of the cache.
   size_t capacity() const { return capacity_; }
 
-  // Returns the number of elements currently stored in the cache.
+  // Returns the number of elements currently stored in the cache, INCLUDING
+  // eviction candidates. So this is not bounded by capacity(): a candidate
+  // stays in the map, still holding its host block, until the owner reclaims
+  // it through GetEvictableKeys. Use active_size() for the bounded figure.
   size_t size() const { return map_.size(); }
 
   // Returns the available space (free + evictable capacity).
-  size_t available_space() const { return capacity_ - pinned_list_.size(); }
+  // Clamped at zero rather than wrapping: pinned_list_ CAN exceed capacity_,
+  // because pinning an eviction candidate resurrects it into the active set
+  // with no capacity check (GetAndPin). An unclamped size_t subtraction then
+  // yields SIZE_MAX -- and this value is a guard
+  // (host_offload_backend.cc:399, :883), where "unlimited room" is exactly the
+  // wrong answer, as well as being published to peers as free_blocks
+  // (kv_cache_store.cc:335).
+  size_t available_space() const {
+    return capacity_ > pinned_list_.size() ? capacity_ - pinned_list_.size()
+                                           : 0;
+  }
   size_t active_size() const { return lru_list_.size() + pinned_list_.size(); }
 
   // Returns true if the cache is completely empty.
@@ -302,18 +315,9 @@ class LRUCache {
     return std::make_pair(it->key, it->value);
   }
 
-  // Restores the last evicted candidate back to the LRU list (at the LRU
-  // position). Returns true if a candidate was successfully restored.
-  bool RestoreLastCandidate() {
-    if (evict_candidate_list_.empty()) {
-      return false;
-    }
-    auto it = std::prev(evict_candidate_list_.end());
-    it->location = NodeLocation::kLru;
-    lru_list_.splice(lru_list_.end(), evict_candidate_list_, it);
-    return true;
-  }
-
+  // Test-only observability: the candidate list has no production reader.
+  // Production reclaims candidates through GetEvictableKeys, which scans this
+  // list before the active one.
   std::vector<Key> GetEvictCandidateKeys() const {
     std::vector<Key> keys;
     keys.reserve(evict_candidate_list_.size());
@@ -321,17 +325,6 @@ class LRUCache {
       keys.push_back(node.key);
     }
     return keys;
-  }
-
-  // Moves the key from the candidate list back to the active LRU list (as MRU)
-  // if it was in the candidate list.
-  void MarkAsActive(const Key& key) {
-    auto it = map_.find(key);
-    if (it == map_.end()) return;
-    if (it->second->location == NodeLocation::kCandidate) {
-      lru_list_.splice(lru_list_.begin(), evict_candidate_list_, it->second);
-      it->second->location = NodeLocation::kLru;
-    }
   }
 
  private:

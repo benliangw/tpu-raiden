@@ -278,54 +278,6 @@ TEST(LRUCacheTest, GetEvictableKeysScanningOrder) {
   EXPECT_EQ(keys[3], 4);  // Newer active
 }
 
-TEST(LRUCacheTest, RestoreLastCandidate) {
-  LRUCache<int, std::string> cache(3);
-  cache.Put(1, "one");
-  cache.Put(2, "two");
-  cache.Put(3, "three");
-  // MRU to LRU is: 3, 2, 1.
-
-  // Evict twice.
-  auto evicted1 = cache.Evict();
-  ASSERT_TRUE(evicted1.has_value());
-  EXPECT_EQ(evicted1->first, 1);
-
-  auto evicted2 = cache.Evict();
-  ASSERT_TRUE(evicted2.has_value());
-  EXPECT_EQ(evicted2->first, 2);
-
-  // Candidates: 1, 2.
-
-  // Restore once. It should restore 2 (last candidate).
-  EXPECT_TRUE(cache.RestoreLastCandidate());
-  EXPECT_TRUE(cache.Contains(2));
-  EXPECT_FALSE(cache.GetEvictCandidateKeys().empty());
-  EXPECT_EQ(cache.GetEvictCandidateKeys().size(), 1);
-  EXPECT_EQ(cache.GetEvictCandidateKeys()[0], 1);
-
-  // Restore again. It should restore 1.
-  EXPECT_TRUE(cache.RestoreLastCandidate());
-  EXPECT_TRUE(cache.Contains(1));
-  EXPECT_TRUE(cache.GetEvictCandidateKeys().empty());
-
-  // Restore when candidate list is empty should return false.
-  EXPECT_FALSE(cache.RestoreLastCandidate());
-
-  // Verify that restored items are at the back of the LRU list (LRU position).
-  // Now MRU to LRU should be: 3, 2, 1.
-  auto evict_again1 = cache.Evict();
-  ASSERT_TRUE(evict_again1.has_value());
-  EXPECT_EQ(evict_again1->first, 1);
-
-  auto evict_again2 = cache.Evict();
-  ASSERT_TRUE(evict_again2.has_value());
-  EXPECT_EQ(evict_again2->first, 2);
-
-  auto evict_again3 = cache.Evict();
-  ASSERT_TRUE(evict_again3.has_value());
-  EXPECT_EQ(evict_again3->first, 3);
-}
-
 TEST(LRUCacheTest, CandidateVisibility) {
   LRUCache<int, std::string> cache(2);
   cache.Put(1, "one");
@@ -409,6 +361,28 @@ TEST(LRUCacheTest, PutBackAddsAtTheLruEnd) {
   auto evicted3 = cache.Evict();
   ASSERT_TRUE(evicted3.has_value());
   EXPECT_EQ(evicted3->first, "B");
+}
+
+// available_space() is a GUARD (host_offload_backend.cc:399, :883) and is also
+// published to peers as free_blocks (kv_cache_store.cc:335). pinned_list_ can
+// exceed capacity_ because pinning an eviction candidate resurrects it without
+// a capacity check, so the subtraction must not wrap to SIZE_MAX.
+TEST(LRUCacheTest, AvailableSpaceClampsInsteadOfUnderflowing) {
+  LRUCache<int, std::string> cache(2);
+  cache.Put(1, "a");
+  cache.Put(2, "b");
+  cache.Put(3, "c");  // displaces 1 to the candidate list
+  cache.Put(4, "d");  // displaces 2 to the candidate list
+
+  cache.Pin(3);
+  cache.Pin(4);
+  // Pinning a CANDIDATE resurrects it straight into pinned_list_, which is how
+  // pinned_list_ grows past capacity_.
+  cache.Pin(1);
+  cache.Pin(2);
+  // Whether or not resurrection is later made capacity-aware, this must hold:
+  // the subtraction must clamp, never wrap.
+  EXPECT_LE(cache.available_space(), cache.capacity());
 }
 
 }  // namespace

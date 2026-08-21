@@ -259,9 +259,6 @@ class HostOffloadBackend : public KVCacheStoreBackend {
   void ClearMetadataEntry(const RaidenBlockId& block)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  std::vector<std::string> GetSortedHashes(
-      absl::Span<const std::string> hashes) const;
-
   mutable absl::Mutex mutex_;
   LRUCache<std::string, RaidenBlockId> lru_cache_ ABSL_GUARDED_BY(mutex_);
   std::optional<KVCacheMetadata> metadata_ ABSL_GUARDED_BY(mutex_);
@@ -271,8 +268,6 @@ class HostOffloadBackend : public KVCacheStoreBackend {
   // BackendConfig.kv_pool_group.
   const std::string kv_pool_group_;
   controller::RaidenController* raiden_controller_ = nullptr;
-  absl::flat_hash_map<std::vector<std::string>, size_t> pending_eviction_counts_
-      ABSL_GUARDED_BY(mutex_);
 
   std::shared_ptr<global_registry::GlobalRegistryClient> registry_client_
       ABSL_GUARDED_BY(mutex_);
