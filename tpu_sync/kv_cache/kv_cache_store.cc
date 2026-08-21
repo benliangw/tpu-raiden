@@ -1554,22 +1554,14 @@ size_t KVCacheStore::Evict(const std::vector<std::string>& block_hashes) {
   if (block_hashes.empty()) {
     return 0;
   }
-  std::vector<int> host_ids_to_deallocate;
-  {
-    absl::MutexLock lock(mutex_);
-    host_ids_to_deallocate = backend()->Evict(block_hashes);
-  }
+  // The backend handles thread-safe eviction and unregisters erased blocks
+  // from the global registry outside its lock. We do not hold store mutex_
+  // across this call to avoid blocking concurrent operations on network I/O.
+  const std::vector<int> host_ids_to_deallocate =
+      backend()->Evict(block_hashes);
 
   if (host_ids_to_deallocate.empty()) {
     return 0;
-  }
-
-  if (registry_client_) {
-    auto status = registry_client_->Unregister(block_hashes, raiden_id_);
-    if (!status.ok()) {
-      LOG(WARNING) << "Failed to unregister proactively evicted blocks: "
-                   << status.message();
-    }
   }
 
   DeallocateBlockIds(host_ids_to_deallocate);

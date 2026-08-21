@@ -2164,6 +2164,69 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, EvictByHashesErasesEitherStatus) {
   }
 }
 
+// Verifies that eviction skips pinned blocks and leaves them registered in the
+// global registry, while unregistering only the actually evicted blocks.
+TEST_F(KVCacheStoreEmbeddedControllerTest, EvictKeepsASkippedHashRegistered) {
+  auto server = global_registry::CreateTestGlobalRegistryServer();
+  std::string server_address = server->server_address;
+
+  ::tpu_raiden::controller::MockTransferManager mock_mgr;
+  test_server_->service->SetTransferManager(
+      ::tpu_raiden::KVManagerHolder(&mock_mgr));
+
+  auto controller = MakeController();
+  RegisterAndInitWorker(*controller, "worker_0",
+                        test_server_->server_address);
+
+  ASSERT_OK_AND_ASSIGN(std::vector<int> host_block_ids,
+                       controller->AllocateBlockIds(2));
+  ASSERT_EQ(host_block_ids.size(), 2);
+
+  RaidenId rid{"test_job", "0", "test_cache", 0};
+  KVCacheStore store(10, std::move(controller), server_address, rid,
+                     std::nullopt, /*store_server_ip=*/"127.0.0.1");
+
+  auto channel =
+      grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials());
+  global_registry::GlobalRegistryClient registry_client(channel);
+  ASSERT_OK(registry_client.Register({{"pinned_1", rid, host_block_ids[0]},
+                                      {"free_1", rid, host_block_ids[1]}}));
+
+  std::vector<std::string> hashes = {"pinned_1", "free_1"};
+  std::vector<RaidenBlockId> slices = {
+      RaidenBlockId(rid, host_block_ids[0], -1, BlockStatus::HOST),
+      RaidenBlockId(rid, host_block_ids[1], -1, BlockStatus::HOST)};
+  ASSERT_TRUE(InsertResident(store, hashes, slices, true));
+
+  // The pin is what makes "pinned_1" unevictable.
+  ASSERT_OK(store.Lookup({"pinned_1"}));
+  ASSERT_EQ(store.GetPinCount("pinned_1"), 1);
+
+  // Ask for both. Only the unpinned one can go.
+  EXPECT_EQ(KVCacheStoreTest::Evict(store, {"pinned_1", "free_1"}), 1);
+  EXPECT_EQ(store.GetPinCount("pinned_1"), 1);
+
+  // Wait for the eviction to reach the registry, then check the survivor:
+  // once "free_1" is gone we know the unregister call has been served, so a
+  // still-present "pinned_1" is a settled answer rather than a slow one.
+  // Note: GlobalRegistryClient communicates with an external gRPC server
+  // without client notification/subscription streams, so we poll for
+  // unregistration.
+  bool free_unregistered = false;
+  for (int attempt = 0; attempt < 100; ++attempt) {
+    auto reg_res = registry_client.Lookup({"free_1"});
+    if (reg_res.ok() && reg_res->empty()) {
+      free_unregistered = true;
+      break;
+    }
+    absl::SleepFor(absl::Milliseconds(10));
+  }
+  EXPECT_TRUE(free_unregistered);
+
+  ASSERT_OK_AND_ASSIGN(auto pinned_res, registry_client.Lookup({"pinned_1"}));
+  EXPECT_FALSE(pinned_res.empty());
+}
+
 TEST_F(KVCacheStoreEmbeddedControllerTest, EvictOnSave) {
   auto server = global_registry::CreateTestGlobalRegistryServer();
   std::string server_address = server->server_address;
@@ -2185,15 +2248,12 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, EvictOnSave) {
       grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials());
   global_registry::GlobalRegistryClient registry_client(channel);
 
-  auto alloc_or = controller_ptr->AllocateBlockIds(2);
-  ASSERT_TRUE(alloc_or.ok());
-  std::vector<int> host_block_ids = *alloc_or;
+  ASSERT_OK_AND_ASSIGN(std::vector<int> host_block_ids,
+                       controller_ptr->AllocateBlockIds(2));
   ASSERT_EQ(host_block_ids.size(), 2);
 
-  ASSERT_TRUE(registry_client
-                  .Register({{"block_A", rid, host_block_ids[0]},
-                             {"block_B", rid, host_block_ids[1]}})
-                  .ok());
+  ASSERT_OK(registry_client.Register({{"block_A", rid, host_block_ids[0]},
+                                      {"block_B", rid, host_block_ids[1]}}));
 
   std::vector<std::string> hashes = {"block_A", "block_B"};
   std::vector<RaidenBlockId> slices = {
@@ -2205,12 +2265,11 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, EvictOnSave) {
   std::vector<RaidenBlockId> slices_C = {
       RaidenBlockId(rid, -1, 0, BlockStatus::HBM)};
   ASSERT_TRUE(InsertResident(store, hashes_C, slices_C, false));
-  ASSERT_TRUE(store.Lookup(hashes_C).ok());
+  ASSERT_OK(store.Lookup(hashes_C));
 
   EXPECT_EQ(controller_ptr->block_manager()->num_free_blocks(), 0);
 
-  absl::Status status = store.Save(hashes_C);
-  ASSERT_TRUE(status.ok()) << status.message();
+  ASSERT_OK(store.Save(hashes_C));
 
   bool done = false;
   while (!done) {
@@ -2234,12 +2293,11 @@ TEST_F(KVCacheStoreEmbeddedControllerTest, EvictOnSave) {
   EXPECT_EQ(PeekLookup(store, {"block_B"})->size(), 0);
   EXPECT_EQ(PeekLookup(store, {"block_A"})->size(), 1);
 
-  auto lookup_res = PeekLookup(store, {"block_C"});
-  ASSERT_TRUE(lookup_res.ok());
-  ASSERT_EQ(lookup_res->size(), 1);
-  EXPECT_EQ((*lookup_res)[0].second.status, BlockStatus::HOST_AND_HBM);
-  EXPECT_EQ((*lookup_res)[0].second.host_block_id, host_block_ids[1]);
-  EXPECT_EQ((*lookup_res)[0].second.device_block_id, 0);
+  ASSERT_OK_AND_ASSIGN(auto lookup_res, PeekLookup(store, {"block_C"}));
+  ASSERT_EQ(lookup_res.size(), 1);
+  EXPECT_EQ(lookup_res[0].second.status, BlockStatus::HOST_AND_HBM);
+  EXPECT_EQ(lookup_res[0].second.host_block_id, host_block_ids[1]);
+  EXPECT_EQ(lookup_res[0].second.device_block_id, 0);
 
   // Evicting it locally must also unpublish it, or peers keep being told this
   // node holds a block it has handed back.
