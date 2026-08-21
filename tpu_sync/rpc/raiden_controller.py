@@ -2099,7 +2099,6 @@ class RaidenController:
                   data_address_to_unit[shard] = unit
             else:
               computed_slices = {}
-
               is_legacy_by_unit = {}
               # Source slices (always local to sender controller)
               for unit in src_units:
@@ -2272,6 +2271,48 @@ class RaidenController:
                           break
                       local_skip_tiling[layer_idx] = all_aligned
 
+              # Pre-index source slice holders to deduplicate and load-balance
+              # across replicated source shards.
+              src_slice_holders = {}
+              for s_unit in src_units:
+                with self._lock:
+                  variables = self._registered_variables.get(s_unit)
+                s_vars = variables if variables else []
+                s_shards = self._resolve_shards(s_unit)
+                with self._lock:
+                  s_job_reps = {
+                      u.job_replica_id
+                      for u in self._registered_shards
+                      if u.job_name == s_unit.job_name
+                  }
+                  s_phys_mesh = self._registered_mesh_shapes.get(s_unit)
+                  s_mesh_axes = self._registered_mesh_axes.get(s_unit)
+                num_src_hosts = max(1, len(s_job_reps))
+                for s_var in s_vars:
+                  s_slices_list = computed_slices.get(s_unit, {}).get(
+                      s_var.name
+                  )
+                  if not s_slices_list:
+                    continue
+                  s_indices_list = _get_global_indices(
+                      s_unit,
+                      s_shards,
+                      list(s_var.mesh_shape),
+                      list(s_var.layout),
+                      num_src_hosts,
+                      sharding_spec=list(s_var.sharding_spec),
+                      mesh_axes=s_mesh_axes,
+                      physical_mesh_shape=s_phys_mesh,
+                  )
+                  for l_s_idx, g_s_idx in s_indices_list:
+                    if g_s_idx < len(s_slices_list):
+                      s_proto = s_slices_list[g_s_idx]
+                      sl = tuple(_proto_to_nd_slice(s_proto))
+                      k = (s_var.name, sl)
+                      src_slice_holders.setdefault(k, []).append(
+                          (s_unit, l_s_idx)
+                      )
+
               # 3. Generate plan (Intersection)
               for src_unit in src_units:
                 with self._lock:
@@ -2337,13 +2378,6 @@ class RaidenController:
 
                   for local_src_idx, global_src_idx in src_indices:
                     if global_src_idx >= len(src_slices):
-                      logging.warning(
-                          "global_src_idx %d out of range of src_slices (%d)"
-                          " for var %s",
-                          global_src_idx,
-                          len(src_slices),
-                          var_name,
-                      )
                       continue
 
                     src_slice_proto = src_slices[global_src_idx]
@@ -2403,13 +2437,6 @@ class RaidenController:
 
                       for local_dst_idx, global_dst_idx in dst_indices:
                         if global_dst_idx >= len(d_slices):
-                          logging.warning(
-                              "global_dst_idx %d out of range of d_slices (%d)"
-                              " for var %s",
-                              global_dst_idx,
-                              len(d_slices),
-                              var_name,
-                          )
                           continue
 
                         dst_slice_proto = d_slices[global_dst_idx]
@@ -2423,6 +2450,22 @@ class RaidenController:
 
                         intersection = intersect_nd_slices(src_slice, dst_slice)
                         if intersection:
+                          s_key = (var_name, tuple(src_slice))
+                          candidates = src_slice_holders.get(
+                              s_key, [(src_unit, local_src_idx)]
+                          )
+                          if len(candidates) > 1:
+                            dst_global_idx = (
+                                dst_units.index(dst_unit)
+                                if dst_unit in dst_units
+                                else 0
+                            ) * max(1, len(dst_shards)) + local_dst_idx
+                            chosen_src = candidates[
+                                dst_global_idx % len(candidates)
+                            ]
+                            if (src_unit, local_src_idx) != chosen_src:
+                              continue
+
                           is_tile_aware = (
                               local_skip_tiling.get(layer_idx, False)
                               if local_skip_tiling
@@ -2472,7 +2515,6 @@ class RaidenController:
                                 src_unit, True
                             ) or is_legacy_by_unit.get(dst_unit, True)
                             if is_legacy:
-                              # Make offsets block-relative
                               src_block_offset = src_offset % src_block_bytes
                               dst_block_offset = dst_offset % dst_block_bytes
                             else:

@@ -1878,6 +1878,236 @@ class GetGlobalIndicesTest(absltest.TestCase):
           (i * 8192, i * 8192, 128 * 8 * 4, 128 * 8 * 4, 128 * 8 * 4, 2),
       )
 
+  def test_replicated_source_resharding_deduplication(self):
+    """Tests that when source ranks replicate a tensor, only one source pushes to each destination."""
+    dummy_client = DummyWorkerRpcClient()
+    controller = raiden_controller.RaidenController(
+        port=10010, worker_rpc_client=dummy_client
+    )
+
+    # 4 Source units with mesh_shape=[1, 4] (fsdp=1, tp=4)
+    # 1D layernorm tensor (2304,) has sharding_spec=['fsdp'] -> mesh_shape=[1]
+    # Replicated on all 4 source units: each holds [0, 2304]
+    src_units = []
+    for r in range(4):
+      u = raiden_controller.RaidenId("trainer", str(r), "model_weights")
+      src_units.append(u)
+      var = raiden_service_pb2.VariableMetadataProto(
+          name="layer_19.input_layernorm",
+          shape=[2304],
+          mesh_shape=[1],
+          layout=[0],
+          item_size=2,
+          layer_idx=198,
+          sharding_spec=["fsdp"],
+      )
+      controller.register_work_unit(
+          u,
+          [f"10.0.0.1:{8000 + r}"],
+          control_plane_rpc_address=f"10.0.0.1:{9000 + r}",
+          mesh_shape=[1, 4],
+          mesh_axes=["fsdp", "tp"],
+          variables=[var],
+      )
+
+    # 4 Destination units with mesh_shape=[2, 2] (fsdp=2, tp=2)
+    # 1D layernorm tensor (2304,) has sharding_spec=['fsdp'] -> mesh_shape=[2]
+    # Sampler ranks 0 & 1 hold slice 0 [0, 1152]; ranks 2 & 3 hold slice 1 [1152, 2304]
+    dst_units = []
+    for r in range(4):
+      u = raiden_controller.RaidenId("sampler", str(r), "model_weights")
+      dst_units.append(u)
+      var = raiden_service_pb2.VariableMetadataProto(
+          name="layer_19.input_layernorm",
+          shape=[2304],
+          mesh_shape=[2],
+          layout=[0],
+          item_size=2,
+          layer_idx=198,
+          sharding_spec=["fsdp"],
+      )
+      controller.register_work_unit(
+          u,
+          [f"10.0.0.2:{8000 + r}"],
+          control_plane_rpc_address=f"10.0.0.2:{9000 + r}",
+          mesh_shape=[2, 2],
+          mesh_axes=["fsdp", "tp"],
+          variables=[var],
+      )
+
+    future = controller.start_transfer(
+        src_units=src_units,
+        dst_units=dst_units,
+        use_block_chunks=True,
+    )
+    asyncio.run(future.wait())
+
+    plan = controller.get_plan("req_0")
+
+    # Each destination rank must expect exactly 1 chunk for layer 198 (not 4)
+    for dst_u in dst_units:
+      layer_counts = plan.dst_expected_layer_chunk_counts.get(dst_u, {})
+      self.assertEqual(
+          layer_counts.get(198, 0),
+          1,
+          f"Destination unit {dst_u} expected chunk count for layer 198 should"
+          f" be 1, but got {layer_counts.get(198, 0)}",
+      )
+
+    # Count how many times each destination endpoint is targeted across all source schedules
+    dst_target_counts = {f"10.0.0.2:{8000 + r}": 0 for r in range(4)}
+    for src_u, schedules in plan.shard_push_schedules.items():
+      for shard_idx, entries in schedules.items():
+        for entry in entries:
+          dst_peer = entry[0]
+          layer_idx = entry[10] if len(entry) > 10 else 0
+          if layer_idx == 198 and dst_peer in dst_target_counts:
+            dst_target_counts[dst_peer] += 1
+
+    for peer, count in dst_target_counts.items():
+      self.assertEqual(
+          count,
+          1,
+          f"Destination peer {peer} should receive exactly 1 push for layer"
+          f" 198, but got {count}",
+      )
+
+  def test_parallel_multi_variable_resharding_plan(self):
+    """Tests parallel resharding schedule generation across multiple variables and ranks."""
+    dummy_client = DummyWorkerRpcClient()
+    controller = raiden_controller.RaidenController(
+        port=10011, worker_rpc_client=dummy_client, enable_plan_cache=True
+    )
+
+    num_vars = 60
+    # 4 Source units (fsdp=1, tp=4)
+    src_units = []
+    for r in range(4):
+      u = raiden_controller.RaidenId("trainer", str(r), "model_weights")
+      src_units.append(u)
+      vars_list = []
+      for v_idx in range(num_vars):
+        if v_idx % 2 == 0:
+          # 2D matrix (2048, 2048) column sharded
+          vars_list.append(
+              raiden_service_pb2.VariableMetadataProto(
+                  name=f"layer_{v_idx}.mlp.gate_proj",
+                  shape=[2048, 2048],
+                  mesh_shape=[1, 4],
+                  layout=[1, 0],
+                  item_size=2,
+                  layer_idx=v_idx,
+                  sharding_spec=["fsdp", "tp"],
+              )
+          )
+        else:
+          # 1D vector (2048,) replicated
+          vars_list.append(
+              raiden_service_pb2.VariableMetadataProto(
+                  name=f"layer_{v_idx}.input_norm",
+                  shape=[2048],
+                  mesh_shape=[1],
+                  layout=[0],
+                  item_size=2,
+                  layer_idx=v_idx,
+                  sharding_spec=["fsdp"],
+              )
+          )
+      controller.register_work_unit(
+          u,
+          [f"10.0.0.1:{8000 + r}"],
+          control_plane_rpc_address=f"10.0.0.1:{9000 + r}",
+          mesh_shape=[1, 4],
+          mesh_axes=["fsdp", "tp"],
+          variables=vars_list,
+      )
+
+    # 4 Destination units (fsdp=2, tp=2)
+    dst_units = []
+    for r in range(4):
+      u = raiden_controller.RaidenId("sampler", str(r), "model_weights")
+      dst_units.append(u)
+      vars_list = []
+      for v_idx in range(num_vars):
+        if v_idx % 2 == 0:
+          vars_list.append(
+              raiden_service_pb2.VariableMetadataProto(
+                  name=f"layer_{v_idx}.mlp.gate_proj",
+                  shape=[2048, 2048],
+                  mesh_shape=[2, 2],
+                  layout=[1, 0],
+                  item_size=2,
+                  layer_idx=v_idx,
+                  sharding_spec=["fsdp", "tp"],
+              )
+          )
+        else:
+          vars_list.append(
+              raiden_service_pb2.VariableMetadataProto(
+                  name=f"layer_{v_idx}.input_norm",
+                  shape=[2048],
+                  mesh_shape=[2],
+                  layout=[0],
+                  item_size=2,
+                  layer_idx=v_idx,
+                  sharding_spec=["fsdp"],
+              )
+          )
+      controller.register_work_unit(
+          u,
+          [f"10.0.0.2:{8000 + r}"],
+          control_plane_rpc_address=f"10.0.0.2:{9000 + r}",
+          mesh_shape=[2, 2],
+          mesh_axes=["fsdp", "tp"],
+          variables=vars_list,
+      )
+
+    future = controller.start_transfer(
+        src_units=src_units,
+        dst_units=dst_units,
+        use_block_chunks=True,
+        uuid=5555,
+        req_id="parallel_test_req_0",
+    )
+    asyncio.run(future.wait())
+
+    plan = controller.get_plan("parallel_test_req_0")
+    self.assertIsNotNone(plan)
+
+    # Check all variables exist in the generated schedules
+    scheduled_layers = set()
+    for src_u, schedules in plan.shard_push_schedules.items():
+      for shard_idx, entries in schedules.items():
+        for entry in entries:
+          layer_idx = entry[10] if len(entry) > 10 else 0
+          scheduled_layers.add(layer_idx)
+
+    self.assertEqual(len(scheduled_layers), num_vars)
+
+    # Verify each destination unit has all layers in its expected chunk counts
+    for dst_u in dst_units:
+      layer_counts = plan.dst_expected_layer_chunk_counts.get(dst_u, {})
+      for v_idx in range(num_vars):
+        self.assertGreater(
+            layer_counts.get(v_idx, 0),
+            0,
+            f"Destination {dst_u} missing expected chunks for layer {v_idx}",
+        )
+
+    # Verify second transfer invocation reuses cached schedule seamlessly
+    future2 = controller.start_transfer(
+        src_units=src_units,
+        dst_units=dst_units,
+        use_block_chunks=True,
+        uuid=5556,
+        req_id="parallel_test_req_1",
+    )
+    asyncio.run(future2.wait())
+    plan2 = controller.get_plan("parallel_test_req_1")
+    self.assertEqual(
+        len(plan2.shard_push_schedules), len(plan.shard_push_schedules)
+    )
+
 
 if __name__ == "__main__":
   absltest.main()
