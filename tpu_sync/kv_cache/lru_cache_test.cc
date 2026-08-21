@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <type_traits>
 #include "tpu_sync/kv_cache/lru_cache.h"
 
 #include <optional>
@@ -383,6 +384,48 @@ TEST(LRUCacheTest, AvailableSpaceClampsInsteadOfUnderflowing) {
   // Whether or not resurrection is later made capacity-aware, this must hold:
   // the subtraction must clamp, never wrap.
   EXPECT_LE(cache.available_space(), cache.capacity());
+}
+
+// Verifies that Erase returns false on pinned entries and succeeds once unpinned.
+TEST(LRUCacheTest, EraseRefusesAPinnedEntry) {
+  LRUCache<int, std::string> cache(2);
+  cache.Put(1, "one");
+  ASSERT_TRUE(cache.Pin(1));
+  ASSERT_EQ(cache.GetPinCount(1), 1);
+
+  EXPECT_FALSE(cache.Erase(1));
+  EXPECT_TRUE(cache.Contains(1));
+  EXPECT_EQ(*cache.Peek(1), "one");
+  EXPECT_EQ(cache.GetPinCount(1), 1);
+
+  // Once the last pin goes, the entry is erasable again.
+  EXPECT_TRUE(cache.Unpin(1));
+  EXPECT_TRUE(cache.Erase(1));
+  EXPECT_FALSE(cache.Contains(1));
+}
+
+// Verifies that unpinned eviction candidates remain erasable.
+TEST(LRUCacheTest, EraseStillTakesAnUnpinnedCandidate) {
+  LRUCache<int, std::string> cache(2);
+  cache.Put(1, "one");
+  cache.Put(2, "two");
+  ASSERT_TRUE(cache.Evict().has_value());        // 1 becomes a candidate
+  ASSERT_EQ(cache.GetPinCount(1), 0);
+
+  EXPECT_TRUE(cache.Erase(1));
+  EXPECT_TRUE(cache.GetEvictCandidateKeys().empty());
+}
+
+// Verifies that Peek on a const LRUCache reference returns a const pointer.
+TEST(LRUCacheTest, ConstPeekEnforcesConstAccess) {
+  LRUCache<int, std::string> cache(2);
+  cache.Put(1, "one");
+  const auto& const_cache = cache;
+  const std::string* val = const_cache.Peek(1);
+  ASSERT_NE(val, nullptr);
+  EXPECT_EQ(*val, "one");
+  static_assert(std::is_same_v<decltype(const_cache.Peek(1)), const std::string*>);
+  static_assert(std::is_same_v<decltype(cache.Peek(1)), const std::string*>);
 }
 
 }  // namespace

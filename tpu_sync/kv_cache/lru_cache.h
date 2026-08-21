@@ -56,20 +56,11 @@ class LRUCache {
   // Returns the maximum capacity of the cache.
   size_t capacity() const { return capacity_; }
 
-  // Returns the number of elements currently stored in the cache, INCLUDING
-  // eviction candidates. So this is not bounded by capacity(): a candidate
-  // stays in the map, still holding its host block, until the owner reclaims
-  // it through GetEvictableKeys. Use active_size() for the bounded figure.
+  // Returns the total number of elements stored in the cache (including
+  // eviction candidates).
   size_t size() const { return map_.size(); }
 
-  // Returns the available space (free + evictable capacity).
-  // Clamped at zero rather than wrapping: pinned_list_ CAN exceed capacity_,
-  // because pinning an eviction candidate resurrects it into the active set
-  // with no capacity check (GetAndPin). An unclamped size_t subtraction then
-  // yields SIZE_MAX -- and this value is a guard
-  // (host_offload_backend.cc:399, :883), where "unlimited room" is exactly the
-  // wrong answer, as well as being published to peers as free_blocks
-  // (kv_cache_store.cc:335).
+  // Returns the available space (free + evictable capacity), clamped to 0.
   size_t available_space() const {
     return capacity_ > pinned_list_.size() ? capacity_ - pinned_list_.size()
                                            : 0;
@@ -158,10 +149,10 @@ class LRUCache {
     return &(it->second->value);
   }
 
-  // Retrieves a pointer to the stored value for the given key without
-  // promoting it to MRU (preserves exact LRU order). Returns nullptr if
-  // absent or candidate.
-  Value* Peek(const Key& key) const {
+  // Retrieves a const pointer to the stored value for the given key without
+  // promoting it to MRU (preserves exact LRU order). Returns nullptr if absent
+  // or a candidate.
+  const Value* Peek(const Key& key) const {
     auto it = map_.find(key);
     if (it == map_.end() || it->second->location == NodeLocation::kCandidate) {
       return nullptr;
@@ -285,16 +276,15 @@ class LRUCache {
     return keys;
   }
 
-  // Erases the given key from the cache entirely.
-  // Returns true if the element was successfully erased.
+  // Erases the given key from the cache entirely. Pinned entries cannot be
+  // erased and will return false.
+  // Returns true if the element was successfully erased, false otherwise.
   bool Erase(const Key& key) {
     auto it = map_.find(key);
-    if (it == map_.end()) {
+    if (it == map_.end() || it->second->pin_count > 0) {
       return false;
     }
-    if (it->second->location == NodeLocation::kPinned) {
-      pinned_list_.erase(it->second);
-    } else if (it->second->location == NodeLocation::kLru) {
+    if (it->second->location == NodeLocation::kLru) {
       lru_list_.erase(it->second);
     } else if (it->second->location == NodeLocation::kCandidate) {
       evict_candidate_list_.erase(it->second);

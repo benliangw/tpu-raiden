@@ -1355,6 +1355,30 @@ TEST(HostOffloadBackendTest, LookupInterleavedWithoutRegistryClient) {
   EXPECT_EQ(backend.GetPinCount("l2"), 0);
 }
 
+TEST(HostOffloadBackendTest, DeleteSkipsPinnedBlocks) {
+  HostOffloadBackendTest::Backend backend(/*capacity=*/2);
+  RaidenId id{"job", "0", "data", 0};
+  backend.Insert({"h1"}, {RaidenBlockId(id, 10, BlockStatus::HOST)},
+                 /*on_host=*/true);
+  ASSERT_TRUE(backend.Pin({"h1"}));
+  EXPECT_EQ(backend.GetPinCount("h1"), 1);
+
+  // Deleting a pinned block must skip it without erasing the block.
+  backend.Delete({"h1"}, {});
+  auto lookup_res = backend.Lookup({"h1"});
+  ASSERT_OK(lookup_res.status());
+  EXPECT_EQ(lookup_res->size(), 1);
+
+  backend.Release({"h1"});
+  EXPECT_EQ(backend.GetPinCount("h1"), 0);
+
+  // Now that it's unpinned, Delete removes it.
+  backend.Delete({"h1"}, {});
+  auto lookup_after = backend.Lookup({"h1"});
+  ASSERT_OK(lookup_after.status());
+  EXPECT_TRUE(lookup_after->empty());
+}
+
 }  // namespace
 }  // namespace kv_cache
 }  // namespace tpu_raiden
