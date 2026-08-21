@@ -19,8 +19,11 @@ load("//tpu_sync/core:header_only_cc_info.bzl", "header_only_cc_info")
 
 package(default_visibility = ["//visibility:public"])
 
+# Targets tagged "nobuilder" compile against a torch_tpu source checkout and
+# are built only by the external wheel build (build:oss in .bazelrc).
 header_only_cc_info(
     name = "torch_tpu_device_buffer_headers",
+    tags = ["nobuilder"],
     deps = [
         "@torch_tpu//torch_tpu/eager:device_buffer",
     ],
@@ -28,6 +31,7 @@ header_only_cc_info(
 
 header_only_cc_info(
     name = "torch_tpu_tensor_to_buffer_headers",
+    tags = ["nobuilder"],
     deps = [
         "@torch_tpu//torch_tpu/eager:tensor_to_buffer",
     ],
@@ -35,6 +39,7 @@ header_only_cc_info(
 
 header_only_cc_info(
     name = "torch_tpu_materialize_headers",
+    tags = ["nobuilder"],
     deps = [
         "@torch_tpu//torch_tpu/eager:materialize",
     ],
@@ -53,6 +58,7 @@ cc_library(
         "-use_header_modules",
     ],
     linkopts = ["-Wl,--allow-shlib-undefined"],
+    tags = ["nobuilder"],
     visibility = ["//visibility:public"],
     deps = [
         # buildcleaner: keep
@@ -78,6 +84,7 @@ cc_library(
     features = [
         "-use_header_modules",
     ],
+    tags = ["nobuilder"],
     deps = [
         ":torch_tpu_device_buffer_headers",
         ":torch_tpu_materialize_headers",
@@ -103,6 +110,7 @@ cc_library(
     features = [
         "-use_header_modules",
     ],
+    tags = ["nobuilder"],
     deps = [
         ":torch_tpu_tensor_to_buffer_headers",
         ":torch_tpu_utils",
@@ -122,6 +130,7 @@ cc_library(
     features = [
         "-use_header_modules",
     ],
+    tags = ["nobuilder"],
     visibility = ["//visibility:public"],
     deps = [
         "@nanobind",
@@ -162,6 +171,7 @@ cc_library(
         "-use_header_modules",
     ],
     linkopts = ["-Wl,--allow-shlib-undefined"],
+    tags = ["nobuilder"],
     visibility = ["//visibility:public"],
     deps = [
         ":torch_tpu_tensor_to_buffer_headers",
@@ -197,6 +207,7 @@ nanobind_extension(
         "-use_header_modules",
     ],
     linkopts = ["-Wl,--allow-shlib-undefined"],
+    tags = ["nobuilder"],
     visibility = ["//visibility:public"],
     deps = [
         ":kv_cache_manager_torch",
@@ -257,6 +268,7 @@ cc_library(
         "-march=x86-64-v2",
     ],
     features = ["-use_header_modules"],
+    tags = ["nobuilder"],
     visibility = ["//visibility:public"],
     deps = [
         ":torch_tpu_device_buffer_headers",
@@ -282,6 +294,7 @@ nanobind_extension(
     srcs = ["torch_raw_transfer_module.cc"],
     features = ["-use_header_modules"],
     linkopts = ["-Wl,--allow-shlib-undefined"],
+    tags = ["nobuilder"],
     visibility = ["//visibility:public"],
     deps = [
         ":torch_nanobind_utils",
@@ -306,6 +319,7 @@ cc_library(
         "-march=x86-64-v2",
     ],
     features = ["-use_header_modules"],
+    tags = ["nobuilder"],
     visibility = ["//visibility:public"],
     deps = [
         ":torch_tpu_device_buffer_headers",
@@ -338,6 +352,7 @@ cc_library(
         "-march=x86-64-v2",
     ],
     features = ["-use_header_modules"],
+    tags = ["nobuilder"],
     deps = [
         ":torch_tpu_device_buffer_headers",
         "//tpu_sync/core:raw_transfer_core",
@@ -357,6 +372,7 @@ cc_library(
         "-march=x86-64-v2",
     ],
     features = ["-use_header_modules"],
+    tags = ["nobuilder"],
     deps = [
         ":torch_tpu_tensor_to_buffer_headers",
         ":torch_tpu_utils_mock",
@@ -376,6 +392,7 @@ cc_library(
         "-march=x86-64-v2",
     ],
     features = ["-use_header_modules"],
+    tags = ["nobuilder"],
     visibility = ["//visibility:public"],
     deps = [
         ":torch_tpu_tensor_to_buffer_headers",
@@ -409,6 +426,7 @@ cc_library(
         "-march=x86-64-v2",
     ],
     features = ["-use_header_modules"],
+    tags = ["nobuilder"],
     visibility = ["//visibility:public"],
     deps = [
         ":torch_tpu_tensor_to_buffer_headers",
@@ -427,6 +445,7 @@ cc_test(
         "-fexceptions",
     ],
     features = ["-use_header_modules"],
+    tags = ["nobuilder"],
     deps = [
         ":kv_cache_manager_torch_mock",
         ":torch_tpu_utils_mock",
@@ -451,6 +470,7 @@ cc_test(
         "-fexceptions",
     ],
     features = ["-use_header_modules"],
+    tags = ["nobuilder"],
     deps = [
         ":kv_cache_manager_torch_mock",
         ":torch_tpu_utils_mock",
@@ -474,6 +494,7 @@ cc_test(
         "-fexceptions",
     ],
     features = ["-use_header_modules"],
+    tags = ["nobuilder"],
     deps = [
         ":torch_raw_transfer_torch_mock",
         ":torch_tpu_utils_mock",
@@ -493,6 +514,7 @@ py_test(
     main = "kv_cache_manager_test.py",
     tags = [
         "cpu:8",
+        "nobuilder",
         "notap",
         "requires-accel-hbm",
         "requires-ghostlite:8",
@@ -517,6 +539,7 @@ py_test(
     main = "torch_raw_transfer_perf_test.py",
     tags = [
         "cpu:8",
+        "nobuilder",
         "notap",
         "requires-accel-hbm",
         "requires-ghostlite:8",
@@ -540,6 +563,7 @@ py_test(
     main = "torch_raw_transfer_perf_test.py",
     tags = [
         "cpu:8",
+        "nobuilder",
         "notap",
         "requires-accel-hbm",
         "requires-ghostfish:4",
@@ -558,6 +582,7 @@ py_test(
 
 test_suite(
     name = "torch_raw_transfer_perf_test",
+    tags = ["nobuilder"],
     tests = [
         ":torch_raw_transfer_perf_test_gf",
         ":torch_raw_transfer_perf_test_gl",
@@ -571,6 +596,7 @@ py_test(
     main = "torch_raw_transfer_test.py",
     tags = [
         "cpu:8",
+        "nobuilder",
         "notap",
         "requires-accel-hbm",
         "requires-ghostlite:8",
@@ -593,6 +619,7 @@ py_test(
     main = "torch_raw_transfer_test.py",
     tags = [
         "cpu:8",
+        "nobuilder",
         "notap",
         "requires-accel-hbm",
         "requires-ghostfish:4",
@@ -610,6 +637,7 @@ py_test(
 
 test_suite(
     name = "torch_raw_transfer_test_py",
+    tags = ["nobuilder"],
     tests = [
         ":torch_raw_transfer_test_gf",
         ":torch_raw_transfer_test_gl",
