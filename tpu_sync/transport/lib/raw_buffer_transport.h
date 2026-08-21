@@ -122,6 +122,16 @@ class RawBufferTransport final {
   // Drops receive-progress counters belonging to the give `uuid`.
   void ForgetPushProgress(uint64_t uuid);
 
+  // TODO(yyd): Move this struct to psp_tcp_helper.h.
+  struct PspPeerKey {
+    uint32_t spi = 0;
+    std::string key;
+  };
+
+  // Registers incoming client PSP key and returns server's allocated RX key.
+  absl::StatusOr<PspPeerKey> RegisterPspPeer(uint32_t client_spi,
+                                             absl::string_view client_key);
+
  private:
   // Pushes a batch of buffers to the remote `peer`, by sending out a
   // `kOpBufferPushBatched ChunkHeader` followed by a `batch_size` sequence

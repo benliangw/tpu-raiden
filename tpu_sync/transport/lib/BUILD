@@ -136,3 +136,36 @@ cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "peregrine_control_service",
+    hdrs = ["peregrine_control_service.h"],
+    deps = [
+        ":raw_buffer_transport",
+        "//tpu_sync/transport/peregrine/src/internal/control:service_cc_grpc",
+        "//tpu_sync/transport/peregrine/src/internal/control:service_cc_proto",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "peregrine_control_service_test",
+    srcs = ["peregrine_control_service_test.cc"],
+    copts = [
+        "-fno-strict-aliasing",
+        "-fexceptions",
+    ],
+    features = ["-use_header_modules"],
+    deps = [
+        ":peregrine_control_service",
+        ":raw_buffer_transport",
+        ":raw_buffer_transport_delegate",
+        "//tpu_sync/transport/peregrine/src/internal/control:service_cc_grpc",
+        "//tpu_sync/transport/peregrine/src/internal/control:service_cc_proto",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
