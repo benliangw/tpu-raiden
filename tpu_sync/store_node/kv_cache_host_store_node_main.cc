@@ -24,6 +24,8 @@
 #include <memory>
 #include <string>
 
+#include "absl/flags/parse.h"
+#include "absl/log/initialize.h"
 #include "absl/flags/flag.h"
 #include "absl/flags/parse.h"
 #include "absl/log/initialize.h"

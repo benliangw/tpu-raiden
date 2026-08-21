@@ -1024,6 +1024,321 @@ class KVCacheStoreE2ETest(parameterized.TestCase):
     # No release: the successful save consumed the pin insert() granted.
     del built
 
+  def test_sweep_demotes_to_the_store_node_and_reads_back(self):
+    """The evict chain end to end: it all happens behind the existing API.
+
+    save() makes blocks host-resident, the store monitor's sweep demotes the
+    cold ones to a real store node subprocess through the KVTransferSpec
+    published to the registry, a global lookup resolves the node as the new
+    owner, and read_remote pulls the bytes back into HBM byte-exact.
+    Single-device smoke of the JAX test of the same name.
+    """
+    # The store monitor is configured through the environment, read once at
+    # store construction -- scoped to this test so every other test's store
+    # keeps constructing with the monitor off.
+    monitor_env = {
+        "RAIDEN_ENABLE_STORE_MONITOR": "true",
+        "RAIDEN_ENABLE_EVICT_SWEEP": "true",
+        "RAIDEN_STORE_MONITOR_HEARTBEAT_S": "1",
+        "RAIDEN_EVICT_SWEEP_PERIOD_S": "1",
+        "RAIDEN_EVICT_LOW_WATERMARK": "0.5",
+        "RAIDEN_EVICT_HIGH_WATERMARK": "0.75",
+    }
+    for key, value in monitor_env.items():
+      os.environ[key] = value
+      self.addCleanup(os.environ.pop, key, None)
+
+    # 6 of 8 blocks in use after the saves: free ratio 0.25, below the 0.5
+    # low watermark, so the sweep must demote down to the 0.75 high one.
+    capacity = 8
+    num_insert = 6
+    shape = (capacity, 128, 8, 8, 128)
+    host_data = np.arange(np.prod(shape), dtype=np.float32).reshape(shape)
+    tpu_cache = torch.tensor(host_data, device=self.device)
+    block_elements = 128 * 8 * 8 * 128
+    shard_size_bytes = (block_elements * 4) // self.num_devices
+
+    controller_port = find_free_port()
+    pool_group = "evict_e2e_pool"
+
+    # The registration is what fills in the KVTransferSpec the store
+    # publishes for the node, and expected_worker_count is the barrier that
+    # waits for it (see the dedicated barrier test above).
+    built = {}
+
+    def build_manager_after_a_delay():
+      time.sleep(1.0)
+      built["manager"] = kv_cache_manager.KVCacheManager(
+          kv_caches=[[tpu_cache]],
+          local_control_port=0,
+          max_blocks=capacity,
+          num_slots=2,
+          unsafe_skip_buffer_lock=self.skip_lock,
+          raiden_worker_port=0,
+          raiden_controller_address=f"localhost:{controller_port}",
+          worker_id="evict_e2e_worker_0",
+          host_blocks_to_allocate=capacity,
+          node_id=0,
+      )
+
+    worker_thread = threading.Thread(target=build_manager_after_a_delay)
+    worker_thread.start()
+    rid = kv_cache_store.RaidenId("evict_e2e_serving", "0", "evict_cache", 0)
+    try:
+      store = kv_cache_store.KVCacheStore(
+          capacity=capacity,
+          global_registry_address=f"localhost:{_registry_port}",
+          raiden_id=rid,
+          num_shards=self.num_devices,
+          shard_size_bytes=shard_size_bytes,
+          store_server_ip="localhost",
+          raiden_controller_port=controller_port,
+          expected_worker_count=1,
+          kv_pool_group=pool_group,
+      )
+    finally:
+      worker_thread.join(timeout=180)
+    self.assertFalse(worker_thread.is_alive())
+
+    this_dir = os.path.dirname(os.path.abspath(__file__))
+    node_binary = os.path.abspath(
+        os.path.join(
+            this_dir, "..", "..", "store_node", "kv_cache_host_store_node_main"
+        )
+    )
+    node_log = open("/tmp/raiden_store_node.log", "w")
+    node_process = subprocess.Popen(
+        [
+            node_binary,
+            "--job_name=evict_e2e_node",
+            f"--global_registry_address=localhost:{_registry_port}",
+            f"--kv_pool_group={pool_group}",
+            "--store_server_ip=127.0.0.1",
+            "--evict_tier=1",
+            f"--dram_budget_bytes={block_elements * 4 * 16}",
+        ],
+        stdout=node_log,
+        stderr=subprocess.STDOUT,
+    )
+
+    try:
+      deadline = time.time() + 30
+      while time.time() < deadline:
+        if node_process.poll() is not None:
+          node_log.flush()
+          with open("/tmp/raiden_store_node.log", "r") as f:
+            log_content = f.read()
+          self.fail(
+              f"store node exited prematurely with code {node_process.returncode}:\n{log_content}"
+          )
+        if os.path.exists("/tmp/raiden_store_node.log"):
+          with open("/tmp/raiden_store_node.log", "r") as f:
+            if "KVCacheHostStoreNode up" in f.read():
+              break
+        time.sleep(0.5)
+
+      hashes = [f"evict_e2e_blk_{i}".encode() for i in range(num_insert)]
+      slices = [
+          kv_cache_store.RaidenBlockId(
+              rid,
+              host_block_id=-1,
+              device_block_id=i,
+              status=kv_cache_store.BlockStatus.HBM,
+          )
+          for i in range(num_insert)
+      ]
+      self.assertTrue(store.insert(hashes, slices, on_host=False))
+
+      # insert() pins; a successful save consumes that pin, leaving the
+      # blocks host-resident and unpinned -- exactly what the sweep demotes.
+      self.assertTrue(store.save(hashes))
+      deadline = time.time() + 60
+      done = []
+      while time.time() < deadline and len(done) < num_insert:
+        save_done, save_failed, _, _, _ = store.poll_save_status()
+        self.assertEmpty(save_failed, f"save failed for {save_failed}")
+        done += save_done
+        time.sleep(0.05)
+      self.assertLen(done, num_insert)
+
+      # A demoted block is gone locally. lookup() halts at its first miss, so
+      # probe one hash at a time; pin_found=False keeps the probe from
+      # pinning the survivors against later sweep episodes.
+      def missing_locally(h):
+        return not store.lookup([h], enable_global=False, pin_found=False)
+
+      deadline = time.time() + 90
+      demoted = []
+      while time.time() < deadline and len(demoted) < 4:
+        demoted = [h for h in hashes if missing_locally(h)]
+        time.sleep(1)
+      self.assertGreaterEqual(
+          len(demoted),
+          4,
+          "the sweep never demoted down to the high watermark; see"
+          " /tmp/raiden_store_node.log",
+      )
+
+      # The registry is what turns the local miss into the owner's
+      # coordinates: a global lookup must name the node as the owner.
+      probe = demoted[0]
+      src_block = int(probe.decode().rsplit("_", 1)[1])
+      hits = store.lookup([probe], enable_global=True, pin_found=False)
+      self.assertLen(hits, 1)
+      remote = hits[0][1]
+      self.assertEqual(remote.status, kv_cache_store.BlockStatus.REMOTE)
+      self.assertEqual(remote.raiden_id.job_name, "evict_e2e_node")
+
+      # Pull into an untouched device block: its bytes are still that block's
+      # own arange values, distinct from the demoted block's pattern.
+      dst_device_block = num_insert
+      self.assertTrue(store.read_remote([probe], [remote], [dst_device_block]))
+      deadline = time.time() + 60
+      read_done = []
+      while time.time() < deadline and not read_done:
+        read_done, read_failed, _ = store.poll_remote_read_status()
+        self.assertEmpty(read_failed, f"read_remote failed for {read_failed}")
+        time.sleep(0.05)
+      self.assertNotEmpty(read_done, "read_remote never completed")
+
+      try:
+        torch.tpu.synchronize()
+      except (AttributeError, RuntimeError):
+        pass
+      got = tpu_cache.cpu().numpy()[dst_device_block]
+      np.testing.assert_array_equal(got, host_data[src_block])
+    finally:
+      node_process.terminate()
+      try:
+        node_process.wait(timeout=10)
+      except subprocess.TimeoutExpired:
+        node_process.kill()
+      node_log.close()
+    del built
+
+  def test_sweep_without_a_store_node_drops_cold_blocks_locally(self):
+    """The no-target half of the evict sweep: pressure wins over retention.
+
+    Free blocks fall below the low watermark while no store node is
+    registered in the pool group -- the real shape of a node that crashed,
+    is still deploying, or was never brought up (and exactly what the demote
+    test above would hit if it raced the node's registration). The sweep
+    must still raise free blocks to the high watermark by dropping cold
+    blocks locally, and a dropped block is gone globally too: nothing was
+    demoted anywhere. Single-device smoke of the JAX test of the same name.
+    """
+    # The store monitor is configured through the environment, read once at
+    # store construction -- scoped to this test so every other test's store
+    # keeps constructing with the monitor off.
+    monitor_env = {
+        "RAIDEN_ENABLE_STORE_MONITOR": "true",
+        "RAIDEN_ENABLE_EVICT_SWEEP": "true",
+        "RAIDEN_STORE_MONITOR_HEARTBEAT_S": "1",
+        "RAIDEN_EVICT_SWEEP_PERIOD_S": "1",
+        "RAIDEN_EVICT_LOW_WATERMARK": "0.5",
+        "RAIDEN_EVICT_HIGH_WATERMARK": "0.75",
+    }
+    for key, value in monitor_env.items():
+      os.environ[key] = value
+      self.addCleanup(os.environ.pop, key, None)
+
+    # 6 of 8 blocks in use after the saves: free ratio 0.25, below the 0.5
+    # low watermark, so the sweep must free down to the 0.75 high one.
+    capacity = 8
+    num_insert = 6
+    shape = (capacity, 128, 8, 8, 128)
+    host_data = np.arange(np.prod(shape), dtype=np.float32).reshape(shape)
+    tpu_cache = torch.tensor(host_data, device=self.device)
+    block_elements = 128 * 8 * 8 * 128
+    shard_size_bytes = (block_elements * 4) // self.num_devices
+
+    controller_port = find_free_port()
+
+    built = {}
+
+    def build_manager_after_a_delay():
+      time.sleep(1.0)
+      built["manager"] = kv_cache_manager.KVCacheManager(
+          kv_caches=[[tpu_cache]],
+          local_control_port=0,
+          max_blocks=capacity,
+          num_slots=2,
+          unsafe_skip_buffer_lock=self.skip_lock,
+          raiden_worker_port=0,
+          raiden_controller_address=f"localhost:{controller_port}",
+          worker_id="evict_drop_worker_0",
+          host_blocks_to_allocate=capacity,
+          node_id=0,
+      )
+
+    worker_thread = threading.Thread(target=build_manager_after_a_delay)
+    worker_thread.start()
+    rid = kv_cache_store.RaidenId("evict_drop_serving", "0", "evict_cache", 0)
+    try:
+      store = kv_cache_store.KVCacheStore(
+          capacity=capacity,
+          global_registry_address=f"localhost:{_registry_port}",
+          raiden_id=rid,
+          num_shards=self.num_devices,
+          shard_size_bytes=shard_size_bytes,
+          store_server_ip="localhost",
+          raiden_controller_port=controller_port,
+          expected_worker_count=1,
+          # No store node ever joins this group: GetPlacementTargets stays
+          # empty and every pressure episode takes the local-drop path.
+          kv_pool_group="evict_drop_pool",
+      )
+    finally:
+      worker_thread.join(timeout=180)
+    self.assertFalse(worker_thread.is_alive())
+
+    hashes = [f"evict_drop_blk_{i}".encode() for i in range(num_insert)]
+    slices = [
+        kv_cache_store.RaidenBlockId(
+            rid,
+            host_block_id=-1,
+            device_block_id=i,
+            status=kv_cache_store.BlockStatus.HBM,
+        )
+        for i in range(num_insert)
+    ]
+    self.assertTrue(store.insert(hashes, slices, on_host=False))
+
+    # insert() pins; a successful save consumes that pin, leaving the
+    # blocks host-resident and unpinned -- exactly what the sweep drops.
+    self.assertTrue(store.save(hashes))
+    deadline = time.time() + 60
+    done = []
+    while time.time() < deadline and len(done) < num_insert:
+      save_done, save_failed, _, _, _ = store.poll_save_status()
+      self.assertEmpty(save_failed, f"save failed for {save_failed}")
+      done += save_done
+      time.sleep(0.05)
+    self.assertLen(done, num_insert)
+
+    def missing_locally(h):
+      return not store.lookup([h], enable_global=False, pin_found=False)
+
+    deadline = time.time() + 60
+    dropped = []
+    while time.time() < deadline and len(dropped) < 4:
+      dropped = [h for h in hashes if missing_locally(h)]
+      time.sleep(1)
+    self.assertGreaterEqual(
+        len(dropped),
+        4,
+        "the sweep never freed down to the high watermark",
+    )
+
+    # Dropped means dropped: a global lookup must come back empty, or the
+    # sweep would have demoted (published an owner) instead of discarding.
+    for h in dropped:
+      self.assertEmpty(
+          store.lookup([h], enable_global=True, pin_found=False),
+          f"{h!r} was dropped locally yet resurfaced through the registry",
+      )
+    del built
+
 
 if __name__ == "__main__":
   absltest.main()
