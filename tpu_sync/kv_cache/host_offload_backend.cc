@@ -114,10 +114,6 @@ absl::StatusOr<std::shared_ptr<KVCacheStoreBackend>> HostOffloadBackend::Create(
     return absl::InvalidArgumentError(
         "HostOffloadBackend requires capacity > 0");
   }
-  if (controller == nullptr) {
-    return absl::InvalidArgumentError(
-        "HostOffloadBackend requires a non-null RaidenController");
-  }
   std::shared_ptr<global_registry::GlobalRegistryClient> registry_client;
   if (!config.global_registry_address.empty()) {
     auto channel = grpc::CreateChannel(config.global_registry_address,

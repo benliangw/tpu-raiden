@@ -360,19 +360,6 @@ TEST(HostOffloadBackendTest, KVTransferSpecWithoutRegistryFailsCreation) {
       HostOffloadBackend::Create(config, controller.get()).status()));
 }
 
-TEST(HostOffloadBackendTest, HostOffloadBackendCreateNullControllerFails) {
-  BackendConfig config;
-  config.type = "HostOffloadBackend";
-  config.capacity = 100;
-
-  controller::RaidenController* null_controller = nullptr;
-  auto status = HostOffloadBackend::Create(config, null_controller).status();
-  EXPECT_TRUE(absl::IsInvalidArgument(status));
-  EXPECT_THAT(status.message(),
-              testing::HasSubstr(
-                  "HostOffloadBackend requires a non-null RaidenController"));
-}
-
 core::controller::WorkerRegistration GeometryWorker(
     const std::string& worker_id, int64_t node_id,
     std::vector<uint64_t> block_array_bytes, int32_t num_kv_shards) {
