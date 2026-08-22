@@ -21,6 +21,7 @@
 #include <deque>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>  // NOLINT
 #include <utility>
@@ -221,6 +222,21 @@ class BlockTransport final {
 
   struct LayerProgress {
     size_t completed_chunks = 0;
+    // Streams landed per sender node id, with the stream count that sender
+    // declared for this block array. Used when the receive plan declares how
+    // many senders assemble the array.
+    struct SenderStreams {
+      size_t landed = 0;
+      size_t declared = 0;
+    };
+    absl::flat_hash_map<uint32_t, SenderStreams> sender_streams;
+    // Senders whose declared streams have all landed.
+    size_t senders_complete = 0;
+    // Sender count the receive plan declares for this block array, resolved
+    // from the delegate on the array's first stream. nullopt once resolved
+    // means the header-declared contract applies.
+    bool expected_senders_resolved = false;
+    std::optional<size_t> expected_senders;
     bool on_layer_received_called = false;
   };
 

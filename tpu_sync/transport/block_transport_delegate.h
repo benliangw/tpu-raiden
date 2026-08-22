@@ -132,6 +132,16 @@ class BlockTransportDelegate : public lib::RawBufferTransportDelegate {
     return std::nullopt;
   }
 
+  // Number of distinct senders whose pushes assemble each block array of
+  // `uuid` on this receiver, when a registered receive plan declares them
+  // (e.g. several source ranks each writing a head slice of the same block).
+  // A block array is complete, and OnLayerReceived fires, only once every
+  // declared sender's streams for it have landed. nullopt selects the
+  // header-declared contract: one push's own parallelism completes the array.
+  virtual std::optional<size_t> ExpectedPushSenders(uint64_t uuid) const {
+    return std::nullopt;
+  }
+
   // Pool-keyed counterpart to OnLayerReceived, fired when a declared pool
   // reaches its plan-declared push count. An explicit-pool index is not
   // necessarily a constructor layer/storage index, so the default is a no-op.

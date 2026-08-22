@@ -277,6 +277,43 @@ class SamePeerFanoutDelegate : public MockDelegate {
   }
 };
 
+// Sender delegate with a fixed node id, so a receiver can tell two senders
+// of the same uuid apart.
+class NodeDelegate : public MockDelegate {
+ public:
+  NodeDelegate(int64_t node_id, size_t slice_size, int max_blocks,
+               size_t num_layers)
+      : MockDelegate(slice_size, max_blocks, num_layers), node_id_(node_id) {}
+
+  int64_t node_id() const override { return node_id_; }
+
+ private:
+  int64_t node_id_;
+};
+
+// Receiver delegate whose plan for `uuid` declares how many senders assemble
+// each block array.
+class MultiSenderReceiverDelegate : public MockDelegate {
+ public:
+  using MockDelegate::MockDelegate;
+
+  void ExpectSenders(uint64_t uuid, size_t senders) {
+    expected_uuid_ = uuid;
+    expected_senders_ = senders;
+  }
+
+  std::optional<size_t> ExpectedPushSenders(uint64_t uuid) const override {
+    if (!expected_uuid_.has_value() || *expected_uuid_ != uuid) {
+      return std::nullopt;
+    }
+    return expected_senders_;
+  }
+
+ private:
+  std::optional<uint64_t> expected_uuid_;
+  size_t expected_senders_ = 0;
+};
+
 class PlanRequiringDelegate : public MockDelegate {
  public:
   using MockDelegate::MockDelegate;
@@ -522,6 +559,178 @@ TEST(BlockTransportTest, SamePeerFanoutFiltersEachDestinationStream) {
         std::all_of(receiver.block_data(page), receiver.block_data(page) + 64,
                     [page](uint8_t byte) { return byte == 0x31 + page; }));
   }
+}
+
+TEST(BlockTransportTest, LayerCompletesOnlyAfterEveryDeclaredSender) {
+  constexpr uint64_t kUuid = 905;
+  constexpr size_t kSliceSize = 32;
+  constexpr size_t kNumLayers = 2;
+  NodeDelegate sender_a(/*node_id=*/0, kSliceSize, /*max_blocks=*/1,
+                        kNumLayers);
+  NodeDelegate sender_b(/*node_id=*/1, kSliceSize, /*max_blocks=*/1,
+                        kNumLayers);
+  MultiSenderReceiverDelegate receiver(kSliceSize, /*max_blocks=*/1,
+                                       kNumLayers);
+  receiver.ExpectSenders(kUuid, /*senders=*/2);
+
+  BlockTransport a_transport(&sender_a, 0);
+  BlockTransport b_transport(&sender_b, 0);
+  BlockTransport receiver_transport(&receiver, 0);
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  const std::string peer =
+      absl::StrCat("localhost:", receiver_transport.local_port());
+  auto push_layer = [&](BlockTransport& transport, int layer_idx) {
+    return transport.SyncPush({peer}, /*src_block_ids=*/{0},
+                              /*dst_block_ids=*/{0}, /*parallelism=*/1,
+                              MajorOrder::kLayerMajor, kUuid, layer_idx);
+  };
+
+  // One sender's full push of a layer must not complete it.
+  ASSERT_TRUE(push_layer(a_transport, 0).ok());
+  EXPECT_EQ(receiver.layer_completion_count(), 0);
+  ASSERT_TRUE(push_layer(b_transport, 0).ok());
+  EXPECT_EQ(receiver.layer_completion_count(), 1);
+
+  // Arrival order across senders does not matter.
+  ASSERT_TRUE(push_layer(b_transport, 1).ok());
+  EXPECT_EQ(receiver.layer_completion_count(), 1);
+  ASSERT_TRUE(push_layer(a_transport, 1).ok());
+  EXPECT_EQ(receiver.layer_completion_count(), 2);
+
+  // Every layer completed, so the uuid's progress retired and can be reused.
+  ASSERT_TRUE(push_layer(a_transport, 0).ok());
+  EXPECT_EQ(receiver.layer_completion_count(), 2);
+  ASSERT_TRUE(push_layer(b_transport, 0).ok());
+  EXPECT_EQ(receiver.layer_completion_count(), 3);
+}
+
+TEST(BlockTransportTest, DeclaredSendersEachCompleteTheirOwnParallelism) {
+  constexpr uint64_t kUuid = 906;
+  constexpr size_t kSliceSize = 32;
+  NodeDelegate sender_a(/*node_id=*/0, kSliceSize, /*max_blocks=*/2,
+                        /*num_layers=*/1);
+  NodeDelegate sender_b(/*node_id=*/1, kSliceSize, /*max_blocks=*/2,
+                        /*num_layers=*/1);
+  MultiSenderReceiverDelegate receiver(kSliceSize, /*max_blocks=*/2,
+                                       /*num_layers=*/1);
+  receiver.ExpectSenders(kUuid, /*senders=*/2);
+
+  BlockTransport a_transport(&sender_a, 0);
+  BlockTransport b_transport(&sender_b, 0);
+  BlockTransport receiver_transport(&receiver, 0);
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  const std::string peer =
+      absl::StrCat("localhost:", receiver_transport.local_port());
+
+  // Sender A splits its two blocks over two streams; sender B uses one.
+  ASSERT_TRUE(a_transport
+                  .SyncPush({peer}, /*src_block_ids=*/{0, 1},
+                            /*dst_block_ids=*/{0, 1}, /*parallelism=*/2,
+                            MajorOrder::kLayerMajor, kUuid, /*layer_idx=*/0)
+                  .ok());
+  EXPECT_EQ(receiver.layer_completion_count(), 0);
+  ASSERT_TRUE(b_transport
+                  .SyncPush({peer}, /*src_block_ids=*/{0, 1},
+                            /*dst_block_ids=*/{0, 1}, /*parallelism=*/1,
+                            MajorOrder::kLayerMajor, kUuid, /*layer_idx=*/0)
+                  .ok());
+  EXPECT_EQ(receiver.layer_completion_count(), 1);
+}
+
+TEST(BlockTransportTest, SenderOverDeliveryIsRejected) {
+  constexpr uint64_t kUuid = 908;
+  constexpr size_t kSliceSize = 32;
+  constexpr size_t kNumLayers = 2;
+  NodeDelegate sender_a(/*node_id=*/0, kSliceSize, /*max_blocks=*/1,
+                        kNumLayers);
+  NodeDelegate sender_b(/*node_id=*/1, kSliceSize, /*max_blocks=*/1,
+                        kNumLayers);
+  MultiSenderReceiverDelegate receiver(kSliceSize, /*max_blocks=*/1,
+                                       kNumLayers);
+  receiver.ExpectSenders(kUuid, /*senders=*/2);
+
+  BlockTransport a_transport(&sender_a, 0);
+  BlockTransport b_transport(&sender_b, 0);
+  BlockTransport receiver_transport(&receiver, 0);
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  const std::string peer =
+      absl::StrCat("localhost:", receiver_transport.local_port());
+  auto push_layer = [&](BlockTransport& transport, int layer_idx) {
+    return transport.SyncPush({peer}, /*src_block_ids=*/{0},
+                              /*dst_block_ids=*/{0}, /*parallelism=*/1,
+                              MajorOrder::kLayerMajor, kUuid, layer_idx);
+  };
+
+  ASSERT_TRUE(push_layer(a_transport, 0).ok());
+  ASSERT_TRUE(push_layer(b_transport, 0).ok());
+  EXPECT_EQ(receiver.layer_completion_count(), 1);
+
+  // Layer 1 is still open, so the uuid's progress is live: a second stream
+  // from sender A for layer 0 exceeds the one stream it declared.
+  EXPECT_FALSE(push_layer(a_transport, 0).ok());
+  EXPECT_EQ(receiver.layer_completion_count(), 1);
+}
+
+TEST(BlockTransportTest, SenderChangingDeclaredStreamCountIsRejected) {
+  constexpr uint64_t kUuid = 909;
+  constexpr size_t kSliceSize = 32;
+  NodeDelegate sender_a(/*node_id=*/0, kSliceSize, /*max_blocks=*/2,
+                        /*num_layers=*/1);
+  MultiSenderReceiverDelegate receiver(kSliceSize, /*max_blocks=*/2,
+                                       /*num_layers=*/1);
+  receiver.ExpectSenders(kUuid, /*senders=*/2);
+
+  BlockTransport a_transport(&sender_a, 0);
+  BlockTransport receiver_transport(&receiver, 0);
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  const std::string peer =
+      absl::StrCat("localhost:", receiver_transport.local_port());
+
+  // Sender A declares one stream for the array ...
+  ASSERT_TRUE(a_transport
+                  .SyncPush({peer}, /*src_block_ids=*/{0},
+                            /*dst_block_ids=*/{0}, /*parallelism=*/1,
+                            MajorOrder::kLayerMajor, kUuid, /*layer_idx=*/0)
+                  .ok());
+  EXPECT_EQ(receiver.layer_completion_count(), 0);
+  // ... and then pushes the same array again declaring two.
+  EXPECT_FALSE(a_transport
+                   .SyncPush({peer}, /*src_block_ids=*/{0, 1},
+                             /*dst_block_ids=*/{0, 1}, /*parallelism=*/2,
+                             MajorOrder::kLayerMajor, kUuid, /*layer_idx=*/0)
+                   .ok());
+  EXPECT_EQ(receiver.layer_completion_count(), 0);
+}
+
+TEST(BlockTransportTest, UndeclaredUuidKeepsHeaderDeclaredCompletion) {
+  constexpr uint64_t kUuid = 907;
+  constexpr size_t kSliceSize = 32;
+  NodeDelegate sender_a(/*node_id=*/0, kSliceSize, /*max_blocks=*/1,
+                        /*num_layers=*/1);
+  NodeDelegate sender_b(/*node_id=*/1, kSliceSize, /*max_blocks=*/1,
+                        /*num_layers=*/1);
+  MultiSenderReceiverDelegate receiver(kSliceSize, /*max_blocks=*/1,
+                                       /*num_layers=*/1);
+  receiver.ExpectSenders(/*uuid=*/kUuid + 1, /*senders=*/2);
+
+  BlockTransport a_transport(&sender_a, 0);
+  BlockTransport b_transport(&sender_b, 0);
+  BlockTransport receiver_transport(&receiver, 0);
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  const std::string peer =
+      absl::StrCat("localhost:", receiver_transport.local_port());
+  auto push = [&](BlockTransport& transport) {
+    return transport.SyncPush({peer}, /*src_block_ids=*/{0},
+                              /*dst_block_ids=*/{0}, /*parallelism=*/1,
+                              MajorOrder::kLayerMajor, kUuid,
+                              /*layer_idx=*/0);
+  };
+
+  // Without a declared sender count each push completes the layer by itself.
+  ASSERT_TRUE(push(a_transport).ok());
+  EXPECT_EQ(receiver.layer_completion_count(), 1);
+  ASSERT_TRUE(push(b_transport).ok());
+  EXPECT_EQ(receiver.layer_completion_count(), 2);
 }
 
 TEST(BlockTransportTest, ForgetPushProgressAllowsUuidReuse) {

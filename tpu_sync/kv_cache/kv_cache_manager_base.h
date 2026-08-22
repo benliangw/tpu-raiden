@@ -361,6 +361,10 @@ class KVCacheManagerBase : public tpu_raiden::RaidenManagerBase {
   absl::StatusOr<std::optional<tpu_raiden::transport::PoolPushProgressSpec>>
   GetPoolPushProgressSpec(size_t pool_idx, uint64_t uuid) const override;
 
+  // Source count of a registered block-addressed receive plan: one per
+  // shard push schedule, each keyed by the sender node id that pushes it.
+  std::optional<size_t> ExpectedPushSenders(uint64_t uuid) const override;
+
   virtual absl::Status RegisterActivePlan(
       uint64_t uuid, const ::tpu_sync::rpc::StartTransferRequest& request,
       bool is_sender);

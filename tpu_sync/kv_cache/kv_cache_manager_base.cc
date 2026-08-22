@@ -1922,6 +1922,25 @@ KVCacheManagerBase::GetPoolPushProgressSpec(size_t pool_idx,
       "pool ", pool_idx, " is not in any of the plan's pool groups"));
 }
 
+std::optional<size_t> KVCacheManagerBase::ExpectedPushSenders(
+    uint64_t uuid) const {
+  std::shared_ptr<const RegisteredPlan> plan_snapshot;
+  {
+    absl::MutexLock l(plans_mu_);
+    auto it = active_plans_.find(uuid);
+    if (it != active_plans_.end()) {
+      plan_snapshot = it->second;
+    }
+  }
+  if (plan_snapshot == nullptr || plan_snapshot->is_sender ||
+      plan_snapshot->request.pool_groups_size() > 0 ||
+      plan_snapshot->request.shard_push_schedules_size() == 0) {
+    return std::nullopt;
+  }
+  return static_cast<size_t>(
+      plan_snapshot->request.shard_push_schedules_size());
+}
+
 absl::StatusOr<std::vector<raiden::PjRtCopyFuture>>
 KVCacheManagerBase::DispatchH2dWork(
     const std::vector<CopyWork>& works, std::optional<int64_t> slot_idx,

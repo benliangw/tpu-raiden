@@ -19,6 +19,7 @@
 // byte path and the pool receive lifecycle are device-only by design and are
 // exercised on real chips by the D-series harness.
 
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -130,6 +131,55 @@ void ExpectInvalid(const absl::Status& status, const std::string& fragment) {
       << status.ToString();
   EXPECT_NE(std::string(status.message()).find(fragment), std::string::npos)
       << status.ToString();
+}
+
+TEST(ExpectedPushSendersTest, CountsReceiverPlanSchedules) {
+  TestManager manager;
+  EXPECT_EQ(manager.ExpectedPushSenders(/*uuid=*/1), std::nullopt);
+
+  // A block-addressed receive plan assembled from two source ranks, each
+  // writing its own head slice of the same destination block.
+  StartTransferRequest receive_plan;
+  receive_plan.set_uuid(1);
+  receive_plan.set_use_block_chunks(true);
+  for (int source_rank : {4, 5}) {
+    auto* entry =
+        (*receive_plan.mutable_shard_push_schedules())[source_rank].add_entries();
+    entry->set_dst_peer("127.0.0.1:1");
+    entry->set_src_block_id(0);
+    entry->set_dst_block_id(1);
+    entry->set_dst_offset_bytes(source_rank == 4 ? 0 : 16);
+    entry->set_size_bytes(16);
+    entry->set_src_stride_bytes(16);
+    entry->set_dst_stride_bytes(32);
+    entry->set_count(2);
+  }
+  ASSERT_TRUE(
+      manager.RegisterActivePlan(1, receive_plan, /*is_sender=*/false).ok());
+  EXPECT_EQ(manager.ExpectedPushSenders(1), std::optional<size_t>(2));
+
+  // A sender's own plan never gates what it receives.
+  StartTransferRequest send_plan;
+  send_plan.set_uuid(2);
+  send_plan.set_is_sender(true);
+  send_plan.set_use_block_chunks(true);
+  auto* entry = (*send_plan.mutable_shard_push_schedules())[0].add_entries();
+  entry->set_dst_peer("127.0.0.1:1");
+  entry->set_src_block_id(0);
+  entry->set_dst_block_id(0);
+  entry->set_size_bytes(16);
+  entry->set_count(1);
+  ASSERT_TRUE(manager.RegisterActivePlan(2, send_plan, /*is_sender=*/true).ok());
+  EXPECT_EQ(manager.ExpectedPushSenders(2), std::nullopt);
+
+  // A plan without schedules declares nothing about its senders.
+  StartTransferRequest bare_plan;
+  ASSERT_TRUE(
+      manager.RegisterActivePlan(3, bare_plan, /*is_sender=*/false).ok());
+  EXPECT_EQ(manager.ExpectedPushSenders(3), std::nullopt);
+
+  ASSERT_TRUE(manager.UnregisterActivePlan(1).ok());
+  EXPECT_EQ(manager.ExpectedPushSenders(1), std::nullopt);
 }
 
 TEST(PoolReshardValidationTest, AcceptsCanonicalPlanOnExplicitPools) {

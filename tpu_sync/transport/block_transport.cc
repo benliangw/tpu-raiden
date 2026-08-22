@@ -466,18 +466,76 @@ absl::Status BlockTransport::HandleIncomingPush(
   const bool plan_declared = pool_progress_spec.has_value();
   const size_t expected_chunks =
       plan_declared ? pool_progress_spec->expected_pushes : header.reserved;
+  // A receive plan assembled from several senders completes a block array
+  // only when every declared sender's streams for it have landed. The plan's
+  // sender count is fixed for the life of the uuid, so it is resolved on the
+  // array's first stream and kept with the array's progress.
+  std::optional<size_t> expected_senders;
+  bool resolve_senders = false;
+  if (!plan_declared) {
+    absl::MutexLock lock(progress_mu_);
+    auto it = layer_progress_.find({header.uuid, l});
+    if (it != layer_progress_.end() && it->second.expected_senders_resolved) {
+      expected_senders = it->second.expected_senders;
+    } else {
+      resolve_senders = true;
+    }
+  }
+  if (resolve_senders) {
+    expected_senders = block_delegate_->ExpectedPushSenders(header.uuid);
+  }
   bool trigger_completion = false;
   {
     absl::MutexLock lock(progress_mu_);
     auto& progress = layer_progress_[{header.uuid, l}];
+    if (!plan_declared) {
+      if (!progress.expected_senders_resolved) {
+        progress.expected_senders = expected_senders;
+        progress.expected_senders_resolved = true;
+      }
+      expected_senders = progress.expected_senders;
+    }
     progress.completed_chunks++;
     if (plan_declared && progress.completed_chunks > expected_chunks) {
       return absl::AlreadyExistsError(
           absl::StrCat("pool ", l, " received more than ", expected_chunks,
                        " push streams for UUID ", header.uuid));
     }
-    if (progress.completed_chunks == expected_chunks &&
-        !progress.on_layer_received_called) {
+    bool array_complete = false;
+    if (expected_senders.has_value()) {
+      auto& streams = progress.sender_streams[header.remote_id];
+      if (streams.landed == 0) {
+        if (header.reserved == 0) {
+          return absl::InvalidArgumentError(absl::StrCat(
+              "block array ", l, " sender ", header.remote_id,
+              " declared no streams for UUID ", header.uuid));
+        }
+        streams.declared = header.reserved;
+        if (progress.sender_streams.size() > *expected_senders) {
+          return absl::AlreadyExistsError(absl::StrCat(
+              "block array ", l, " received pushes from more than ",
+              *expected_senders, " senders for UUID ", header.uuid));
+        }
+      } else if (streams.declared != header.reserved) {
+        return absl::FailedPreconditionError(absl::StrCat(
+            "block array ", l, " sender ", header.remote_id, " declared ",
+            header.reserved, " streams after declaring ", streams.declared,
+            " for UUID ", header.uuid));
+      }
+      ++streams.landed;
+      if (streams.landed == streams.declared) {
+        ++progress.senders_complete;
+      } else if (streams.landed > streams.declared) {
+        return absl::AlreadyExistsError(absl::StrCat(
+            "block array ", l, " received ", streams.landed,
+            " streams from sender ", header.remote_id, " which declared ",
+            streams.declared, " for UUID ", header.uuid));
+      }
+      array_complete = progress.senders_complete == *expected_senders;
+    } else {
+      array_complete = progress.completed_chunks == expected_chunks;
+    }
+    if (array_complete && !progress.on_layer_received_called) {
       progress.on_layer_received_called = true;
       trigger_completion = true;
       if (plan_declared) {
